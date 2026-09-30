@@ -80,7 +80,7 @@ run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
       ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
   esac
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="${ACORE[$arm]}" ${AKNOB[$arm]} $(cellknobs "$cell") $ENVX \
-    LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
+    AK_SERVER_PID="$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
     --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" \
     --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; exit 1; }
 }

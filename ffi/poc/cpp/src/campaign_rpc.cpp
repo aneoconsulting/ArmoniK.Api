@@ -211,8 +211,10 @@ std::vector<Cell> parse_cells(const std::string &spec) {
                : rest == "-retain" ? kRetain
                : rest == "-nounk" ? kNoUnk : kDrop;
       bool zc = false;
-      if (!df && rest.compare(0, 3, "-zc") == 0 && (rest.size() == 3 || rest[3] == '-')) { zc = true; rest = rest.substr(3); }
-      if (zc) m = rest.empty() ? kDefault : rest == "-retain" ? kRetain : rest == "-nounk" ? kNoUnk : kDrop;
+      if (!df && (rest.compare(0, 4, "-zcp") == 0 || rest.compare(0, 4, "-zcw") == 0) && (rest.size() == 4 || rest[4] == '-')) {
+        zc = true; df = rest[3] == 'w' ? 1 : 2; rest = rest.substr(4);  // Cf-zcw (wait = 1), Cf-zcp (wait = 0)
+      } else if (!df && rest.compare(0, 3, "-zc") == 0 && (rest.size() == 3 || rest[3] == '-')) { zc = true; rest = rest.substr(3); }
+      if (zc || df) m = rest.empty() ? kDefault : rest == "-retain" ? kRetain : rest == "-nounk" ? kNoUnk : kDrop;
       Cell cl{l[0], m, l, fr, pu, qq};
       cl.deferred = df;
       cl.zc = zc;
@@ -314,6 +316,24 @@ std::string cpu_facts() {
 // ---- --profile (physical probe step 4a): per-thread CPU from /proc/self/task/*/schedstat ----
 // (the first field: nanoseconds on a CPU), classed by thread name; the main thread is "main",
 // the other campaign_rpc threads the "callers".
+// --profile with AK_SERVER_PID: the server process's threads, schedstat (on-CPU ns, run-queue wait ns)
+// per tid, read from /proc (same user; no ptrace)
+std::map<long, std::pair<unsigned long long, unsigned long long> > server_times(long pid) {
+  std::map<long, std::pair<unsigned long long, unsigned long long> > m;
+  if (pid <= 0) return m;
+  const std::string dir = "/proc/" + std::to_string(pid) + "/task";
+  if (DIR *d = opendir(dir.c_str())) {
+    while (struct dirent *e = readdir(d)) {
+      if (e->d_name[0] == '.') continue;
+      std::ifstream fs(dir + "/" + e->d_name + "/schedstat");
+      unsigned long long a = 0, b = 0;
+      if (fs >> a >> b) m[std::atol(e->d_name)] = std::make_pair(a, b);
+    }
+    closedir(d);
+  }
+  return m;
+}
+std::map<long, unsigned long long> g_wait_ns;  // schedstat's second field (ns waiting on a run queue), per tid
 std::map<long, std::pair<std::string, unsigned long long> > thread_times() {
   std::map<long, std::pair<std::string, unsigned long long> > m;
   const long self = (long)getpid();
@@ -324,8 +344,9 @@ std::map<long, std::pair<std::string, unsigned long long> > thread_times() {
       std::ifstream fc(base + "/comm"), fs(base + "/schedstat");
       std::string comm;
       std::getline(fc, comm);
-      unsigned long long ns = 0;
-      fs >> ns;
+      unsigned long long ns = 0, waitns = 0;
+      fs >> ns >> waitns;
+      g_wait_ns[std::atol(e->d_name)] = waitns;
       const long tid = std::atol(e->d_name);
       if (tid == self) comm = "main";
       else if (comm == "campaign_rpc") comm = "caller";
@@ -809,6 +830,10 @@ typedef int32_t (*SetZcFn)(ak_enc_ctx *, size_t);
 typedef int32_t (*SendZcFn)(ak_call *, ak_enc_ctx *, int32_t last, void (*release)(void *), void *user);
 SetZcFn g_set_zc = NULL;
 SendZcFn g_send_zc = NULL;
+// EXPERIMENT (Rust patch p7-deferred-zc): ak_call_send_deferred_zc(h, enc, f, user, last, wait, release, ruser)
+typedef int32_t (*SendDeferredZcFn)(ak_call *, ak_enc_ctx *, AkEncodeFn, void *, int32_t last, int32_t wait,
+                                    void (*release)(void *), void *ruser);
+SendDeferredZcFn g_send_deferred_zc = NULL;
 const size_t kZcMin = 64 * 1024;  // blobs of 64 KiB and more borrowed (the Rust cell's threshold)
 void zc_release(void *user) { ((std::atomic<long> *)user)->fetch_add(1); }
 // --check-stream 1 (a check run, never timed): every direction d call goes to UploadStreamCheck
@@ -854,6 +879,38 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     if (!s.ok()) die("A/d status", (long)s.error_code());
     std::string a = flatten(rsp);
     check_answer(st, (const uint8_t *)a.data(), a.size(), check);
+    return (long)nmsg;
+  }
+  if (cl.zc && cl.deferred) {  // Cf-zcw / Cf-zcp: the transport encodes the head, the data borrowed
+    if (!tc.zec) {
+      tc.zec = ak_enc_ctx_new();
+      if (!tc.zec || g_set_zc(tc.zec, kZcMin) != AK_OK) die("ak_enc_set_zc", 0);
+    }
+    for (int spin = 0; tc.zc_released.load() != tc.zc_sent.load(); ++spin) {
+      if (spin > 2000) die("Cf-zcp/zcw: a message of the previous call was never released", tc.zc_sent.load() - tc.zc_released.load());
+      std::this_thread::sleep_for(std::chrono::microseconds(500));
+    }
+    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
+    if (!h) die("ak_call_open", 0);
+    DefJob jobs[16];
+    if (nmsg > 16) die("Cf-zcp: too many chunks", (long)nmsg);
+    for (size_t i = 0; i < nmsg; ++i) {
+      jobs[i].v = &st.f[i];
+      jobs[i].m = cl.mode;
+      jobs[i].fail = 0;
+      tc.zc_sent.fetch_add(1);
+      const int32_t rc = g_send_deferred_zc(h, tc.zec, def_encode, &jobs[i], i + 1 == nmsg, cl.deferred == 1 ? 1 : 0,
+                                            zc_release, &tc.zc_released);
+      if (rc != AK_OK) die("ak_call_send_deferred_zc", rc);
+    }
+    struct ak_bytes out;
+    out.ptr = NULL; out.len = 0; out.owner = NULL;
+    int32_t gs = -1;
+    const int32_t rc = ak_call_recv(h, &out, &gs);
+    if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "d gRPC status" : "ak_call_recv", rc == AK_ERR_RPC_STATUS ? gs : rc);
+    check_answer(st, out.ptr, out.len, check);
+    ak_bytes_free(&out);
+    ak_call_destroy(h);
     return (long)nmsg;
   }
   if (cl.zc) {  // Cf-zc: each chunk's data borrowed from the host (st.f, alive for the process)
@@ -1038,8 +1095,14 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
 // contexts, and reused by every batch. H-2 (2026-09-28): each thread has its OWN condition
 // variable, and a batch wakes only the k threads it needs (before: one notify_all woke every
 // thread of the pool, at k = 1 too); the window holds the calls, k hand-offs and one wait.
+// --profile only: per-call timestamps on the blocking path (steady clock, ns), set around the loop
+std::atomic<bool> g_trace_calls{false};
+int64_t mono_ns() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 struct Pool {
   struct Seat {
+    std::vector<std::pair<int64_t, int64_t> > tr;  // (start, end) of each traced call
     std::mutex m;
     std::condition_variable cv;
     bool go = false, quit = false;
@@ -1078,7 +1141,12 @@ struct Pool {
         myper = s.per; c = s.cell; d = s.job;
       }
       long n = 0;
-      for (int i = 0; i < myper; ++i) n += cell_call(*w, c, w->jobs[d], t, tc);
+      const bool tr = g_trace_calls.load(std::memory_order_relaxed);
+      for (int i = 0; i < myper; ++i) {
+        const int64_t t0 = tr ? mono_ns() : 0;
+        n += cell_call(*w, c, w->jobs[d], t, tc);
+        if (tr) s.tr.push_back(std::make_pair(t0, mono_ns()));
+      }
       std::lock_guard<std::mutex> l(dm);
       s.acc = n;
       if (--pending == 0) done.notify_one();
@@ -1089,6 +1157,8 @@ struct Pool {
     // Queue cells (req. 16 as amended): the k calls are issued and drained by THIS thread
     // (q_batch); the caller threads are not woken.
     if (w->cells[c].q) return q_batch(*w, c, w->jobs[j], kk, qtc);
+    const bool tr = g_trace_calls.load(std::memory_order_relaxed);
+    const int64_t b0 = tr ? mono_ns() : 0;
     const int per = (total + kk - 1) / kk;
     { std::lock_guard<std::mutex> l(dm); pending = kk; }
     for (int i = 0; i < kk; ++i) {
@@ -1100,8 +1170,10 @@ struct Pool {
     done.wait(l, [&] { return pending == 0; });
     long sum = 0;
     for (int i = 0; i < kk; ++i) sum += seats[(size_t)i]->acc;
+    if (tr) btr.push_back(std::make_pair(b0, mono_ns()));
     return sum;
   }
+  std::vector<std::pair<int64_t, int64_t> > btr;  // (start, end) of each traced batch
 };
 
 std::vector<int> parse_list(const char *s) {
@@ -1536,6 +1608,98 @@ int q_semantics(World &w) {
                     a, AK_ERR_INVALID_STATE, got);
       check(a == AK_ERR_INVALID_STATE, buf);
     }
+    // EXPERIMENT (p7-deferred-zc): ak_call_send_deferred_zc, when the core exports it
+    SendDeferredZcFn sdz = (SendDeferredZcFn)dlsym(RTLD_DEFAULT, "ak_call_send_deferred_zc");
+    if (!sdz) {
+      std::printf("SKIP deferred zero-copy send: this core does not export ak_call_send_deferred_zc\n");
+    } else {
+      for (int wt = 1; wt >= 0; --wt)
+        for (int pi = 0; pi < 2; ++pi) {
+          const Stream &st = w.st[pi];
+          std::atomic<long> rel{0};
+          ak_call *h = open_on(fr, kUploadStreamCheck);
+          DefJob jobs[16];
+          bool ok = true;
+          for (size_t j = 0; j < st.f.size(); ++j) {
+            jobs[j].v = &st.f[j]; jobs[j].m = m; jobs[j].fail = 0;
+            ok = ok && sdz(h, ze, def_encode, &jobs[j], j + 1 == st.f.size(), wt, zc_release, &rel) == AK_OK;
+          }
+          struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+          int32_t gs = -1;
+          const int32_t r = ak_call_recv(h, &out, &gs);
+          const bool verdict = r == AK_OK && gs == 0 && out.len == 40 && le64(out.ptr) == st.bytes &&
+                               std::string((const char *)out.ptr + 8, 32) == st.sha;
+          ak_bytes_free(&out);
+          ak_call_destroy(h);
+          const long got = released(rel, (long)st.f.size());
+          std::snprintf(buf, sizeof(buf), "[framed, deferred zero-copy wait=%d] %zu sends (%s) to the checking path: sends ok %d; recv %d/%d, the server's count and SHA-256 match %d; releases %ld (want %zu)",
+                        wt, st.f.size(), pi ? "16 MiB" : "4 MiB", (int)ok, r, gs, (int)verdict, got, st.f.size());
+          check(ok && verdict && got == (long)st.f.size(), buf);
+        }
+      // cancel after one encoded (wait = 1) borrowed message: released once
+      {
+        const Stream &st = w.st[0];
+        std::atomic<long> rel{0};
+        ak_call *h = open_on(fr, kUploadStreamCheck);
+        DefJob j0; j0.v = &st.f[0]; j0.m = m; j0.fail = 0;
+        const int32_t a = sdz(h, ze, def_encode, &j0, 0, 1, zc_release, &rel);
+        ak_call_cancel(h);
+        struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+        int32_t gs = -1;
+        const int32_t r = ak_call_recv(h, &out, &gs);
+        ak_bytes_free(&out);
+        ak_call_destroy(h);
+        const long got = released(rel, 1);
+        std::snprintf(buf, sizeof(buf), "[framed, deferred zero-copy] cancel after one encoded send (wait=1): send %d; recv %d/%d (want CANCELLED 1); releases %ld (want 1)",
+                      a, r, gs, got);
+        check(a == AK_OK && gs == 1 && got == 1, buf);
+      }
+      // a failed call (server status 6): every encoded message released
+      {
+        const Stream &st = w.st[0];
+        std::atomic<long> rel{0};
+        ak_call *h = open_on(fr, "StatusS6");
+        DefJob jobs[2];
+        long enc_ok = 0;
+        for (size_t j = 0; j < st.f.size(); ++j) {
+          jobs[j].v = &st.f[j]; jobs[j].m = m; jobs[j].fail = 0;
+          const int32_t rc = sdz(h, ze, def_encode, &jobs[j], j + 1 == st.f.size(), 1, zc_release, &rel);
+          if (rc == AK_OK) ++enc_ok;
+        }
+        struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+        int32_t gs = -1;
+        const int32_t r = ak_call_recv(h, &out, &gs);
+        ak_bytes_free(&out);
+        ak_call_destroy(h);
+        const long got = released(rel, enc_ok);
+        std::snprintf(buf, sizeof(buf), "[framed, deferred zero-copy] server status 6: %ld sends encoded (wait=1); recv %d/%d (want 6); releases %ld (want %ld)",
+                      enc_ok, r, gs, got, enc_ok);
+        check(gs == 6 && got == enc_ok, buf);
+      }
+      // a failing encode: no borrowed message, no release; the reference path refuses
+      {
+        const Stream &st = w.st[0];
+        std::atomic<long> rel{0};
+        ak_call *h = open_on(fr, kUploadStreamCheck);
+        DefJob j0; j0.v = &st.f[0]; j0.m = m; j0.fail = -77;
+        const int32_t a = sdz(h, ze, def_encode, &j0, 1, 1, zc_release, &rel);
+        struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+        int32_t gs = -1;
+        ak_call_recv(h, &out, &gs);
+        ak_bytes_free(&out);
+        ak_call_destroy(h);
+        ak_call *g = open_on(rf, kUploadStreamCheck);
+        DefJob j1; j1.v = &st.f[0]; j1.m = m; j1.fail = 0;
+        const int32_t b = sdz(g, ze, def_encode, &j1, 1, 1, zc_release, &rel);
+        ak_call_cancel(g);
+        ak_call_destroy(g);
+        ak_enc_reset(ze);
+        const long got = released(rel, 1);
+        std::snprintf(buf, sizeof(buf), "[deferred zero-copy misuse] a failing encode returns %d (want -77); the reference path %d (want %d); releases %ld (want 0)",
+                      a, b, AK_ERR_INVALID_STATE, got);
+        check(a == -77 && b == AK_ERR_INVALID_STATE && got == 0, buf);
+      }
+    }
     ak_enc_ctx_free(ze);
     ak_client_destroy(fr);
     ak_client_destroy(rf);
@@ -1687,7 +1851,16 @@ int main(int argc, char **argv) {
 #endif
         )
       die("unknown cell label", (long)i);
-    if (cl.deferred && !g_send_deferred) {
+    if (cl.zc && cl.deferred && !g_send_deferred_zc) {
+      g_set_zc = (SetZcFn)dlsym(RTLD_DEFAULT, "ak_enc_set_zc");
+      g_send_deferred_zc = (SendDeferredZcFn)dlsym(RTLD_DEFAULT, "ak_call_send_deferred_zc");
+      if (!g_set_zc || !g_send_deferred_zc) {
+        std::fprintf(stderr, "REFUSED: cell %s needs a core that exports ak_enc_set_zc and ak_call_send_deferred_zc (patch p7-deferred-zc); this one does not\n",
+                     cl.label.c_str());
+        return 2;
+      }
+    }
+    if (cl.deferred && !cl.zc && !g_send_deferred) {
       g_send_deferred = (SendDeferredFn)dlsym(RTLD_DEFAULT, "ak_call_send_deferred");
       if (!g_send_deferred) {
         std::fprintf(stderr, "REFUSED: cell %s needs a core that exports ak_call_send_deferred (patch p5-deferred); this one does not\n",
@@ -1695,7 +1868,7 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
-    if (cl.zc && !g_send_zc) {
+    if (cl.zc && !cl.deferred && !g_send_zc) {
       g_set_zc = (SetZcFn)dlsym(RTLD_DEFAULT, "ak_enc_set_zc");
       g_send_zc = (SendZcFn)dlsym(RTLD_DEFAULT, "ak_call_send_enc_zc");
       if (!g_set_zc || !g_send_zc) {
@@ -1879,6 +2052,13 @@ int main(int argc, char **argv) {
     probe_fn big = (probe_fn)dlsym(RTLD_DEFAULT, "akprobe_big_allocs");
     const unsigned long big0 = big ? big() : 0;
     std::map<long, std::pair<std::string, unsigned long long> > t0 = thread_times();
+    const std::map<long, unsigned long long> w0 = g_wait_ns;
+    const long spid = std::getenv("AK_SERVER_PID") ? std::atol(std::getenv("AK_SERVER_PID")) : 0;
+    const std::map<long, std::pair<unsigned long long, unsigned long long> > s0 = server_times(spid);
+    const double loop0 = now_ns(CLOCK_MONOTONIC);
+    for (size_t i = 0; i < pool.seats.size(); ++i) pool.seats[i]->tr.clear();
+    pool.btr.clear();
+    g_trace_calls.store(true);
     struct rusage r0, r1;
     getrusage(RUSAGE_SELF, &r0);
     if (write(devnull, "AK_PROFILE_BEGIN", 16) < 0) die("marker", 0);
@@ -1895,10 +2075,66 @@ int main(int argc, char **argv) {
       done += nb;
     }
     perf_cmd("disable");
+    g_trace_calls.store(false);
     if (write(devnull, "AK_PROFILE_END", 14) < 0) die("marker", 0);
     getrusage(RUSAGE_SELF, &r1);
     const long big_allocs = big ? (long)(big() - big0) : -1;
+    const double loopw = now_ns(CLOCK_MONOTONIC) - loop0;
+    const std::map<long, std::pair<unsigned long long, unsigned long long> > s1 = server_times(spid);
+    double scpu = 0, swait = 0, smax = 0;
+    int sbusy = 0;
+    for (std::map<long, std::pair<unsigned long long, unsigned long long> >::const_iterator i = s1.begin(); i != s1.end(); ++i) {
+      std::map<long, std::pair<unsigned long long, unsigned long long> >::const_iterator j = s0.find(i->first);
+      const double c = (double)(i->second.first - (j == s0.end() ? 0ULL : j->second.first));
+      scpu += c;
+      swait += (double)(i->second.second - (j == s0.end() ? 0ULL : j->second.second));
+      if (c > smax) smax = c;
+      if (c > 0.05 * loopw) ++sbusy;
+    }
+    char sb[300];
+    std::snprintf(sb, sizeof(sb), "\"server\": {\"pid\": %ld, \"threads\": %zu, \"cpu_ns\": %.0f, \"wait_ns\": %.0f, \"max_thread_ns\": %.0f,"
+                  " \"threads_over_5pct\": %d, \"loop_wall_ns\": %.0f}", spid, s1.size(), scpu, swait, smax, sbusy, loopw);
     std::map<long, std::pair<std::string, unsigned long long> > t1 = thread_times();
+    std::map<std::string, double> clsw;  // run-queue wait (schedstat field 2) by class
+    for (std::map<long, std::pair<std::string, unsigned long long> >::const_iterator i = t1.begin(); i != t1.end(); ++i) {
+      std::map<long, unsigned long long>::const_iterator a = g_wait_ns.find(i->first), b = w0.find(i->first);
+      clsw[i->second.first] += (double)((a == g_wait_ns.end() ? 0ULL : a->second) - (b == w0.end() ? 0ULL : b->second));
+    }
+    // the batch accounting (blocking cells): each batch's wall against its calls' (the calls are the
+    // seats' traced intervals, matched to batches by time)
+    std::vector<std::pair<int64_t, int64_t> > tcalls;
+    for (size_t i = 0; i < pool.seats.size(); ++i) tcalls.insert(tcalls.end(), pool.seats[i]->tr.begin(), pool.seats[i]->tr.end());
+    std::sort(tcalls.begin(), tcalls.end());
+    std::vector<double> bw, cd, lead, lag, spanv;
+    size_t ci2 = 0;
+    for (size_t b = 0; b < pool.btr.size(); ++b) {
+      const int64_t bs = pool.btr[b].first, be = pool.btr[b].second;
+      int64_t fs = 0, le = 0, ls = 0;
+      int nn = 0;
+      while (ci2 < tcalls.size() && tcalls[ci2].first < be) {
+        const int64_t s0 = tcalls[ci2].first, e0 = tcalls[ci2].second;
+        if (s0 >= bs) {
+          if (!nn || s0 < fs) fs = s0;
+          if (!nn || e0 > le) le = e0;
+          if (!nn || s0 > ls) ls = s0;
+          cd.push_back((double)(e0 - s0));
+          ++nn;
+        }
+        ++ci2;
+      }
+      if (!nn) continue;
+      bw.push_back((double)(be - bs));
+      lead.push_back((double)(ls - bs));  // the batch start to its LAST call's start (dispatch)
+      lag.push_back((double)(be - le));   // the last call's end to the batch's end (completion hand-off)
+      spanv.push_back((double)(le - fs));
+    }
+    auto med = [](std::vector<double> v) { if (v.empty()) return -1.0; std::sort(v.begin(), v.end()); return v[v.size() / 2]; };
+    auto pct = [](std::vector<double> v, double p) { if (v.empty()) return -1.0; std::sort(v.begin(), v.end()); return v[(size_t)(p * (v.size() - 1))]; };
+    char tb[600];
+    std::snprintf(tb, sizeof(tb), "\"batch_trace\": {\"batches\": %zu, \"calls\": %zu, \"batch_wall_ns_median\": %.0f, \"call_ns_median\": %.0f,"
+                  " \"call_ns_p10\": %.0f, \"call_ns_p90\": %.0f, \"calls_span_ns_median\": %.0f, \"dispatch_last_start_ns_median\": %.0f,"
+                  " \"completion_lag_ns_median\": %.0f}", bw.size(), cd.size(), med(bw), med(cd), pct(cd, 0.1), pct(cd, 0.9), med(spanv),
+                  med(lead), med(lag));
     std::map<std::string, double> cls;
     std::map<std::string, int> cnt;
     for (std::map<long, std::pair<std::string, unsigned long long> >::const_iterator i = t1.begin(); i != t1.end(); ++i) {
@@ -1916,7 +2152,17 @@ int main(int argc, char **argv) {
       std::snprintf(b, sizeof(b), "%s{\"batches\": %d, \"cpu_ns\": %.0f, \"wall_ns\": %.0f}", i ? ", " : "", cbat[i], ccpu[i], cwall[i]);
       o += b;
     }
-    o += "], \"thread_cpu_ns\": {";
+    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"thread_wait_ns\": {";
+    {
+      bool f1 = true;
+      for (std::map<std::string, double>::const_iterator i = clsw.begin(); i != clsw.end(); ++i) {
+        char bb[120];
+        std::snprintf(bb, sizeof(bb), "%s\"%s\": %.0f", f1 ? "" : ", ", i->first.c_str(), i->second);
+        o += bb;
+        f1 = false;
+      }
+    }
+    o += "}, \"thread_cpu_ns\": {";
     bool first = true;
     for (std::map<std::string, double>::const_iterator i = cls.begin(); i != cls.end(); ++i) {
       char b[160];
@@ -1999,7 +2245,8 @@ int main(int argc, char **argv) {
         char tags[240];
         std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s%s", k, c.transport.c_str(),
                       cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "",
-                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : cl.deferred == 1 ? ",delivery=blocking,send=deferred-wait"
+                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : cl.zc && cl.deferred == 1 ? ",delivery=blocking,send=deferred-zc-wait"
+                      : cl.zc && cl.deferred == 2 ? ",delivery=blocking,send=deferred-zc-nowait" : cl.deferred == 1 ? ",delivery=blocking,send=deferred-wait"
                       : cl.deferred == 2 ? ",delivery=blocking,send=deferred-nowait"
                       : cl.zc ? ",delivery=blocking,send=zero-copy" : ",delivery=blocking");
         regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +

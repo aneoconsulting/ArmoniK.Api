@@ -1999,3 +1999,17 @@ changes.
   alloc_skb_with_frags in the socket write, not page faults (getrusage minflt about 0 per call). perf_attrib.py's fault
   bucket was wrong since 4a; fixed, the 4a tables regenerated (Cf - D socket write +1.81 instead of +1.76; the rest moves
   from "page faults" into "socket write" in every cell).
+
+## 2026-09-30, p7-deferred-zc from C++, and the k = 8 wall question
+
+- Worktree at the main HEAD with stack-p1-p2-p3-p5-p6-p7.patch (sha256 3347030a, committed), cores 01f731b5 / 59c08722,
+  worktree reverted. Cells Cf-zcw / Cf-zcp; checks all pass (semantics 33/33).
+- Measured: Cf-zcp / Cf-zcw d/16 CPU 6.80 / 6.85 (k=1), 6.55 / 6.62 (k=8), level with Cf-zc (6.70, 6.56); A 8.32 / 9.65.
+- The k = 8 wall: --profile gained a batch trace, schedstat run-queue wait, and the server's threads (AK_SERVER_PID,
+  /proc schedstat). At d/16 k=8: the batch accounting is the same path for every cell (dispatch 0.06-0.07 ms,
+  completion 0.01-0.05 ms except Cf's copying cell, dispatch 0.49-0.87 with 0.24-0.26 ms of run-queue wait per call on
+  callers and workers); the zero-copy cells wait on a run queue under 0.01 ms per call. The batch itself is longer
+  (Cf-zc 64.8 ms against A 60.9): the core's 8 streams finish together (call p10 54 ms) where grpc++'s finish one after
+  another (p10 31 ms). The server spends 19.5-20.2 ms CPU per call on the core's uploads against 11.6 on grpc++'s. With
+  the p4 h2-coalescing core (h16, Cf) the server's CPU is 14.5 ms per call and Cf's wall 7.04 ms, below A's 7.56 in the
+  same run. Not measured: the server's per-connection task utilisation (no ptrace, no perf on the server).

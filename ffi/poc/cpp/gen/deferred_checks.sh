@@ -59,7 +59,7 @@ bad() { echo ">>> FAIL: $*"; F=$((F + 1)); }
   echo "===== 3. HEAD's core: the deferred cases skipped, a Cf-enc cell refused"
   taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
   [ $rc = 0 ] && grep -q '^SKIP deferred' "$SCR/s" && ok "HEAD core: semantics pass, deferred skipped ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "HEAD core semantics rc=$rc"
-  for rc_cell in Cf-enc-retain Cf-zc-retain; do
+  for rc_cell in Cf-enc-retain Cf-zc-retain Cf-zcp-retain Cf-zcw-retain; do
     taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned --cells $rc_cell --dirs d \
       --inflight 1 --rounds 1 --gbench-out "$SCR/g.json" > "$SCR/r" 2>&1; rc=$?
     [ $rc = 2 ] && grep -q REFUSED "$SCR/r" && ok "HEAD core refuses $rc_cell: $(grep REFUSED "$SCR/r")" || bad "HEAD core did not refuse $rc_cell (rc=$rc)"

@@ -16,7 +16,7 @@ import os
 import statistics
 import sys
 
-CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain", "Cf-zc-retain"]
+CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain", "Cf-zc-retain", "Cf-zcp-retain", "Cf-zcw-retain"]
 WLS = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d4k1", "d/4MiB k=1"), ("d4k8", "d/4MiB k=8"),
        ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8")]
 THREADS = ["caller", "main", "tokio-rt-worker", "event_engine"]
@@ -83,6 +83,36 @@ def main(out, arms):
                                                                      statistics.median(flt), statistics.median(csw), len(cpu)))
                     if c.startswith("Cf"):
                         thr.append((wt, c, a, {t: statistics.median(per[t]) for t in THREADS if per.get(t)}))
+        # run-queue wait and the batch trace, when the client recorded them
+        if any("thread_wait_ns" in prof(f) for f in glob.glob(os.path.join(out, phase, "*.out"))[:1]):
+            say("")
+            say("Run-queue wait per call (ms; schedstat's second field, every thread of the class; median of the "
+                "processes) and the batch trace (blocking path: per batch of k calls, median over the batches of the "
+                "processes, ms): batch wall, one call's duration median [p10-p90], first call start to last call end "
+                "(span), batch start to its last call's start (dispatch), last call end to batch end (completion).")
+            say("")
+            say("| workload | cell | arm | wait: caller | main | tokio-rt-worker | event_engine | batch wall | call [p10-p90] | span | dispatch | completion |")
+            say("|---|---|---|---|---|---|---|---|---|---|---|---|")
+            for w, wt in WLS:
+                for c in CELLS:
+                    for a in arms:
+                        fs = sorted(glob.glob(os.path.join(out, phase, "%s-%s-%s-r*.out" % (w, c, a))))
+                        if not fs:
+                            continue
+                        wv, bt = collections.defaultdict(list), collections.defaultdict(list)
+                        for f in fs:
+                            p = prof(f)
+                            for cls, v in p.get("thread_wait_ns", {}).items():
+                                wv[cls].append(v / p["calls"] / 1e6)
+                            for kk, v in p.get("batch_trace", {}).items():
+                                if isinstance(v, (int, float)) and v >= 0:
+                                    bt[kk].append(v / 1e6)
+                        m = lambda k: ("%.3f" % statistics.median(wv[k])) if wv.get(k) else ""
+                        b = lambda k: ("%.3f" % statistics.median(bt[k])) if bt.get(k) else "-"
+                        say("| %s | %s | %s | %s | %s | %s | %s | %s | %s [%s-%s] | %s | %s | %s |" % (
+                            wt, c, a, m("caller"), m("main"), m("tokio-rt-worker"), m("event_engine"), b("batch_wall_ns_median"),
+                            b("call_ns_median"), b("call_ns_p10"), b("call_ns_p90"), b("calls_span_ns_median"),
+                            b("dispatch_last_start_ns_median"), b("completion_lag_ns_median")))
         say("")
         say("Per-thread CPU per call, Cf and Cf-q (ms, median of the processes):")
         say("")
