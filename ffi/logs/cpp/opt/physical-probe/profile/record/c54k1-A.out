@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "A", "payload": "P5.4", "dir": "c", "k": 1, "batches": 400, "calls": 400, "cells_open": "A", "chunks": [{"batches": 40, "cpu_ns": 106313840, "wall_ns": 148065383}, {"batches": 40, "cpu_ns": 105352060, "wall_ns": 158387550}, {"batches": 40, "cpu_ns": 106278881, "wall_ns": 157438041}, {"batches": 40, "cpu_ns": 107754303, "wall_ns": 182053577}, {"batches": 40, "cpu_ns": 126960706, "wall_ns": 277221160}, {"batches": 40, "cpu_ns": 124894398, "wall_ns": 237636267}, {"batches": 40, "cpu_ns": 114000401, "wall_ns": 205078699}, {"batches": 40, "cpu_ns": 130423887, "wall_ns": 280504105}, {"batches": 40, "cpu_ns": 119299435, "wall_ns": 231858801}, {"batches": 40, "cpu_ns": 117182393, "wall_ns": 221399781}], "thread_cpu_ns": {"caller": {"threads": 1, "ns": 299108073}, "event_engine": {"threads": 8, "ns": 846815091}, "grpc_global_tim": {"threads": 1, "ns": 53070}, "lifeguard": {"threads": 1, "ns": 301845}, "main": {"threads": 1, "ns": 12717332}, "tokio-rt-worker": {"threads": 8, "ns": 0}}, "rusage": {"nvcsw": 18438, "nivcsw": 4, "minflt": 15, "majflt": 0, "utime_us": 461321, "stime_us": 697254}, "fold": 400}}
+[ perf record: Woken up 13 times to write data ]
+[ perf record: Captured and wrote 2.881 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-A.data (6172 samples) ]

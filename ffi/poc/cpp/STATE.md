@@ -22,6 +22,18 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 ## Physical-machine probe (2026-09-29/30): step 0 and the driver
 
+**Step 4a (2026-09-30): attribution of A, D, Cf, Cf-q** (`gen/profile_4a.sh`, `logs/cpp/opt/physical-probe/profile/tables.md`).
+`campaign_rpc --profile N [--profile-cell L] [--perf-ctl CTL,ACK]` runs N batches of one cell on the benchmark's own
+path with no Google Benchmark, perf enabled only around the loop, per-chunk CPU and wall, per-thread CPU by class
+(schedstat) and getrusage. Phases (each under `flock /tmp/ak-physical-bench.lock`, own 8-worker server): `stat` (perf
+stat, 3 rounds, cells alone and Cf/Cf-q with A and D open), `record` (perf record cycles, LBR stacks; kernel symbols
+from the booted kernel's System.map at KASLR offset 0x6c00000, found by `gen/perf_attrib.py`), `strace` (syscalls between
+the loop's markers, `gen/strace_window.py`), `plain` (the control: no perf attached). Tables: `gen/profile_tables.py`.
+Measured facts there: perf stat attached adds about 0.7 ms per d/16MiB call to A and D and about 0.2 to Cf (the control
+without perf: A 8.25, D 8.29, Cf 8.34, Cf-q 9.06 ms at k = 1); the core transport writes each 16 KiB DATA frame with its
+own writev (about 1026 per 16 MiB call against about 46 sendmsg of about 350 KB for grpc++), and that kernel write path
+is Cf's largest bucket over D (+1.76 ms at k = 1), offset by grpc-core's user time (-1.29) and futex (-0.45).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -616,6 +628,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `checks/checks-run1-criterion.log` | the first run: the allocation criterion that failed on two 16 MiB pairs (same numbers, restated criterion) |
 | `main/` | the main segment (shared 8-worker server pid 147567, core 8 workers, grpc-core sized for 8 through ncpus_shim; 4 spread + 3 main passes, 1800 repetitions, 254 s): `header.txt`, `runner.log`, `pass-*.jsonl` (samples with getrusage counters, machine facts at each pass's end, the client's header and thread classes), `pass-*.console`, `pass-*.gbench.json.gz`, `tables.md` |
 | `var4/` | the var4 segment (shared 4-worker server pid 152128, core 4 workers, grpc-core sized for 4; 3 passes of six cells, 1080 repetitions, 146 s), same layout as `main/` |
+| `profile/` | step 4a: `tables.md`; `stat/` (perf stat + profile JSON per process), `plain/` (no perf), `record/` (perf.data gzip'd, `*.attrib.json` buckets, `*.out`), `strace/` (raw strace gzip'd, `*.syscalls.txt`), `runner.log` (headers, machine facts per phase) |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):

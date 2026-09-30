@@ -1919,3 +1919,22 @@ changes.
   server 4 tokio-rt-worker. 3 passes of all six cells, 1080 repetitions, 146 s; server check passed around every pass.
   `logs/cpp/opt/physical-probe/var4/tables.md`. A d/16MiB k=1 per pass: 7.61, 7.89, 7.67 ms (S2 highest for A on
   every workload of that pass).
+
+## 2026-09-30, step 4a: where A, D, Cf and Cf-q spend client CPU (physical machine, main configuration)
+
+- Added `campaign_rpc --profile` (one cell, one job, N batches on Pool::batch, perf enabled around the loop through
+  perf's --control fifos, per-chunk CPU/wall, per-thread schedstat by class, getrusage) and `gen/profile_4a.sh`
+  (phases stat, record, strace, plain; each under flock /tmp/ak-physical-bench.lock with its own 8-worker server),
+  `gen/perf_attrib.py`, `gen/strace_window.py`, `gen/profile_tables.py`. Builds on the OS set (taskset 0,9,10,19).
+- kptr_restrict = 1 hides kernel symbols; resolved with /nix/store/...-linux-6.18.54/System.map at KASLR offset
+  0x6c00000 (the first automatic detection voted over every entry symbol and picked 0x7c00000, resolving everything to
+  section markers; replaced by a vote over frames that fall inside a few frequent functions). glibc's
+  __internal_syscall_cancel sits between the kernel and the syscall wrapper; skipped when classing.
+- Found: perf stat attached costs A and D about 0.7 ms per d/16MiB call and Cf about 0.2 (A and D context-switch about
+  200 times per call, Cf about 70); the `plain` phase (no perf) was added as the control after seeing A alone at 8.98 ms
+  under perf stat against 8.25 in the grid. With no perf: A 8.25, D 8.29, Cf 8.34, Cf-q 9.06 (d/16MiB k=1).
+- Structural: Cf writes each 16 KiB DATA frame with its own writev (1026 per 16 MiB call, one epoll_wait each);
+  grpc++ coalesces into about 46 sendmsg of about 350 KB. Cf - D by bucket (perf record, d/16MiB k=1): kernel socket
+  write +1.76 ms, h2/hyper +0.37, tokio +0.21, memcpy in h2/bytes +0.13; grpc-core user -1.29, futex -0.45, socket
+  read -0.14, other syscalls -0.13. grpc++ channels open in the process cost Cf nothing measurable (event_engine threads
+  0.004-0.008 ms per core call).

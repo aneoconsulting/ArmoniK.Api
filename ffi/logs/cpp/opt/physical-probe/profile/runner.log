@@ -1,0 +1,72 @@
+# profile_4a stat: commit 26a89727 + UNCOMMITTED, 2026-09-30T03:44:32Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 85bd5a4e01a75abc; core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned transport; retain mode
+# perf version 7.2.8; perf_event_paranoid 1; kptr_restrict 1
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0  10 python3", " 8.6   8 .kwin_wayland-w", " 1.6   1 .claude-wrapped", " 0.3  16 systemd-udevd", " 0.2  15 .konsole-wrappe", " 0.1   9 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1   3 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "1.34 0.77 0.42 1/852 196794", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3300368", "14": "3300000", "15": "3300000", "16": "3300000", "17": "3300000", "18": "3300303"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 196800, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 196800
+  stat round 1 d16k1 done
+  stat round 1 d16k8 done
+  stat round 1 c54k1 done
+  stat round 2 d16k1 done
+  stat round 2 d16k8 done
+  stat round 2 c54k1 done
+  stat round 3 d16k1 done
+  stat round 3 d16k8 done
+  stat round 3 c54k1 done
+phase stat: 111 s (lock held)
+# profile_4a record: commit 26a89727 + UNCOMMITTED, 2026-09-30T03:47:27Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 85bd5a4e01a75abc; core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned transport; retain mode
+# perf version 7.2.8; perf_event_paranoid 1; kptr_restrict 1
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0  13 python3", " 8.5   8 .kwin_wayland-w", " 1.6  19 .claude-wrapped", " 0.3  16 systemd-udevd", " 0.2  14 .konsole-wrappe", " 0.1   3 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1   3 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "2.82 1.56 0.78 1/851 199718", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3303152", "4": "3300000", "5": "3300000", "6": "3300316", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3301009", "13": "3300002", "14": "3300000", "15": "3300000", "16": "3300000", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 199724, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 199724
+  record d16k1 A: wrote 3.510 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k1-A.data (7353 samples)
+  record d16k1 D-retain: wrote 3.164 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k1-D-retain.data (7070 samples)
+  record d16k1 Cf-retain: wrote 2.217 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k1-Cf-retain.data (4906 samples)
+  record d16k1 Cf-q-retain: wrote 2.482 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k1-Cf-q-retain.data (5577 samples)
+  record d16k8 A: wrote 4.105 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k8-A.data (8791 samples)
+  record d16k8 D-retain: wrote 3.851 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k8-D-retain.data (8921 samples)
+  record d16k8 Cf-retain: wrote 3.306 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k8-Cf-retain.data (7685 samples)
+  record d16k8 Cf-q-retain: wrote 3.362 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k8-Cf-q-retain.data (7161 samples)
+  record c54k1 A: wrote 2.881 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-A.data (6172 samples)
+  record c54k1 D-retain: wrote 2.955 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-D-retain.data (6865 samples)
+  record c54k1 Cf-retain: wrote 2.001 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-Cf-retain.data (4445 samples)
+  record c54k1 Cf-q-retain: wrote 1.843 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-Cf-q-retain.data (4010 samples)
+phase record: 94 s (lock held)
+# profile_4a strace: commit 26a89727 + UNCOMMITTED, 2026-09-30T03:47:57Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 85bd5a4e01a75abc; core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned transport; retain mode
+# perf version 7.2.8; perf_event_paranoid 1; kptr_restrict 1
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0   6 python3", " 8.5   8 .kwin_wayland-w", " 1.6   9 .claude-wrapped", " 0.3  16 systemd-udevd", " 0.2   7 .konsole-wrappe", " 0.1   4 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1  12 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "2.49 1.60 0.82 1/851 200303", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300001", "7": "3300034", "8": "3300135", "11": "3301248", "12": "3300000", "13": "3300000", "14": "3300500", "15": "3300000", "16": "3300000", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 200309, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 200309
+  strace d16k1 A: window found: 4535 syscalls, socket writes 592 (201440232 B), socket reads 579 (3791 B)
+  strace d16k1 D-retain: window found: 4321 syscalls, socket writes 547 (201440232 B), socket reads 565 (3843 B)
+  strace d16k1 Cf-retain: window found: 25454 syscalls, socket writes 12314 (201440448 B), socket reads 151 (4139 B)
+  strace d16k1 Cf-q-retain: window found: 25408 syscalls, socket writes 12322 (201440448 B), socket reads 135 (4139 B)
+  strace d16k8 A: window found: 6999 syscalls, socket writes 843 (402880629 B), socket reads 844 (7621 B)
+  strace d16k8 D-retain: window found: 6888 syscalls, socket writes 795 (402880675 B), socket reads 827 (7530 B)
+  strace d16k8 Cf-retain: window found: 50408 syscalls, socket writes 24662 (402882777 B), socket reads 256 (8255 B)
+  strace d16k8 Cf-q-retain: window found: 50615 syscalls, socket writes 24684 (402882867 B), socket reads 237 (8291 B)
+  strace c54k1 A: window found: 3968 syscalls, socket writes 578 (167870040 B), socket reads 513 (3962 B)
+  strace c54k1 D-retain: window found: 3959 syscalls, socket writes 536 (167870040 B), socket reads 527 (3910 B)
+  strace c54k1 Cf-retain: window found: 22039 syscalls, socket writes 10320 (167870040 B), socket reads 146 (4063 B)
+  strace c54k1 Cf-q-retain: window found: 21612 syscalls, socket writes 10320 (167870040 B), socket reads 163 (4040 B)
+phase strace: 27 s (lock held)
+profile_4a: 232 s in all
+# profile_4a plain: commit 26a89727 + UNCOMMITTED, 2026-09-30T03:49:43Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 85bd5a4e01a75abc; core /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned transport; retain mode
+# perf version 7.2.8; perf_event_paranoid 1; kptr_restrict 1
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0  15 python3", " 8.5   8 .kwin_wayland-w", " 1.6   1 .claude-wrapped", " 0.3  16 systemd-udevd", " 0.2   3 .konsole-wrappe", " 0.1   9 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1   5 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "2.44 1.77 0.96 1/845 202378", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300802", "13": "3300000", "14": "3300000", "15": "3300000", "16": "3300526", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 202384, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 202384
+  plain round 1 d16k1 done
+  plain round 1 d16k8 done
+  plain round 1 c54k1 done
+  plain round 2 d16k1 done
+  plain round 2 d16k8 done
+  plain round 2 c54k1 done
+  plain round 3 d16k1 done
+  plain round 3 d16k8 done
+  plain round 3 c54k1 done
+phase plain: 92 s (lock held)
+profile_4a: 92 s in all

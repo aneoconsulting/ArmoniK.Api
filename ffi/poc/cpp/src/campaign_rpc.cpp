@@ -54,6 +54,8 @@
 #include "rpc_common.h"
 
 #include <dirent.h>
+#include <fcntl.h>
+#include <time.h>
 #include <dlfcn.h>
 #include <sched.h>
 #include <sys/resource.h>
@@ -219,6 +221,10 @@ struct Cfg {
   int alloc_probe = 0;   // --alloc-probe N: allocations >= 1 MiB per call (LD_PRELOAD gen/allocprobe.so)
   int semantics = 0;     // --semantics 1: the queue deliveries' semantics check (no timing), then exit
   std::string payloads;  // --payloads P5.4,16MiB,...: only these (direction, payload) jobs (empty: all)
+  int profile = 0;       // --profile N: N batches of the one cell and job, no Google Benchmark (profiling)
+  std::string profile_cell;  // --profile-cell LABEL: the cell profiled (default: the first cell)
+  std::string perf_ctl;  // --perf-ctl CTL_FIFO,ACK_FIFO: perf's --control fifos, enabled around the loop
+  int profile_chunks = 10;  // --profile-chunks C: the loop's per-chunk CPU and wall
   std::string iters;     // --iters [PAYLOAD/]K:N,...: Google Benchmark's fixed Iterations(N) per in-flight
                          // K, or per (payload, K) (P5.4/8:12); no iteration estimation, so --min-time-s
                          // is unused for those benchmarks
@@ -287,6 +293,36 @@ std::string cpu_facts() {
          ", \"sysconf_nprocessors_conf\": " + std::to_string(sysconf(_SC_NPROCESSORS_CONF)) +
          ", \"sysconf_nprocessors_onln\": " + std::to_string(sysconf(_SC_NPROCESSORS_ONLN)) +
          ", \"grpcpp_version\": \"" + grpc::Version() + "\"}";
+}
+
+// ---- --profile (physical probe step 4a): per-thread CPU from /proc/self/task/*/schedstat ----
+// (the first field: nanoseconds on a CPU), classed by thread name; the main thread is "main",
+// the other campaign_rpc threads the "callers".
+std::map<long, std::pair<std::string, unsigned long long> > thread_times() {
+  std::map<long, std::pair<std::string, unsigned long long> > m;
+  const long self = (long)getpid();
+  if (DIR *d = opendir("/proc/self/task")) {
+    while (struct dirent *e = readdir(d)) {
+      if (e->d_name[0] == '.') continue;
+      const std::string base = std::string("/proc/self/task/") + e->d_name;
+      std::ifstream fc(base + "/comm"), fs(base + "/schedstat");
+      std::string comm;
+      std::getline(fc, comm);
+      unsigned long long ns = 0;
+      fs >> ns;
+      const long tid = std::atol(e->d_name);
+      if (tid == self) comm = "main";
+      else if (comm == "campaign_rpc") comm = "caller";
+      m[tid] = std::make_pair(comm, ns);
+    }
+    closedir(d);
+  }
+  return m;
+}
+double now_ns(clockid_t id) {
+  struct timespec t;
+  clock_gettime(id, &t);
+  return (double)t.tv_sec * 1e9 + (double)t.tv_nsec;
 }
 
 const char *dir_label(char d) {
@@ -1296,6 +1332,10 @@ int main(int argc, char **argv) {
     else if (a == "--semantics") c.semantics = std::atoi(v);
     else if (a == "--payloads") c.payloads = v;
     else if (a == "--iters") c.iters = v;
+    else if (a == "--profile") c.profile = std::atoi(v);
+    else if (a == "--profile-cell") c.profile_cell = v;
+    else if (a == "--perf-ctl") c.perf_ctl = v;
+    else if (a == "--profile-chunks") c.profile_chunks = std::atoi(v);
     else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
@@ -1497,6 +1537,90 @@ int main(int argc, char **argv) {
   std::fprintf(stderr, "a counting build does not time\n");
   return 2;
 #else
+  if (c.profile > 0) {
+    // Physical probe step 4a: ONE cell, ONE job, one k, c.profile batches on the pre-created
+    // threads (the benchmark's own path, Pool::batch), no Google Benchmark. perf is enabled only
+    // around the loop (--perf-ctl), a marker write to /dev/null brackets it for strace, and the
+    // loop reports process CPU and wall per chunk, per-thread CPU by class and getrusage deltas.
+    size_t pc = 0;
+    for (size_t i = 0; i < w.cells.size(); ++i)
+      if (w.cells[i].label == c.profile_cell) pc = i;
+    if (!c.profile_cell.empty() && w.cells[pc].label != c.profile_cell) die("--profile-cell names no cell", 0);
+    if (w.jobs.size() != 1 || c.inflight.size() != 1) die("--profile needs one job (--dirs/--payloads) and one k", 0);
+    const int k = c.inflight[0];
+    for (int i = 0; i < 5; ++i) pool.batch(pc, 0, k, k);  // warm: steady state only
+    int ctl = -1, ack = -1;
+    if (!c.perf_ctl.empty()) {
+      const size_t comma = c.perf_ctl.find(',');
+      ctl = open(c.perf_ctl.substr(0, comma).c_str(), O_WRONLY);
+      if (comma != std::string::npos) ack = open(c.perf_ctl.substr(comma + 1).c_str(), O_RDONLY);
+      if (ctl < 0) die("--perf-ctl: open", errno);
+    }
+    auto perf_cmd = [&](const char *cmd) {
+      if (ctl < 0) return;
+      if (write(ctl, cmd, std::strlen(cmd)) < 0) die("--perf-ctl: write", errno);
+      char buf[16];
+      if (ack >= 0 && read(ack, buf, sizeof(buf)) <= 0) die("--perf-ctl: ack", errno);
+    };
+    const int devnull = open("/dev/null", O_WRONLY);
+    const int chunks = c.profile_chunks > 0 && c.profile_chunks <= c.profile ? c.profile_chunks : 1;
+    std::vector<double> ccpu, cwall;
+    std::vector<int> cbat;
+    std::map<long, std::pair<std::string, unsigned long long> > t0 = thread_times();
+    struct rusage r0, r1;
+    getrusage(RUSAGE_SELF, &r0);
+    if (write(devnull, "AK_PROFILE_BEGIN", 16) < 0) die("marker", 0);
+    perf_cmd("enable");
+    long h = 0;
+    int done = 0;
+    for (int ch = 0; ch < chunks; ++ch) {
+      const int nb = c.profile / chunks + (ch < c.profile % chunks ? 1 : 0);
+      const double p0 = now_ns(CLOCK_PROCESS_CPUTIME_ID), w0 = now_ns(CLOCK_MONOTONIC);
+      for (int b = 0; b < nb; ++b) h += pool.batch(pc, 0, k, k);
+      ccpu.push_back(now_ns(CLOCK_PROCESS_CPUTIME_ID) - p0);
+      cwall.push_back(now_ns(CLOCK_MONOTONIC) - w0);
+      cbat.push_back(nb);
+      done += nb;
+    }
+    perf_cmd("disable");
+    if (write(devnull, "AK_PROFILE_END", 14) < 0) die("marker", 0);
+    getrusage(RUSAGE_SELF, &r1);
+    std::map<long, std::pair<std::string, unsigned long long> > t1 = thread_times();
+    std::map<std::string, double> cls;
+    std::map<std::string, int> cnt;
+    for (std::map<long, std::pair<std::string, unsigned long long> >::const_iterator i = t1.begin(); i != t1.end(); ++i) {
+      std::map<long, std::pair<std::string, unsigned long long> >::const_iterator j = t0.find(i->first);
+      cls[i->second.first] += (double)(i->second.second - (j == t0.end() ? 0ULL : j->second.second));
+      ++cnt[i->second.first];
+    }
+    const double calls = (double)done * k;
+    std::string o = "{\"profile\": {\"cell\": \"" + w.cells[pc].label + "\", \"payload\": \"" + job_payload(w.jobs[0]) +
+                    "\", \"dir\": \"" + dir_label(w.jobs[0].dir) + "\", \"k\": " + std::to_string(k) +
+                    ", \"batches\": " + std::to_string(done) + ", \"calls\": " + std::to_string((long)calls) +
+                    ", \"cells_open\": \"" + c.cells + "\", \"chunks\": [";
+    for (size_t i = 0; i < ccpu.size(); ++i) {
+      char b[160];
+      std::snprintf(b, sizeof(b), "%s{\"batches\": %d, \"cpu_ns\": %.0f, \"wall_ns\": %.0f}", i ? ", " : "", cbat[i], ccpu[i], cwall[i]);
+      o += b;
+    }
+    o += "], \"thread_cpu_ns\": {";
+    bool first = true;
+    for (std::map<std::string, double>::const_iterator i = cls.begin(); i != cls.end(); ++i) {
+      char b[160];
+      std::snprintf(b, sizeof(b), "%s\"%s\": {\"threads\": %d, \"ns\": %.0f}", first ? "" : ", ", i->first.c_str(), cnt[i->first], i->second);
+      o += b;
+      first = false;
+    }
+    char b[320];
+    std::snprintf(b, sizeof(b), "}, \"rusage\": {\"nvcsw\": %ld, \"nivcsw\": %ld, \"minflt\": %ld, \"majflt\": %ld, \"utime_us\": %ld, \"stime_us\": %ld}, \"fold\": %ld}}",
+                  r1.ru_nvcsw - r0.ru_nvcsw, r1.ru_nivcsw - r0.ru_nivcsw, r1.ru_minflt - r0.ru_minflt, r1.ru_majflt - r0.ru_majflt,
+                  (long)((r1.ru_utime.tv_sec - r0.ru_utime.tv_sec) * 1000000L + (r1.ru_utime.tv_usec - r0.ru_utime.tv_usec)),
+                  (long)((r1.ru_stime.tv_sec - r0.ru_stime.tv_sec) * 1000000L + (r1.ru_stime.tv_usec - r0.ru_stime.tv_usec)), h);
+    o += b;
+    std::printf("%s\n", o.c_str());
+    std::fflush(stdout);
+    return 0;
+  }
   if (c.gbout.empty()) {  // a usage error, never a call check (the gate's controls grep for those)
     std::fprintf(stderr, "usage: --gbench-out FILE is required (the samples are Google Benchmark's)\n");
     return 2;

@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "D-retain", "payload": "16MiB", "dir": "d", "k": 1, "batches": 120, "calls": 120, "cells_open": "D-retain", "chunks": [{"batches": 12, "cpu_ns": 124057468, "wall_ns": 126602128}, {"batches": 12, "cpu_ns": 123556457, "wall_ns": 126240809}, {"batches": 12, "cpu_ns": 121139044, "wall_ns": 119670928}, {"batches": 12, "cpu_ns": 121856449, "wall_ns": 121716169}, {"batches": 12, "cpu_ns": 122172756, "wall_ns": 123442473}, {"batches": 12, "cpu_ns": 123162105, "wall_ns": 127647615}, {"batches": 12, "cpu_ns": 122487894, "wall_ns": 127987182}, {"batches": 12, "cpu_ns": 122468584, "wall_ns": 127782605}, {"batches": 12, "cpu_ns": 124174019, "wall_ns": 128320044}, {"batches": 12, "cpu_ns": 124945901, "wall_ns": 133844291}], "thread_cpu_ns": {"caller": {"threads": 1, "ns": 432370760}, "event_engine": {"threads": 8, "ns": 793790078}, "grpc_global_tim": {"threads": 1, "ns": 31860}, "lifeguard": {"threads": 1, "ns": 401130}, "main": {"threads": 1, "ns": 3947533}, "tokio-rt-worker": {"threads": 8, "ns": 0}}, "rusage": {"nvcsw": 18633, "nivcsw": 3, "minflt": 9, "majflt": 0, "utime_us": 434723, "stime_us": 795406}, "fold": 960}}
+[ perf record: Woken up 15 times to write data ]
+[ perf record: Captured and wrote 3.164 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/d16k1-D-retain.data (7070 samples) ]

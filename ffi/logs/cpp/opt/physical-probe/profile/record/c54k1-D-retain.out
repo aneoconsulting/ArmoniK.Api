@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "D-retain", "payload": "P5.4", "dir": "c", "k": 1, "batches": 400, "calls": 400, "cells_open": "D-retain", "chunks": [{"batches": 40, "cpu_ns": 125916383, "wall_ns": 244202163}, {"batches": 40, "cpu_ns": 114592242, "wall_ns": 211384436}, {"batches": 40, "cpu_ns": 114247370, "wall_ns": 197092294}, {"batches": 40, "cpu_ns": 107386451, "wall_ns": 168176021}, {"batches": 40, "cpu_ns": 122682240, "wall_ns": 228151483}, {"batches": 40, "cpu_ns": 128429127, "wall_ns": 263381862}, {"batches": 40, "cpu_ns": 133927869, "wall_ns": 285444725}, {"batches": 40, "cpu_ns": 131042687, "wall_ns": 271613375}, {"batches": 40, "cpu_ns": 135706516, "wall_ns": 284799581}, {"batches": 40, "cpu_ns": 126707691, "wall_ns": 248435517}], "thread_cpu_ns": {"caller": {"threads": 1, "ns": 303658823}, "event_engine": {"threads": 8, "ns": 924219658}, "grpc_global_tim": {"threads": 1, "ns": 53264}, "lifeguard": {"threads": 1, "ns": 274061}, "main": {"threads": 1, "ns": 12961077}, "tokio-rt-worker": {"threads": 8, "ns": 0}}, "rusage": {"nvcsw": 21372, "nivcsw": 3, "minflt": 14, "majflt": 0, "utime_us": 461866, "stime_us": 778882}, "fold": 400}}
+[ perf record: Woken up 11 times to write data ]
+[ perf record: Captured and wrote 2.955 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/profile/record/c54k1-D-retain.data (6865 samples) ]
