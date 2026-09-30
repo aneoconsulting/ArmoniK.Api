@@ -222,3 +222,14 @@
 | A2 | 31 / 96.4 | 27 / 96.3 |
 | Cf | 22 / 0.5 | 22 / 0.6 |
 | Cf-cb | 30 / 0.1 | 31 / 0.2 |
+
+## Note: server affinity during this campaign
+
+This campaign made no per-process check of the server's or the client's affinity (the checks
+were added to gen/inproc.sh afterwards). The owner's re-pinning of user processes to
+0,9,10,19 moved the C++ campaign's server between its rounds 10 and 11:
+`ffi/logs/cpp/opt/physical-probe/stability/run1/runner.log` lines 26 and 28
+(`machine_after_round 10 2026-09-30T19:15:34Z`, `machine_after_round 11 2026-09-30T19:16:41Z`).
+This campaign started at 19:20:03Z (21:20:03 CEST), after that C++ run ended (19:20:01Z), with a
+server that gen/inproc.sh started and pinned to 5-8,15-18 at its own start; so the re-pinning
+predates this campaign's server. That is an inference from the two logs' times, not a check.
