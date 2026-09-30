@@ -388,6 +388,30 @@ pub async fn serve_uds(path: std::path::PathBuf, pinned: bool, fetch: Vec<u8>, r
     b.add_service(svc).serve_with_incoming(incoming).await.unwrap();
 }
 
+/// The same service on TCP loopback (opt-in, 2026-09-30: the owner's UDS / TCP comparison):
+/// bound to 127.0.0.1:`port` (0 = the kernel picks one), always the PINNED configuration (4 MiB
+/// stream and connection windows, adaptive window off), the same receive limit and the caller's
+/// runtime. TCP_NODELAY is set on every accepted socket before tonic sees it (Nagle off).
+/// `ready` gets the bound port.
+pub async fn serve_tcp(port: u16, fetch: Vec<u8>, ready: impl FnOnce(u16)) {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.expect("bind the grid's TCP listener");
+    let bound = listener.local_addr().expect("local address").port();
+    let incoming = tokio_stream::StreamExt::map(tokio_stream::wrappers::TcpListenerStream::new(listener), |r| {
+        r.and_then(|s| {
+            s.set_nodelay(true)?;
+            Ok(s)
+        })
+    });
+    let b = tonic::transport::Server::builder()
+        .initial_stream_window_size(Some(4 * 1024 * 1024))
+        .initial_connection_window_size(Some(4 * 1024 * 1024))
+        .http2_adaptive_window(Some(false));
+    let svc = Svc { fetch: Arc::new(Bytes::from(fetch)) };
+    ready(bound);
+    let mut b = b;
+    b.add_service(svc).serve_with_incoming(incoming).await.unwrap();
+}
+
 /// A server in THIS process, on its own runtime (the counting build's per-call counts).
 pub fn spawn_in_process(path: std::path::PathBuf, pinned: bool) -> tokio::runtime::Runtime {
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();

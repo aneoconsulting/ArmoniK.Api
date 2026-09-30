@@ -841,10 +841,14 @@ fn multi_of(c: &str) -> Option<(&'static str, usize)> {
 
 fn main() {
     assert!(harness::generated::binding::ak_init_once() >= 0);
-    let socket: String = std::env::var("AK_RPC_SOCKET").expect("AK_RPC_SOCKET");
+    // AK_RPC_TARGET (a URI, e.g. http://127.0.0.1:PORT) overrides the Unix socket.
+    let socket: String = std::env::var("AK_RPC_SOCKET").unwrap_or_default();
     let transport: String = env("AK_RPC_TRANSPORT", "pinned".to_string());
     let pinned = transport == "pinned";
-    let target = format!("unix:{socket}");
+    let target = std::env::var("AK_RPC_TARGET").unwrap_or_else(|_| {
+        assert!(!socket.is_empty(), "AK_RPC_SOCKET or AK_RPC_TARGET");
+        format!("unix:{socket}")
+    });
     // `Df-chan` (probe only): cell Df's connection (the harness's tonic Channel on the cell's
     // runtime) and framed body, fed as the core feeds its own: a host thread encodes each
     // chunk (core-ffi, retain, moved out by ak_enc_take_owned) and blocking_sends it into an

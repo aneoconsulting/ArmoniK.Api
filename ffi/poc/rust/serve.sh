@@ -15,7 +15,10 @@
 #   serve.sh stop                  stop it and remove its socket directory
 #
 # Environment: AK_CPU_SERVER (taskset list), AK_SERVER_THREADS (tokio workers, default 4),
-# AK_SERVE_STATE (default ${TMPDIR:-/tmp}/ak-rpc-server.state).
+# AK_SERVE_STATE (default ${TMPDIR:-/tmp}/ak-rpc-server.state), AK_SERVER_TCP (unset = Unix
+# sockets only; a port, 0 = any free port: also a TCP listener on 127.0.0.1 with the pinned
+# configuration and TCP_NODELAY; start prints and the state file holds `tcp 127.0.0.1:PORT`;
+# warm then warms it too).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TGT="$HERE/target-server"
@@ -43,20 +46,27 @@ case "$cmd" in
     D=$(mktemp -d /tmp/aksrv.XXXXXX)
     S1="$D/shipped.sock"; S2="$D/pinned.sock"; RF="$D/ready"
     PIN=(); [ -n "${AK_CPU_SERVER:-}" ] && PIN=(taskset -c "$AK_CPU_SERVER")
-    AK_SERVER_THREADS=${AK_SERVER_THREADS:-4} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" \
+    TCP=(); [ -n "${AK_SERVER_TCP:-}" ] && TCP=(--tcp "$AK_SERVER_TCP")
+    AK_SERVER_THREADS=${AK_SERVER_THREADS:-4} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" "${TCP[@]}" \
       --ready-file "$RF" > /dev/null 2> "$OUT/rpc-server.log" < /dev/null &
     SP=$!
     for _ in $(seq 200); do [ -s "$RF" ] && break; kill -0 $SP 2>/dev/null || break; sleep 0.05; done
     [ -s "$RF" ] || { echo "serve.sh: rpc_server did not start (see $OUT/rpc-server.log)" >&2; kill $SP 2>/dev/null || true; rm -rf "$D"; exit 1; }
+    TL=$(sed -n 's/^tcp //p' "$RF")
     printf 'shipped %s\npinned %s\npid %s\ndir %s\n' "$S1" "$S2" "$SP" "$D" > "$STATE"
-    printf 'shipped %s\npinned %s\npid %s\n' "$S1" "$S2" "$SP" ;;
+    [ -n "$TL" ] && printf 'tcp %s\n' "$TL" >> "$STATE"
+    printf 'shipped %s\npinned %s\npid %s\n' "$S1" "$S2" "$SP"
+    [ -n "$TL" ] && printf 'tcp %s\n' "$TL"
+    true ;;
 
   warm)
     N=${1:?usage: serve.sh warm N}
     [ -f "$STATE" ] || { echo "serve.sh: no server running ($STATE)" >&2; exit 1; }
     for T in shipped pinned; do
       "$WARM" --socket "$(sed -n "s/^$T //p" "$STATE")" --transport "$T" --n "$N"
-    done ;;
+    done
+    TL=$(sed -n 's/^tcp //p' "$STATE")
+    if [ -n "$TL" ]; then "$WARM" --target "http://$TL" --transport pinned --n "$N"; fi ;;
 
   stop)
     [ -f "$STATE" ] || { echo "serve.sh: no server running ($STATE)"; exit 0; }

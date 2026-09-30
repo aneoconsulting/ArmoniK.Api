@@ -8,7 +8,11 @@
 //!   rpc_server --transport shipped|pinned --socket PATH --ready-file PATH
 //!       one socket, one configuration
 //!
-//! The ready file is written once every socket is bound: `<config> <path>` per line.
+//!   --tcp PORT (optional, with either form above): also serve on TCP 127.0.0.1:PORT (0 = any
+//!       free port), the pinned configuration, TCP_NODELAY on every accepted socket
+//!
+//! The ready file is written once every socket is bound: `<config> <path>` per line, and
+//! `tcp 127.0.0.1:<port>` when --tcp is given.
 //! Worker threads: AK_SERVER_THREADS (default 4, the campaign's SERVER set size), one tokio
 //! multi-thread runtime shared by both sockets; recorded in its log.
 
@@ -47,13 +51,29 @@ fn main() {
     for _ in &socks {
         rx.recv().expect("a socket did not bind");
     }
-    let lines: String = socks.iter().map(|(p, pinned)| format!("{} {p}\n", if *pinned { "pinned" } else { "shipped" })).collect();
+    let mut tcp_port = None;
+    if let Some(port) = arg("--tcp") {
+        let port: u16 = port.parse().expect("--tcp PORT");
+        let (ptx, prx) = std::sync::mpsc::channel::<u16>();
+        tasks.push(rt.spawn(campaign::server::serve_tcp(port, bytes.clone(), move |p| {
+            let _ = ptx.send(p);
+        })));
+        tcp_port = Some(prx.recv().expect("the TCP listener did not bind"));
+    }
+    let mut lines: String = socks.iter().map(|(p, pinned)| format!("{} {p}\n", if *pinned { "pinned" } else { "shipped" })).collect();
+    if let Some(p) = tcp_port {
+        lines.push_str(&format!("tcp 127.0.0.1:{p}\n"));
+    }
     let tmp = format!("{ready}.tmp");
     std::fs::write(&tmp, &lines).unwrap();
     std::fs::rename(&tmp, &ready).unwrap();
     for (p, pinned) in &socks {
         eprintln!("# rpc_server: {} on unix:{p}, P2.2 {n} B pre-serialised, tokio multi-thread {threads} workers (shared), receive limit {} B, pid {}",
                   if *pinned { "pinned" } else { "shipped" }, campaign::server::SERVER_MAX_RECV, std::process::id());
+    }
+    if let Some(p) = tcp_port {
+        eprintln!("# rpc_server: pinned configuration on tcp 127.0.0.1:{p} (TCP_NODELAY set on every accepted socket), P2.2 {n} B pre-serialised, tokio multi-thread {threads} workers (shared), receive limit {} B, pid {}",
+                  campaign::server::SERVER_MAX_RECV, std::process::id());
     }
     rt.block_on(async move {
         for t in tasks {

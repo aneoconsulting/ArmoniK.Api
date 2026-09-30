@@ -1,0 +1,35 @@
+## 1. serve.sh start with AK_SERVER_TCP=0 (printed lines, then the state file)
+shipped /tmp/aksrv.lhQRDW/shipped.sock
+pinned /tmp/aksrv.lhQRDW/pinned.sock
+pid 577118
+tcp 127.0.0.1:40283
+shipped /tmp/aksrv.lhQRDW/shipped.sock
+pinned /tmp/aksrv.lhQRDW/pinned.sock
+pid 577118
+dir /tmp/aksrv.lhQRDW
+tcp 127.0.0.1:40283
+# rpc_server: shipped on unix:/tmp/aksrv.lhQRDW/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 577118
+# rpc_server: pinned on unix:/tmp/aksrv.lhQRDW/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 577118
+# rpc_server: pinned configuration on tcp 127.0.0.1:40283 (TCP_NODELAY set on every accepted socket), P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 577118
+server affinity: pid 577118's current affinity list: 5-8,15-18
+
+## 2. serve.sh warm 8 (both sockets and the TCP listener)
+warm: 8 checked calls per direction (a, b, c; d: 2) from tonic (A) and the core (B) on unix:/tmp/aksrv.lhQRDW/shipped.sock
+warm: 8 checked calls per direction (a, b, c; d: 2) from tonic (A) and the core (B) on unix:/tmp/aksrv.lhQRDW/pinned.sock
+warm: 8 checked calls per direction (a, b, c; d: 2) from tonic (A) and the core (B) on http://127.0.0.1:40283
+
+## 3. checked calls over TCP (stream_probe, AK_RPC_TARGET=http://127.0.0.1:40283, pinned client configuration; d on UploadStreamCheck byte count and SHA-256; c/P5.4 server decode)
+k=1: A, Df, Cf, Cf-cb over TCP: d 16 rounds and c 8 rounds, every call checked: passed
+k=8: A, Df, Cf, Cf-cb over TCP: d 16 rounds and c 8 rounds, every call checked: passed
+
+## 4. the clients' sockets: setsockopt calls of rpc_warm over TCP (tonic channel and the core's client), strace
+      8 connect(7, {sa_family=AF_INET, sin_port=htons(40283), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRESS (Operation now in progress)
+      8 setsockopt(7, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+stopped 577118
+
+## 5. the server's accepted sockets: a second rpc_server started under strace (verification instance, same binary, --tcp 0), one warm run against it
+warm: 1 checked calls per direction (a, b, c; d: 1) from tonic (A) and the core (B) on http://127.0.0.1:34097
+      8 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+      8 accept4(8, {sa_family=AF_INET, sin_port=htons(P), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = FD
+      8 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = FD
+# note: in section 5 the sed that masks accepted fd numbers also rewrote setsockopt's return value; the raw lines in server-setsockopt.strace read '= 0'. The verification server did not exit on SIGTERM to strace; its rpc_server was killed by hand after the warm-up had passed.

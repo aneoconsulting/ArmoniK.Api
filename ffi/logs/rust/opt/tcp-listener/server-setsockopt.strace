@@ -1,0 +1,35 @@
+577528 setsockopt(8, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39532), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39544), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39560), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39564), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39578), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39586), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39600), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577524 accept4(8, {sa_family=AF_INET, sin_port=htons(39602), sin_addr=inet_addr("127.0.0.1")}, [128 => 16], SOCK_CLOEXEC|SOCK_NONBLOCK) = 9
+577524 setsockopt(9, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+577524 accept4(8, 0x70435c5f9af0, [128], SOCK_CLOEXEC|SOCK_NONBLOCK) = -1 EAGAIN (Resource temporarily unavailable)
+577520 --- SIGTERM {si_signo=SIGTERM, si_code=SI_USER, si_pid=578890, si_uid=1000} ---
+577526 +++ killed by SIGTERM +++
+577523 +++ killed by SIGTERM +++
+577521 +++ killed by SIGTERM +++
+577528 +++ killed by SIGTERM +++
+577527 +++ killed by SIGTERM +++
+577525 +++ killed by SIGTERM +++
+577524 +++ killed by SIGTERM +++
+577522 +++ killed by SIGTERM +++
+577520 +++ killed by SIGTERM +++
