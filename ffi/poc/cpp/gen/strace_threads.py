@@ -48,7 +48,7 @@ def main(path, calls, block_us=50.0):
                 continue
         t = T.search(rest)
         dur = float(t.group(1)) * 1e6 if t else 0.0
-        sock = "UNIX" in fd or "socket" in fd
+        sock = "UNIX" in fd or "TCP" in fd or "socket" in fd
         if name in ("writev", "sendmsg", "write", "sendto") and sock:
             per[tid]["socket_writes"] += 1
         elif name.startswith("epoll"):

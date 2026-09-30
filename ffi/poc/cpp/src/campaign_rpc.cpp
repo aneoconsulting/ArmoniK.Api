@@ -53,7 +53,11 @@
 //                    and E in each mode and direction, then exit
 #include "rpc_common.h"
 
+#include <arpa/inet.h>
 #include <dirent.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <fcntl.h>
 #include <time.h>
 #include <dlfcn.h>
@@ -228,6 +232,8 @@ std::vector<Cell> parse_cells(const std::string &spec) {
 
 struct Cfg {
   std::string target, transport = "shipped", cells = "ABCDEF", dirs = "arbcd";
+  std::string core_target;  // --core-target URI: the core client's endpoint when it differs from grpc++'s
+                            // target (TCP: grpc++ `ipv4:127.0.0.1:P`, the core `http://127.0.0.1:P`)
   std::string plant;     // test only (req. 18 controls): c-len | d-count | d-sha
   std::vector<int> inflight = {1, 8, 16};
   int launch = 0, rounds = 5, calls = 96, workers = 2;
@@ -291,6 +297,47 @@ std::string thread_classes() {
   for (std::map<std::string, int>::const_iterator i = n.begin(); i != n.end(); ++i)
     o += (o.size() > 1 ? ", \"" : "\"") + i->first + "\": " + std::to_string(i->second);
   return o + "}";
+}
+
+// The process's TCP sockets (fds from /proc/self/fd), each with its ports and TCP_NODELAY read back
+// with getsockopt on the live socket: what grpc-core and the core's tonic client actually set.
+std::string tcp_sockets() {
+  std::string o = "[";
+  int on = 0, all = 0;
+  if (DIR *d = opendir("/proc/self/fd")) {
+    while (struct dirent *e = readdir(d)) {
+      if (e->d_name[0] == '.') continue;
+      const int fd = std::atoi(e->d_name);
+      int dom = 0;
+      socklen_t l = sizeof dom;
+      if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &dom, &l) != 0 || (dom != AF_INET && dom != AF_INET6)) continue;
+      int ty = 0;
+      l = sizeof ty;
+      if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &ty, &l) != 0 || ty != SOCK_STREAM) continue;
+      int nd = -1;
+      l = sizeof nd;
+      getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nd, &l);
+      struct sockaddr_storage la, pa;
+      socklen_t ll = sizeof la, pl = sizeof pa;
+      int lport = 0, pport = 0;
+      // grpc-core dials an AF_INET6 socket (a v4-mapped address) for an ipv4: target
+      auto port_of = [](const struct sockaddr_storage &a) {
+        return a.ss_family == AF_INET ? (int)ntohs(((const struct sockaddr_in *)&a)->sin_port)
+             : a.ss_family == AF_INET6 ? (int)ntohs(((const struct sockaddr_in6 *)&a)->sin6_port) : 0;
+      };
+      if (getsockname(fd, (struct sockaddr *)&la, &ll) == 0) lport = port_of(la);
+      if (getpeername(fd, (struct sockaddr *)&pa, &pl) == 0) pport = port_of(pa);
+      char b[120];
+      std::snprintf(b, sizeof b, "%s{\"fd\": %d, \"family\": %d, \"local_port\": %d, \"peer_port\": %d, \"nodelay\": %d}", all ? ", " : "", fd, dom == AF_INET6 ? 6 : 4, lport, pport, nd);
+      o += b;
+      ++all;
+      if (nd > 0) ++on;
+    }
+    closedir(d);
+  }
+  char t[80];
+  std::snprintf(t, sizeof t, "], \"tcp_nodelay_on\": %d, \"tcp_sockets_n\": %d", on, all);
+  return o + t;
 }
 
 // The CPU facts each stack sizes itself from: the affinity mask (what taskset set) and the
@@ -1296,7 +1343,7 @@ int q_semantics(World &w) {
   ThreadCtx tc;
   for (int framed = 0; framed < 2; ++framed) {
     const std::string wp = framed ? "[framed, stream q]" : "[reference, stream q]";
-    ak_client *cl = core_client(w.rt, w.cfg.target, w.cfg.transport, framed == 1);
+    ak_client *cl = core_client(w.rt, w.cfg.core_target, w.cfg.transport, framed == 1);
     ak_queue *q = ak_queue_new();
     if (!cl || !q) die("semantics: client or queue", framed);
     auto open = [&](const std::string &t) {
@@ -1462,8 +1509,8 @@ int q_semantics(World &w) {
     std::printf("SKIP deferred send: this core does not export ak_call_send_deferred\n");
   } else {
     char buf[400];
-    ak_client *fr = core_client(w.rt, w.cfg.target, w.cfg.transport, true);
-    ak_client *rf = core_client(w.rt, w.cfg.target, w.cfg.transport, false);
+    ak_client *fr = core_client(w.rt, w.cfg.core_target, w.cfg.transport, true);
+    ak_client *rf = core_client(w.rt, w.cfg.core_target, w.cfg.transport, false);
     if (!fr || !rf) die("semantics: deferred clients", 0);
     auto open_on = [&](ak_client *cl, const char *p) {
       ak_call *h = ak_call_open(cl, (const uint8_t *)p, std::strlen(p), AK_CALL_CLIENT_STREAM, NULL);
@@ -1540,8 +1587,8 @@ int q_semantics(World &w) {
     std::printf("SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc\n");
   } else {
     char buf[400];
-    ak_client *fr = core_client(w.rt, w.cfg.target, w.cfg.transport, true);
-    ak_client *rf = core_client(w.rt, w.cfg.target, w.cfg.transport, false);
+    ak_client *fr = core_client(w.rt, w.cfg.core_target, w.cfg.transport, true);
+    ak_client *rf = core_client(w.rt, w.cfg.core_target, w.cfg.transport, false);
     ak_enc_ctx *ze = ak_enc_ctx_new();
     if (!fr || !rf || !ze || szc(ze, kZcMin) != AK_OK) die("semantics: zero-copy setup", 0);
     auto open_on = [&](ak_client *cl, const std::string &t) {
@@ -1781,6 +1828,7 @@ int main(int argc, char **argv) {
     std::string a = argv[i];
     const char *v = argv[i + 1];
     if (a == "--target") c.target = v;
+    else if (a == "--core-target") c.core_target = v;
     else if (a == "--transport") c.transport = v;
     else if (a == "--cells") c.cells = v;
     else if (a == "--dirs") c.dirs = v;
@@ -1807,6 +1855,7 @@ int main(int argc, char **argv) {
     else if (a == "--profile-chunks") c.profile_chunks = std::atoi(v);
     else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
+  if (c.core_target.empty()) c.core_target = c.target;
   if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
     return 2;
@@ -1928,7 +1977,7 @@ int main(int argc, char **argv) {
       cn.m_stream.reset(new RM(kUploadStream, RM::CLIENT_STREAMING, cn.chan));
       cn.m_stream_check.reset(new RM(kUploadStreamCheck, RM::CLIENT_STREAMING, cn.chan));
     } else {
-      cn.cl = core_client(w.rt, c.target, c.transport, w.cells[i].framed);
+      cn.cl = core_client(w.rt, c.core_target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
       if (w.cells[i].q && !(cn.q = ak_queue_new())) die("ak_queue_new", (long)i);
     }
@@ -1945,7 +1994,7 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < w.cells.size(); ++i) {
       const Cell &cl = w.cells[i];
       if (cl.mode == kDefault) continue;
-      ak_client *pc = grpc_cell(cl.base) ? core_client(w.rt, c.target, c.transport) : w.conns[i].cl;
+      ak_client *pc = grpc_cell(cl.base) ? core_client(w.rt, c.core_target, c.transport) : w.conns[i].cl;
       struct ak_bytes out;
       out.ptr = NULL; out.len = 0; out.owner = NULL;
       static const uint8_t kNone[1] = {0};
@@ -2055,6 +2104,7 @@ int main(int argc, char **argv) {
     if (w.jobs.size() != 1 || c.inflight.size() != 1) die("--profile needs one job (--dirs/--payloads) and one k", 0);
     const int k = c.inflight[0];
     for (int i = 0; i < 5; ++i) pool.batch(pc, 0, k, k);  // warm: steady state only
+    const std::string tcp_socks = tcp_sockets();  // after the warm batches: every connection open
     // --perf-ctl CTL,ACK[;CTL,ACK...]: several perf sessions (the client's, one attached to the
     // server) enabled and disabled together around the loop
     std::vector<std::pair<int, int> > ctls;
@@ -2194,7 +2244,8 @@ int main(int argc, char **argv) {
       std::snprintf(b, sizeof(b), "%s{\"batches\": %d, \"cpu_ns\": %.0f, \"wall_ns\": %.0f}", i ? ", " : "", cbat[i], ccpu[i], cwall[i]);
       o += b;
     }
-    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"cpu_at_end\": " + cpu_facts() + ", \"thread_wait_ns\": {";
+    o += "], " + std::string(tb) + ", " + std::string(sb) + ", \"tcp_sockets\": " + tcp_socks + ", \"core_target\": \"" + c.core_target +
+         "\", \"cpu_at_end\": " + cpu_facts() + ", \"thread_wait_ns\": {";
     {
       bool f1 = true;
       for (std::map<std::string, double>::const_iterator i = clsw.begin(); i != clsw.end(); ++i) {
@@ -2276,11 +2327,11 @@ int main(int argc, char **argv) {
               " re-serialisation; every c/d request message byte-identical to protobuf's\","
               " \"payloads\": \"%s\", \"fixed_iters\": \"%s\", \"rusage\": \"getrusage(RUSAGE_SELF) around each"
               " repetition's timed loop: counters ru_nvcsw, ru_nivcsw, ru_minflt, ru_majflt (repetition totals)\","
-              " \"cpu\": %s, \"thread_classes_before_benchmarks\": %s}}\n",
+              " \"cpu\": %s, \"thread_classes_before_benchmarks\": %s, \"core_target\": \"%s\", \"tcp_sockets\": %s}}\n",
               kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.min_time_s,
               c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, maxk, c.workers, proc_threads(),
               c.payloads.empty() ? "all" : c.payloads.c_str(), c.iters.empty() ? "none" : c.iters.c_str(),
-              cpu_facts().c_str(), thread_classes().c_str());
+              cpu_facts().c_str(), thread_classes().c_str(), c.core_target.c_str(), tcp_sockets().c_str());
   std::fflush(stdout);
 
   // WP9: the samples are Google Benchmark's. One benchmark per (cell, job, k), named

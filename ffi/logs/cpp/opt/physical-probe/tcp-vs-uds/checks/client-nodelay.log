@@ -1,0 +1,31 @@
+# client TCP dialing and TCP_NODELAY on the client's sockets, 2026-09-30T22:06:54Z, commit c515296d
+# a stand-in TCP endpoint for this check only: socat TCP-LISTEN:127.0.0.1:47811 (nodelay) forwarding to the shared server's pinned UDS socket; the timed runs use the Rust server's own TCP listener
+== A: --target ipv4:127.0.0.1:47811 --core-target http://127.0.0.1:47811
+exit 0
+"tcp_sockets": [{"fd": 11, "family": 6, "local_port": 49670, "peer_port": 47811, "nodelay": 1}], "tcp_nodelay_on": 1, "tcp_sockets_n": 1
+setsockopt TCP_NODELAY calls (strace):
+      1 setsockopt(11, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+connect to 127.0.0.1:47811 (strace):
+      1 connect(11, {sa_family=AF_INET6, sin6_port=htons(47811), sin6_flowinfo=htonl(0), inet_pton(AF_INET6, "::ffff:127.0.0.1", &sin6_addr), sin6_scope_id=0}, 28) = -1 EINPROGRESS (Operation now in progress)
+== D-retain: --target ipv4:127.0.0.1:47811 --core-target http://127.0.0.1:47811
+exit 0
+"tcp_sockets": [{"fd": 11, "family": 6, "local_port": 49690, "peer_port": 47811, "nodelay": 1}], "tcp_nodelay_on": 1, "tcp_sockets_n": 1
+setsockopt TCP_NODELAY calls (strace):
+      2 setsockopt(11, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+connect to 127.0.0.1:47811 (strace):
+      1 connect(11, {sa_family=AF_INET6, sin6_port=htons(47811), sin6_flowinfo=htonl(0), inet_pton(AF_INET6, "::ffff:127.0.0.1", &sin6_addr), sin6_scope_id=0}, 28) = -1 EINPROGRESS (Operation now in progress)
+      1 connect(11, {sa_family=AF_INET, sin_port=htons(47811), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRESS (Operation now in progress)
+== Cf-retain: --target ipv4:127.0.0.1:47811 --core-target http://127.0.0.1:47811
+exit 0
+"tcp_sockets": [{"fd": 7, "family": 4, "local_port": 49706, "peer_port": 47811, "nodelay": 1}], "tcp_nodelay_on": 1, "tcp_sockets_n": 1
+setsockopt TCP_NODELAY calls (strace):
+      1 setsockopt(7, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+connect to 127.0.0.1:47811 (strace):
+      1 connect(7, {sa_family=AF_INET, sin_port=htons(47811), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRESS (Operation now in progress)
+== Cf-q-retain: --target ipv4:127.0.0.1:47811 --core-target http://127.0.0.1:47811
+exit 0
+"tcp_sockets": [{"fd": 7, "family": 4, "local_port": 49714, "peer_port": 47811, "nodelay": 1}], "tcp_nodelay_on": 1, "tcp_sockets_n": 1
+setsockopt TCP_NODELAY calls (strace):
+      1 setsockopt(7, SOL_TCP, TCP_NODELAY, [1], 4) = 0
+connect to 127.0.0.1:47811 (strace):
+      1 connect(7, {sa_family=AF_INET, sin_port=htons(47811), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EINPROGRESS (Operation now in progress)

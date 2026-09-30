@@ -54,12 +54,12 @@ def main(path):
                 pending[(pid, name)] = fd
                 if inside:
                     counts[name] += 1
-                    if "UNIX" in fd or "socket" in fd:
+                    if "UNIX" in fd or "TCP" in fd or "socket" in fd:
                         sock[name] += 1
                 continue
             if inside:
                 counts[name] += 1
-                if "UNIX" in fd or "socket" in fd:
+                if "UNIX" in fd or "TCP" in fd or "socket" in fd:
                     sock[name] += 1
         if not inside:
             continue
@@ -68,7 +68,7 @@ def main(path):
             continue
         if t.group(2):
             errs[name + " " + t.group(2)] += 1
-        if (("UNIX" in fd) or ("socket" in fd)) and t.group(1) not in ("?",) and int(t.group(1)) > 0:
+        if (("UNIX" in fd) or ("TCP" in fd) or ("socket" in fd)) and t.group(1) not in ("?",) and int(t.group(1)) > 0:
             n = int(t.group(1))
             b = 1 << max(0, (n - 1).bit_length())
             if name in WR:
