@@ -253,6 +253,18 @@
  pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32 {
 --- a/ffi/poc/codec/crates/ak-core/src/lib.rs
 +++ b/ffi/poc/codec/crates/ak-core/src/lib.rs
+@@ -1084,9 +1084,9 @@
+         let e = &mut (*cx).e;
+         e.key(tag, ak_rt::WIRE_LEN);
+         e.varint(n as u64);
+-        // R-D9: a zero-length direct argument may be (NULL, 0).
++        // R-D9: a zero-length direct argument may be (NULL, 0). p6-zero-copy: put_blob.
+         if n != 0 {
+-            e.put(core::slice::from_raw_parts(p, n));
++            e.put_blob(p, n);
+         }
+         let _ = site;
+         return true;
 @@ -1106,9 +1106,10 @@
          ak_rt::bump!(e.c, transcode);
          e.key(tag, ak_rt::WIRE_LEN);

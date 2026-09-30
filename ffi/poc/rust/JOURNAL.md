@@ -3866,3 +3866,26 @@ profiled run under `flock /tmp/ak-physical-bench.lock`, builds on CPUs 0,9,10,19
   host runtime, harness only) 8.39 ms, 62-143 switches, level with Cf; c/P5.4 1.91 against A 1.94.
   Checks pass on every patch (pre-check 0 failures both builds, upload_check, rpc_semantics, also
   with every core client hosted).
+
+## 2026-09-30 -- p4 closed; the enc / encp / zero-copy track
+
+- p4 with the host on the patched h2 too (patches/p4-h2-coalesce/host-too): the knob reaches both
+  copies (writes per call on each cell's writing thread 1,041-1,048 at N=1, 129-158 at N=16);
+  every cell drops about 1.8-1.9 ms per 16 MiB call and Cf's gap to A returns (+0.32..+1.11 at
+  d/16 k=1); Df-1f and Ff-1f stay level with A. p4 closed (owner: not the target).
+- p5 on crates.io h2 is the target track. First zero-copy timing (patches/p6-zero-copy/inproc,
+  Cf-zc 8.26 ms at d/16 k=1): it came from the FIRST p6 build, which recorded blobs as external
+  only on the transcoder path; M5's payload reaches the core as a DIRECT argument, so that build
+  still copied it (perf record: memmove under ak_core::enc_blob on the caller thread,
+  enc-track/attrib-base). The direct path now uses put_blob; p6-zero-copy.patch and the stack
+  file were updated (STACK.txt says so) and every later Cf-zc figure is from that build.
+- p7-deferred-zc: ak_call_send_deferred_zc, the deferred encode (p5) on a zero-copy context,
+  cells Cf-zcp (wait 0) and Cf-zcw (wait 1). Checks pass (pre-check, upload_check,
+  rpc_semantics, SHA on pinned and shipped at k 1 and 8).
+- In-process, crates.io h2, pinned allocator (enc-track/inproc-1): d/16 k=1 A 7.65, Cf 8.31,
+  Cf-enc 7.70, Cf-encp 7.81, Cf-zc 6.71 (wall 7.90), Cf-zcp 6.63 (wall 7.75); d/16 k=8 A 9.23,
+  Cf-zc 6.43, Cf-zcp 6.36 (wall 7.96 against A 8.88). Attribution (enc-track/attrib-2): zero copy
+  removes the encode memcpy (user cycles 2.6 M against 8.9-9.0), copy_from_user 4.9 M (A 4.3 hot,
+  Cf 5.7 cross-CPU), cache misses 266 k against 430-490 k.
+- perf_classify.py already puts clear_page_erms under the socket write path in "socket write:
+  zeroing new skb pages" (not page faults) since the first System.map run.

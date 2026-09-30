@@ -1,0 +1,165 @@
+# 784 samples, 980,302,229 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.165
+
+## thread class
+
+   98.1%  core-rt
+    1.6%  caller
+    0.3%  main
+
+## leaf crate (self)
+
+   88.1%  kernel
+    4.9%  h2
+    1.6%  tokio
+    1.3%  libc:mem
+    0.9%  libc:other
+    0.8%  tokio_util
+    0.6%  bytes
+    0.4%  hyper
+    0.3%  rpc
+    0.3%  std
+    0.2%  other:libm.so.6
+    0.2%  http
+    0.1%  tracing
+    0.1%  tonic
+    0.1%  libc:alloc
+    0.1%  core
+    0.1%  (no frames)
+    0.1%  ak_core(C ABI)
+    0.0%  ak_rt
+    0.0%  harness
+
+## libc leaves by caller crate
+
+    0.8%  libc:mem     <- h2
+    0.6%  libc:mem     <- bytes
+    0.4%  libc:other   <- mio
+    0.3%  libc:other   <- ?
+    0.2%  libc:other   <- tokio
+    0.1%  libc:alloc   <- ak_core(C ABI)
+    0.0%  libc:alloc   <- bytes
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   83.2%  __syscall_cancel_arch_end                <- mio
+    2.8%  syscall                                  <- tokio
+    1.4%  ?                                        <- ?
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __internal_syscall_cancel                <- mio
+    0.1%  h2::proto::streams::streams::Streams<B,P <- h2
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.1%  syscall                                  <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   96.0%  libc:other
+   95.8%  std
+   95.7%  core
+   95.4%  tokio
+   88.4%  kernel
+   86.8%  h2
+   86.6%  hyper
+   83.9%  mio
+   80.2%  tokio_util
+    1.5%  stream_probe
+    1.3%  libc:mem
+    1.2%  bytes
+    1.2%  ak_core(C ABI)
+    1.1%  hyper_util
+    0.7%  tonic
+    0.6%  rpc
+    0.4%  ak_core
+    0.3%  other:stream_probe
+    0.3%  http_body_util
+    0.3%  serde_json
+    0.2%  serde_core
+    0.2%  other:libm.so.6
+    0.2%  http
+    0.1%  tracing
+    0.1%  other:libak_core.so
+    0.1%  libc:alloc
+    0.1%  other:[vdso]
+    0.1%  ak_rt
+    0.0%  harness
+    0.0%  campaign
+
+## top leaf symbols
+
+   88.1%  [kernel] [unknown]
+    1.3%  [libc:mem] __memmove_evex_unaligned_erms
+    0.9%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.8%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.8%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.6%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.6%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.4%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.3%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.3%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.2%  [libc:other] __tls_get_addr
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as core::ops::drop::Drop>::drop
+    0.2%  [other:libm.so.6] pow@@GLIBC_2.29
+    0.2%  [http] <http::uri::Parts as core::convert::From<http::uri::Uri>>::from
+    0.1%  [rpc] <rpc::FramedStream<S> as http_body::Body>::poll_frame
+    0.1%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::time::wheel::level::Level::next_expiration
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [h2] <h2::client::Connection<T,B> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::sync::notify::Notify::notify_waiters
+    0.1%  [rpc] <rpc::RawDecoder as tonic::codec::Decoder>::decode
+    0.1%  [libc:other] __syscall_cancel_arch_end
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::pop_pending_open
+    0.1%  [libc:other] __libc_recv
+
+## kernel buckets (System.map)
+
+   24.1%  socket write: copy from user
+   18.5%  socket write: skb alloc/free, memcg
+   15.7%  socket write: other (entry, locks, unix stream)
+   12.9%  socket write: zeroing new skb pages
+    7.2%  socket write: wake the reader
+    4.9%  epoll_wait
+    2.3%  futex
+    1.2%  other kernel
+    1.0%  socket read
+    0.2%  scheduling, interrupts
+
+## kernel leaf functions (System.map)
+
+   22.7%  rep_movs_alternative
+   12.8%  clear_page_erms
+    4.7%  syscall_return_via_sysret
+    3.4%  entry_SYSRETQ_unsafe_stack
+    3.1%  __alloc_tagging_slab_alloc_hook
+    2.0%  entry_SYSCALL_64
+    1.7%  entry_SYSCALL_64_after_hwframe
+    1.6%  get_page_from_freelist
+    1.4%  _copy_from_iter
+    1.4%  _raw_spin_lock
+    1.4%  _raw_spin_lock_irqsave
+    1.2%  __pgalloc_tag_add
+    1.2%  native_queued_spin_lock_slowpath
+    1.1%  try_charge_memcg
+    1.1%  sock_def_readable
+    1.0%  __smp_call_single_queue
+    1.0%  __kmalloc_node_track_caller_noprof
+    0.9%  __list_del_entry_valid_or_report
+    0.8%  static_key_count
+    0.7%  dequeue_entities
+    0.7%  unix_stream_sendmsg
+    0.7%  __rcu_read_lock
+    0.6%  skb_set_owner_w
+    0.6%  mod_memcg_state
+    0.6%  __wake_up_common
+    0.6%  __memcg_slab_post_alloc_hook
+    0.6%  page_ext_get
+    0.5%  __next_zones_zonelist
+    0.5%  ep_poll_callback
+    0.5%  kmem_cache_alloc_node_noprof

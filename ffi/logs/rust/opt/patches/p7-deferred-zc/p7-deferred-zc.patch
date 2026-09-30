@@ -1,0 +1,73 @@
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -757,6 +757,9 @@
+     enc: usize,
+     /// Signalled after the encode (its rc) when the host waits for it.
+     done: Option<std::sync::mpsc::SyncSender<i32>>,
++    /// EXPERIMENT p7-deferred-zc: the host's release for a zero-copy context (its encode
++    /// recorded borrowed blobs): the message is sent as pieces and released when written.
++    release: Option<(unsafe extern "C" fn(*mut c_void), usize)>,
+ }
+ pub type AkEncodeFn = unsafe extern "C" fn(user: *mut c_void, enc: *mut crate::ak_enc_ctx) -> i32;
+ 
+@@ -784,7 +787,25 @@
+             core::task::Poll::Ready(Some(Item::D(d))) => {
+                 rev();
+                 let rc = unsafe { (d.f)(d.user as *mut c_void, d.enc as *mut crate::ak_enc_ctx) };
+-                let r = if rc < 0 { Err(rc) } else { unsafe { enc_take(d.enc as *mut crate::ak_enc_ctx) } };
++                let zc = unsafe { !(*(d.enc as *mut crate::EncCtxImpl)).e.ext.is_empty() };
++                let r = if rc < 0 {
++                    Err(rc)
++                } else if zc {
++                    let cx = unsafe { &mut *(d.enc as *mut crate::EncCtxImpl) };
++                    let rel = d.release;
++                    let parts = cx.e.take_framed_parts(ak_rt::enc::ZcRelease(Some(Box::new(move || {
++                        if let Some((f, u)) = rel {
++                            rev();
++                            unsafe { f(u as *mut c_void) };
++                        }
++                    }))));
++                    let mut it = parts.into_iter();
++                    let first = it.next().unwrap_or_default();
++                    self.parts = it.collect();
++                    Ok((first, true))
++                } else {
++                    unsafe { enc_take(d.enc as *mut crate::ak_enc_ctx) }
++                };
+                 let code = match &r {
+                     Ok(_) => AK_OK,
+                     Err(e) => *e,
+@@ -1193,7 +1214,7 @@
+     } else {
+         (None, None)
+     };
+-    let sent = tx.blocking_send(Item::D(Deferred { f, user: user as usize, enc: enc as usize, done: dtx })).is_ok();
++    let sent = tx.blocking_send(Item::D(Deferred { f, user: user as usize, enc: enc as usize, done: dtx, release: DEFERRED_RELEASE.with(|r| r.take()) })).is_ok();
+     let rc = send_end(&st.tx, tx, sent, last, "ak_call_send_deferred");
+     if rc != AK_OK {
+         return rc;
+@@ -1207,6 +1228,24 @@
+     }
+ }
+ 
++thread_local! {
++    static DEFERRED_RELEASE: core::cell::Cell<Option<(unsafe extern "C" fn(*mut c_void), usize)>> = const { core::cell::Cell::new(None) };
++}
++
++/// EXPERIMENT p7-deferred-zc: `ak_call_send_deferred` for a context with zero copy on
++/// (`ak_enc_set_zc`): the encode on the transport's worker writes the message's head and
++/// records the host's large blobs as borrowed, and the message goes out as pieces. Lifetime
++/// contract: the value `user` reaches stays untouched as for ak_call_send_deferred, and the
++/// borrowed blobs' memory stays valid and unmodified until `release(ruser)` runs (once per
++/// message, any thread, after the last borrowed piece is written or dropped).
++#[no_mangle]
++pub unsafe extern "C" fn ak_call_send_deferred_zc(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, f: AkEncodeFn, user: *mut c_void, last: i32, wait: i32, release: unsafe extern "C" fn(*mut c_void), ruser: *mut c_void) -> i32 {
++    DEFERRED_RELEASE.with(|r| r.set(Some((release, ruser as usize))));
++    let rc = ak_call_send_deferred(h, enc, f, user, last, wait);
++    DEFERRED_RELEASE.with(|r| r.set(None));
++    rc
++}
++
+ /// EXPERIMENT p6-zero-copy: blobs of at least `min_len` bytes (0 = off) that this context
+ /// encodes are left in the host's memory (the encoder records where they go instead of copying
+ /// them); only ak_call_send_enc_zc may take such a context's output.

@@ -1,0 +1,1 @@
+# stack: p1-ring, p2-take-framed, p3-exec-slot, p5-deferred, p6-zero-copy (with the direct-argument path), then p7-deferred-zc (ak-core rpc.rs: ak_call_send_deferred_zc; the deferred encode takes a zero-copy context's output as pieces)

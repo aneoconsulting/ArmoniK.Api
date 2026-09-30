@@ -1,0 +1,12 @@
+stack d16k1 1 done at +4 s
+stack d16k8 1 done at +10 s
+stack d4k1 1 done at +13 s
+stack d4k8 1 done at +15 s
+stack d16k1 2 done at +20 s
+stack d16k8 2 done at +26 s
+stack d4k1 2 done at +28 s
+stack d4k8 2 done at +31 s
+stack d16k1 3 done at +35 s
+stack d16k8 3 done at +42 s
+stack d4k1 3 done at +44 s
+stack d4k8 3 done at +47 s
