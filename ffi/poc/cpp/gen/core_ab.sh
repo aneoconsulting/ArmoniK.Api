@@ -65,7 +65,7 @@ ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
   done
   echo "# every process: ${ENVX:-no extra environment (default allocator)}; cell knobs: ${AB_CELL_KNOBS:-none}"
   echo "# workloads: ${WLS[*]}; cells: ${CELLS[*]} (direction d only: ${AB_D_ONLY:-none}); rounds: $ROUNDS"
-  echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers $WK; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
+  echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers ${AB_CLIENT_WORKERS:-$WK}; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
   echo "# machine $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"; } >> "$LOG"
 grep -q REFUSED "$LOG" && exit 1
 rm -f "$SCR/ctl" "$SCR/ack" "$SCR/sctl" "$SCR/sack"; mkfifo "$SCR/ctl" "$SCR/ack" "$SCR/sctl" "$SCR/sack"
@@ -76,7 +76,7 @@ run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
       -e trace=write,writev,sendmsg,sendto,read,readv,recvmsg,recvfrom,futex,epoll_wait,epoll_pwait,epoll_pwait2,mmap,munmap,madvise,mremap,brk,sched_yield,poll,ppoll,io_uring_enter) ;;
     stat:*) pre=(perf stat -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -x, -o "${st#stat:}" \
       -e cycles:u,cycles:k,instructions:u,instructions:k,cache-references,cache-misses,LLC-load-misses,page-faults,context-switches --); ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
-    record:*) pre=(perf record -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -e cycles -F 4000 --call-graph lbr -o "${st#record:}" --)
+    record:*) pre=(perf record -m 64 -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -e cycles -F 4000 --call-graph lbr -o "${st#record:}" --)
       ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
   esac
   # AB_SERVER_PERF=1 (perf phase): the same perf attached to the server process too (perf stat
@@ -87,14 +87,14 @@ run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
     case "$st" in
       stat:*) taskset -c "$OSSET" perf stat -p "$sp" -D -1 --control "fifo:$SCR/sctl,$SCR/sack" -x, -o "${st#stat:}.server" \
                 -e cycles:u,cycles:k,instructions:u,instructions:k,cache-misses,context-switches > /dev/null 2>&1 & spf=$! ;;
-      record:*) taskset -c "$OSSET" perf record -p "$sp" -D -1 --control "fifo:$SCR/sctl,$SCR/sack" -e cycles -F 4000 --call-graph lbr \
+      record:*) taskset -c "$OSSET" perf record -m 8 -p "$sp" -D -1 --control "fifo:$SCR/sctl,$SCR/sack" -e cycles -F 4000 --call-graph lbr \
                 -o "${st#record:}.server" > /dev/null 2>&1 & spf=$! ;;
     esac
     ctl=(--perf-ctl "$SCR/ctl,$SCR/ack;$SCR/sctl,$SCR/sack")
   fi
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="${ACORE[$arm]}" ${AKNOB[$arm]} $(cellknobs "$cell") $ENVX \
     AK_SERVER_PID="$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
-    --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" \
+    --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers ${AB_CLIENT_WORKERS:-$WK} --profile "$n" \
     --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; [ -n "$spf" ] && kill -INT $spf; exit 1; }
   if [ -n "$spf" ]; then kill -INT "$spf" 2> /dev/null; wait "$spf" 2> /dev/null; fi
 }

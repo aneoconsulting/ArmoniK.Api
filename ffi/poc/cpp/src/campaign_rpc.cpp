@@ -1811,6 +1811,9 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
     return 2;
   }
+  // AK_WORKERS (the Cf-q attribution, an arm knob of gen/core_ab.sh): the core runtime's worker
+  // count, overriding --workers
+  if (const char *wv = std::getenv("AK_WORKERS")) c.workers = std::atoi(wv);
   w.rt = ak_runtime_new((uint32_t)c.workers);
   pbbuild::payload_p2_2(&w.pb_req);
   w.fac_req = shapes::build::payload_p2_2();

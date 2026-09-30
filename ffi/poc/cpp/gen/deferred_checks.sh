@@ -53,7 +53,7 @@ bad() { echo ">>> FAIL: $*"; F=$((F + 1)); }
     exe=$B/campaign_rpc; d=$CD; [ $v = nounk ] && { exe=$B/campaign_rpc_nounk; d=$CDN; }
     env LD_LIBRARY_PATH=$d $KNOBS taskset -c "$AK_CPU_CLIENT" "$exe" --target "$SOCK" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
     grep -E '^(PASS|FAIL|SKIP)' "$SCR/s" | sed 's/^/    /'
-    need=1; for e in ${DC_EXPECT:-deferred:7}; do [ "$(grep -c "^PASS.*${e%%:*}" "$SCR/s")" -ge "${e##*:}" ] || need=0; done
+    need=1; for e in ${DC_EXPECT-deferred:7}; do [ "$(grep -c "^PASS.*${e%%:*}" "$SCR/s")" -ge "${e##*:}" ] || need=0; done
     [ $rc = 0 ] && grep -q '"failed": 0' "$SCR/s" && [ $need = 1 ] && ok "semantics $v ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "semantics $v rc=$rc"
   done
   echo "===== 3. HEAD's core: the deferred cases skipped, a Cf-enc cell refused"

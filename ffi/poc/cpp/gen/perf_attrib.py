@@ -109,7 +109,7 @@ def bucket(frames, kname):
             return "k: page faults (the fault path)"
         if re.search(r"writev|sendmsg|sendto", w):
             return "k: socket write (sendmsg/writev)"
-        if re.search(r"recvmsg|recvfrom|readv", w):
+        if re.search(r"recvmsg|recvfrom|readv|__libc_recv$|^recv$", w):
             return "k: socket read (recvmsg/read)"
         if re.search(r"epoll", w):
             return "k: epoll_wait"
