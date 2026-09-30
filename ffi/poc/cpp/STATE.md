@@ -61,6 +61,17 @@ d call to UploadStreamCheck (count and SHA-256 per call). Checks: `gen/deferred_
 `logs/cpp/opt/physical-probe/patches/p5-deferred/` (core p1-p2-p3-p5, crates.io h2; `gen/core_ab.sh` with AB_CELLS and
 AB_D_ONLY).
 
+**Zero-copy cell (EXPERIMENT, Rust patch p6-zero-copy)**: `Cf-zc-<mode>`, direction d only, framed, blocking:
+each thread has its own zero-copy encode context (`ak_enc_set_zc(ctx, 64 KiB)`), the chunk is encoded into it and sent
+with `ak_call_send_enc_zc(h, ctx, last, zc_release, &counter)`; the data stay in the process's payload (World::st);
+before each call the thread checks that every message of its previous call was released (waits up to 1 s, else the
+call check fails). Refused on a core without the two entries (checked). `--semantics 1` adds 5 zero-copy cases
+(both payloads to the checking path with one release per message, release on cancel, release on a failed call, the
+reference path refused without a release). `gen/core_ab.sh` gained a `perf` phase (perf stat with cache counters,
+perf record) and `gen/core_ab_tables.py` a perf section. `gen/perf_attrib.py` (2026-09-30): clear_page_erms under
+alloc_skb_with_frags is the socket write's page zeroing, not a page fault; the "page faults" bucket is now the fault
+path only, and the 4a tables were regenerated with it (profile/record/*.attrib.json).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -659,6 +670,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `patches/p1-ring/` | p1-ring from C++: `checks/checks.log` (patched core: 608/0, 478/0, codec pre-check 0 failed, semantics 0 failed both builds), `measure/*.out`, `alloc/*.out`, `tables.md`, `runner.log`; `spares24/` the follow-up with a ring of 24 |
 | `patches/p4-h2-coalesce/` | the p1-p3 stack (ctl, core sha256 9e0308aa) against p1-p4 (h16, b140a8fb; h2 0.4.19 patched, AK_H2_COALESCE=16): checks per core and knob, `measure/` (GLIBC_TUNABLES trim 256 MiB, mmap 32 MiB; 3 rounds), `default/` (default allocator, 1 round), `strace/`, `tables.md` |
 | `patches/p5-deferred/` | the p1-p2-p3-p5 core (sha256 b581292d; no-unknown 1137a22d) with the new Cf-enc / Cf-encp cells: `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 21/21 both builds incl. 7 deferred cases, HEAD core refuses Cf-enc, 24 check-stream benchmarks with every call's count and SHA-256), `measure/`, `default/`, `strace/`, `tables.md` |
+| `patches/p6-zero-copy/` | the p1-p2-p3-p5-p6 core (sha256 9ac08de0; no-unknown 56177ce9; the patch as applied kept beside the logs): `checks/checks.log` (608/0, 478/0, codec pre-check 0 failed, semantics 26/26 both builds incl. 5 zero-copy cases, HEAD core refuses Cf-zc, 20 check-stream benchmarks), `measure/`, `default/`, `strace/`, `perf/` (perf stat and gzip'd perf record per cell, attrib JSON), `tables.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):

@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "A", "payload": "16MiB", "dir": "d", "k": 1, "batches": 120, "calls": 120, "cells_open": "A", "chunks": [{"batches": 12, "cpu_ns": 126391173, "wall_ns": 128961212}, {"batches": 12, "cpu_ns": 124822530, "wall_ns": 125009244}, {"batches": 12, "cpu_ns": 121919092, "wall_ns": 120754834}, {"batches": 12, "cpu_ns": 123412805, "wall_ns": 121596576}, {"batches": 12, "cpu_ns": 125105451, "wall_ns": 122212209}, {"batches": 12, "cpu_ns": 122384754, "wall_ns": 113613026}, {"batches": 12, "cpu_ns": 121439253, "wall_ns": 116453326}, {"batches": 12, "cpu_ns": 120442444, "wall_ns": 113150315}, {"batches": 12, "cpu_ns": 122659819, "wall_ns": 115516457}, {"batches": 12, "cpu_ns": 123007084, "wall_ns": 120268058}], "thread_cpu_ns": {"caller": {"threads": 1, "ns": 464193078}, "event_engine": {"threads": 8, "ns": 764063122}, "grpc_global_tim": {"threads": 1, "ns": 28935}, "lifeguard": {"threads": 1, "ns": 162135}, "main": {"threads": 1, "ns": 3728862}, "tokio-rt-worker": {"threads": 8, "ns": 0}}, "big_allocs": -1, "rusage": {"nvcsw": 17573, "nivcsw": 0, "minflt": 9, "majflt": 0, "utime_us": 474460, "stime_us": 757257}, "fold": 960}}
+[ perf record: Woken up 17 times to write data ]
+[ perf record: Captured and wrote 3.302 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/patches/p6-zero-copy/perf/d16k1-A-p6.data (6838 samples) ]

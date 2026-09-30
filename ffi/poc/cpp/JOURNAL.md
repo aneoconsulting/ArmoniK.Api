@@ -1981,3 +1981,21 @@ changes.
   2.10 -> 0.13 / 0.11 ms at d/16 k=1) onto the core workers (6.28 -> 7.81 / 7.69), CPU 8.33 -> 7.94 / 7.77, wall
   8.44 -> 9.03 / 9.11; writes per call unchanged (about 1027 per d/16 call). Cf-enc - A per round -0.19 to -0.38 (k=1),
   -0.33 to -0.49 (k=8); wall +0.19 to +1.13.
+
+## 2026-09-30, p6-zero-copy from C++ with an attribution
+
+- Worktree at the main HEAD with the on-disk stack-p1-p2-p3-p5-p6.patch (sha256 764ea176; the Rust agent's uncommitted
+  update, which also routes the DIRECT blob argument through put_blob; a copy kept as
+  logs/cpp/opt/physical-probe/patches/p6-zero-copy/stack-p1-p2-p3-p5-p6.patch.as-applied). Cores 9ac08de0 / 56177ce9.
+- Cell Cf-zc-* added (own zero-copy context per thread, release counter, contract check per call); semantics +5 cases;
+  checks all pass (gen/deferred_checks.sh with DC_CELLS / DC_EXPECT).
+- Measured (pinned allocator): Cf-zc d/16 CPU 6.86 (k=1) and 6.65 (k=8) against Cf 8.46 and 9.70, A 8.28 and 9.68; d/4
+  1.60 and 1.69 against Cf 2.17 and 2.64. Attribution (perf record, d/16): the encode memcpy (1.98 ms at k=1, 2.44 at k=8,
+  on the caller thread) is gone (perf shows no memmove under the encode for Cf-zc: the zero-copy is running); the kernel's
+  socket write moves +0.27 (k=1; copy_from_user 1.67 -> 2.05: the writer reads the host's buffer) and -0.54 (k=8); LLC
+  load misses per call 249k -> 140k (k=1), 198k -> 95k (k=8). The Rust figure the coordinator quoted (Cf-zc 8.26) was
+  taken on the first p6 build, which per its STACK.txt still copied the direct argument.
+- Found while attributing: clear_page_erms (about 0.8 ms per d/16 call in every cell, A included) is the page zeroing of
+  alloc_skb_with_frags in the socket write, not page faults (getrusage minflt about 0 per call). perf_attrib.py's fault
+  bucket was wrong since 4a; fixed, the 4a tables regenerated (Cf - D socket write +1.81 instead of +1.76; the rest moves
+  from "page faults" into "socket write" in every cell).

@@ -3,6 +3,8 @@
 # no timing. Under /tmp/ak-physical-bench.lock with an own 8-worker server.
 #
 #   gen/deferred_checks.sh LOG PATCH_TREE CORE_DIR CORE_NOUNK_DIR "KNOBS"
+#   DC_CELLS   the grid's cells (default A, D, Cf, Cf-enc, Cf-encp, Cf-q; add Cf-zc-retain for p6)
+#   DC_EXPECT  "WORD:N ..." semantics lines that must be present (default deferred:7; p6: zero-copy:4)
 #
 #   1. the patch tree's binaries (built against its cores): conformance full and no-unknown (byte
 #      identity), the codec pre-check of both builds;
@@ -51,25 +53,29 @@ bad() { echo ">>> FAIL: $*"; F=$((F + 1)); }
     exe=$B/campaign_rpc; d=$CD; [ $v = nounk ] && { exe=$B/campaign_rpc_nounk; d=$CDN; }
     env LD_LIBRARY_PATH=$d $KNOBS taskset -c "$AK_CPU_CLIENT" "$exe" --target "$SOCK" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
     grep -E '^(PASS|FAIL|SKIP)' "$SCR/s" | sed 's/^/    /'
-    [ $rc = 0 ] && grep -q '"failed": 0' "$SCR/s" && [ "$(grep -c 'deferred' "$SCR/s")" -ge 7 ] && ok "semantics $v ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "semantics $v rc=$rc"
+    need=1; for e in ${DC_EXPECT:-deferred:7}; do [ "$(grep -c "^PASS.*${e%%:*}" "$SCR/s")" -ge "${e##*:}" ] || need=0; done
+    [ $rc = 0 ] && grep -q '"failed": 0' "$SCR/s" && [ $need = 1 ] && ok "semantics $v ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "semantics $v rc=$rc"
   done
   echo "===== 3. HEAD's core: the deferred cases skipped, a Cf-enc cell refused"
   taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
   [ $rc = 0 ] && grep -q '^SKIP deferred' "$SCR/s" && ok "HEAD core: semantics pass, deferred skipped ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "HEAD core semantics rc=$rc"
-  taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned --cells Cf-enc-retain --dirs d \
-    --inflight 1 --rounds 1 --gbench-out "$SCR/g.json" > "$SCR/r" 2>&1; rc=$?
-  [ $rc = 2 ] && grep -q REFUSED "$SCR/r" && ok "HEAD core refuses Cf-enc: $(grep REFUSED "$SCR/r")" || bad "HEAD core did not refuse Cf-enc (rc=$rc)"
+  for rc_cell in Cf-enc-retain Cf-zc-retain; do
+    taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned --cells $rc_cell --dirs d \
+      --inflight 1 --rounds 1 --gbench-out "$SCR/g.json" > "$SCR/r" 2>&1; rc=$?
+    [ $rc = 2 ] && grep -q REFUSED "$SCR/r" && ok "HEAD core refuses $rc_cell: $(grep REFUSED "$SCR/r")" || bad "HEAD core did not refuse $rc_cell (rc=$rc)"
+  done
   echo "===== 4. every d call checked against the server's count and SHA-256 (--check-stream 1), patched core"
   rm -f "$SCR/g.json"
   env LD_LIBRARY_PATH=$CD $KNOBS taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" --expect 540422 --transport pinned \
-    --cells A,D-retain,Cf-retain,Cf-enc-retain,Cf-encp-retain,Cf-q-retain --dirs d --inflight 1,8 --rounds 1 --min-time-s 0.001 \
+    --cells ${DC_CELLS:-A,D-retain,Cf-retain,Cf-enc-retain,Cf-encp-retain,Cf-q-retain} --dirs d --inflight 1,8 --rounds 1 --min-time-s 0.001 \
     --warmup-s 0 --workers 8 --check-stream 1 --gbench-out "$SCR/g.json" > "$SCR/o" 2>&1; rc=$?
   n=$(python3 gen/gbench_to_jsonl.py "$SCR/g.json" 1 full rpc 2>/dev/null | grep -c '^{')
   python3 gen/gbench_to_jsonl.py "$SCR/g.json" 1 full rpc 2>/dev/null | grep '^{' | python3 -c "
 import json,sys
 for l in sys.stdin:
     d=json.loads(l); print('    %-16s %-6s k=%d  %d calls checked' % (d['cell'], d['payload'], d['inflight'], d['iters']))"
-  [ $rc = 0 ] && [ "$n" = 24 ] && ok "check-stream grid: $n benchmarks (6 cells x 2 payloads x k 1, 8), every call's count and SHA-256 matched" \
+  nc=$(echo "${DC_CELLS:-A,D-retain,Cf-retain,Cf-enc-retain,Cf-encp-retain,Cf-q-retain}" | tr ',' '\n' | wc -l)
+  [ $rc = 0 ] && [ "$n" = $((nc * 4)) ] && ok "check-stream grid: $n benchmarks ($nc cells x 2 payloads x k 1, 8), every call's count and SHA-256 matched" \
     || { grep -m3 -E 'CALL CHECK|REFUSED' "$SCR/o"; bad "check-stream grid rc=$rc n=$n"; }
   echo "deferred_checks: $F failure(s)"
 } > "$LOGF" 2>&1

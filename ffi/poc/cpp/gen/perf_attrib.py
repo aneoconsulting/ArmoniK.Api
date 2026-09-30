@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 BUCKETS = [
-    "k: page faults (fault, zeroing new pages)", "k: futex", "k: epoll_wait", "k: socket write (sendmsg/writev)",
+    "k: page faults (the fault path)", "k: futex", "k: epoll_wait", "k: socket write (sendmsg/writev)",
     "k: socket read (recvmsg/read)", "k: mmap/munmap/madvise/brk", "k: eventfd", "k: scheduling, interrupts",
     "k: other syscalls", "k: other",
     "u: memcpy in encode", "u: memcpy in hyper/h2/bytes", "u: memcpy in grpc/protobuf", "u: memcpy other",
@@ -93,7 +93,9 @@ def kaslr(samples, addrs, names):
     return off, votes[off] / max(1, min(len(kf), 20000))
 
 
-PF = re.compile(r"exc_page_fault|handle_mm_fault|do_anonymous_page|clear_page|do_fault|do_user_addr_fault|alloc_anon_folio")
+# A page fault is the fault path itself. clear_page_erms alone is NOT one: on this kernel it also
+# zeroes the pages alloc_skb_with_frags takes for a socket write (seen in the p6 attribution).
+PF = re.compile(r"exc_page_fault|handle_mm_fault|do_anonymous_page|do_fault|do_user_addr_fault|alloc_anon_folio")
 
 
 def bucket(frames, kname):
@@ -104,7 +106,7 @@ def bucket(frames, kname):
         # the syscall wrapper: the first user frame that is not glibc's cancellation helper
         w = next((u[0] for u in us if not re.search(r"syscall_cancel|__internal_syscall", u[0])), "")
         if PF.search(j):
-            return "k: page faults (fault, zeroing new pages)"
+            return "k: page faults (the fault path)"
         if re.search(r"writev|sendmsg|sendto", w):
             return "k: socket write (sendmsg/writev)"
         if re.search(r"recvmsg|recvfrom|readv", w):

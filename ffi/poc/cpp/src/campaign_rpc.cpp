@@ -63,6 +63,7 @@
 #include <sys/syscall.h>
 
 #include <algorithm>
+#include <atomic>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -142,6 +143,9 @@ struct Cell {
                       // directions a and a+read only)
   bool q = false;     // req. 16 as amended 2026-09-28: B, C, E (and framed twins) on the core's
                       // COMPLETION-QUEUE delivery (B-q, C-q-drop, Cf-q-drop, ...), beside the blocking ones
+  bool zc = false;    // EXPERIMENT (Rust patch p6-zero-copy): Cf-zc-*, direction d only: the chunk's data
+                      // left in the host's memory (ak_enc_set_zc, 64 KiB threshold, a context of its
+                      // own) and sent borrowed with ak_call_send_enc_zc; refused on a core without them
   int deferred = 0;   // EXPERIMENT (Rust patch p5-deferred): Cf-enc-* (1) and Cf-encp-* (2), direction d
                       // only: each chunk encoded BY THE TRANSPORT through ak_call_send_deferred (found
                       // with dlsym; a core without it refuses the cell), wait = 1 / wait = 0
@@ -206,8 +210,12 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       Mode m = rest.empty() ? kDefault
                : rest == "-retain" ? kRetain
                : rest == "-nounk" ? kNoUnk : kDrop;
+      bool zc = false;
+      if (!df && rest.compare(0, 3, "-zc") == 0 && (rest.size() == 3 || rest[3] == '-')) { zc = true; rest = rest.substr(3); }
+      if (zc) m = rest.empty() ? kDefault : rest == "-retain" ? kRetain : rest == "-nounk" ? kNoUnk : kDrop;
       Cell cl{l[0], m, l, fr, pu, qq};
       cl.deferred = df;
+      cl.zc = zc;
       out.push_back(cl);
     }
     if (q == std::string::npos) break;
@@ -442,6 +450,8 @@ struct ThreadCtx {
   ak_dec_ctx *dcr = nullptr;  // retain decodes: its own context, left armed (rule 7), so a drop
                               // decode on `dc` never pays a disarming reset
   ak::Enc *ne = nullptr, *nre = nullptr;
+  ak_enc_ctx *zec = nullptr;  // EXPERIMENT p6: cell Cf-zc's own zero-copy encode context (created on first use)
+  std::atomic<long> zc_sent{0}, zc_released{0};  // Cf-zc: messages sent borrowing, and released
   std::vector<uint8_t> pbuf;  // H-6: cell B's protobuf request buffer, reused, grown only
   BBFlat bbf;                 // R-2: D and F's response bytes, one slice in place or a reused copy
   ThreadCtx() {
@@ -455,6 +465,7 @@ struct ThreadCtx {
   }
   ~ThreadCtx() {
     ak_enc_ctx_free(ec);
+    if (zec) ak_enc_ctx_free(zec);
     shapes::ffi::dec_ctx_free(dc);
     shapes::ffi::dec_ctx_free(dcr);
     delete ne;
@@ -792,6 +803,14 @@ long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool che
 typedef int32_t (*AkEncodeFn)(void *user, ak_enc_ctx *enc);
 typedef int32_t (*SendDeferredFn)(ak_call *, ak_enc_ctx *, AkEncodeFn, void *, int32_t last, int32_t wait);
 SendDeferredFn g_send_deferred = NULL;
+// EXPERIMENT (Rust patch p6-zero-copy): ak_enc_set_zc(enc, min_len), ak_call_send_enc_zc(h, enc, last,
+// release, user); NULL on a core without them.
+typedef int32_t (*SetZcFn)(ak_enc_ctx *, size_t);
+typedef int32_t (*SendZcFn)(ak_call *, ak_enc_ctx *, int32_t last, void (*release)(void *), void *user);
+SetZcFn g_set_zc = NULL;
+SendZcFn g_send_zc = NULL;
+const size_t kZcMin = 64 * 1024;  // blobs of 64 KiB and more borrowed (the Rust cell's threshold)
+void zc_release(void *user) { ((std::atomic<long> *)user)->fetch_add(1); }
 // --check-stream 1 (a check run, never timed): every direction d call goes to UploadStreamCheck
 // and verifies the server's byte count and SHA-256 of the messages as received.
 bool g_check_stream = false;
@@ -835,6 +854,35 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
     if (!s.ok()) die("A/d status", (long)s.error_code());
     std::string a = flatten(rsp);
     check_answer(st, (const uint8_t *)a.data(), a.size(), check);
+    return (long)nmsg;
+  }
+  if (cl.zc) {  // Cf-zc: each chunk's data borrowed from the host (st.f, alive for the process)
+    if (!tc.zec) {
+      tc.zec = ak_enc_ctx_new();
+      if (!tc.zec || g_set_zc(tc.zec, kZcMin) != AK_OK) die("ak_enc_set_zc", 0);
+    }
+    // the lifetime contract, checked: every message of this thread's previous call released
+    // (the release may run after that call's recv returned: allow it a short while)
+    for (int spin = 0; tc.zc_released.load() != tc.zc_sent.load(); ++spin) {
+      if (spin > 2000) die("Cf-zc: a message of the previous call was never released", tc.zc_sent.load() - tc.zc_released.load());
+      std::this_thread::sleep_for(std::chrono::microseconds(500));
+    }
+    ak_call *h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
+    if (!h) die("ak_call_open", 0);
+    for (size_t i = 0; i < nmsg; ++i) {
+      if (core_enc(tc.zec, st.f[i], cl.mode) < 0) die("Cf-zc encode", (long)i);
+      tc.zc_sent.fetch_add(1);
+      const int32_t rc = g_send_zc(h, tc.zec, i + 1 == nmsg, zc_release, &tc.zc_released);
+      if (rc != AK_OK) die("ak_call_send_enc_zc", rc);
+    }
+    struct ak_bytes out;
+    out.ptr = NULL; out.len = 0; out.owner = NULL;
+    int32_t gs = -1;
+    const int32_t rc = ak_call_recv(h, &out, &gs);
+    if (rc != AK_OK || gs != 0) die(rc == AK_ERR_RPC_STATUS ? "d gRPC status" : "ak_call_recv", rc == AK_ERR_RPC_STATUS ? gs : rc);
+    check_answer(st, out.ptr, out.len, check);
+    ak_bytes_free(&out);
+    ak_call_destroy(h);
     return (long)nmsg;
   }
   if (cl.deferred) {  // Cf-enc / Cf-encp: the transport encodes each chunk (wait = 1 / 0)
@@ -915,7 +963,7 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   const char cell = cl.base;
   const char dir = job.dir;
   if (dir == 'd') return stream_call(w, ci, job.pi, t, tc);
-  if (cl.deferred) die("Cf-enc / Cf-encp: direction d only (ak_call_send_deferred is a stream send)", dir);
+  if (cl.deferred || cl.zc) die("Cf-enc / Cf-encp / Cf-zc: direction d only (stream sends)", dir);
   static const uint8_t kNoReq[1] = {0};
   const bool resp = dir == 'a' || dir == 'r';
   const bool read = dir == 'r';
@@ -1390,6 +1438,108 @@ int q_semantics(World &w) {
     ak_client_destroy(fr);
     ak_client_destroy(rf);
   }
+  // EXPERIMENT (p6-zero-copy): ak_enc_set_zc + ak_call_send_enc_zc, when the core exports them.
+  SetZcFn szc = (SetZcFn)dlsym(RTLD_DEFAULT, "ak_enc_set_zc");
+  SendZcFn snd = (SendZcFn)dlsym(RTLD_DEFAULT, "ak_call_send_enc_zc");
+  if (!szc || !snd) {
+    std::printf("SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc\n");
+  } else {
+    char buf[400];
+    ak_client *fr = core_client(w.rt, w.cfg.target, w.cfg.transport, true);
+    ak_client *rf = core_client(w.rt, w.cfg.target, w.cfg.transport, false);
+    ak_enc_ctx *ze = ak_enc_ctx_new();
+    if (!fr || !rf || !ze || szc(ze, kZcMin) != AK_OK) die("semantics: zero-copy setup", 0);
+    auto open_on = [&](ak_client *cl, const std::string &t) {
+      const std::string p = t[0] == '/' ? t : pre + t;
+      ak_call *h = ak_call_open(cl, (const uint8_t *)p.data(), p.size(), AK_CALL_CLIENT_STREAM, NULL);
+      if (!h) die("semantics: ak_call_open", 0);
+      return h;
+    };
+    auto released = [&](std::atomic<long> &r, long want) {  // wait up to 3 s for the releases
+      for (int i = 0; i < 3000 && r.load() < want; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      return r.load();
+    };
+    // the server's count and SHA-256 of every message as received; one release per message
+    for (int pi = 0; pi < 2; ++pi) {
+      const Stream &st = w.st[pi];
+      std::atomic<long> rel{0};
+      ak_call *h = open_on(fr, kUploadStreamCheck);
+      bool ok = true;
+      for (size_t j = 0; j < st.f.size(); ++j) {
+        ok = ok && core_enc(ze, st.f[j], m) >= 0 && snd(h, ze, j + 1 == st.f.size(), zc_release, &rel) == AK_OK;
+      }
+      struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -1;
+      const int32_t r = ak_call_recv(h, &out, &gs);
+      const bool verdict = r == AK_OK && gs == 0 && out.len == 40 && le64(out.ptr) == st.bytes &&
+                           std::string((const char *)out.ptr + 8, 32) == st.sha;
+      ak_bytes_free(&out);
+      ak_call_destroy(h);
+      const long got = released(rel, (long)st.f.size());
+      std::snprintf(buf, sizeof(buf), "[framed, zero-copy] %zu borrowed sends (%s) to the checking path: sends ok %d; recv %d/%d, the server's count and SHA-256 match %d; releases %ld (want %zu)",
+                    st.f.size(), pi ? "16 MiB" : "4 MiB", (int)ok, r, gs, (int)verdict, got, st.f.size());
+      check(ok && verdict && got == (long)st.f.size(), buf);
+    }
+    // a cancelled call releases: one message sent (not last), the call cancelled while it waits
+    {
+      const Stream &st = w.st[0];
+      std::atomic<long> rel{0};
+      ak_call *h = open_on(fr, kUploadStreamCheck);
+      const bool ok = core_enc(ze, st.f[0], m) >= 0 && snd(h, ze, 0, zc_release, &rel) == AK_OK;
+      ak_call_cancel(h);
+      struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -1;
+      const int32_t r = ak_call_recv(h, &out, &gs);
+      ak_bytes_free(&out);
+      ak_call_destroy(h);
+      const long got = released(rel, 1);
+      std::snprintf(buf, sizeof(buf), "[framed, zero-copy] cancel after one borrowed send: send ok %d; recv %d/%d (want CANCELLED 1); releases %ld (want 1)",
+                    (int)ok, r, gs, got);
+      check(ok && gs == 1 && got == 1, buf);
+    }
+    // a failed call releases: the server answers status 6 on the stream
+    {
+      const Stream &st = w.st[0];
+      std::atomic<long> rel{0};
+      ak_call *h = open_on(fr, "StatusS6");
+      bool ok = true;
+      long sent = 0;
+      for (size_t j = 0; j < st.f.size(); ++j) {
+        if (core_enc(ze, st.f[j], m) < 0) { ok = false; break; }
+        const int32_t rc = snd(h, ze, j + 1 == st.f.size(), zc_release, &rel);
+        if (rc == AK_OK || rc == AK_ERR_HOST) ++sent;  // AK_ERR_HOST: the call had already ended
+        ok = ok && (rc == AK_OK || rc == AK_ERR_HOST);
+      }
+      struct ak_bytes out; out.ptr = NULL; out.len = 0; out.owner = NULL;
+      int32_t gs = -1;
+      const int32_t r = ak_call_recv(h, &out, &gs);
+      ak_bytes_free(&out);
+      ak_call_destroy(h);
+      const long got = released(rel, sent);
+      std::snprintf(buf, sizeof(buf), "[framed, zero-copy] server status 6: %ld borrowed sends accepted or refused as ended, ok %d; recv %d/%d (want 6); releases %ld (want %ld)",
+                    sent, (int)ok, r, gs, got, sent);
+      check(ok && gs == 6 && got == sent, buf);
+    }
+    // misuse: the reference path refuses, and takes nothing (no release)
+    {
+      const Stream &st = w.st[0];
+      std::atomic<long> rel{0};
+      ak_call *h = open_on(rf, kUploadStreamCheck);
+      core_enc(ze, st.f[0], m);
+      const int32_t a = snd(h, ze, 1, zc_release, &rel);
+      ak_call_cancel(h);
+      ak_call_destroy(h);
+      ak_enc_reset(ze);
+      const long got = released(rel, 1);
+      std::snprintf(buf, sizeof(buf), "[zero-copy misuse] on the reference path %d (want %d); releases %ld (the send took nothing)",
+                    a, AK_ERR_INVALID_STATE, got);
+      check(a == AK_ERR_INVALID_STATE, buf);
+    }
+    ak_enc_ctx_free(ze);
+    ak_client_destroy(fr);
+    ak_client_destroy(rf);
+  }
   std::printf("# {\"campaign_rpc_semantics\": {\"build\": \"%s\", \"checks\": %d, \"failed\": %d}}\n", kBuild, n, bad);
   return bad ? 1 : 0;
 }
@@ -1529,7 +1679,7 @@ int main(int argc, char **argv) {
         || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
         || (cl.pull && cl.base != 'C' && cl.base != 'D')
         || (cl.q && (cl.pull || (cl.base != 'B' && cl.base != 'C' && cl.base != 'E')))
-        || (cl.deferred && (cl.base != 'C' || !cl.framed || cl.q || cl.pull))
+        || ((cl.deferred || cl.zc) && (cl.base != 'C' || !cl.framed || cl.q || cl.pull))
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
 #else
@@ -1545,7 +1695,16 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
-    if (cl.deferred) {
+    if (cl.zc && !g_send_zc) {
+      g_set_zc = (SetZcFn)dlsym(RTLD_DEFAULT, "ak_enc_set_zc");
+      g_send_zc = (SendZcFn)dlsym(RTLD_DEFAULT, "ak_call_send_enc_zc");
+      if (!g_set_zc || !g_send_zc) {
+        std::fprintf(stderr, "REFUSED: cell %s needs a core that exports ak_enc_set_zc and ak_call_send_enc_zc (patch p6-zero-copy); this one does not\n",
+                     cl.label.c_str());
+        return 2;
+      }
+    }
+    if (cl.deferred || cl.zc) {
       for (size_t j = 0; j < w.jobs.size(); ++j)
         if (w.jobs[j].dir != 'd') {
           std::fprintf(stderr, "REFUSED: cell %s runs direction d only (--dirs d)\n", cl.label.c_str());
@@ -1841,7 +2000,8 @@ int main(int argc, char **argv) {
         std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s%s", k, c.transport.c_str(),
                       cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "",
                       grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : cl.deferred == 1 ? ",delivery=blocking,send=deferred-wait"
-                      : cl.deferred == 2 ? ",delivery=blocking,send=deferred-nowait" : ",delivery=blocking");
+                      : cl.deferred == 2 ? ",delivery=blocking,send=deferred-nowait"
+                      : cl.zc ? ",delivery=blocking,send=zero-copy" : ",delivery=blocking");
         regs.push_back(Reg{cl.label + "|" + job_payload(w.jobs[ji]) + "|-|" + dir_label(w.jobs[ji].dir) + "|" +
                                mode_name(cl.mode) + "|" + tags,
                            ci, ji, k});

@@ -1,0 +1,2 @@
+window found: 22200 syscalls, socket writes 10332 (167869440 B), socket reads 144 (4383 B)
+{"counts": {"epoll_wait": 10444, "futex": 1048, "recvfrom": 144, "write": 232, "writev": 10332}, "errors": {"futex EAGAIN": 51, "recvfrom EAGAIN": 24}, "socket_read_bytes": 4383, "socket_read_size_le_pow2": {"128": 1, "32": 40, "64": 79}, "socket_write_bytes": 167869440, "socket_write_size_le_pow2": {"32768": 10240, "64": 92}, "to_socket": {"recvfrom": 144, "writev": 10332}, "window": true}

@@ -105,23 +105,23 @@ Buckets from gen/perf_attrib.py (k: kernel, classed by the syscall wrapper or fa
 | k: futex | 0.551 | 0.567 | 0.115 | 0.182 | -0.452 | +0.067 |
 | k: other | 0.000 | 0.029 | 0.000 | 0.026 | -0.029 | +0.026 |
 | k: other syscalls | 0.183 | 0.171 | 0.041 | 0.067 | -0.129 | +0.026 |
-| k: page faults (fault, zeroing new pages) | 0.829 | 0.798 | 0.854 | 0.835 | +0.056 | -0.019 |
+| k: page faults (the fault path) | 0.000 | 0.000 | 0.009 | 0.000 | +0.009 | -0.009 |
 | k: scheduling, interrupts | 0.033 | 0.030 | 0.031 | 0.026 | +0.001 | -0.005 |
 | k: socket read (recvmsg/read) | 0.115 | 0.135 | 0.000 | 0.000 | -0.135 | +0.000 |
-| k: socket write (sendmsg/writev) | 2.268 | 2.379 | 4.142 | 4.240 | +1.763 | +0.098 |
+| k: socket write (sendmsg/writev) | 3.098 | 3.177 | 4.987 | 5.075 | +1.810 | +0.088 |
 | u: allocation (malloc/free) | 0.084 | 0.066 | 0.018 | 0.024 | -0.047 | +0.005 |
 | u: core rpc glue (ak_core rpc, FFI entry) | 0.000 | 0.008 | 0.047 | 0.074 | +0.039 | +0.027 |
-| u: encode (core codec) | 0.000 | 0.007 | 0.002 | 0.005 | -0.005 | +0.003 |
+| u: encode (core codec) | 0.000 | 0.004 | 0.000 | 0.000 | -0.004 | +0.000 |
 | u: grpc-core (libgrpc, gpr, absl) | 1.290 | 1.294 | 0.000 | 0.000 | -1.294 | +0.000 |
-| u: harness | 0.041 | 0.031 | 0.010 | 0.003 | -0.021 | -0.006 |
+| u: harness | 0.036 | 0.028 | 0.000 | 0.005 | -0.027 | +0.005 |
 | u: hyper/h2/tonic/http/bytes | 0.000 | 0.003 | 0.369 | 0.355 | +0.366 | -0.014 |
 | u: libc sync (pthread, futex wrappers) | 0.013 | 0.013 | 0.005 | 0.000 | -0.008 | -0.005 |
 | u: libc syscall wrappers | 0.089 | 0.097 | 0.069 | 0.107 | -0.028 | +0.038 |
 | u: memcpy in encode | 0.000 | 2.013 | 1.912 | 2.029 | -0.100 | +0.117 |
-| u: memcpy in grpc/protobuf | 2.089 | 0.005 | 0.000 | 0.000 | -0.005 | +0.000 |
+| u: memcpy in grpc/protobuf | 2.088 | 0.004 | 0.000 | 0.000 | -0.004 | +0.000 |
 | u: memcpy in hyper/h2/bytes | 0.000 | 0.000 | 0.130 | 0.151 | +0.130 | +0.021 |
-| u: memcpy other | 0.000 | 0.000 | 0.005 | 0.018 | +0.005 | +0.013 |
-| u: other | 0.025 | 0.022 | 0.007 | 0.010 | -0.014 | +0.003 |
+| u: memcpy other | 0.001 | 0.001 | 0.007 | 0.018 | +0.006 | +0.011 |
+| u: other | 0.030 | 0.027 | 0.017 | 0.013 | -0.010 | -0.004 |
 | u: protobuf | 0.006 | 0.000 | 0.000 | 0.000 | +0.000 | +0.000 |
 | u: tokio/mio runtime and park | 0.000 | 0.000 | 0.211 | 0.293 | +0.211 | +0.082 |
 | **total (sampled)** | 7.879 | 7.943 | 8.175 | 8.863 | +0.233 | +0.687 |
@@ -146,23 +146,23 @@ Top symbols, d/16MiB k=1 Cf-q-retain (ms per call): __memmove_evex_unaligned_erm
 | k: mmap/munmap/madvise/brk | 0.000 | 0.000 | 0.000 | 0.074 | +0.000 | +0.074 |
 | k: other | 0.127 | 0.137 | 0.048 | 0.000 | -0.088 | -0.048 |
 | k: other syscalls | 0.130 | 0.100 | 0.040 | 0.193 | -0.060 | +0.154 |
-| k: page faults (fault, zeroing new pages) | 0.884 | 0.817 | 0.888 | 1.262 | +0.070 | +0.374 |
+| k: page faults (the fault path) | 0.003 | 0.002 | 0.034 | 0.443 | +0.033 | +0.409 |
 | k: scheduling, interrupts | 0.075 | 0.054 | 0.044 | 0.019 | -0.010 | -0.024 |
 | k: socket read (recvmsg/read) | 0.123 | 0.098 | 0.000 | 0.000 | -0.098 | +0.000 |
-| k: socket write (sendmsg/writev) | 3.154 | 3.280 | 4.733 | 4.768 | +1.453 | +0.034 |
+| k: socket write (sendmsg/writev) | 4.035 | 4.096 | 5.587 | 5.587 | +1.491 | +0.000 |
 | u: allocation (malloc/free) | 0.065 | 0.051 | 0.022 | 0.024 | -0.029 | +0.001 |
 | u: core rpc glue (ak_core rpc, FFI entry) | 0.000 | 0.009 | 0.056 | 0.070 | +0.047 | +0.014 |
-| u: encode (core codec) | 0.000 | 0.007 | 0.008 | 0.000 | +0.001 | -0.008 |
+| u: encode (core codec) | 0.000 | 0.006 | 0.005 | 0.000 | -0.001 | -0.005 |
 | u: grpc-core (libgrpc, gpr, absl) | 1.238 | 1.216 | 0.000 | 0.000 | -1.216 | +0.000 |
-| u: harness | 0.038 | 0.027 | 0.003 | 0.004 | -0.024 | +0.001 |
+| u: harness | 0.033 | 0.030 | 0.004 | 0.000 | -0.026 | -0.004 |
 | u: hyper/h2/tonic/http/bytes | 0.000 | 0.001 | 0.342 | 0.349 | +0.341 | +0.006 |
 | u: libc sync (pthread, futex wrappers) | 0.009 | 0.009 | 0.005 | 0.000 | -0.004 | -0.005 |
 | u: libc syscall wrappers | 0.085 | 0.078 | 0.089 | 0.057 | +0.011 | -0.032 |
-| u: memcpy in encode | 0.000 | 2.353 | 2.413 | 1.424 | +0.060 | -0.989 |
-| u: memcpy in grpc/protobuf | 2.319 | 0.009 | 0.000 | 0.000 | -0.009 | +0.000 |
+| u: memcpy in encode | 0.000 | 2.351 | 2.413 | 1.424 | +0.062 | -0.989 |
+| u: memcpy in grpc/protobuf | 2.318 | 0.008 | 0.000 | 0.000 | -0.008 | +0.000 |
 | u: memcpy in hyper/h2/bytes | 0.000 | 0.000 | 0.161 | 0.161 | +0.161 | -0.000 |
-| u: memcpy other | 0.000 | 0.002 | 0.009 | 0.008 | +0.007 | -0.002 |
-| u: other | 0.023 | 0.029 | 0.006 | 0.008 | -0.023 | +0.002 |
+| u: memcpy other | 0.001 | 0.005 | 0.009 | 0.008 | +0.005 | -0.002 |
+| u: other | 0.028 | 0.026 | 0.008 | 0.012 | -0.019 | +0.004 |
 | u: protobuf | 0.013 | 0.000 | 0.000 | 0.000 | +0.000 | +0.000 |
 | u: tokio/mio runtime and park | 0.000 | 0.000 | 0.197 | 0.223 | +0.197 | +0.026 |
 | **total (sampled)** | 8.922 | 8.971 | 9.305 | 9.069 | +0.334 | -0.236 |
@@ -186,23 +186,23 @@ Top symbols, d/16MiB k=8 Cf-q-retain (ms per call): [k] rep_movs_alternative 1.8
 | k: futex | 0.173 | 0.208 | 0.044 | 0.017 | -0.164 | -0.027 |
 | k: other | 0.000 | 0.004 | 0.002 | 0.008 | -0.002 | +0.006 |
 | k: other syscalls | 0.060 | 0.065 | 0.014 | 0.014 | -0.051 | -0.001 |
-| k: page faults (fault, zeroing new pages) | 0.187 | 0.197 | 0.182 | 0.186 | -0.015 | +0.004 |
+| k: page faults (the fault path) | 0.001 | 0.000 | 0.000 | 0.000 | -0.000 | -0.000 |
 | k: scheduling, interrupts | 0.011 | 0.008 | 0.007 | 0.011 | -0.001 | +0.005 |
 | k: socket read (recvmsg/read) | 0.032 | 0.028 | 0.000 | 0.000 | -0.028 | +0.000 |
-| k: socket write (sendmsg/writev) | 0.694 | 0.718 | 0.981 | 0.974 | +0.263 | -0.006 |
+| k: socket write (sendmsg/writev) | 0.880 | 0.914 | 1.163 | 1.161 | +0.249 | -0.002 |
 | u: allocation (malloc/free) | 0.020 | 0.014 | 0.008 | 0.006 | -0.006 | -0.002 |
 | u: core rpc glue (ak_core rpc, FFI entry) | 0.000 | 0.002 | 0.016 | 0.021 | +0.014 | +0.005 |
 | u: encode (core codec) | 0.000 | 0.001 | 0.001 | 0.000 | +0.000 | -0.001 |
 | u: grpc-core (libgrpc, gpr, absl) | 0.415 | 0.431 | 0.000 | 0.000 | -0.431 | +0.000 |
-| u: harness | 0.015 | 0.010 | 0.002 | 0.002 | -0.009 | +0.001 |
+| u: harness | 0.010 | 0.009 | 0.002 | 0.001 | -0.008 | -0.001 |
 | u: hyper/h2/tonic/http/bytes | 0.000 | 0.000 | 0.127 | 0.119 | +0.127 | -0.008 |
 | u: libc sync (pthread, futex wrappers) | 0.004 | 0.005 | 0.002 | 0.000 | -0.003 | -0.002 |
 | u: libc syscall wrappers | 0.026 | 0.027 | 0.018 | 0.018 | -0.009 | -0.000 |
 | u: memcpy in encode | 0.000 | 0.476 | 0.484 | 0.468 | +0.008 | -0.016 |
 | u: memcpy in grpc/protobuf | 0.450 | 0.001 | 0.000 | 0.000 | -0.001 | +0.000 |
 | u: memcpy in hyper/h2/bytes | 0.000 | 0.000 | 0.037 | 0.032 | +0.037 | -0.005 |
-| u: memcpy other | 0.000 | 0.000 | 0.001 | 0.004 | +0.001 | +0.003 |
-| u: other | 0.007 | 0.006 | 0.004 | 0.002 | -0.002 | -0.002 |
+| u: memcpy other | 0.000 | 0.001 | 0.001 | 0.004 | +0.001 | +0.003 |
+| u: other | 0.012 | 0.007 | 0.004 | 0.003 | -0.003 | -0.001 |
 | u: protobuf | 0.002 | 0.000 | 0.000 | 0.000 | +0.000 | +0.000 |
 | u: tokio/mio runtime and park | 0.000 | 0.000 | 0.074 | 0.057 | +0.074 | -0.016 |
 | **total (sampled)** | 2.178 | 2.277 | 2.056 | 1.978 | -0.220 | -0.078 |

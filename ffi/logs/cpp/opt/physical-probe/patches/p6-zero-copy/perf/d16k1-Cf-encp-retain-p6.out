@@ -1,0 +1,20 @@
+WARNING: Kernel address maps (/proc/{kallsyms,modules}) are restricted,
+check /proc/sys/kernel/kptr_restrict and /proc/sys/kernel/perf_event_paranoid.
+
+Samples in kernel functions may not be resolved if a suitable vmlinux
+file is not found in the buildid cache or in the vmlinux path.
+
+Samples in kernel modules won't be resolved at all.
+
+If some relocation was applied (e.g. kexec) symbols may be misresolved
+even with a suitable vmlinux or kallsyms file.
+
+Couldn't record kernel reference relocation symbol
+Symbol resolution may be skewed if relocation was used (e.g. kexec).
+Check /proc/kallsyms permission or run as root.
+Events disabled
+Events enabled
+Events disabled
+{"profile": {"cell": "Cf-encp-retain", "payload": "16MiB", "dir": "d", "k": 1, "batches": 120, "calls": 120, "cells_open": "Cf-encp-retain", "chunks": [{"batches": 12, "cpu_ns": 104705952, "wall_ns": 115022594}, {"batches": 12, "cpu_ns": 105954620, "wall_ns": 114463466}, {"batches": 12, "cpu_ns": 104918185, "wall_ns": 119233727}, {"batches": 12, "cpu_ns": 104815884, "wall_ns": 117321164}, {"batches": 12, "cpu_ns": 106798576, "wall_ns": 122986390}, {"batches": 12, "cpu_ns": 104383789, "wall_ns": 128105568}, {"batches": 12, "cpu_ns": 107083418, "wall_ns": 113748588}, {"batches": 12, "cpu_ns": 112729474, "wall_ns": 116696543}, {"batches": 12, "cpu_ns": 107389661, "wall_ns": 115058521}, {"batches": 12, "cpu_ns": 108690622, "wall_ns": 109451754}], "thread_cpu_ns": {"caller": {"threads": 1, "ns": 27962812}, "main": {"threads": 1, "ns": 4506872}, "tokio-rt-worker": {"threads": 8, "ns": 1035409485}}, "big_allocs": -1, "rusage": {"nvcsw": 13153, "nivcsw": 1, "minflt": 2, "majflt": 0, "utime_us": 433288, "stime_us": 634287}, "fold": 960}}
+[ perf record: Woken up 13 times to write data ]
+[ perf record: Captured and wrote 2.330 MB /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/patches/p6-zero-copy/perf/d16k1-Cf-encp-retain-p6.data (4787 samples) ]

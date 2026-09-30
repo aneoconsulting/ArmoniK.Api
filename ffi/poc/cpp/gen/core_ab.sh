@@ -11,6 +11,9 @@
 #   default  one round, AB_ENV NOT set (the default-allocator pass)
 #   strace   one process per (workload, cell, arm) under strace -f -yy with AB_ENV: the syscalls
 #            between the loop's markers (gen/strace_window.py), fewer batches
+#   perf     the split only: per (workload, cell, arm) one process under perf stat (cycles and
+#            instructions user/kernel, cache-references, cache-misses, LLC-load-misses, faults, context
+#            switches) and one under perf record (cycles, LBR stacks), perf enabled around the loop only
 #   AB_CELL_KNOBS  "CELL:K=V,K=V;CELL:..." extra knobs for one cell in every arm (the ring settings)
 #   AB_WLS / AB_CELLS  narrow the workloads and cells
 # Cells A, D-retain, Cf-retain, Cf-q-retain (AB_CELLS for others); workloads d/16MiB and d/4MiB at k=1
@@ -65,14 +68,21 @@ ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
   echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers $WK; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
   echo "# machine $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"; } >> "$LOG"
 grep -q REFUSED "$LOG" && exit 1
-run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace]
-  local arm=$1 cell=$2 dirs=$3 pay=$4 k=$5 n=$6 f=$7 st=${8:-} pre=()
-  [ -n "$st" ] && pre=(strace -f -qq -yy -s 24 -e signal=none -o "$SCR/st.txt" \
-    -e trace=write,writev,sendmsg,sendto,read,readv,recvmsg,recvfrom,futex,epoll_wait,epoll_pwait,epoll_pwait2,mmap,munmap,madvise,mremap,brk,sched_yield,poll,ppoll,io_uring_enter)
+rm -f "$SCR/ctl" "$SCR/ack"; mkfifo "$SCR/ctl" "$SCR/ack"
+run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
+  local arm=$1 cell=$2 dirs=$3 pay=$4 k=$5 n=$6 f=$7 st=${8:-} pre=() ctl=()
+  case "$st" in
+    strace) pre=(strace -f -qq -yy -s 24 -e signal=none -o "$SCR/st.txt" \
+      -e trace=write,writev,sendmsg,sendto,read,readv,recvmsg,recvfrom,futex,epoll_wait,epoll_pwait,epoll_pwait2,mmap,munmap,madvise,mremap,brk,sched_yield,poll,ppoll,io_uring_enter) ;;
+    stat:*) pre=(perf stat -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -x, -o "${st#stat:}" \
+      -e cycles:u,cycles:k,instructions:u,instructions:k,cache-references,cache-misses,LLC-load-misses,page-faults,context-switches --); ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
+    record:*) pre=(perf record -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -e cycles -F 4000 --call-graph lbr -o "${st#record:}" --)
+      ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
+  esac
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="${ACORE[$arm]}" ${AKNOB[$arm]} $(cellknobs "$cell") $ENVX \
     LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
     --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" \
-    --profile-chunks $([ -n "$st" ] && echo 1 || echo 10) > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; exit 1; }
+    --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; exit 1; }
 }
 NA=${#ARMS[@]}; NC=${#CELLS[@]}
 case "$PHASE" in
@@ -106,6 +116,20 @@ case "$PHASE" in
         done
       done
       say "  strace $name done"
+    done ;;
+  perf)  # the split only (perf attached costs CPU): perf stat, then perf record, one process each
+    mkdir -p "$OUT/perf"
+    for w in "${WLS[@]}"; do
+      set -- $w; name=$1; dirs=$2; pay=$3; k=$4; n=$5
+      for cell in "${CELLS[@]}"; do
+        [ "$dirs" != d ] && d_only "$cell" && continue
+        for arm in "${ARMS[@]}"; do
+          f=$OUT/perf/$name-$cell-$arm
+          run "$arm" "$cell" "$dirs" "$pay" "$k" "$n" "$f.stat.out" "stat:$f.perfstat"
+          run "$arm" "$cell" "$dirs" "$pay" "$k" "$n" "$f.out" "record:$f.data"
+        done
+      done
+      say "  perf $name done"
     done ;;
   *) echo "phase?" >&2; exit 2 ;;
 esac

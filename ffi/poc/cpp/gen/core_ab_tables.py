@@ -16,7 +16,7 @@ import os
 import statistics
 import sys
 
-CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain"]
+CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain", "Cf-zc-retain"]
 WLS = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d4k1", "d/4MiB k=1"), ("d4k8", "d/4MiB k=8"),
        ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8")]
 THREADS = ["caller", "main", "tokio-rt-worker", "event_engine"]
@@ -125,7 +125,86 @@ def main(out, arms):
                         wt, c, a, n, sw / n, d["socket_write_bytes"] / max(1, sw), sr / n,
                         sum(cnt.get(x, 0) for x in ("epoll_wait", "epoll_pwait", "epoll_pwait2")) / n,
                         cnt.get("futex", 0) / n, sum(cnt.values()) / n))
+    if os.path.isdir(os.path.join(out, "perf")):
+        perf_section(out, arms, say)
     print("\n".join(L))
+
+
+def perfstat(path):
+    d = {}
+    for l in open(path):
+        p = l.strip().split(",")
+        if len(p) > 3 and p[0] and p[0][0].isdigit():
+            d[p[2]] = float(p[0])
+    return d
+
+
+def perf_section(out, arms, say):
+    """perf stat counters and perf record buckets per call (the split; absolutes are the no-perf
+    phases'). Kernel symbols from the System.map in AK_SYSTEM_MAP (the booted kernel's)."""
+    import subprocess
+    smap = os.environ.get("AK_SYSTEM_MAP", "")
+    GHZ = 3.3e9
+    say("")
+    say("## perf: the split (perf attached; absolutes above are the no-perf phases')")
+    say("")
+    say("perf stat per call (one process per cell, perf enabled around the loop): cycles and instructions user / kernel "
+        "(M), cache-references and cache-misses (k), LLC-load-misses (k), faults, context switches.")
+    say("")
+    say("| workload | cell | arm | cycles u / k | instr u / k | cache-ref | cache-miss | LLC-load-miss | faults | csw |")
+    say("|---|---|---|---|---|---|---|---|---|---|")
+    att = {}
+    for w, wt in WLS:
+        for c in CELLS:
+            for a in arms:
+                base = os.path.join(out, "perf", "%s-%s-%s" % (w, c, a))
+                if not os.path.exists(base + ".perfstat"):
+                    continue
+                p = prof(base + ".stat.out"); n = p["calls"]
+                d = {k: v / n for k, v in perfstat(base + ".perfstat").items()}
+                g = lambda k: d.get(k, float("nan"))
+                say("| %s | %s | %s | %.2f / %.2f | %.2f / %.2f | %.0f | %.0f | %.0f | %.1f | %.1f |" % (
+                    wt, c, a, g("cycles:u") / 1e6, g("cycles:k") / 1e6, g("instructions:u") / 1e6, g("instructions:k") / 1e6,
+                    g("cache-references") / 1e3, g("cache-misses") / 1e3, g("LLC-load-misses") / 1e3, g("page-faults"), g("context-switches")))
+                data = base + ".data"
+                jf = base + ".attrib.json"
+                if os.path.exists(data) and smap and (not os.path.exists(jf) or os.path.getmtime(jf) < os.path.getmtime(data)):
+                    r = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "perf_attrib.py"),
+                                        smap, data, base + ".out", "--top", "25"], stdout=subprocess.PIPE, text=True)
+                    open(jf, "w").write(r.stdout)
+                if os.path.exists(jf):
+                    att[(w, c, a)] = json.load(open(jf))
+    for w, wt in WLS:
+        keys = [(c, a) for c in CELLS for a in arms if (w, c, a) in att]
+        if not keys:
+            continue
+        buckets = []
+        for c, a in keys:
+            for b in att[(w, c, a)]["buckets_cycles_per_call"]:
+                if b not in buckets:
+                    buckets.append(b)
+        buckets.sort(key=lambda b: (b[0] != "k", b))
+        ref = next(((c, a) for c, a in keys if c == "Cf-retain"), None)
+        say("")
+        say("### perf record buckets, %s (ms per call = cycles / 3.3e9; one process per cell)" % wt)
+        say("")
+        say("| bucket | " + " | ".join("%s %s" % ka for ka in keys) + (" | " + " | ".join("%s - Cf" % c for c, a in keys if ref and (c, a) != ref) if ref else "") + " |")
+        say("|---|" + "---|" * (len(keys) + (len(keys) - 1 if ref else 0)))
+        gv = lambda ka, b: att[(w,) + ka]["buckets_cycles_per_call"].get(b, 0.0) / GHZ * 1e3
+        for b in buckets + ["total"]:
+            vals = [(att[(w,) + ka]["cycles_per_call"] / GHZ * 1e3 if b == "total" else gv(ka, b)) for ka in keys]
+            row = "| %s | %s" % ("**total (sampled)**" if b == "total" else b, " | ".join("%.3f" % v for v in vals))
+            if ref:
+                r0 = vals[keys.index(ref)]
+                row += " | " + " | ".join("%+.3f" % (v - r0) for ka, v in zip(keys, vals) if ka != ref)
+            say(row + " |")
+        say("")
+        say("Threads (ms per call, sampled): " + "; ".join("%s %s: %s" % (c, a, ", ".join(
+            "%s %.3f" % (t, v / GHZ * 1e3) for t, v in att[(w, c, a)]["threads_cycles_per_call"].items())) for c, a in keys))
+        for c, a in keys:
+            say("")
+            say("Top symbols, %s %s %s (ms per call): " % (wt, c, a) + "; ".join(
+                "%s %.3f" % (sname[:70], v / GHZ * 1e3) for sname, v in att[(w, c, a)]["top_symbols_cycles_per_call"][:16]))
 
 
 if __name__ == "__main__":

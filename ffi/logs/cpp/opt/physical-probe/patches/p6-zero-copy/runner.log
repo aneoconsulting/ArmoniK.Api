@@ -1,0 +1,54 @@
+# core_ab measure: commit 7e437eb1 + UNCOMMITTED, 2026-09-30T05:41:32Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 feca082d8098ba13; server pid 309008, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 309008
+# arm p6: core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cores/p6/libak_core.so sha256 9ac08de0cfd2a764; knobs: none
+# every process: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; cell knobs: Cf-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-zc-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-encp-retain:AK_SPARES=6,AK_SPARE_LOCK=1
+# workloads: d16k1 d 16MiB 1 120 12 d16k8 d 16MiB 8 20 3 d4k1 d 4MiB 1 400 40 d4k8 d 4MiB 8 60 8; cells: A Cf-retain Cf-zc-retain Cf-encp-retain (direction d only: none); rounds: 3
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": [" 323  10 rustc", "60.0  11 python3", "33.8   8 rpc_server", " 7.8   8 .kwin_wayland-w", " 1.9   4 .claude-wrapped", " 0.3  19 .cargo-wrapped", " 0.3  15 systemd-udevd", " 0.2   5 .konsole-wrappe"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "2.41 2.51 2.47 5/916 309136", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3299921", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3299376", "13": "3302688", "14": "3300000", "15": "3300000", "16": "3300000", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  measure round 1 d16k1 done
+  measure round 1 d16k8 done
+  measure round 1 d4k1 done
+  measure round 1 d4k8 done
+  measure round 2 d16k1 done
+  measure round 2 d16k8 done
+  measure round 2 d4k1 done
+  measure round 2 d4k8 done
+  measure round 3 d16k1 done
+  measure round 3 d16k8 done
+  measure round 3 d4k1 done
+  measure round 3 d4k8 done
+phase measure: 87 s (lock held)
+# core_ab default: commit 7e437eb1 + UNCOMMITTED, 2026-09-30T05:42:58Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 feca082d8098ba13; server pid 311191, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 311191
+# arm p6: core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cores/p6/libak_core.so sha256 9ac08de0cfd2a764; knobs: none
+# every process: no extra environment (default allocator); cell knobs: Cf-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-zc-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-encp-retain:AK_SPARES=6,AK_SPARE_LOCK=1
+# workloads: d16k1 d 16MiB 1 120 12 d16k8 d 16MiB 8 20 3 d4k1 d 4MiB 1 400 40 d4k8 d 4MiB 8 60 8; cells: A Cf-retain Cf-zc-retain Cf-encp-retain (direction d only: none); rounds: 3
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": [" 176   0 rustc", " 118  19 rustc", "75.0   1 python3", "32.6   5 rpc_server", " 7.8   8 .kwin_wayland-w", " 1.9  12 .claude-wrapped", " 1.0  19 .cargo-wrapped", " 0.3  15 systemd-udevd"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "3.73 2.84 2.59 5/918 311308", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300230", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3300415", "14": "3300000", "15": "3300146", "16": "3300000", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  default round 1 d16k1 done
+  default round 1 d16k8 done
+  default round 1 d4k1 done
+  default round 1 d4k8 done
+phase default: 32 s (lock held)
+# core_ab strace: commit 7e437eb1 + UNCOMMITTED, 2026-09-30T05:43:31Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 feca082d8098ba13; server pid 312002, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 312002
+# arm p6: core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cores/p6/libak_core.so sha256 9ac08de0cfd2a764; knobs: none
+# every process: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; cell knobs: Cf-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-zc-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-encp-retain:AK_SPARES=6,AK_SPARE_LOCK=1
+# workloads: d16k1 d 16MiB 1 120 12 d16k8 d 16MiB 8 20 3 d4k1 d 4MiB 1 400 40 d4k8 d 4MiB 8 60 8; cells: A Cf-retain Cf-zc-retain Cf-encp-retain (direction d only: none); rounds: 3
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": [" 243   0 rustc", "60.0  18 python3", "34.0  17 rpc_server", " 7.8   8 .kwin_wayland-w", " 1.9  13 .claude-wrapped", " 0.5   0 .cargo-wrapped", " 0.3  15 systemd-udevd", " 0.2  17 .konsole-wrappe"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "4.45 3.12 2.69 5/919 312114", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3299912", "2": "3300000", "3": "3300435", "4": "3300010", "5": "3300802", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3301829", "12": "3300000", "13": "3300000", "14": "3300000", "15": "3300000", "16": "3300000", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  strace d16k1 done
+  strace d16k8 done
+  strace d4k1 done
+  strace d4k8 done
+phase strace: 42 s (lock held)
+# core_ab perf: commit 7e437eb1 + UNCOMMITTED, 2026-09-30T05:44:12Z
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 feca082d8098ba13; server pid 313202, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 313202
+# arm p6: core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cores/p6/libak_core.so sha256 9ac08de0cfd2a764; knobs: none
+# every process: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; cell knobs: Cf-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-zc-retain:AK_SPARES=6,AK_SPARE_LOCK=1;Cf-encp-retain:AK_SPARES=6,AK_SPARE_LOCK=1
+# workloads: d16k1 d 16MiB 1 120 12 d16k8 d 16MiB 8 20 3; cells: A Cf-retain Cf-zc-retain Cf-encp-retain (direction d only: none); rounds: 3
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["99.6  10 codec_suite-dda", "75.0  14 python3", "33.2   5 rpc_server", " 7.8   8 .kwin_wayland-w", " 1.9   8 .claude-wrapped", " 0.3  15 systemd-udevd", " 0.2  18 .konsole-wrappe", " 0.1   8 .plasmashell-wr"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "4.07 3.21 2.74 2/908 313303", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3300000", "14": "3300002", "15": "3300000", "16": "3300000", "17": "3300264", "18": "3300041"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  perf d16k1 done
+  perf d16k8 done
+phase perf: 35 s (lock held)
