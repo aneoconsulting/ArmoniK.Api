@@ -1,0 +1,112 @@
+# 752 samples, 883,348,250 cycles sampled (weights = periods)
+
+## thread class
+
+   99.7%  host-rt (cell-rt)
+    0.3%  main
+
+## leaf crate (self)
+
+   65.8%  kernel
+   27.6%  libc:mem
+    1.6%  h2
+    1.1%  libc:alloc
+    1.0%  tokio
+    0.4%  tonic
+    0.4%  std
+    0.4%  libc:other
+    0.4%  bytes
+    0.3%  core
+    0.3%  (no frames)
+    0.3%  http
+    0.1%  hyper_util
+    0.1%  tokio_util
+    0.1%  other:[vdso]
+    0.1%  hyper
+
+## libc leaves by caller crate
+
+   27.4%  libc:mem     <- bytes
+    0.4%  libc:alloc   <- h2
+    0.3%  libc:other   <- mio
+    0.3%  libc:alloc   <- bytes
+    0.3%  libc:alloc   <- ?
+    0.1%  libc:mem     <- h2
+    0.1%  libc:alloc   <- tokio_util
+    0.1%  libc:mem     <- tokio_util
+    0.1%  libc:other   <- serde_core
+    0.0%  libc:other   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   59.7%  __syscall_cancel_arch_end                <- mio
+    4.5%  ?                                        <- ?
+    0.4%  syscall                                  <- tokio
+    0.4%  __memmove_evex_unaligned_erms            <- bytes
+    0.3%  __syscall_cancel_arch_end                <- ?
+    0.3%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  __syscall_cancel_arch_end                <- h2
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  __memmove_evex_unaligned_erms            <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   93.3%  libc:other
+   93.1%  std
+   93.1%  core
+   92.9%  tokio
+   88.1%  hyper
+   65.9%  kernel
+   60.5%  h2
+   60.0%  mio
+   29.3%  tonic
+   28.5%  campaign
+   28.4%  bytes
+   28.1%  http_body_util
+   28.0%  libc:mem
+   27.7%  prost
+    1.4%  libc:alloc
+    1.2%  tokio_util
+    1.2%  stream_probe
+    0.9%  hyper_util
+    0.4%  other:stream_probe
+    0.4%  tower
+    0.4%  other:[vdso]
+    0.4%  http
+    0.3%  alloc
+    0.2%  serde_json
+    0.1%  serde_core
+
+## top leaf symbols
+
+   65.8%  [kernel] [unknown]
+   27.6%  [libc:mem] __memmove_evex_unaligned_erms
+    0.5%  [libc:alloc] _int_malloc
+    0.4%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.3%  [libc:other] __errno_location
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [core] core::ptr::drop_in_place<http::header::map::HeaderMap>
+    0.1%  [hyper_util] <hyper_util::rt::tokio::TokioIo<T> as hyper::rt::io::Write>::poll_write_vectored
+    0.1%  [tokio_util] <tokio_util::codec::length_delimited::LengthDelimitedCodec as tokio_util::codec::decoder::Decoder>::decode
+    0.1%  [std] <std::sys::pal::unix::time::Timespec>::now
+    0.1%  [tonic] <tonic::body::Body as http_body::Body>::poll_frame
+    0.1%  [tonic] <tonic::transport::channel::service::reconnect::Reconnect<M,Target> as tower_service::Service<Request>>::poll_
+    0.1%  [h2] <h2::proto::streams::streams::OpaqueStreamRef as core::ops::drop::Drop>::drop
+    0.1%  [tonic] tonic::body::Body::new
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::transition_worker_to_parked
+    0.1%  [libc:alloc] malloc
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::idle::Idle::unpark_worker_by_id
+    0.1%  [std] <std::time::Instant>::now
+    0.1%  [other:[vdso]] __vdso_clock_gettime
+    0.1%  [h2] h2::proto::streams::send::Send::send_headers
+    0.1%  [bytes] bytes::bytes_mut::BytesMut::split_to
+    0.1%  [core] core::ptr::drop_in_place<hyper::proto::h2::client::H2ClientFuture<tonic::body::Body,tonic::transport::channel:
+    0.1%  [hyper] <hyper::body::incoming::Incoming as http_body::Body>::poll_frame
+    0.1%  [h2] h2::proto::streams::recv::Recv::poll_response
+    0.1%  [h2] h2::proto::go_away::GoAway::send_pending_go_away
+    0.1%  [tokio] <tokio::runtime::task::core::TaskIdGuard as core::ops::drop::Drop>::drop
+    0.1%  [http] http::header::name::parse_hdr

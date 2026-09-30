@@ -1,0 +1,115 @@
+# 958 samples, 1,180,972,428 cycles sampled (weights = periods)
+
+## thread class
+
+   99.8%  host-rt (cell-rt)
+    0.2%  main
+
+## leaf crate (self)
+
+   67.3%  kernel
+   23.8%  libc:mem
+    3.6%  h2
+    1.0%  tokio
+    0.7%  tokio_util
+    0.7%  libc:other
+    0.4%  std
+    0.3%  hyper
+    0.3%  core
+    0.3%  tonic
+    0.3%  bytes
+    0.3%  tracing
+    0.2%  libc:alloc
+    0.2%  mio
+    0.1%  (no frames)
+    0.1%  campaign
+    0.1%  prost
+    0.1%  futures_core
+    0.1%  http
+
+## libc leaves by caller crate
+
+   22.6%  libc:mem     <- bytes
+    0.9%  libc:mem     <- h2
+    0.3%  libc:other   <- mio
+    0.2%  libc:alloc   <- bytes
+    0.1%  libc:other   <- bytes
+    0.1%  libc:mem     <- ?
+    0.1%  libc:other   <- tokio
+    0.1%  libc:mem     <- tonic
+    0.1%  libc:other   <- ?
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   62.1%  __syscall_cancel_arch_end                <- mio
+    4.1%  ?                                        <- ?
+    0.4%  syscall                                  <- tokio
+    0.4%  __memmove_evex_unaligned_erms            <- bytes
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.1%  syscall                                  <- ?
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+
+## inclusive: samples with any frame in the crate
+
+   93.5%  std
+   93.3%  libc:other
+   93.1%  tokio
+   93.1%  core
+   87.8%  hyper
+   67.9%  kernel
+   66.2%  h2
+   62.8%  mio
+   60.5%  tokio_util
+   24.1%  libc:mem
+   23.7%  bytes
+   23.2%  tonic
+   22.9%  campaign
+   22.4%  http_body_util
+   22.3%  prost
+    0.7%  stream_probe
+    0.6%  other:stream_probe
+    0.5%  libc:alloc
+    0.4%  hyper_util
+    0.4%  tracing
+    0.3%  alloc
+    0.2%  serde_json
+    0.2%  serde_core
+    0.1%  rpc
+    0.1%  tracing_core
+    0.1%  tower
+    0.1%  futures_channel
+    0.1%  futures_core
+    0.1%  http
+
+## top leaf symbols
+
+   67.3%  [kernel] [unknown]
+   23.8%  [libc:mem] __memmove_evex_unaligned_erms
+    0.7%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.5%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.5%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.3%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [tracing] tracing::span::Span::in_scope
+    0.3%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.2%  [libc:other] __internal_syscall_cancel
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::pop_pending_open
+    0.2%  [h2] h2::proto::go_away::GoAway::send_pending_go_away
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.2%  [std] <&std::os::unix::net::stream::UnixStream as std::io::Write>::write_vectored
+    0.2%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.2%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Read>::poll_read
+    0.2%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [libc:alloc] _int_malloc
+    0.1%  [std] <std::time::Instant>::now
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.1%  [tokio_util] <tokio_util::codec::framed_impl::FramedImpl<T,U,R> as futures_core::stream::Stream>::poll_next
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.1%  [libc:other] unlink_chunk.isra.0
+    0.1%  [core] core::ptr::drop_in_place<http_body_util::combinators::map_err::MapErr<tonic::codec::encode::EncodeBody<campaig
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [h2] h2::proto::streams::flow_control::FlowControl::inc_window
+    0.1%  [hyper] hyper::proto::h2::client::ClientTask<B,E,T>::poll_pipe
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.1%  [tokio] tokio::runtime::task::raw::poll
+    0.1%  [campaign] campaign::grid::call_of_d_with::{{closure}}::{{closure}}
+    0.1%  [h2] h2::hpack::encoder::encode_str

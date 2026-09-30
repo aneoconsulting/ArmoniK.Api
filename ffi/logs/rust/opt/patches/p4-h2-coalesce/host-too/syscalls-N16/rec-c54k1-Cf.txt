@@ -1,0 +1,119 @@
+# 772 samples, 695,524,319 cycles sampled (weights = periods)
+
+## thread class
+
+   79.7%  core-rt
+   19.7%  caller
+    0.6%  main
+
+## leaf crate (self)
+
+   74.2%  kernel
+   14.6%  libc:mem
+    4.2%  h2
+    1.6%  tokio
+    1.0%  libc:alloc
+    0.6%  other:[vdso]
+    0.5%  libc:other
+    0.4%  hyper
+    0.4%  other:libm.so.6
+    0.3%  __rustc
+    0.3%  http
+    0.3%  core
+    0.3%  tokio_util
+    0.3%  bytes
+    0.2%  (no frames)
+    0.2%  tonic
+    0.2%  std
+    0.2%  alloc
+    0.1%  ak_rt
+
+## libc leaves by caller crate
+
+   14.1%  libc:mem     <- ak_core
+    0.5%  libc:mem     <- h2
+    0.5%  libc:alloc   <- h2
+    0.3%  libc:other   <- mio
+    0.2%  libc:alloc   <- bytes
+    0.1%  libc:alloc   <- hyper
+    0.1%  libc:other   <- ?
+    0.1%  libc:alloc   <- tokio
+    0.1%  libc:alloc   <- tonic
+    0.1%  libc:other   <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   67.3%  __syscall_cancel_arch_end                <- mio
+    4.6%  ?                                        <- ?
+    1.6%  syscall                                  <- tokio
+    0.3%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  __getrusage                              <- stream_probe
+    0.1%  __syscall_cancel_arch_end                <- ?
+
+## inclusive: samples with any frame in the crate
+
+   92.8%  libc:other
+   92.5%  std
+   92.2%  core
+   78.5%  tokio
+   74.8%  kernel
+   70.3%  h2
+   70.0%  hyper
+   67.9%  mio
+   14.6%  libc:mem
+   14.5%  ak_core
+   14.1%  harness
+   14.1%  ak_core(C ABI)
+   14.1%  campaign
+    2.5%  tokio_util
+    1.4%  tonic
+    1.4%  hyper_util
+    1.0%  libc:alloc
+    0.6%  other:[vdso]
+    0.6%  bytes
+    0.5%  stream_probe
+    0.5%  other:stream_probe
+    0.4%  tower
+    0.4%  serde_json
+    0.4%  other:libm.so.6
+    0.3%  __rustc
+    0.3%  rpc
+    0.3%  serde_core
+    0.3%  http
+    0.2%  alloc
+    0.1%  ak_rt
+
+## top leaf symbols
+
+   74.2%  [kernel] [unknown]
+   14.6%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [other:[vdso]] __vdso_clock_gettime
+    0.6%  [libc:alloc] malloc
+    0.5%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.4%  [h2] h2::hpack::table::Table::index
+    0.4%  [libc:other] __syscall_cancel_arch_end
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [libc:alloc] _int_malloc
+    0.3%  [h2] h2::proto::streams::streams::Streams<B,h2::client::Peer>::poll_pending_open
+    0.3%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::park_internal
+    0.3%  [h2] h2::hpack::encoder::encode_str
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.3%  [other:libm.so.6] __ieee754_pow_fma
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.2%  [std] <&std::os::unix::net::stream::UnixStream as std::io::Read>::read
+    0.2%  [__rustc] __rustc::__rust_alloc
+    0.2%  [h2] h2::frame::headers::Pseudo::request
+    0.2%  [__rustc] __rustc::__rdl_dealloc
+    0.2%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.2%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_write_vectored
+    0.2%  [alloc] <alloc::vec::into_iter::IntoIter<T,A> as core::ops::drop::Drop>::drop
+    0.2%  [core] core::ptr::drop_in_place<tokio::runtime::task::core::Stage<core::pin::Pin<alloc::boxed::Box<dyn core::future::
+    0.2%  [h2] <h2::client::Connection<T,B> as core::future::future::Future>::poll
+    0.2%  [h2] <h2::proto::streams::prioritize::Prioritized<B> as bytes::buf::buf_impl::Buf>::advance
+    0.1%  [hyper] hyper::body::incoming::Incoming::h2
+    0.1%  [hyper] <hyper::proto::h2::client::ResponseFutMap<B,E> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::task::raw::poll
+    0.1%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::send_data

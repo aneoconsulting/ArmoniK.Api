@@ -1,0 +1,4 @@
+# the host build: ffi/poc/rust/Cargo.toml (worktree) with
+# [patch.crates-io]
+# h2 = { path = "<patched h2 0.4.19>" }
+# so the harness binary (cells A, Df-1f, Ff-1f: tonic in the host) and its libak_core.so (Cf, Cf-cb) both carry the patched h2; binary /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-h2host/release/stream_probe

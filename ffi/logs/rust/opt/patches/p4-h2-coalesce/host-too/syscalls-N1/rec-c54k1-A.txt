@@ -1,0 +1,109 @@
+# 776 samples, 934,706,831 cycles sampled (weights = periods)
+
+## thread class
+
+   99.6%  host-rt (cell-rt)
+    0.4%  main
+
+## leaf crate (self)
+
+   75.4%  kernel
+   16.2%  libc:mem
+    3.7%  h2
+    1.0%  libc:other
+    0.8%  tokio_util
+    0.8%  tokio
+    0.5%  bytes
+    0.3%  std
+    0.3%  http
+    0.3%  libc:alloc
+    0.2%  prost
+    0.2%  hyper
+    0.1%  tonic
+    0.1%  campaign
+    0.1%  core
+    0.1%  slab
+
+## libc leaves by caller crate
+
+   16.1%  libc:mem     <- bytes
+    0.8%  libc:other   <- mio
+    0.1%  libc:alloc   <- tonic
+    0.1%  libc:alloc   <- bytes
+    0.1%  libc:mem     <- h2
+    0.1%  libc:other   <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   65.0%  __syscall_cancel_arch_end                <- mio
+    8.0%  ?                                        <- ?
+    0.7%  __memmove_evex_unaligned_erms            <- bytes
+    0.4%  syscall                                  <- tokio
+    0.4%  __syscall_cancel_arch_end                <- serde_json
+    0.3%  __vdso_clock_gettime                     <- other:[vdso]
+    0.2%  __syscall_cancel_arch_start              <- mio
+    0.1%  h2::proto::streams::streams::Streams<B,P <- h2
+    0.1%  __mprotect                               <- bytes
+    0.0%  __syscall_cancel_arch_start              <- serde_json
+
+## inclusive: samples with any frame in the crate
+
+   90.5%  std
+   90.3%  libc:other
+   90.3%  core
+   89.9%  tokio
+   86.0%  hyper
+   75.6%  kernel
+   70.6%  h2
+   66.1%  mio
+   65.5%  tokio_util
+   17.6%  bytes
+   17.0%  tonic
+   17.0%  campaign
+   17.0%  libc:mem
+   16.2%  http_body_util
+   16.2%  prost
+    1.4%  stream_probe
+    1.3%  hyper_util
+    0.4%  serde_json
+    0.4%  other:stream_probe
+    0.4%  libc:alloc
+    0.3%  serde_core
+    0.3%  tower
+    0.3%  http
+    0.3%  other:[vdso]
+    0.1%  alloc
+    0.1%  slab
+
+## top leaf symbols
+
+   75.4%  [kernel] [unknown]
+   16.2%  [libc:mem] __memmove_evex_unaligned_erms
+    0.8%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.7%  [libc:other] __internal_syscall_cancel
+    0.5%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.5%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.4%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.4%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.3%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.3%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [prost] prost::message::Message::encode
+    0.2%  [libc:other] __syscall_cancel_arch_end
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::poll_flush
+    0.1%  [std] <std::time::Instant>::saturating_duration_since
+    0.1%  [campaign] campaign::grid::call_of_c::{{closure}}
+    0.1%  [bytes] bytes::bytes_mut::BytesMut::reserve_inner
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [http] <http::uri::Uri as core::clone::Clone>::clone
+    0.1%  [std] <&std::os::unix::net::stream::UnixStream as std::io::Write>::write_vectored
+    0.1%  [libc:alloc] malloc
+    0.1%  [http] <http::header::map::HeaderMap<T> as core::iter::traits::collect::Extend<(core::option::Option<http::header::na
+    0.1%  [h2] h2::codec::framed_write::Encoder<B>::unset_frame
+    0.1%  [libc:alloc] cfree@GLIBC_2.2.5
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::push
+    0.1%  [h2] h2::codec::framed_read::decode_frame
+    0.1%  [h2] h2::proto::streams::recv::Recv::consume_connection_window
+    0.1%  [h2] h2::frame::head::Head::encode

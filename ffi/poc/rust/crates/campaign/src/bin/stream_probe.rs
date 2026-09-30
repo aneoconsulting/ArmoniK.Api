@@ -453,19 +453,36 @@ fn df_chan(conn: &Conn, chunks: usize, k: usize) -> Call {
 /// retain, encoded lazily as the body asks, as Ff) but each message as ONE body frame: the
 /// encoder keeps FRAME_HEAD bytes of headroom, `take_framed` writes the prefix in place, and
 /// the body is rpc's preframed stream (the core transport's own framing). Its own encoders.
-fn ff_one_frame(conn: &Conn, chunks: usize, k: usize) -> Call {
+fn ff_one_frame(conn: &Conn, label: &'static str, chunks: usize, k: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
     use campaign::Ops;
     let (rt, ch) = match conn {
         Conn::Tonic(rt, ch) => (rt.clone(), ch.clone()),
         _ => panic!("Ff-1f needs a tonic connection"),
     };
-    let pl = grid::stream_payload(chunks);
     let encs: &'static [std::sync::Mutex<ak_rt::Enc>] = Box::leak((0..k).map(|_| {
         let mut e = ak_rt::Enc::new(facade::generated::core_native::SITES);
         e.head = ak_rt::enc::FRAME_HEAD;
         std::sync::Mutex::new(e)
     }).collect::<Vec<_>>().into_boxed_slice());
+    if chunks == 0 {
+        // direction c: the same encode, one framed body, rpc::unary_preframed_cfg
+        let (f_val, _, _) = grid::m5_values(label);
+        return Call::Async(rt, Arc::new(move |i| {
+            let ch = ch.clone();
+            let body = {
+                let mut e = encs[i].lock().unwrap();
+                M5::n_encode(f_val, &mut e, true);
+                e.take_framed()
+            };
+            Box::pin(async move {
+                let resp = rpc::unary_preframed_cfg(ch, http::uri::PathAndQuery::from_static(grid::UPLOAD), body, &rpc::CallCfg::default())
+                    .await.map_err(|e| e.to_string())?;
+                if resp.is_empty() { Ok(()) } else { Err(format!("Ff-1f upload response {} B", resp.len())) }
+            }) as grid::Fut
+        }));
+    }
+    let pl = grid::stream_payload(chunks);
     let want = (chunks * grid::CHUNK) as u64;
     // AK_PROBE_CHECK=1: the server's check path (byte count and SHA-256 of every message as
     // received), for the correctness run of this cell.
@@ -492,7 +509,7 @@ fn ff_one_frame(conn: &Conn, chunks: usize, k: usize) -> Call {
 /// buffer is taken WITH its 5-byte prefix by `ak_enc_take_owned_framed`, an entry that exists
 /// only in a core built with logs/rust/opt/patches/p2-take-framed (found with dlsym; the cell
 /// refuses to run without it), and sent through rpc's preframed stream.
-fn df_one_frame(conn: &Conn, chunks: usize, k: usize) -> Call {
+fn df_one_frame(conn: &Conn, label: &'static str, chunks: usize, k: usize) -> Call {
     use campaign::generated::roots::R_UploadResultDataMessage as M5;
     use campaign::Ops;
     type TakeFramed = unsafe extern "C" fn(*mut ak_abi::ak_enc_ctx, *mut ak_abi::ak_bytes) -> i32;
@@ -503,8 +520,28 @@ fn df_one_frame(conn: &Conn, chunks: usize, k: usize) -> Call {
         Conn::Tonic(rt, ch) => (rt.clone(), ch.clone()),
         _ => panic!("Df-1f needs a tonic connection"),
     };
-    let pl = grid::stream_payload(chunks);
     let sl = grid::slots(k);
+    if chunks == 0 {
+        // direction c: the same encode and framed take, one body, rpc::unary_preframed_cfg
+        let (f_val, _, _) = grid::m5_values(label);
+        return Call::Async(rt, Arc::new(move |i| {
+            let ch = ch.clone();
+            let slot: &'static grid::Slot = &sl[i];
+            let body = (|| unsafe {
+                M5::f_encode(&slot.ctx, f_val, true).map_err(|e| format!("encode {e}"))?;
+                let mut b = ak_abi::ak_bytes { ptr: std::ptr::null(), len: 0, owner: std::ptr::null_mut() };
+                let rc = take(slot.ctx.enc, &mut b);
+                if rc != ak_abi::AK_OK { return Err(format!("take framed rc {rc}")); }
+                Ok(campaign::owned_bytes(b))
+            })();
+            Box::pin(async move {
+                let resp = rpc::unary_preframed_cfg(ch, http::uri::PathAndQuery::from_static(grid::UPLOAD), body?, &rpc::CallCfg::default())
+                    .await.map_err(|e| e.to_string())?;
+                if resp.is_empty() { Ok(()) } else { Err(format!("Df-1f upload response {} B", resp.len())) }
+            }) as grid::Fut
+        }));
+    }
+    let pl = grid::stream_payload(chunks);
     let want = (chunks * grid::CHUNK) as u64;
     let check = std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1");
     let (path, sha) = if check { (grid::STREAM_CHECK, Some(&pl.sha256)) } else { (grid::STREAM, None) };
@@ -777,17 +814,17 @@ fn main() {
     let mut work = Vec::new();
     for (ci, &cell) in cells.iter().enumerate() {
         for &(label, chunks) in &sizes {
-            let call = if cell == "Cn-1rt" {
+            let call = if cell == "Ff-1f" {
+                ff_one_frame(&conns[ci], label, chunks, k)
+            } else if cell == "Df-1f" {
+                df_one_frame(&conns[ci], label, chunks, k)
+            } else if cell == "Cn-1rt" {
                 cn_1rt(&conns[ci], label, chunks, k)
             } else if chunks == 0 {
-                assert!(!cell.ends_with("-split") && !["Df-chan", "Ff-1f", "Df-1f", "Cf-enc", "Cf-encp", "Cf-zc"].contains(&cell), "{cell}: direction d only");
+                assert!(!cell.ends_with("-split") && !["Df-chan", "Cf-enc", "Cf-encp", "Cf-zc"].contains(&cell), "{cell}: direction d only");
                 grid::call_of_c(base(cell), &conns[ci], label, grid::slots(k), 0)
             } else if cell == "Df-chan" {
                 df_chan(&conns[ci], chunks, k)
-            } else if cell == "Ff-1f" {
-                ff_one_frame(&conns[ci], chunks, k)
-            } else if cell == "Df-1f" {
-                df_one_frame(&conns[ci], chunks, k)
             } else if cell == "Cf-zc" {
                 core_zc(&conns[ci], chunks, k)
             } else if cell == "Cf-enc" || cell == "Cf-encp" {

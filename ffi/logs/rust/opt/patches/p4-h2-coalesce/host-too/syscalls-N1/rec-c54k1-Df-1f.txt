@@ -1,0 +1,113 @@
+# 787 samples, 883,669,236 cycles sampled (weights = periods)
+
+## thread class
+
+   99.6%  host-rt (cell-rt)
+    0.4%  main
+
+## leaf crate (self)
+
+   70.5%  kernel
+   18.7%  libc:mem
+    4.9%  h2
+    1.3%  tokio
+    1.1%  tokio_util
+    0.8%  bytes
+    0.6%  libc:other
+    0.4%  std
+    0.4%  core
+    0.3%  http
+    0.2%  slab
+    0.1%  hyper_util
+    0.1%  ak_core(C ABI)
+    0.1%  mio
+    0.1%  libc:alloc
+    0.1%  tracing
+    0.1%  (no frames)
+    0.0%  rpc
+    0.0%  serde_json
+
+## libc leaves by caller crate
+
+   16.8%  libc:mem     <- ak_core
+    1.6%  libc:mem     <- h2
+    0.5%  libc:other   <- mio
+    0.4%  libc:mem     <- bytes
+    0.1%  libc:alloc   <- tonic
+    0.1%  libc:other   <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   63.4%  __syscall_cancel_arch_end                <- mio
+    5.9%  ?                                        <- ?
+    0.3%  __syscall_cancel_arch_end                <- serde_json
+    0.2%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_start              <- mio
+    0.1%  tokio::runtime::scheduler::multi_thread: <- tokio
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.1%  _int_malloc                              <- tonic
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   91.3%  std
+   91.0%  libc:other
+   91.0%  core
+   90.9%  tokio
+   70.9%  kernel
+   70.2%  h2
+   69.1%  hyper
+   64.2%  mio
+   62.9%  tokio_util
+   18.7%  libc:mem
+   17.9%  stream_probe
+   16.9%  ak_core(C ABI)
+   16.8%  harness
+   16.8%  ak_core
+   16.8%  campaign
+    1.2%  bytes
+    0.5%  rpc
+    0.4%  hyper_util
+    0.4%  serde_json
+    0.4%  other:stream_probe
+    0.4%  tonic
+    0.3%  serde_core
+    0.3%  http
+    0.3%  libc:alloc
+    0.2%  slab
+    0.1%  other:[vdso]
+    0.1%  other:libak_core.so
+    0.1%  tracing
+
+## top leaf symbols
+
+   70.5%  [kernel] [unknown]
+   18.7%  [libc:mem] __memmove_evex_unaligned_erms
+    0.9%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.9%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.7%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.5%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.4%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.4%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame_inner
+    0.4%  [libc:other] __internal_syscall_cancel
+    0.3%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+    0.3%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.3%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.2%  [h2] h2::proto::go_away::GoAway::send_pending_go_away
+    0.2%  [slab] slab::Slab<T>::insert_at
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.2%  [h2] h2::frame::data::Data<T>::encode_chunk
+    0.2%  [tokio] tokio::runtime::time::<impl tokio::runtime::time::handle::Handle>::process_at_time
+    0.1%  [std] <std::sys::pal::unix::time::Timespec>::now
+    0.1%  [bytes] <bytes::bytes_mut::BytesMut as bytes::buf::buf_impl::Buf>::copy_to_bytes
+    0.1%  [core] core::ptr::drop_in_place<futures_channel::mpsc::Sender<core::convert::Infallible>>
+    0.1%  [h2] <h2::codec::Codec<T,B> as futures_core::stream::Stream>::poll_next
+    0.1%  [hyper_util] <hyper_util::rt::tokio::TokioIo<T> as hyper::rt::io::Read>::poll_read
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references
+    0.1%  [h2] <h2::share::RecvStream as core::ops::drop::Drop>::drop
+    0.1%  [ak_core(C ABI)] ak_uencode_UploadResultDataMessage
+    0.1%  [libc:other] __syscall_cancel
+    0.1%  [tokio_util] <tokio_util::codec::length_delimited::LengthDelimitedCodec as tokio_util::codec::decoder::Decoder>::decode
+    0.1%  [mio] mio::poll::Poll::poll

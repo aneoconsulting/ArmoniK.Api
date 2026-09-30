@@ -1,0 +1,114 @@
+# 769 samples, 890,585,317 cycles sampled (weights = periods)
+
+## thread class
+
+   99.7%  host-rt (cell-rt)
+    0.3%  main
+
+## leaf crate (self)
+
+   66.6%  kernel
+   27.2%  libc:mem
+    2.9%  h2
+    1.1%  tokio
+    0.4%  libc:alloc
+    0.3%  http
+    0.3%  hyper
+    0.2%  stream_probe
+    0.2%  slab
+    0.1%  tracing
+    0.1%  core
+    0.1%  bytes
+    0.1%  other:libm.so.6
+    0.1%  tonic
+    0.1%  libc:other
+    0.1%  harness
+    0.1%  (no frames)
+
+## libc leaves by caller crate
+
+   26.9%  libc:mem     <- ak_core
+    0.2%  libc:mem     <- h2
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:mem     <- tower
+    0.1%  libc:alloc   <- campaign
+    0.1%  libc:alloc   <- hyper
+    0.1%  libc:other   <- mio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   61.0%  __syscall_cancel_arch_end                <- mio
+    4.3%  ?                                        <- ?
+    0.3%  __memmove_evex_unaligned_erms            <- ak_core
+    0.3%  __vdso_clock_gettime                     <- other:[vdso]
+    0.3%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel_arch_end                <- h2
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.1%  __syscall_cancel_arch_end                <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   94.3%  core
+   94.2%  std
+   94.2%  libc:other
+   94.2%  tokio
+   88.5%  hyper
+   66.7%  kernel
+   61.2%  mio
+   61.1%  h2
+   27.9%  tonic
+   27.6%  rpc
+   27.5%  libc:mem
+   27.4%  http_body_util
+   27.4%  campaign
+   27.3%  harness
+   27.2%  ak_core(C ABI)
+   27.2%  ak_core
+    1.0%  stream_probe
+    0.7%  tokio_util
+    0.6%  hyper_util
+    0.5%  libc:alloc
+    0.5%  other:stream_probe
+    0.3%  http
+    0.3%  other:[vdso]
+    0.3%  tower
+    0.2%  serde_core
+    0.2%  serde_json
+    0.2%  slab
+    0.1%  tracing
+    0.1%  bytes
+    0.1%  other:libm.so.6
+
+## top leaf symbols
+
+   66.6%  [kernel] [unknown]
+   27.2%  [libc:mem] __memmove_evex_unaligned_erms
+    1.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.3%  [h2] h2::codec::framed_write::Split::head
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::clear_expired_reset_streams
+    0.2%  [slab] slab::Slab<T>::insert_at
+    0.2%  [h2] <h2::codec::Codec<T,B> as futures_core::stream::Stream>::poll_next
+    0.2%  [http] http::header::map::HeaderMap<T>::try_insert2
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.1%  [hyper] <hyper::client::dispatch::SendWhen<B,E> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::sync::oneshot::Sender<T>::send
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::try_assign_capacity
+    0.1%  [tokio] tokio::runtime::task::harness::Harness<T,S>::poll
+    0.1%  [h2] h2::proto::streams::streams::DynStreams<B>::recv_window_update
+    0.1%  [libc:alloc] _int_free_chunk
+    0.1%  [h2] h2::proto::connection::DynConnection<B>::recv_frame
+    0.1%  [tokio] tokio::runtime::task::waker::clone_waker
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::queue::Steal<T>::steal_into
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [h2] <h2::frame::headers::Iter as core::iter::traits::iterator::Iterator>::next
+    0.1%  [libc:alloc] malloc
+    0.1%  [core] core::ptr::drop_in_place<tokio_util::sync::mpsc::PollSenderFuture<tower::buffer::message::Message<http::reques
+    0.1%  [bytes] <bytes::buf::take::Take<T> as bytes::buf::buf_impl::Buf>::advance
+    0.1%  [http] http::header::map::HeaderMap<T>::try_reserve_one
+    0.1%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Context::run_task
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [stream_probe] stream_probe::Caller::run::{{closure}}::{{closure}}
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance

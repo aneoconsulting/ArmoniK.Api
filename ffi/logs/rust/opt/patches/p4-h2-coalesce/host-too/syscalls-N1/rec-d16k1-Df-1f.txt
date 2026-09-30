@@ -1,0 +1,112 @@
+# 886 samples, 1,119,215,958 cycles sampled (weights = periods)
+
+## thread class
+
+   99.7%  host-rt (cell-rt)
+    0.3%  main
+
+## leaf crate (self)
+
+   68.1%  kernel
+   23.4%  libc:mem
+    3.9%  h2
+    1.5%  tokio
+    0.7%  libc:other
+    0.5%  hyper
+    0.5%  tokio_util
+    0.4%  core
+    0.3%  (no frames)
+    0.2%  bytes
+    0.2%  std
+    0.1%  other:libm.so.6
+    0.1%  tracing
+    0.1%  libc:alloc
+
+## libc leaves by caller crate
+
+   21.8%  libc:mem     <- ak_core
+    1.4%  libc:mem     <- h2
+    0.5%  libc:other   <- mio
+    0.2%  libc:mem     <- bytes
+    0.1%  libc:other   <- ?
+    0.1%  libc:other   <- tokio
+    0.1%  libc:alloc   <- hyper
+    0.0%  libc:other   <- serde_core
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   62.5%  __syscall_cancel_arch_end                <- mio
+    3.5%  ?                                        <- ?
+    0.8%  syscall                                  <- tokio
+    0.4%  __memmove_evex_unaligned_erms            <- ak_core
+    0.2%  __syscall_cancel_arch_start              <- mio
+    0.1%  tokio::runtime::io::scheduled_io::Schedu <- tokio
+    0.1%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  __syscall_cancel                         <- mio
+    0.1%  tokio_util::util::poll_buf::poll_write_b <- tokio_util
+    0.1%  __vdso_clock_gettime                     <- other:[vdso]
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   94.4%  libc:other
+   94.4%  std
+   94.4%  tokio
+   94.4%  core
+   88.3%  hyper
+   68.5%  kernel
+   66.6%  h2
+   63.4%  mio
+   61.0%  tokio_util
+   23.8%  libc:mem
+   22.5%  rpc
+   22.5%  tonic
+   22.1%  harness
+   22.1%  ak_core(C ABI)
+   22.1%  http_body_util
+   22.1%  ak_core
+   22.1%  campaign
+    0.7%  stream_probe
+    0.6%  hyper_util
+    0.5%  other:stream_probe
+    0.4%  bytes
+    0.3%  tower
+    0.2%  serde_json
+    0.1%  other:libm.so.6
+    0.1%  tracing
+    0.1%  other:[vdso]
+    0.1%  libc:alloc
+    0.1%  serde_core
+
+## top leaf symbols
+
+   68.1%  [kernel] [unknown]
+   23.4%  [libc:mem] __memmove_evex_unaligned_erms
+    0.6%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.5%  [h2] h2::proto::streams::prioritize::Prioritize::pop_frame
+    0.5%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.4%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.3%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.3%  [libc:other] __internal_syscall_cancel
+    0.3%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.2%  [h2] h2::proto::streams::streams::Streams<B,P>::has_streams_or_other_references
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::<impl tokio::runtime::scheduler::multi_thread::handle::Handle
+    0.2%  [h2] h2::codec::framed_write::Encoder<B>::unset_frame
+    0.2%  [h2] h2::proto::streams::prioritize::Prioritize::reclaim_frame
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.1%  [core] <core::pin::Pin<P> as core::future::future::Future>::poll
+    0.1%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.1%  [h2] h2::proto::streams::streams::DynStreams<B>::recv_window_update
+    0.1%  [hyper] <hyper::common::io::compat::Compat<T> as tokio::io::async_read::AsyncRead>::poll_read
+    0.1%  [other:libm.so.6] __pow_finite@GLIBC_2.15@plt
+    0.1%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.1%  [tokio] tokio::runtime::task::state::State::transition_to_running
+    0.1%  [core] core::ptr::drop_in_place<tonic::transport::channel::Channel>
+    0.1%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.1%  [h2] h2::codec::framed_read::decode_frame
+    0.1%  [hyper] <hyper::proto::h2::client::H2ClientFuture<B,T,E> as core::future::future::Future>::poll
+    0.1%  [tokio] tokio::runtime::scheduler::multi_thread::park::Inner::park_condvar
+    0.1%  [h2] h2::hpack::table::Table::index
+    0.1%  [tracing] tracing::span::Span::in_scope
+    0.1%  [libc:other] __syscall_cancel
+    0.1%  [bytes] <bytes::buf::take::Take<T> as bytes::buf::buf_impl::Buf>::chunks_vectored

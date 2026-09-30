@@ -1,0 +1,117 @@
+# 807 samples, 917,760,892 cycles sampled (weights = periods)
+
+## thread class
+
+   83.9%  core-rt
+   15.7%  host-rt (cell-rt)
+    0.4%  main
+
+## leaf crate (self)
+
+   75.8%  kernel
+   12.6%  libc:mem
+    4.5%  h2
+    1.9%  tokio
+    1.0%  tokio_util
+    1.0%  hyper
+    0.8%  libc:other
+    0.3%  tonic
+    0.3%  ak_core
+    0.3%  http
+    0.3%  (no frames)
+    0.3%  bytes
+    0.2%  other:libak_core.so
+    0.1%  alloc
+    0.1%  libc:alloc
+    0.1%  __rustc
+    0.1%  std
+    0.1%  other:[vdso]
+    0.1%  campaign
+
+## libc leaves by caller crate
+
+   11.3%  libc:mem     <- ak_core
+    0.9%  libc:mem     <- h2
+    0.4%  libc:other   <- tokio
+    0.3%  libc:other   <- mio
+    0.1%  libc:other   <- ?
+    0.1%  libc:alloc   <- h2
+    0.1%  libc:mem     <- hyper
+    0.1%  libc:mem     <- bytes
+    0.1%  libc:mem     <- tokio
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   68.8%  __syscall_cancel_arch_end                <- mio
+    3.7%  ?                                        <- ?
+    2.2%  syscall                                  <- tokio
+    0.4%  __memmove_evex_unaligned_erms            <- ak_core
+    0.4%  __syscall_cancel_arch_end                <- serde_json
+    0.3%  __syscall_cancel_arch_start              <- mio
+    0.0%  __syscall_cancel_arch_end                <- serde_core
+
+## inclusive: samples with any frame in the crate
+
+   92.6%  core
+   92.5%  tokio
+   91.9%  libc:other
+   91.5%  std
+   76.3%  kernel
+   74.8%  hyper
+   74.4%  h2
+   69.4%  mio
+   69.0%  tokio_util
+   13.3%  ak_core
+   13.0%  libc:mem
+   12.1%  stream_probe
+   11.9%  campaign
+   11.5%  ak_core(C ABI)
+   11.5%  harness
+    1.6%  tonic
+    0.9%  hyper_util
+    0.9%  rpc
+    0.6%  tower
+    0.4%  serde_json
+    0.4%  other:stream_probe
+    0.4%  bytes
+    0.3%  http_body_util
+    0.3%  serde_core
+    0.3%  other:libak_core.so
+    0.3%  http
+    0.1%  alloc
+    0.1%  libc:alloc
+    0.1%  __rustc
+    0.1%  other:[vdso]
+
+## top leaf symbols
+
+   75.8%  [kernel] [unknown]
+   12.6%  [libc:mem] __memmove_evex_unaligned_erms
+    0.8%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.6%  [h2] h2::proto::streams::streams::Streams<B,P>::poll_complete
+    0.6%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.4%  [tokio] tokio::runtime::io::registration::Registration::poll_ready
+    0.4%  [h2] h2::codec::framed_write::Encoder<B>::buffer
+    0.4%  [libc:other] __tls_get_addr
+    0.3%  [ak_core] ak_core::rpc::unary_once::{{closure}}
+    0.3%  [tokio] tokio::runtime::context::scoped::Scoped<T>::set
+    0.3%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+    0.3%  [hyper] hyper::proto::h2::ping::Recorder::record_non_data
+    0.3%  [http] http::header::map::HeaderMap<T>::remove_found
+    0.3%  [h2] h2::proto::connection::Connection<T,P,B>::poll
+    0.3%  [h2] h2::proto::streams::counts::Counts::transition_after
+    0.3%  [tokio_util] tokio_util::sync::mpsc::PollSender<T>::poll_reserve
+    0.2%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.2%  [h2] h2::proto::streams::recv::Recv::poll_data
+    0.2%  [tokio] tokio::runtime::scheduler::multi_thread::worker::Core::maintenance
+    0.2%  [tokio] tokio::runtime::io::registration::Registration::poll_io
+    0.2%  [hyper] <hyper::common::io::compat::Compat<T> as tokio::io::async_read::AsyncRead>::poll_read
+    0.2%  [h2] h2::client::Peer::convert_send_message
+    0.2%  [other:libak_core.so] __floattidf
+    0.2%  [hyper] <hyper::body::incoming::Incoming as http_body::Body>::poll_frame
+    0.2%  [tonic] <tonic::transport::channel::service::reconnect::Reconnect<M,Target> as tower_service::Service<Request>>::call
+    0.2%  [tokio] tokio::sync::oneshot::Sender<T>::send
+    0.2%  [h2] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+    0.1%  [tonic] <tonic::transport::channel::service::connection::SendRequest as tower_service::Service<http::request::Request<
+    0.1%  [h2] h2::proto::streams::streams::Streams<B,P>::send_pending_refusal
+    0.1%  [libc:other] __internal_syscall_cancel
