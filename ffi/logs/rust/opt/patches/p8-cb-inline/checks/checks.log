@@ -133,3 +133,7 @@ core loaded by stream_probe: /tmp/claude-1000/-home-csdt-work-aneo-armonik-Armon
 checks rc=0
 upload_check AK_CB_INLINE=1: rc 0 UPLOAD CHECK PASSED
 rpc_semantics AK_CB_INLINE=1: rc 0 RPC SEMANTICS PASSED
+upload_check AK_CB_INLINE=1 AK_CORE_CHAN_DEPTH=2: rc 0 UPLOAD CHECK PASSED
+rpc_semantics AK_CB_INLINE=1 AK_CORE_CHAN_DEPTH=2: rc 0 RPC SEMANTICS PASSED
+upload_check AK_CB_INLINE=1 AK_CORE_CHAN_DEPTH=3: rc 0 UPLOAD CHECK PASSED
+rpc_semantics AK_CB_INLINE=1 AK_CORE_CHAN_DEPTH=3: rc 0 RPC SEMANTICS PASSED

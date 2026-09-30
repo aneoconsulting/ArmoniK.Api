@@ -1,6 +1,19 @@
 --- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
 +++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
-@@ -1172,12 +1172,47 @@
+@@ -1030,7 +1030,11 @@
+             None => return core::ptr::null_mut(),
+         }
+     }
+-    let (tx, rx) = tokio::sync::mpsc::channel::<Item>(1);
++    // EXPERIMENT p8-cb-inline: AK_CORE_CHAN_DEPTH (read once, default 1 = HEAD) sets the request
++    // channel's depth, so a callback send finds room and completes inline more often.
++    static DEPTH: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    let depth = *DEPTH.get_or_init(|| std::env::var("AK_CORE_CHAN_DEPTH").ok().and_then(|v| v.parse().ok()).filter(|d: &usize| *d >= 1).unwrap_or(1));
++    let (tx, rx) = tokio::sync::mpsc::channel::<Item>(depth);
+     let (rtx, rrx) = tokio::sync::oneshot::channel();
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+@@ -1172,12 +1176,47 @@
  /// The callback/queue deliveries of a send: the same prologue and epilogue around the
  /// awaited `send`, on a task; the completion (empty bytes) after the sender is back, so the
  /// host may send the next message from inside it.

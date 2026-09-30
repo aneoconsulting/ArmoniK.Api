@@ -1,0 +1,1 @@
+# stack: p1, p2, p3, p5, p6, p7, p8-cb-inline (knobs AK_CB_INLINE, AK_CORE_CHAN_DEPTH), then p9-cb-at-take (knob AK_CB_AT_TAKE=1)

@@ -1,0 +1,865 @@
+diff --git a/ffi/poc/codec/crates/ak-core/Cargo.toml b/ffi/poc/codec/crates/ak-core/Cargo.toml
+index 0adadfcd..030f6c4c 100644
+--- a/ffi/poc/codec/crates/ak-core/Cargo.toml
++++ b/ffi/poc/codec/crates/ak-core/Cargo.toml
+@@ -45,7 +45,7 @@ corpus = ["ak-abi/corpus"]
+ # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
+ # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
+ # RPC arm only; the java and csharp slices do not have one.
+-rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http"]
++rpc = ["dep:rpc", "dep:tonic", "dep:tokio", "dep:bytes", "dep:http", "dep:hyper", "dep:tokio-stream"]
+ 
+ [dependencies]
+ ak-abi = { path = "../ak-abi", default-features = false }
+@@ -56,3 +56,7 @@ tonic = { workspace = true, features = ["codegen", "transport"], optional = true
+ tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "sync", "macros"], optional = true }
+ bytes = { workspace = true, optional = true }
+ http = { workspace = true, optional = true }
++# EXPERIMENT p3-exec-slot: hyper::rt::Executor for the host executor slot.
++hyper = { version = "1", default-features = false, optional = true }
++# EXPERIMENT p5-deferred: the Stream trait for the request stream adapter.
++tokio-stream = { workspace = true, optional = true }
+diff --git a/ffi/poc/codec/crates/ak-core/src/lib.rs b/ffi/poc/codec/crates/ak-core/src/lib.rs
+index 5c9024e3..371a47e3 100644
+--- a/ffi/poc/codec/crates/ak-core/src/lib.rs
++++ b/ffi/poc/codec/crates/ak-core/src/lib.rs
+@@ -1084,9 +1084,9 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
+         let e = &mut (*cx).e;
+         e.key(tag, ak_rt::WIRE_LEN);
+         e.varint(n as u64);
+-        // R-D9: a zero-length direct argument may be (NULL, 0).
++        // R-D9: a zero-length direct argument may be (NULL, 0). p6-zero-copy: put_blob.
+         if n != 0 {
+-            e.put(core::slice::from_raw_parts(p, n));
++            e.put_blob(p, n);
+         }
+         let _ = site;
+         return true;
+@@ -1106,9 +1106,10 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
+         ak_rt::bump!(e.c, transcode);
+         e.key(tag, ak_rt::WIRE_LEN);
+         e.varint(s.len as u64);
+-        // R-D9: an empty host string may arrive as (NULL, 0).
++        // R-D9: an empty host string may arrive as (NULL, 0). p6-zero-copy: put_blob copies
++        // unless the context records large blobs as external.
+         if s.len != 0 {
+-            e.put(core::slice::from_raw_parts(s.data as *const u8, s.len));
++            e.put_blob(s.data as *const u8, s.len);
+         }
+         let _ = site;
+         return true;
+diff --git a/ffi/poc/codec/crates/ak-core/src/rpc.rs b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+index e8d019ce..235c77d8 100644
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -156,6 +156,144 @@ pub extern "C" fn ak_rpc_counters_reset() {
+ 
+ pub struct RuntimeImpl {
+     pub rt: tokio::runtime::Runtime,
++    /// EXPERIMENT p3-exec-slot: set by `ak_runtime_new_hosted`; every task the core spawns
++    /// (its calls' tasks, and through tonic's `Endpoint::executor` hyper's connection task and
++    /// tonic's buffer worker) is handed to the host instead of `rt`, whose workers then only
++    /// drive the I/O and timer drivers.
++    pub host: Option<std::sync::Arc<HostExec>>,
++}
++
++impl RuntimeImpl {
++    /// Spawn one of the core's tasks: on the host's executor when hosted, else on `rt`.
++    pub fn spawn<F: core::future::Future<Output = ()> + Send + 'static>(&self, f: F) {
++        match &self.host {
++            Some(h) => h.spawn(Box::pin(f)),
++            None => {
++                self.rt.spawn(f);
++            }
++        }
++    }
++}
++
++// ---- EXPERIMENT p3-exec-slot (not committed): the host executor slot ----------------------
++//
++// ak_runtime_new_hosted(reactor_workers, spawn, user): a runtime whose tasks run on the HOST's
++// executor. The core keeps `reactor_workers` tokio workers (threads named `ak-reactor`) that
++// only turn its I/O and timer drivers (its sockets are registered there); every task is handed
++// to `spawn(user, task)` from whatever thread spawns it, and the host polls it with
++// ak_task_poll(task, waker, vt) until it returns 1, then frees it with ak_task_free. The poll
++// enters the core runtime's context, so the core's tokio I/O and timers resolve to its drivers.
++// Contract: `spawn` may be called from any thread, including from inside ak_task_poll and before
++// ak_client_new_opts returns (the connection task is spawned while it connects, so the host's
++// executor must already be running: the bootstrap drainer); the host polls one task from one
++// thread at a time; the waker vtable is static and `wake` does not consume its data;
++// ak_runtime_destroy only after every task has been freed and no host thread is inside a poll.
++pub type AkSpawnFn = unsafe extern "C" fn(user: *mut c_void, task: *mut c_void);
++
++#[repr(C)]
++pub struct ak_waker_vt {
++    pub wake: unsafe extern "C" fn(*mut c_void),
++    pub clone: unsafe extern "C" fn(*mut c_void) -> *mut c_void,
++    pub drop: unsafe extern "C" fn(*mut c_void),
++}
++
++pub struct HostExec {
++    spawn: AkSpawnFn,
++    user: usize,
++    handle: tokio::runtime::Handle,
++}
++type BoxFut = core::pin::Pin<Box<dyn core::future::Future<Output = ()> + Send>>;
++struct TaskImpl {
++    fut: std::sync::Mutex<Option<BoxFut>>,
++    handle: tokio::runtime::Handle,
++}
++impl HostExec {
++    fn spawn(&self, f: BoxFut) {
++        let t = Box::into_raw(Box::new(TaskImpl { fut: std::sync::Mutex::new(Some(f)), handle: self.handle.clone() }));
++        rev();
++        unsafe { (self.spawn)(self.user as *mut c_void, t as *mut c_void) };
++    }
++}
++#[derive(Clone)]
++struct HostExecutor(std::sync::Arc<HostExec>);
++impl<F: core::future::Future<Output = ()> + Send + 'static> hyper::rt::Executor<F> for HostExecutor {
++    fn execute(&self, f: F) {
++        self.0.spawn(Box::pin(f));
++    }
++}
++
++struct HostWaker {
++    data: *mut c_void,
++    vt: *const ak_waker_vt,
++}
++unsafe fn hw_raw(hw: HostWaker) -> core::task::RawWaker {
++    core::task::RawWaker::new(Box::into_raw(Box::new(hw)) as *const (), &HW_VT)
++}
++unsafe fn hw_clone(p: *const ()) -> core::task::RawWaker {
++    let hw = &*(p as *const HostWaker);
++    hw_raw(HostWaker { data: ((*hw.vt).clone)(hw.data), vt: hw.vt })
++}
++unsafe fn hw_wake(p: *const ()) {
++    let hw = Box::from_raw(p as *mut HostWaker);
++    ((*hw.vt).wake)(hw.data);
++    ((*hw.vt).drop)(hw.data);
++}
++unsafe fn hw_wake_by_ref(p: *const ()) {
++    let hw = &*(p as *const HostWaker);
++    ((*hw.vt).wake)(hw.data);
++}
++unsafe fn hw_drop(p: *const ()) {
++    let hw = Box::from_raw(p as *mut HostWaker);
++    ((*hw.vt).drop)(hw.data);
++}
++static HW_VT: core::task::RawWakerVTable = core::task::RawWakerVTable::new(hw_clone, hw_wake, hw_wake_by_ref, hw_drop);
++
++#[no_mangle]
++pub unsafe extern "C" fn ak_runtime_new_hosted(reactor_workers: u32, spawn: AkSpawnFn, user: *mut c_void) -> *mut ak_runtime {
++    let n = if reactor_workers == 0 { 1 } else { reactor_workers as usize };
++    match tokio::runtime::Builder::new_multi_thread().worker_threads(n).thread_name("ak-reactor").enable_all().build() {
++        Ok(rt) => {
++            let host = std::sync::Arc::new(HostExec { spawn, user: user as usize, handle: rt.handle().clone() });
++            Box::into_raw(Box::new(RuntimeImpl { rt, host: Some(host) })) as *mut ak_runtime
++        }
++        Err(_) => core::ptr::null_mut(),
++    }
++}
++
++/// Poll a hosted task once: 1 = finished (free it with ak_task_free), 0 = pending (the waker
++/// built from `data`/`vt` will be woken), -1 = NULL task.
++#[no_mangle]
++pub unsafe extern "C" fn ak_task_poll(task: *mut c_void, data: *mut c_void, vt: *const ak_waker_vt) -> i32 {
++    if task.is_null() || vt.is_null() {
++        return -1;
++    }
++    let t = &*(task as *const TaskImpl);
++    let waker = core::task::Waker::from_raw(hw_raw(HostWaker { data: ((*vt).clone)(data), vt }));
++    let mut cx = core::task::Context::from_waker(&waker);
++    let _g = t.handle.enter();
++    let mut slot = match t.fut.lock() {
++        Ok(g) => g,
++        Err(p) => p.into_inner(),
++    };
++    match slot.as_mut() {
++        Some(f) => match f.as_mut().poll(&mut cx) {
++            core::task::Poll::Ready(()) => {
++                *slot = None;
++                1
++            }
++            core::task::Poll::Pending => 0,
++        },
++        None => 1,
++    }
++}
++
++#[no_mangle]
++pub unsafe extern "C" fn ak_task_free(task: *mut c_void) {
++    if !task.is_null() {
++        let t = Box::from_raw(task as *mut TaskImpl);
++        let _g = t.handle.enter();
++        drop(t);
++    }
+ }
+ 
+ pub struct ClientImpl {
+@@ -226,7 +364,7 @@ pub extern "C" fn ak_runtime_new(worker_threads: u32) -> *mut ak_runtime {
+         .enable_all()
+         .build()
+     {
+-        Ok(rt) => Box::into_raw(Box::new(RuntimeImpl { rt })) as *mut ak_runtime,
++        Ok(rt) => Box::into_raw(Box::new(RuntimeImpl { rt, host: None })) as *mut ak_runtime,
+         Err(_) => core::ptr::null_mut(),
+     }
+ }
+@@ -287,6 +425,7 @@ pub unsafe extern "C" fn ak_client_new_opts(
+     } else {
+         *opts
+     };
++    let host = rt.host.clone();
+     let chan = rt.rt.block_on(async move {
+         // `unix:` targets included: from_shared dispatches on the scheme.
+         let mut ep = tonic::transport::Endpoint::from_shared(s).ok()?;
+@@ -303,6 +442,9 @@ pub unsafe extern "C" fn ak_client_new_opts(
+             // ArmoniK's sense, inverted for tonic's: nagle on means nodelay off.
+             ep = ep.tcp_nodelay(o.tcp_nagle == 0);
+         }
++        if let Some(h) = &host {
++            ep = ep.executor(HostExecutor(h.clone()));
++        }
+         ep.connect().await.ok()
+     });
+     match chan {
+@@ -481,6 +623,30 @@ pub unsafe extern "C" fn ak_enc_take_owned(enc: *mut crate::ak_enc_ctx, out: *mu
+     AK_OK
+ }
+ 
++/// EXPERIMENT (patch p2-take-framed, not committed): `ak_enc_take_owned` with the 5-byte gRPC
++/// prefix written into the context's headroom and INCLUDED in the owned bytes (Enc::take_framed),
++/// so a host feeding its own gRPC transport can send each message as ONE body frame. Additive.
++#[no_mangle]
++pub unsafe extern "C" fn ak_enc_take_owned_framed(enc: *mut crate::ak_enc_ctx, out: *mut ak_bytes) -> i32 {
++    fwd();
++    if out.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    *out = empty_ak_bytes();
++    if enc.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    let cx = &mut *(enc as *mut crate::EncCtxImpl);
++    if cx.hdr.err != AK_OK {
++        return cx.hdr.err;
++    }
++    if cx.e.err != 0 {
++        return cx.e.err;
++    }
++    *out = into_ak_bytes(cx.e.take_framed());
++    AK_OK
++}
++
+ /// **One call path, three deliveries.** Every mode below awaits this, so a delivery cannot
+ /// drift from another delivery: there is one place the request is sent and one place the
+ /// response is taken.
+@@ -574,10 +740,144 @@ async fn cancellable<T>(cancel: std::sync::Arc<tokio::sync::Notify>, f: impl cor
+ /// call's task through a bounded channel (`ak_call_send` blocks while it is full, so the
+ /// host cannot run ahead of the transport by more than one message); the response comes
+ /// back on a oneshot (`ak_call_recv`).
++/// EXPERIMENT p5-deferred: a queued request message, or a DEFERRED one that the transport
++/// encodes when its body asks for it (`ak_call_send_deferred`): the host's encode callback
++/// runs on the core's worker that then writes the message, into the host's encode context,
++/// and the result is taken framed exactly as `ak_call_send_enc` takes it.
++enum Item {
++    B(Bytes),
++    D(Deferred),
++    /// EXPERIMENT p6-zero-copy: one message as pieces (its buffer cut around borrowed host
++    /// blobs), yielded as consecutive body frames.
++    P(Vec<Bytes>),
++    /// EXPERIMENT p9-cb-at-take: a callback/queue send queued WITH its completion, which the
++    /// body delivers when it takes the message (no task per send).
++    C(Pend),
++}
++
++/// EXPERIMENT p9-cb-at-take (not committed): a queued send's completion. The sender travels
++/// with the message and goes back to the call's slot when the body takes it (dropped after the
++/// last message, which ends the request stream); a message dropped untaken (cancel, failure)
++/// completes AK_ERR_HOST from Drop, as a cancelled pending send does on the task path.
++struct Pend {
++    b: Option<Bytes>,
++    sink: Option<Sink>,
++    tag: u64,
++    last: i32,
++    tx: Option<tokio::sync::mpsc::Sender<Item>>,
++    slot: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Item>>>>,
++}
++impl Pend {
++    fn complete(&mut self, taken: bool) {
++        if let Some(tx) = self.tx.take() {
++            if taken && self.last == 0 {
++                if let Ok(mut g) = self.slot.lock() {
++                    *g = Some(tx);
++                }
++            }
++        }
++        if let Some(sink) = self.sink.take() {
++            let status = if taken { AK_OK } else { AK_ERR_HOST };
++            let grpc_status = if taken { 0 } else { -1 };
++            sink.deliver(ak_completion { tag: self.tag, status, grpc_status, bytes: empty_ak_bytes() });
++        }
++    }
++}
++impl Drop for Pend {
++    fn drop(&mut self) {
++        self.complete(false);
++    }
++}
++fn cb_at_take() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_CB_AT_TAKE").map_or(false, |v| v == "1"))
++}
++struct Deferred {
++    f: AkEncodeFn,
++    user: usize,
++    enc: usize,
++    /// Signalled after the encode (its rc) when the host waits for it.
++    done: Option<std::sync::mpsc::SyncSender<i32>>,
++    /// EXPERIMENT p7-deferred-zc: the host's release for a zero-copy context (its encode
++    /// recorded borrowed blobs): the message is sent as pieces and released when written.
++    release: Option<(unsafe extern "C" fn(*mut c_void), usize)>,
++}
++pub type AkEncodeFn = unsafe extern "C" fn(user: *mut c_void, enc: *mut crate::ak_enc_ctx) -> i32;
++
++/// The request stream of a call: queued messages as they are, deferred ones encoded here.
++struct ItemStream {
++    rx: tokio::sync::mpsc::Receiver<Item>,
++    failed: bool,
++    parts: std::collections::VecDeque<Bytes>,
++}
++impl tokio_stream::Stream for ItemStream {
++    type Item = Bytes;
++    fn poll_next(mut self: core::pin::Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Option<Bytes>> {
++        if self.failed {
++            return core::task::Poll::Ready(None);
++        }
++        if let Some(b) = self.parts.pop_front() {
++            return core::task::Poll::Ready(Some(b));
++        }
++        match self.rx.poll_recv(cx) {
++            core::task::Poll::Ready(Some(Item::B(b))) => core::task::Poll::Ready(Some(b)),
++            core::task::Poll::Ready(Some(Item::C(mut p))) => {
++                let b = p.b.take().unwrap_or_default();
++                p.complete(true);
++                core::task::Poll::Ready(Some(b))
++            }
++            core::task::Poll::Ready(Some(Item::P(v))) => {
++                self.parts = v.into();
++                core::task::Poll::Ready(self.parts.pop_front())
++            }
++            core::task::Poll::Ready(Some(Item::D(d))) => {
++                rev();
++                let rc = unsafe { (d.f)(d.user as *mut c_void, d.enc as *mut crate::ak_enc_ctx) };
++                let zc = unsafe { !(*(d.enc as *mut crate::EncCtxImpl)).e.ext.is_empty() };
++                let r = if rc < 0 {
++                    Err(rc)
++                } else if zc {
++                    let cx = unsafe { &mut *(d.enc as *mut crate::EncCtxImpl) };
++                    let rel = d.release;
++                    let parts = cx.e.take_framed_parts(ak_rt::enc::ZcRelease(Some(Box::new(move || {
++                        if let Some((f, u)) = rel {
++                            rev();
++                            unsafe { f(u as *mut c_void) };
++                        }
++                    }))));
++                    let mut it = parts.into_iter();
++                    let first = it.next().unwrap_or_default();
++                    self.parts = it.collect();
++                    Ok((first, true))
++                } else {
++                    unsafe { enc_take(d.enc as *mut crate::ak_enc_ctx) }
++                };
++                let code = match &r {
++                    Ok(_) => AK_OK,
++                    Err(e) => *e,
++                };
++                if let Some(tx) = d.done {
++                    let _ = tx.send(code);
++                }
++                match r {
++                    Ok((b, _pre)) => core::task::Poll::Ready(Some(b)),
++                    Err(_) => {
++                        // The request stream ends here: the server sees fewer messages.
++                        self.failed = true;
++                        core::task::Poll::Ready(None)
++                    }
++                }
++            }
++            core::task::Poll::Ready(None) => core::task::Poll::Ready(None),
++            core::task::Poll::Pending => core::task::Poll::Pending,
++        }
++    }
++}
++
+ struct StreamImpl {
+     rt: *const RuntimeImpl,
+     /// Shared with a pending callback/queue send's task, which puts the sender back.
+-    tx: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>>,
++    tx: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Item>>>>,
+     resp: std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<Result<Bytes, rpc::CallErr>>>>,
+     /// The client's send limit, checked per message before it is queued (D44).
+     max_send: Option<usize>,
+@@ -776,19 +1076,24 @@ pub unsafe extern "C" fn ak_call_open(c: *mut ak_client, path: *const u8, path_l
+             None => return core::ptr::null_mut(),
+         }
+     }
+-    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(1);
++    // EXPERIMENT p8-cb-inline: AK_CORE_CHAN_DEPTH (read once, default 1 = HEAD) sets the request
++    // channel's depth, so a callback send finds room and completes inline more often.
++    static DEPTH: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    let depth = *DEPTH.get_or_init(|| std::env::var("AK_CORE_CHAN_DEPTH").ok().and_then(|v| v.parse().ok()).filter(|d: &usize| *d >= 1).unwrap_or(1));
++    let (tx, rx) = tokio::sync::mpsc::channel::<Item>(depth);
+     let (rtx, rrx) = tokio::sync::oneshot::channel();
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+     let max_send = link.cfg.max_send;
+     let preframed = link.framed;
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let cfg = link.cfg.clone();
+         let r = cancellable(c2, async move {
++            let msgs = ItemStream { rx, failed: false, parts: Default::default() };
+             if link.framed {
+-                rpc::client_streaming_preframed_cfg(link.chan, path, rpc::ReceiverStream::new(rx), &cfg).await
++                rpc::client_streaming_preframed_cfg(link.chan, path, msgs, &cfg).await
+             } else {
+-                rpc::client_streaming_raw(link.chan, path, rx, &cfg).await
++                rpc::client_streaming_raw_cfg(link.chan, path, msgs, &cfg).await
+             }
+         })
+         .await;
+@@ -871,7 +1176,7 @@ impl Sink {
+ /// (D44: above it the message is refused and nothing is sent), and the sender taken out of
+ /// its slot -- so a second send while one is pending, or a send after `last`, finds it
+ /// empty (AK_ERR_INVALID_STATE), and `ak_call_cancel` never waits on this lock.
+-unsafe fn send_begin(h: *mut ak_call, len: usize, who: &str) -> Result<(&'static StreamImpl, tokio::sync::mpsc::Sender<Bytes>), i32> {
++unsafe fn send_begin(h: *mut ak_call, len: usize, who: &str) -> Result<(&'static StreamImpl, tokio::sync::mpsc::Sender<Item>), i32> {
+     let st = match (*(h as *mut CallImpl)).stream.as_ref() {
+         Some(s) => s,
+         None => return Err(AK_ERR_INVALID_STATE),
+@@ -891,7 +1196,7 @@ unsafe fn send_begin(h: *mut ak_call, len: usize, who: &str) -> Result<(&'static
+ /// The send path's epilogue: the sender back in its slot unless `last` (dropping it ends
+ /// the request stream), then the outcome. A closed channel means the call has ended
+ /// (cancelled or failed): AK_ERR_HOST, the status read with a recv.
+-fn send_end(slot: &std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Bytes>>>, tx: tokio::sync::mpsc::Sender<Bytes>, sent: bool, last: i32, who: &str) -> i32 {
++fn send_end(slot: &std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Item>>>, tx: tokio::sync::mpsc::Sender<Item>, sent: bool, last: i32, who: &str) -> i32 {
+     if !sent {
+         trace(who, "the call ended (cancelled or failed)");
+         return AK_ERR_HOST;
+@@ -910,21 +1215,72 @@ unsafe fn stream_send(h: *mut ak_call, (b, n): (Bytes, usize), last: i32) -> i32
+         Err(e) => return e,
+     };
+     // `blocking_send` is the block_on of the same `send` future the other deliveries await.
+-    let sent = tx.blocking_send(b).is_ok();
++    let sent = tx.blocking_send(Item::B(b)).is_ok();
+     send_end(&st.tx, tx, sent, last, "ak_call_send")
+ }
+ 
+ /// The callback/queue deliveries of a send: the same prologue and epilogue around the
+ /// awaited `send`, on a task; the completion (empty bytes) after the sender is back, so the
+ /// host may send the next message from inside it.
++/// EXPERIMENT p8-cb-inline (not committed): AK_CB_INLINE=1 (read once) makes a callback/queue
++/// send whose message fits in the channel complete INLINE: try_send, the sender back in its
++/// slot, and the completion delivered before the entry returns, on the caller's thread. Only
++/// when the channel is full does the send go to a task, as it always does without the knob.
++/// Counters: ak_exp_cb_stats(out[2]) = inline completions, spawned sends.
++fn cb_inline() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_CB_INLINE").map_or(false, |v| v == "1"))
++}
++static CB_INLINE_N: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
++static CB_SPAWN_N: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
++#[no_mangle]
++pub unsafe extern "C" fn ak_exp_cb_stats(out: *mut u64) {
++    if !out.is_null() {
++        *out = CB_INLINE_N.load(core::sync::atomic::Ordering::Relaxed);
++        *out.add(1) = CB_SPAWN_N.load(core::sync::atomic::Ordering::Relaxed);
++    }
++}
++
+ unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sink: Sink, tag: u64, who: &'static str) -> i32 {
+     let (st, tx) = match send_begin(h, n, who) {
+         Ok(v) => v,
+         Err(e) => return e,
+     };
+     let slot = st.tx.clone();
+-    (*st.rt).rt.spawn(async move {
+-        let sent = tx.send(b).await.is_ok();
++    if cb_at_take() {
++        CB_INLINE_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++        let item = Item::C(Pend { b: Some(b), sink: Some(sink), tag, last, tx: Some(tx.clone()), slot });
++        match tx.try_send(item) {
++            Ok(()) => {}
++            Err(tokio::sync::mpsc::error::TrySendError::Full(item)) => {
++                // not expected (the host waits for the previous completion); queue it from a task
++                CB_SPAWN_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++                (*st.rt).spawn(async move {
++                    let _ = tx.send(item).await;
++                });
++            }
++            Err(tokio::sync::mpsc::error::TrySendError::Closed(item)) => drop(item), // completes AK_ERR_HOST
++        }
++        return AK_OK;
++    }
++    let b = if cb_inline() {
++        match tx.try_send(Item::B(b)) {
++            Ok(()) => {
++                CB_INLINE_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++                let status = send_end(&slot, tx, true, last, who);
++                let grpc_status = if status == AK_OK { 0 } else { -1 };
++                sink.deliver(ak_completion { tag, status, grpc_status, bytes: empty_ak_bytes() });
++                return AK_OK;
++            }
++            Err(tokio::sync::mpsc::error::TrySendError::Full(Item::B(b))) | Err(tokio::sync::mpsc::error::TrySendError::Closed(Item::B(b))) => b,
++            Err(_) => unreachable!("only Item::B is sent here"),
++        }
++    } else {
++        b
++    };
++    CB_SPAWN_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++    (*st.rt).spawn(async move {
++        let sent = tx.send(Item::B(b)).await.is_ok();
+         let status = send_end(&slot, tx, sent, last, who);
+         let grpc_status = if status == AK_OK { 0 } else { -1 };
+         sink.deliver(ak_completion { tag, status, grpc_status, bytes: empty_ak_bytes() });
+@@ -932,6 +1288,113 @@ unsafe fn stream_send_to(h: *mut ak_call, (b, n): (Bytes, usize), last: i32, sin
+     AK_OK
+ }
+ 
++/// EXPERIMENT p5-deferred: one request message ENCODED BY THE TRANSPORT. `f(user, enc)` is the
++/// host's encode into `enc` (its return value < 0 is an error); the core calls it on the worker
++/// that writes the call, when the body asks for the message, and takes the result framed.
++/// wait = 1: returns after that encode, with its outcome (the host may reuse its value then);
++/// wait = 0: returns once queued, and the host keeps `user`'s value and `enc` untouched until
++/// the NEXT send on this call returns or the recv completes (the channel holds one message, so
++/// by then the transport has taken and encoded this one). Framed streams only; the client's
++/// send limit is not checked on this path (experiment).
++#[no_mangle]
++pub unsafe extern "C" fn ak_call_send_deferred(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, f: AkEncodeFn, user: *mut c_void, last: i32, wait: i32) -> i32 {
++    fwd();
++    if h.is_null() || enc.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    if !(*(h as *mut CallImpl)).stream.as_ref().map_or(false, |s| s.preframed) {
++        return AK_ERR_INVALID_STATE;
++    }
++    let (st, tx) = match send_begin(h, 0, "ak_call_send_deferred") {
++        Ok(v) => v,
++        Err(e) => return e,
++    };
++    let (dtx, drx) = if wait != 0 {
++        let (a, b) = std::sync::mpsc::sync_channel(1);
++        (Some(a), Some(b))
++    } else {
++        (None, None)
++    };
++    let sent = tx.blocking_send(Item::D(Deferred { f, user: user as usize, enc: enc as usize, done: dtx, release: DEFERRED_RELEASE.with(|r| r.take()) })).is_ok();
++    let rc = send_end(&st.tx, tx, sent, last, "ak_call_send_deferred");
++    if rc != AK_OK {
++        return rc;
++    }
++    match drx {
++        Some(r) => match r.recv() {
++            Ok(code) => code,
++            Err(_) => AK_ERR_HOST,
++        },
++        None => AK_OK,
++    }
++}
++
++thread_local! {
++    static DEFERRED_RELEASE: core::cell::Cell<Option<(unsafe extern "C" fn(*mut c_void), usize)>> = const { core::cell::Cell::new(None) };
++}
++
++/// EXPERIMENT p7-deferred-zc: `ak_call_send_deferred` for a context with zero copy on
++/// (`ak_enc_set_zc`): the encode on the transport's worker writes the message's head and
++/// records the host's large blobs as borrowed, and the message goes out as pieces. Lifetime
++/// contract: the value `user` reaches stays untouched as for ak_call_send_deferred, and the
++/// borrowed blobs' memory stays valid and unmodified until `release(ruser)` runs (once per
++/// message, any thread, after the last borrowed piece is written or dropped).
++#[no_mangle]
++pub unsafe extern "C" fn ak_call_send_deferred_zc(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, f: AkEncodeFn, user: *mut c_void, last: i32, wait: i32, release: unsafe extern "C" fn(*mut c_void), ruser: *mut c_void) -> i32 {
++    DEFERRED_RELEASE.with(|r| r.set(Some((release, ruser as usize))));
++    let rc = ak_call_send_deferred(h, enc, f, user, last, wait);
++    DEFERRED_RELEASE.with(|r| r.set(None));
++    rc
++}
++
++/// EXPERIMENT p6-zero-copy: blobs of at least `min_len` bytes (0 = off) that this context
++/// encodes are left in the host's memory (the encoder records where they go instead of copying
++/// them); only ak_call_send_enc_zc may take such a context's output.
++#[no_mangle]
++pub unsafe extern "C" fn ak_enc_set_zc(enc: *mut crate::ak_enc_ctx, min_len: usize) -> i32 {
++    fwd();
++    if enc.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    (*(enc as *mut crate::EncCtxImpl)).e.zc_min = min_len;
++    AK_OK
++}
++
++/// EXPERIMENT p6-zero-copy: `ak_call_send_enc` for a zero-copy context: the message is sent
++/// as its buffer's pieces and the host's blobs themselves, not copied. Lifetime contract: the
++/// memory of every blob the message borrowed stays valid and unmodified until `release(user)`
++/// is called, once per message, from any thread, after the transport has written or dropped
++/// the last borrowed piece (a cancelled or failed call releases too). Blocking otherwise as
++/// ak_call_send_enc (returns once queued). Framed streams only; send limit not checked.
++#[no_mangle]
++pub unsafe extern "C" fn ak_call_send_enc_zc(h: *mut ak_call, enc: *mut crate::ak_enc_ctx, last: i32, release: unsafe extern "C" fn(*mut c_void), user: *mut c_void) -> i32 {
++    fwd();
++    if h.is_null() || enc.is_null() {
++        return AK_ERR_INVALID_STATE;
++    }
++    if !(*(h as *mut CallImpl)).stream.as_ref().map_or(false, |s| s.preframed) {
++        return AK_ERR_INVALID_STATE;
++    }
++    let cx = &mut *(enc as *mut crate::EncCtxImpl);
++    if cx.hdr.err != AK_OK {
++        return cx.hdr.err;
++    }
++    if cx.e.err != 0 {
++        return cx.e.err;
++    }
++    let user = user as usize;
++    let parts = cx.e.take_framed_parts(ak_rt::enc::ZcRelease(Some(Box::new(move || {
++        rev();
++        release(user as *mut c_void)
++    }))));
++    let (st, tx) = match send_begin(h, 0, "ak_call_send_enc_zc") {
++        Ok(v) => v,
++        Err(e) => return e,
++    };
++    let sent = tx.blocking_send(Item::P(parts)).is_ok();
++    send_end(&st.tx, tx, sent, last, "ak_call_send_enc_zc")
++}
++
+ /// U2-stream: one request message, copied.
+ #[no_mangle]
+ pub unsafe extern "C" fn ak_call_send(h: *mut ak_call, msg: *const u8, len: usize, last: i32) -> i32 {
+@@ -1017,7 +1480,7 @@ unsafe fn stream_recv_to(h: *mut ak_call, sink: Sink, tag: u64, who: &'static st
+         Ok(v) => v,
+         Err(e) => return e,
+     };
+-    (*st.rt).rt.spawn(async move {
++    (*st.rt).spawn(async move {
+         let (status, grpc_status, b) = stream_outcome(who, recv_once(rx).await);
+         sink.deliver(ak_completion { tag, status, grpc_status, bytes: b.map_or_else(empty_ak_bytes, into_ak_bytes) });
+     });
+@@ -1178,7 +1641,7 @@ pub unsafe extern "C" fn ak_call_unary_cb(
+     let ctx = CbCtx { cb, user: user_data };
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let ctx = ctx;
+         let mut comp = completion(tag, "ak_call_unary_cb", cancellable(c2, unary_once(chan, path, body, pre)).await);
+         rev();
+@@ -1216,7 +1679,7 @@ pub unsafe extern "C" fn ak_call_unary_q(
+     let qaddr = q as usize;
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let comp = completion(tag, "ak_call_unary_q", cancellable(c2, unary_once(chan, path, body, pre)).await);
+         let qi = unsafe { &*(qaddr as *const QueueImpl) };
+         if let Ok(mut st) = qi.m.lock() {
+@@ -1244,7 +1707,7 @@ unsafe fn unary_enc_parts(c: *mut ak_client, path: *const u8, path_len: usize, e
+ fn spawn_unary(rt: &RuntimeImpl, link: Link, path: http::uri::PathAndQuery, body: Bytes, pre: bool, sink: Sink, tag: u64, who: &'static str) -> *mut ak_call {
+     let cancel = std::sync::Arc::new(tokio::sync::Notify::new());
+     let c2 = cancel.clone();
+-    rt.rt.spawn(async move {
++    rt.spawn(async move {
+         let comp = completion(tag, who, cancellable(c2, unary_once(link, path, body, pre)).await);
+         sink.deliver(comp);
+     });
+diff --git a/ffi/poc/codec/crates/ak-rt/src/enc.rs b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+index 98927b45..5061c002 100644
+--- a/ffi/poc/codec/crates/ak-rt/src/enc.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/enc.rs
+@@ -19,6 +19,32 @@ pub struct Mark {
+     hdr: usize,
+     /// How many bytes were reserved for it.
+     w: usize,
++    /// EXPERIMENT p6-zero-copy: the context's external bytes when the field was opened.
++    ext0: usize,
++}
++
++/// EXPERIMENT p6-zero-copy (not committed): a blob left in the host's memory. The encoded
++/// message is `buf` with each external blob inserted at its offset; `take_framed_parts`
++/// hands the transport the pieces, the external ones as `Bytes` that borrow the host's memory
++/// until the last of a message's pieces is dropped, which runs the message's release.
++struct ExtSlice {
++    p: usize,
++    n: usize,
++    _rel: std::sync::Arc<ZcRelease>,
++}
++impl AsRef<[u8]> for ExtSlice {
++    fn as_ref(&self) -> &[u8] {
++        unsafe { core::slice::from_raw_parts(self.p as *const u8, self.n) }
++    }
++}
++/// Runs once when every external piece of a message has been dropped (written or discarded).
++pub struct ZcRelease(pub Option<Box<dyn FnOnce() + Send + Sync>>);
++impl Drop for ZcRelease {
++    fn drop(&mut self) {
++        if let Some(f) = self.0.take() {
++            f();
++        }
++    }
+ }
+ 
+ /// A taken body (`Enc::take`): returns its buffer to the context's spare ring when its last
+@@ -35,6 +61,18 @@ struct Recycle {
+ /// logs/rust/opt/framed-default/ring-size).
+ pub const SPARES: usize = 3;
+ 
++/// EXPERIMENT (patch p1-ring, not committed): the ring's size from AK_SPARES (default SPARES)
++/// and, with AK_SPARE_LOCK=1, a returned buffer waits for the lock instead of being freed when
++/// `try_lock` fails. Read once per process.
++fn spares() -> usize {
++    static S: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_SPARES").ok().and_then(|v| v.parse().ok()).unwrap_or(SPARES))
++}
++fn spare_lock() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_SPARE_LOCK").map_or(false, |v| v == "1"))
++}
++
+ /// Bytes kept free at the start of the buffer when `head` is on: the gRPC message prefix
+ /// (1 flag byte, 4 length bytes), written in place by `take_framed`.
+ pub const FRAME_HEAD: usize = 5;
+@@ -45,8 +83,9 @@ impl AsRef<[u8]> for Recycle {
+ }
+ impl Drop for Recycle {
+     fn drop(&mut self) {
+-        if let Ok(mut g) = self.slot.try_lock() {
+-            if g.len() < SPARES {
++        let g = if spare_lock() { self.slot.lock().ok() } else { self.slot.try_lock().ok() };
++        if let Some(mut g) = g {
++            if g.len() < spares() {
+                 g.push(core::mem::take(&mut self.v));
+             }
+         }
+@@ -87,6 +126,11 @@ unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
+ pub struct Enc {
+     /// The encoded message is `buf[head..]`.
+     pub buf: Vec<u8>,
++    /// EXPERIMENT p6-zero-copy: blobs of at least `zc_min` bytes (0 = off) are not copied but
++    /// recorded as (offset in buf, address, length); `ext_bytes` is their total.
++    pub zc_min: usize,
++    pub ext: Vec<(usize, usize, usize)>,
++    pub ext_bytes: usize,
+     /// 0, or FRAME_HEAD: bytes `reset` keeps free before the message so a transport can
+     /// write the gRPC prefix in place and send prefix and message as ONE buffer
+     /// (`take_framed`). The encode itself only appends, so nothing else sees them; every
+@@ -121,8 +165,11 @@ impl Enc {
+     pub fn new(sites: usize) -> Self {
+         Enc {
+             buf: Vec::with_capacity(4096),
++            zc_min: 0,
++            ext: Vec::new(),
++            ext_bytes: 0,
+             head: 0,
+-            spare: Arc::new(Mutex::new(Vec::with_capacity(SPARES))),
++            spare: Arc::new(Mutex::new(Vec::with_capacity(spares()))),
+             #[cfg(not(feature = "global-widths"))]
+             widths: vec![1u8; sites].into_boxed_slice(),
+             c: Counters::default(),
+@@ -162,6 +209,8 @@ impl Enc {
+     #[inline]
+     pub fn reset(&mut self) {
+         self.buf.clear();
++        self.ext.clear();
++        self.ext_bytes = 0;
+         if self.head != 0 {
+             self.buf.resize(self.head, 0);
+         }
+@@ -217,7 +266,48 @@ impl Enc {
+     /// The encoded message's length.
+     #[inline]
+     pub fn msg_len(&self) -> usize {
+-        self.buf.len().saturating_sub(self.head)
++        self.buf.len().saturating_sub(self.head) + self.ext_bytes
++    }
++
++    /// EXPERIMENT p6-zero-copy: a blob's bytes, copied or (when zero copy is on and it is at
++    /// least `zc_min` long) recorded as external.
++    #[inline(always)]
++    pub unsafe fn put_blob(&mut self, p: *const u8, n: usize) {
++        if self.zc_min != 0 && n >= self.zc_min {
++            self.ext.push((self.buf.len(), p as usize, n));
++            self.ext_bytes += n;
++        } else if n != 0 {
++            self.put(core::slice::from_raw_parts(p, n));
++        }
++    }
++
++    /// EXPERIMENT p6-zero-copy: the framed message as pieces: the context's buffer (the
++    /// 5-byte prefix written in its headroom, the prefix counting the external bytes too) cut
++    /// at each external blob, which goes in between as a borrowed piece. `rel` runs when the
++    /// last external piece is dropped. Requires `head` == FRAME_HEAD.
++    pub fn take_framed_parts(&mut self, rel: ZcRelease) -> Vec<Bytes> {
++        let n = self.msg_len() as u32;
++        if self.head == FRAME_HEAD && self.buf.len() >= FRAME_HEAD {
++            self.buf[0] = 0;
++            self.buf[1..FRAME_HEAD].copy_from_slice(&n.to_be_bytes());
++        }
++        let ext = core::mem::take(&mut self.ext);
++        self.ext_bytes = 0;
++        let whole = self.take_all();
++        let rel = std::sync::Arc::new(rel);
++        let mut parts = Vec::with_capacity(2 * ext.len() + 1);
++        let mut at = 0usize;
++        for (off, p, len) in ext {
++            if off > at {
++                parts.push(whole.slice(at..off));
++            }
++            parts.push(Bytes::from_owner(ExtSlice { p, n: len, _rel: rel.clone() }));
++            at = off;
++        }
++        if at < whole.len() {
++            parts.push(whole.slice(at..));
++        }
++        parts
+     }
+ 
+     /// Append bytes: reserve once, copy. Every append to `buf` from the core and the
+@@ -334,7 +424,7 @@ impl Enc {
+         let w = self.width(site) as usize;
+         let hdr = self.buf.len();
+         self.buf.resize(hdr + w, 0);
+-        Mark { site, hdr, w }
++        Mark { site, hdr, w, ext0: self.ext_bytes }
+     }
+ 
+     /// Close it, resolving the prefix width now that the body is written. A miss moves the
+@@ -342,7 +432,10 @@ impl Enc {
+     /// output depend on its own history (ABI v1 section 6 refuses it explicitly).
+     #[inline(always)]
+     pub fn end(&mut self, m: Mark) {
+-        let body = self.buf.len() - m.hdr - m.w;
++        // p6-zero-copy: the body's LENGTH counts its external bytes; what moves in `buf` is
++        // only what is in `buf`.
++        let in_buf = self.buf.len() - m.hdr - m.w;
++        let body = in_buf + (self.ext_bytes - m.ext0);
+         let need = varint_len(body as u64);
+ 
+         // ABI v1 section 6's SECOND refusal, built so it can be seen failing (feature
+@@ -371,7 +464,14 @@ impl Enc {
+         }
+ 
+         if need != m.w {
+-            self.resize_prefix(&m, body, need);
++            self.resize_prefix(&m, in_buf, need);
++            // external blobs recorded after the placeholder move with the body
++            let src = m.hdr + m.w;
++            for e in self.ext.iter_mut() {
++                if e.0 >= src {
++                    e.0 = e.0 + need - m.w;
++                }
++            }
+         }
+         let mut v = body as u64;
+         let mut i = m.hdr;

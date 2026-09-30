@@ -1,0 +1,85 @@
+--- a/ffi/poc/codec/crates/ak-core/src/rpc.rs
++++ b/ffi/poc/codec/crates/ak-core/src/rpc.rs
+@@ -750,6 +750,47 @@
+     /// EXPERIMENT p6-zero-copy: one message as pieces (its buffer cut around borrowed host
+     /// blobs), yielded as consecutive body frames.
+     P(Vec<Bytes>),
++    /// EXPERIMENT p9-cb-at-take: a callback/queue send queued WITH its completion, which the
++    /// body delivers when it takes the message (no task per send).
++    C(Pend),
++}
++
++/// EXPERIMENT p9-cb-at-take (not committed): a queued send's completion. The sender travels
++/// with the message and goes back to the call's slot when the body takes it (dropped after the
++/// last message, which ends the request stream); a message dropped untaken (cancel, failure)
++/// completes AK_ERR_HOST from Drop, as a cancelled pending send does on the task path.
++struct Pend {
++    b: Option<Bytes>,
++    sink: Option<Sink>,
++    tag: u64,
++    last: i32,
++    tx: Option<tokio::sync::mpsc::Sender<Item>>,
++    slot: std::sync::Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Sender<Item>>>>,
++}
++impl Pend {
++    fn complete(&mut self, taken: bool) {
++        if let Some(tx) = self.tx.take() {
++            if taken && self.last == 0 {
++                if let Ok(mut g) = self.slot.lock() {
++                    *g = Some(tx);
++                }
++            }
++        }
++        if let Some(sink) = self.sink.take() {
++            let status = if taken { AK_OK } else { AK_ERR_HOST };
++            let grpc_status = if taken { 0 } else { -1 };
++            sink.deliver(ak_completion { tag: self.tag, status, grpc_status, bytes: empty_ak_bytes() });
++        }
++    }
++}
++impl Drop for Pend {
++    fn drop(&mut self) {
++        self.complete(false);
++    }
++}
++fn cb_at_take() -> bool {
++    static S: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *S.get_or_init(|| std::env::var("AK_CB_AT_TAKE").map_or(false, |v| v == "1"))
+ }
+ struct Deferred {
+     f: AkEncodeFn,
+@@ -780,6 +821,11 @@
+         }
+         match self.rx.poll_recv(cx) {
+             core::task::Poll::Ready(Some(Item::B(b))) => core::task::Poll::Ready(Some(b)),
++            core::task::Poll::Ready(Some(Item::C(mut p))) => {
++                let b = p.b.take().unwrap_or_default();
++                p.complete(true);
++                core::task::Poll::Ready(Some(b))
++            }
+             core::task::Poll::Ready(Some(Item::P(v))) => {
+                 self.parts = v.into();
+                 core::task::Poll::Ready(self.parts.pop_front())
+@@ -1201,6 +1247,22 @@
+         Err(e) => return e,
+     };
+     let slot = st.tx.clone();
++    if cb_at_take() {
++        CB_INLINE_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++        let item = Item::C(Pend { b: Some(b), sink: Some(sink), tag, last, tx: Some(tx.clone()), slot });
++        match tx.try_send(item) {
++            Ok(()) => {}
++            Err(tokio::sync::mpsc::error::TrySendError::Full(item)) => {
++                // not expected (the host waits for the previous completion); queue it from a task
++                CB_SPAWN_N.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
++                (*st.rt).spawn(async move {
++                    let _ = tx.send(item).await;
++                });
++            }
++            Err(tokio::sync::mpsc::error::TrySendError::Closed(item)) => drop(item), // completes AK_ERR_HOST
++        }
++        return AK_OK;
++    }
+     let b = if cb_inline() {
+         match tx.try_send(Item::B(b)) {
+             Ok(()) => {

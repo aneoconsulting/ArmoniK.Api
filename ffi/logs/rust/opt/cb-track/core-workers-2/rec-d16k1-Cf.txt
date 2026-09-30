@@ -1,0 +1,140 @@
+# 1009 samples, 1,221,415,162 cycles sampled (weights = periods)
+# kernel symbols: /nix/store/k0hdg2xzag606bm9mygmws3m73b7caxy-linux-6.18.54/System.map, KASLR offset 0x6c00000, anchor share of kernel frames 0.179
+
+## thread class
+
+   80.7%  core-rt
+   19.1%  caller
+    0.3%  main
+
+## leaf crate (self)
+
+   74.5%  kernel
+   16.7%  libc:mem
+    6.7%  (no frames)
+    0.6%  h2
+    0.5%  libc:other
+    0.4%  tokio
+    0.3%  libc:alloc
+    0.1%  tonic
+    0.1%  other:[vdso]
+    0.1%  other:libm.so.6
+    0.1%  tokio_util
+    0.1%  std
+
+## libc leaves by caller crate
+
+   14.4%  libc:mem     <- ?
+    2.1%  libc:mem     <- ak_core
+    0.5%  libc:other   <- ?
+    0.3%  libc:alloc   <- ?
+    0.1%  libc:mem     <- bytes
+
+## kernel leaves by user entry (first resolved user frame) and caller crate
+
+   59.8%  __syscall_cancel_arch_end                <- ?
+    9.9%  __syscall_cancel_arch_end                <- mio
+    3.1%  ?                                        <- ?
+    1.1%  syscall                                  <- ?
+    0.2%  __syscall_cancel_arch_end                <- serde_json
+    0.1%  syscall                                  <- tokio
+    0.1%  __syscall_cancel_arch_start              <- ?
+    0.1%  __memmove_evex_unaligned_erms            <- ?
+    0.1%  __syscall_cancel_arch_end                <- serde_core
+    0.0%  syscall                                  <- stream_probe
+
+## inclusive: samples with any frame in the crate
+
+   75.1%  libc:other
+   74.5%  kernel
+   16.7%  libc:mem
+   13.9%  std
+   13.6%  core
+   11.3%  tokio
+   10.3%  h2
+   10.3%  hyper
+    9.9%  mio
+    9.6%  tokio_util
+    2.2%  ak_core(C ABI)
+    2.2%  campaign
+    2.1%  harness
+    2.1%  ak_core
+    0.3%  libc:alloc
+    0.3%  stream_probe
+    0.3%  other:stream_probe
+    0.2%  tonic
+    0.2%  serde_core
+    0.2%  serde_json
+    0.1%  bytes
+    0.1%  tower
+    0.1%  other:[vdso]
+    0.1%  other:libm.so.6
+
+## top leaf symbols
+
+   74.5%  [kernel] [unknown]
+   16.7%  [libc:mem] __memmove_evex_unaligned_erms
+    0.3%  [libc:other] __syscall_cancel_arch_end
+    0.1%  [tokio] tokio::runtime::io::driver::Driver::turn
+    0.1%  [h2] h2::proto::streams::store::Queue<N>::pop
+    0.1%  [h2] h2::proto::streams::send::Send::poll_capacity
+    0.1%  [tokio] tokio::sync::task::atomic_waker::AtomicWaker::wake
+    0.1%  [tokio] tokio::runtime::io::scheduled_io::ScheduledIo::poll_readiness
+    0.1%  [libc:other] __tls_get_addr
+    0.1%  [tonic] <tonic::transport::channel::service::io::BoxedIo as hyper::rt::io::Write>::is_write_vectored
+    0.1%  [libc:alloc] malloc
+    0.1%  [other:[vdso]] __vdso_clock_gettime
+    0.1%  [h2] h2::proto::streams::counts::Counts::dec_num_streams
+    0.1%  [h2] h2::proto::streams::prioritize::Prioritize::buffer_pending
+    0.1%  [other:libm.so.6] __ieee754_pow_fma
+    0.1%  [h2] h2::codec::framed_write::FramedWrite<T,B>::flush
+    0.1%  [tokio_util] tokio_util::util::poll_buf::poll_write_buf
+    0.1%  [libc:alloc] __posix_memalign
+    0.1%  [std] std::sys::backtrace::__rust_begin_short_backtrace
+    0.1%  [libc:alloc] __libc_malloc2
+
+## kernel buckets (System.map)
+
+   24.3%  socket write: copy from user
+   15.0%  socket write: skb alloc/free, memcg
+   12.2%  socket write: other (entry, locks, unix stream)
+   10.3%  socket write: zeroing new skb pages
+    4.2%  socket write: wake the reader
+    3.9%  epoll_wait
+    2.2%  scheduling, interrupts
+    1.1%  other kernel
+    1.1%  futex
+    0.4%  socket read
+
+## kernel leaf functions (System.map)
+
+   22.9%  rep_movs_alternative
+   10.0%  clear_page_erms
+    2.7%  syscall_return_via_sysret
+    2.6%  entry_SYSRETQ_unsafe_stack
+    2.2%  asm_sysvec_apic_timer_interrupt
+    1.9%  __alloc_tagging_slab_alloc_hook
+    1.7%  _raw_spin_lock
+    1.5%  page_ext_get
+    1.4%  try_charge_memcg
+    1.4%  _copy_from_iter
+    1.4%  entry_SYSCALL_64_after_hwframe
+    1.3%  __pgalloc_tag_add
+    1.0%  get_page_from_freelist
+    1.0%  entry_SYSCALL_64
+    0.9%  skb_set_owner_w
+    0.8%  native_queued_spin_lock_slowpath
+    0.7%  __list_del_entry_valid_or_report
+    0.7%  _raw_spin_lock_irqsave
+    0.6%  do_syscall_64
+    0.6%  sock_def_readable
+    0.6%  sock_write_iter
+    0.5%  unix_stream_sendmsg
+    0.5%  dequeue_entities
+    0.5%  ttwu_queue_wakelist
+    0.4%  __check_object_size
+    0.4%  alloc_skb_with_frags
+    0.4%  __smp_call_single_queue
+    0.4%  entry_SYSCALL_64_safe_stack
+    0.4%  mod_memcg_state
+    0.4%  static_key_count

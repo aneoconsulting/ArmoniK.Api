@@ -3899,3 +3899,25 @@ C 9.95; stack Cf 8.44, Df-1f 7.90, Cf-encp 7.66, Cf-zc 6.54, Cf-zcp 6.35, Cf-zcw
 against A 8.80); stack-p4 Cf 6.49, Cf-zc 4.78. d/16 k=8: A 9.39-9.53; stack Cf-zc 6.50, Cf-zcp 6.41.
 c/P5.4 k=1 (no zero-copy cells): head and stack Cf 2.00-2.02, A 1.96-1.98; stack-p4 Cf 1.60.
 Default allocator: A 11.65 with 1,902 faults per call in the stack process, 7.81 with 0 in the head one.
+
+## 2026-09-30 -- stability campaign (task B) and the Cf-cb gap (task A)
+
+- Machine: the owner confined non-benchmark work to 0,9,10,19 (system.slice, init.scope,
+  machine.slice AllowedCPUs; IRQ affinity; taskset on user processes); gen/machine_header.sh reads
+  it into every inproc.sh header (cgroup cpusets, IRQ affinity lists, non-kernel threads allowed
+  on the benchmark CPUs, runnable threads there).
+- B (physical-probe/stability, commit 6d47eb91): 28 alternating repetitions of HEAD and the stack,
+  5 workloads, pinned allocator, one lock hold, 858 s. d/16 k=1 per-process gap to A over 28
+  processes: HEAD Cf +0.37 (p10-p90 -0.04..+1.06), HEAD Cf-cb +1.22 (+0.81..+1.89), stack Cf-zc
+  -1.65 (-2.15..-1.22), Cf-zcw -1.57; A2 - A +0.06 (-0.45..+0.35, min..max -0.75..+0.69). No
+  drift beyond the floor (first against last third: A 7.79 / 7.67).
+- A (cb-track, patches/p8-cb-inline, patches/p9-cb-at-take): Cf-cb's extra cycles and switches are
+  on the core runtime's workers (220-276 voluntary switches per d/16 call against Cf's 102-115,
+  futex 92 against 43 per call; host workers 18); pipelining unchanged (send wall 344 us per chunk
+  in both). p8 (inline completion when the channel has room; channel depth knob): no change.
+  The core worker count moves it: Cf-cb d/16 k=1 8.94 / 8.65 / 8.10 ms at 8 / 2 / 1 core workers
+  (gap to A +1.10..+1.79 / +0.46..+0.87 / -0.09..+0.27), Cf 8.50 / 8.22 / 7.98; per-call cycles
+  28.5 against 24.7 M (8 against 1 worker: epoll_wait +1.4 M, skb alloc +0.8, tokio user +0.5,
+  futex/scheduling/other +0.8). p9 (a callback send queued with its completion, delivered when the
+  body takes the message; no task per send): Cf-cb 9.20 -> 8.70 ms at 8 core workers, switches
+  207 -> 125; at 1 core worker 8.15 either way.
