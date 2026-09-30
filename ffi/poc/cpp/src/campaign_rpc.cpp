@@ -1566,6 +1566,11 @@ int main(int argc, char **argv) {
     const int chunks = c.profile_chunks > 0 && c.profile_chunks <= c.profile ? c.profile_chunks : 1;
     std::vector<double> ccpu, cwall;
     std::vector<int> cbat;
+    // With LD_PRELOAD=gen/allocprobe.so: the allocations of at least AK_PROBE_MIN bytes (1 MiB)
+    // made during the loop, process-wide (a separate process from the timed ones: the probe wraps malloc).
+    typedef unsigned long (*probe_fn)(void);
+    probe_fn big = (probe_fn)dlsym(RTLD_DEFAULT, "akprobe_big_allocs");
+    const unsigned long big0 = big ? big() : 0;
     std::map<long, std::pair<std::string, unsigned long long> > t0 = thread_times();
     struct rusage r0, r1;
     getrusage(RUSAGE_SELF, &r0);
@@ -1585,6 +1590,7 @@ int main(int argc, char **argv) {
     perf_cmd("disable");
     if (write(devnull, "AK_PROFILE_END", 14) < 0) die("marker", 0);
     getrusage(RUSAGE_SELF, &r1);
+    const long big_allocs = big ? (long)(big() - big0) : -1;
     std::map<long, std::pair<std::string, unsigned long long> > t1 = thread_times();
     std::map<std::string, double> cls;
     std::map<std::string, int> cnt;
@@ -1611,9 +1617,9 @@ int main(int argc, char **argv) {
       o += b;
       first = false;
     }
-    char b[320];
-    std::snprintf(b, sizeof(b), "}, \"rusage\": {\"nvcsw\": %ld, \"nivcsw\": %ld, \"minflt\": %ld, \"majflt\": %ld, \"utime_us\": %ld, \"stime_us\": %ld}, \"fold\": %ld}}",
-                  r1.ru_nvcsw - r0.ru_nvcsw, r1.ru_nivcsw - r0.ru_nivcsw, r1.ru_minflt - r0.ru_minflt, r1.ru_majflt - r0.ru_majflt,
+    char b[400];
+    std::snprintf(b, sizeof(b), "}, \"big_allocs\": %ld, \"rusage\": {\"nvcsw\": %ld, \"nivcsw\": %ld, \"minflt\": %ld, \"majflt\": %ld, \"utime_us\": %ld, \"stime_us\": %ld}, \"fold\": %ld}}",
+                  big_allocs, r1.ru_nvcsw - r0.ru_nvcsw, r1.ru_nivcsw - r0.ru_nivcsw, r1.ru_minflt - r0.ru_minflt, r1.ru_majflt - r0.ru_majflt,
                   (long)((r1.ru_utime.tv_sec - r0.ru_utime.tv_sec) * 1000000L + (r1.ru_utime.tv_usec - r0.ru_utime.tv_usec)),
                   (long)((r1.ru_stime.tv_sec - r0.ru_stime.tv_sec) * 1000000L + (r1.ru_stime.tv_usec - r0.ru_stime.tv_usec)), h);
     o += b;

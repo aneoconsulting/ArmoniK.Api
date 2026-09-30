@@ -1,0 +1,37 @@
+# checks of the patched core, knobs: AK_SPARES=6 AK_SPARE_LOCK=1; binaries of /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/build-campaign
+conformance_a17_shared (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target/release/libak_core.so): exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+conformance_nounk_a17 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-nounk/release/libak_core.so): exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+campaign_codec: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec_nounk: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_rpc --semantics 1: exit 0 "failed": 0
+    PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    # {"campaign_rpc_semantics": {"build": "full", "checks": 14, "failed": 0}}
+campaign_rpc_nounk --semantics 1: exit 0 "failed": 0
+    PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    # {"campaign_rpc_semantics": {"build": "no-unknown", "checks": 14, "failed": 0}}

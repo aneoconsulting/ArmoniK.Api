@@ -1,0 +1,55 @@
+# patch_ab checks: commit d12bedd4 + UNCOMMITTED, 2026-09-30T04:22:25Z
+# patch tree /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp at d12bedd4, its diff:  1 file changed, 16 insertions(+), 3 deletions(-); diff sha256 c881cb710b877279
+# knobs on the patched processes: AK_SPARES=6 AK_SPARE_LOCK=1
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 0047fa0fd99f5441
+# HEAD core    /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# patched core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release/libak_core.so (LD_LIBRARY_PATH=/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release) sha256 1e6c090c6e09daa1
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0  10 python3", " 8.1   8 .kwin_wayland-w", " 1.7  14 .claude-wrapped", " 0.3   5 systemd-udevd", " 0.2   3 .konsole-wrappe", " 0.1   9 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1  19 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "1.85 3.12 2.81 1/859 233714", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300750", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3300000", "14": "3300000", "15": "3300000", "16": "3300000", "17": "3300600", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 233720: tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 233720
+conformance_a17_shared (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target/release/libak_core.so): exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+conformance_nounk_a17 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-nounk/release/libak_core.so): exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+campaign_codec: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_codec_nounk: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+campaign_rpc --semantics 1: exit 0 "failed": 0
+campaign_rpc_nounk --semantics 1: exit 0 "failed": 0
+phase checks: 62 s (lock held)
+patch_ab: 62 s in all
+# patch_ab measure: commit ed3b3f65 + UNCOMMITTED, 2026-09-30T04:22:59Z
+# patch tree /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp at d12bedd4, its diff:  1 file changed, 16 insertions(+), 3 deletions(-); diff sha256 c881cb710b877279
+# knobs on the patched processes: AK_SPARES=6 AK_SPARE_LOCK=1
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 0047fa0fd99f5441
+# HEAD core    /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# patched core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release/libak_core.so (LD_LIBRARY_PATH=/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release) sha256 1e6c090c6e09daa1
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": ["60.0   6 python3", " 8.1   8 .kwin_wayland-w", " 1.7   4 .claude-wrapped", " 0.3   3 systemd-udevd", " 0.2   3 .konsole-wrappe", " 0.1  16 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1  19 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "1.40 2.90 2.75 1/858 234288", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300760", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3300000", "12": "3300000", "13": "3300000", "14": "3300000", "15": "3300833", "16": "3300000", "17": "3301173", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 234294: tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 234294
+  measure round 1 d16k1 done
+  measure round 1 d16k8 done
+  measure round 1 d4k1 done
+  measure round 1 c54k1 done
+  measure round 2 d16k1 done
+  measure round 2 d16k8 done
+  measure round 2 d4k1 done
+  measure round 2 c54k1 done
+  measure round 3 d16k1 done
+  measure round 3 d16k8 done
+  measure round 3 d4k1 done
+  measure round 3 c54k1 done
+phase measure: 183 s (lock held)
+patch_ab: 183 s in all
+# patch_ab alloc: commit ed3b3f65 + UNCOMMITTED, 2026-09-30T04:26:02Z
+# patch tree /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp at d12bedd4, its diff:  1 file changed, 16 insertions(+), 3 deletions(-); diff sha256 c881cb710b877279
+# knobs on the patched processes: AK_SPARES=6 AK_SPARE_LOCK=1
+# exe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/build-campaign/campaign_rpc sha256 0047fa0fd99f5441
+# HEAD core    /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/core-build/target-camp/release/libak_core.so sha256 f14492ce2c33932d
+# patched core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release/libak_core.so (LD_LIBRARY_PATH=/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp/ffi/poc/cpp/core-build/target-camp/release) sha256 1e6c090c6e09daa1
+# CLIENT 1-4,11-14 SERVER 5-8,15-18; server 8 workers; core --workers 8; grpc-core sysconf = 8 (ncpus_shim); pinned; retain
+# machine {"boost": null, "busiest_processes_pcpu_psr_comm": [" 100  18 python3", " 8.2   8 .kwin_wayland-w", " 1.8   0 .claude-wrapped", " 0.3  10 systemd-udevd", " 0.2   6 .konsole-wrappe", " 0.1   5 .plasmashell-wr", " 0.1   1 metrics-server", " 0.1  19 coredns"], "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz", "cpu_sets": {"CLIENT": "1-4,11-14", "OS": "0,9,10,19", "SERVER": "5-8,15-18", "siblings": {"1": "1,11", "2": "2,12", "3": "3,13", "4": "4,14", "5": "5,15", "6": "6,16", "7": "7,17", "8": "8,18", "11": "1,11", "12": "2,12", "13": "3,13", "14": "4,14", "15": "5,15", "16": "6,16", "17": "7,17", "18": "8,18"}}, "cpus_online": "0-19", "governor": "performance", "isolation": {"cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-org.kde.konsole-4514.scope/tab(4529).scope", "cgroup_cpuset_effective": null, "cgroup_cpuset_partition": null, "cmdline": [], "mechanism": "none: taskset affinity only (sys isolated and nohz_full empty, no cpuset partition on this cgroup)", "sys_isolated": "", "sys_nohz_full": ""}, "kernel": "6.18.54", "loadavg": "2.12 2.62 2.67 1/854 236821", "no_turbo": "1", "scaling_cur_freq_khz": {"1": "3300000", "2": "3300000", "3": "3300000", "4": "3300000", "5": "3300000", "6": "3300000", "7": "3300000", "8": "3300000", "11": "3301039", "12": "3300000", "13": "3300000", "14": "3300000", "15": "3300000", "16": "3300131", "17": "3300000", "18": "3300000"}, "scaling_driver": "intel_pstate", "scaling_max_freq_khz": "3300000", "scaling_min_freq_khz": "3300000", "servers": [], "smt": {"active": "1", "control": "on"}}
+  server pid 236827: tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 236827
+  alloc d16k1 done
+  alloc d16k8 done
+  alloc d4k1 done
+  alloc c54k1 done
+phase alloc: 35 s (lock held)
+patch_ab: 35 s in all

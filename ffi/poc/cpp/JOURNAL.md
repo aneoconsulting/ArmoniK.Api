@@ -1938,3 +1938,18 @@ changes.
   write +1.76 ms, h2/hyper +0.37, tokio +0.21, memcpy in h2/bytes +0.13; grpc-core user -1.29, futex -0.45, socket
   read -0.14, other syscalls -0.13. grpc++ channels open in the process cost Cf nothing measurable (event_engine threads
   0.004-0.008 ms per core call).
+
+## 2026-09-30, the Rust agent's p1-ring patch measured from C++
+
+- Worktree at d12bedd4 with p1-ring.patch (sha256 c881cb71...) applied, slice built there on 0,9,10,19 (8 min, 4 CPUs).
+  Checks with AK_SPARES=6 AK_SPARE_LOCK=1: conformance 608/0 and 478/0, codec pre-check 4436 and 2724 slots 0 failed,
+  --semantics 1 0 failed on both builds (both send paths). Timed: the same campaign_rpc with LD_LIBRARY_PATH on the
+  patched core (sha256 1e6c090c against HEAD f14492ce). campaign_rpc --profile now reports big_allocs when the
+  allocation probe is preloaded.
+- 6 + lock: Cf's fresh >= 1 MiB buffers go 1.70 -> 0 (k=1) and 1.98 -> 0 (k=8), faults 4.5 -> 0.0 and 4.3 -> 0.3 per call,
+  and Cf's CPU does not move (8.475 vs 8.451, 9.488 vs 9.512 ms). Cf-q k=8 keeps 3.60 fresh buffers and 213 faults per call
+  (HEAD 4.08 and 458). Cf-q d/16 k=1 patched 9.07 vs 8.51 (processes 8.9-9.1 vs 8.4-8.9; the 4a control had HEAD Cf-q at 9.06).
+- Follow-up with a ring of 24 (Cf, Cf-q only): Cf-q k=8 faults 564 -> 3.4, fresh buffers 4.03 -> 1.40, CPU 9.91
+  [8.82-11.28] -> 8.76 [8.42-9.34]. So Cf-q's faults come from the same take_framed ring, and the queue cell needs a
+  larger ring: its one draining thread encodes the k = 8 streams through ONE encode context (Pool::qtc), where each
+  blocking caller thread has its own. Cf with 24: CPU 8.52 vs 8.30 (k=1) and 9.66 vs 9.49 (k=8), processes separated at k=8.

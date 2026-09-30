@@ -34,6 +34,15 @@ without perf: A 8.25, D 8.29, Cf 8.34, Cf-q 9.06 ms at k = 1); the core transpor
 own writev (about 1026 per 16 MiB call against about 46 sendmsg of about 350 KB for grpc++), and that kernel write path
 is Cf's largest bucket over D (+1.76 ms at k = 1), offset by grpc-core's user time (-1.29) and futex (-0.45).
 
+**Candidate core patches from C++** (`gen/patch_ab.sh OUT PATCH_TREE "KNOBS" [checks|measure|alloc]`, tables
+`gen/patch_tables.py`): the patch applied in a private worktree (`<scratchpad>/wt-cpp`, patch removed after each use),
+the slice built there (builds on 0,9,10,19); checks run the worktree's binaries (conformance, codec pre-check,
+--semantics 1); timed runs use THIS tree's campaign_rpc with LD_LIBRARY_PATH on the worktree's campaign core, so the
+two arms differ only in libak_core.so (paths and sha256 in runner.log); one-cell `--profile` processes, no perf, 3 per
+cell and core, own 8-worker server, under the bench lock; `--profile` reports allocations of at least 1 MiB when
+gen/allocprobe.c is preloaded (separate processes). p1-ring (ring size AK_SPARES, AK_SPARE_LOCK):
+`logs/cpp/opt/physical-probe/patches/p1-ring/` (6 + lock) and `.../p1-ring/spares24/` (24 + lock, Cf and Cf-q only).
+
 **Step 0: the send path, set explicitly.** The core's default send path is framed since
 2026-09-28 (ABI-v1 section 9), so `core_client()` in `src/campaign_rpc.cpp` now calls
 `ak_client_set_framed(cl, framed ? 1 : 0)` on EVERY core client (FIX-PLAN WP8 item 6): B, C-*,
@@ -629,6 +638,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `main/` | the main segment (shared 8-worker server pid 147567, core 8 workers, grpc-core sized for 8 through ncpus_shim; 4 spread + 3 main passes, 1800 repetitions, 254 s): `header.txt`, `runner.log`, `pass-*.jsonl` (samples with getrusage counters, machine facts at each pass's end, the client's header and thread classes), `pass-*.console`, `pass-*.gbench.json.gz`, `tables.md` |
 | `var4/` | the var4 segment (shared 4-worker server pid 152128, core 4 workers, grpc-core sized for 4; 3 passes of six cells, 1080 repetitions, 146 s), same layout as `main/` |
 | `profile/` | step 4a: `tables.md`; `stat/` (perf stat + profile JSON per process), `plain/` (no perf), `record/` (perf.data gzip'd, `*.attrib.json` buckets, `*.out`), `strace/` (raw strace gzip'd, `*.syscalls.txt`), `runner.log` (headers, machine facts per phase) |
+| `patches/p1-ring/` | p1-ring from C++: `checks/checks.log` (patched core: 608/0, 478/0, codec pre-check 0 failed, semantics 0 failed both builds), `measure/*.out`, `alloc/*.out`, `tables.md`, `runner.log`; `spares24/` the follow-up with a ring of 24 |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):
