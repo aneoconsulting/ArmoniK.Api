@@ -67,7 +67,7 @@ def main(out):
         P.append({"round": int(m.group(2)), "wl": m.group(3), "tr": m.group(4), "unit": m.group(5) + "/" + m.group(6),
                   "cpu": cpu, "wall": wall, "mcpu": statistics.median(cpu), "mwall": statistics.median(wall),
                   "csw": (ru["nvcsw"] + ru["nivcsw"]) / n, "flt": ru["minflt"] / n,
-                  "srv_perf": ps.get("task-clock", float("nan")) / n / 1e6 if ps else float("nan"),
+                  "srv_perf": ps.get("task-clock", float("nan")) / n if ps else float("nan"),  # perf stat reports task-clock in msec
                   "srv_csw": ps.get("context-switches", float("nan")) / n if ps else float("nan"),
                   "srv_sched": p.get("server", {}).get("cpu_ns", float("nan")) / n / 1e6,
                   "nodelay": (p.get("tcp_nodelay_on", 0), p.get("tcp_sockets_n", 0))})

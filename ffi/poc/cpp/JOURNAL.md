@@ -2033,3 +2033,17 @@ changes.
   switches per call 917 against 192. perf_attrib: `__libc_recv` is a socket read (the server's reads were in "other").
 - Found: the driver's DC_EXPECT="" fell back to the default (`:-`); fixed with `-`. The ab measure ran twice (the second
   script kept its line): ab/tables-run1.md and ab/tables.md are the two runs.
+
+## 2026-10-01, UDS against TCP loopback
+
+- `campaign_rpc --core-target` (the core's endpoint when it differs from grpc++'s target) and `tcp_sockets` (every TCP
+  socket's TCP_NODELAY read back with getsockopt) in the profile JSON and the grid header. grpc-core v1.80 sets
+  TCP_NODELAY on client TCP sockets (posix_interface_posix.cc, the non-AF_UNIX branch); the core's client passes
+  tcp_nagle 0 (pinned_core_opts). Checked live through a socat stand-in: every client TCP socket reads 1 (grpc++ dials
+  an AF_INET6 v4-mapped socket; the first report showed ports 0 because only AF_INET was decoded; fixed).
+- gen/tcp_uds.sh against the Rust server's TCP listener (AK_SERVER_TCP=0): 138 timed processes, 281 s, plus 46 strace
+  processes, 80 s. The tables' first server CPU column divided perf stat's task-clock (msec) as if ns; fixed.
+- Measured: on TCP the core cells' write count is unchanged (about 1026 per d/16 call) while epoll_wait falls from about
+  1020 to 36 per call; grpc++ writes fewer, larger chunks on TCP (14 of 1.2 MB against 47 of 360 KB). Client CPU: grpc++
+  cells lower on TCP (A d/16 k=1 7.41 against 8.27), core cells higher (Cf 10.54 against 8.34); wall higher on TCP for
+  every cell at d/16 (A 11.7 against 8.2, Cf 13.2 against 8.1).
