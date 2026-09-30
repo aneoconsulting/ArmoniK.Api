@@ -1,0 +1,4 @@
+# apply to a copy of h2 0.4.19 (crates.io) and point the core workspace at it (ffi/poc/codec/Cargo.toml):
+# [patch.crates-io]
+# h2 = { path = "<the patched copy>" }
+# The core cdylib is then built in ffi/poc/codec (features rpc,init-guard,unknown-fields) and loaded by the host through LD_LIBRARY_PATH, so only the core transport uses the patched h2; the harness (cells A, D, F) keeps crates.io h2. AK_H2_COALESCE=N: a queued DATA frame may span N max-size frames, written with one vectored write (1 = h2 unchanged).

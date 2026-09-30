@@ -1,0 +1,7 @@
+upload_check AK_H2_COALESCE=1 (core from core-h2): rc 0 UPLOAD CHECK PASSED
+rpc_semantics AK_H2_COALESCE=1 (core from core-h2): rc 0 RPC SEMANTICS PASSED
+upload_check AK_H2_COALESCE=4 (core from core-h2): rc 0 UPLOAD CHECK PASSED
+rpc_semantics AK_H2_COALESCE=4 (core from core-h2): rc 0 RPC SEMANTICS PASSED
+upload_check AK_H2_COALESCE=16 (core from core-h2): rc 0 UPLOAD CHECK PASSED
+rpc_semantics AK_H2_COALESCE=16 (core from core-h2): rc 0 RPC SEMANTICS PASSED
+pre-check full (core from core-h2): # precheck: 5740 checks, 0 failures, 114 inputs, 5132 cases

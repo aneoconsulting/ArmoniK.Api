@@ -1,0 +1,226 @@
+diff --git a/src/codec/framed_write.rs b/src/codec/framed_write.rs
+index efd1966..a973511 100644
+--- a/src/codec/framed_write.rs
++++ b/src/codec/framed_write.rs
+@@ -52,6 +52,9 @@ struct Encoder<B> {
+ 
+     /// Min buffer required to attempt to write a frame
+     min_buffer_capacity: usize,
++
++    /// EXPERIMENT: set while `next` is a data frame longer than the max frame size.
++    split: Option<Split>,
+ }
+ 
+ #[derive(Debug)]
+@@ -66,6 +69,44 @@ enum Next<B> {
+ /// frame that big.
+ const DEFAULT_BUFFER_CAPACITY: usize = 16 * 1_024;
+ 
++/// EXPERIMENT (ffi/logs/rust/opt/patches/p4-h2-coalesce, not committed anywhere): the number of
++/// max-size DATA frames one queued data frame may span (AK_H2_COALESCE, read once; 1 = h2's own
++/// behaviour). A queued frame longer than the peer's max frame size is written as consecutive
++/// DATA frames of at most that size -- each its own 9-byte head, END_STREAM only on the last --
++/// through ONE vectored write per flush instead of one write per frame.
++pub(crate) fn coalesce() -> usize {
++    static C: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    *C.get_or_init(|| std::env::var("AK_H2_COALESCE").ok().and_then(|v| v.parse().ok()).filter(|n: &usize| *n >= 1).unwrap_or(1))
++}
++
++/// The write position inside a queued data frame spanning several DATA frames.
++#[derive(Debug)]
++struct Split {
++    /// max frame size at buffer time
++    max: usize,
++    /// payload length of the whole queued frame
++    total: usize,
++    /// payload bytes already written
++    done: usize,
++    /// bytes of the current sub-frame's head already written (0..=9)
++    head_done: usize,
++    flag: u8,
++    stream_id: u32,
++}
++
++impl Split {
++    fn sub_len(&self, k: usize) -> usize {
++        (self.total - k * self.max).min(self.max)
++    }
++    fn head(&self, k: usize) -> [u8; 9] {
++        let n = self.sub_len(k);
++        let last = (k + 1) * self.max >= self.total;
++        let flag = if last { self.flag } else { self.flag & !0x1 };
++        let id = self.stream_id & 0x7fff_ffff;
++        [(n >> 16) as u8, (n >> 8) as u8, n as u8, 0, flag, (id >> 24) as u8, (id >> 16) as u8, (id >> 8) as u8, id as u8]
++    }
++}
++
+ /// Chain payloads bigger than this when vectored I/O is enabled. The remote
+ /// will never advertise a max frame size less than this (well, the spec says
+ /// the max frame size can't be less than 16kb, so not even close).
+@@ -99,6 +140,7 @@ where
+                 max_frame_size: frame::DEFAULT_MAX_FRAME_SIZE,
+                 chain_threshold,
+                 min_buffer_capacity: chain_threshold + frame::HEADER_LEN,
++                split: None,
+             },
+         }
+     }
+@@ -141,6 +183,13 @@ where
+ 
+         loop {
+             while !self.encoder.is_empty() {
++                if self.encoder.split.is_some() {
++                    let n = ready!(self.encoder.poll_write_split(Pin::new(&mut self.inner), cx))?;
++                    if n == 0 {
++                        return Poll::Ready(Err(io::ErrorKind::WriteZero.into()));
++                    }
++                    continue;
++                }
+                 let n = match self.encoder.next {
+                     Some(Next::Data(ref mut frame)) => {
+                         tracing::trace!(queued_data_frame = true);
+@@ -196,7 +245,91 @@ impl<B> Encoder<B>
+ where
+     B: Buf,
+ {
++    /// One vectored write of the buffered bytes, then of the queued frame's sub-frames (each
++    /// head and its window of the payload), as far as 64 slices and the payload's contiguous
++    /// chunk reach; the written bytes consumed in the same order.
++    fn poll_write_split<T: AsyncWrite + Unpin>(&mut self, mut io: Pin<&mut T>, cx: &mut Context) -> Poll<io::Result<usize>> {
++        let frame = match self.next {
++            Some(Next::Data(ref mut f)) => f,
++            _ => unreachable!("split without a data frame"),
++        };
++        let sp = self.split.as_ref().unwrap();
++        let mut heads: Vec<[u8; 9]> = Vec::with_capacity(32);
++        let mut slices: Vec<io::IoSlice> = Vec::with_capacity(64);
++        let pre = self.buf.chunk();
++        // plan: (kind, len, skip): 0 = buf, 1 = head bytes (from `skip`), 2 = payload bytes
++        let mut plan: Vec<(u8, usize, usize)> = Vec::with_capacity(64);
++        if !pre.is_empty() {
++            plan.push((0, pre.len(), 0));
++        }
++        let chunk = frame.payload().chunk();
++        let mut coff = 0usize;
++        let mut done = sp.done;
++        let mut head_done = sp.head_done;
++        while plan.len() + 2 <= 64 && done < sp.total {
++            let k = done / sp.max;
++            let in_sub = done - k * sp.max;
++            if in_sub == 0 && head_done < 9 {
++                heads.push(sp.head(k));
++                plan.push((1, 9 - head_done, head_done));
++            }
++            let want = sp.sub_len(k) - in_sub;
++            let have = chunk.len() - coff;
++            let n = want.min(have);
++            if n == 0 {
++                break;
++            }
++            plan.push((2, n, 0));
++            coff += n;
++            done += n;
++            head_done = 0;
++            if n < want {
++                break;
++            }
++        }
++        // the slices, in plan order
++        let (mut hi, mut po) = (0usize, 0usize);
++        for &(kind, n, skip) in &plan {
++            match kind {
++                0 => slices.push(io::IoSlice::new(pre)),
++                1 => {
++                    slices.push(io::IoSlice::new(&heads[hi][skip..skip + n]));
++                    hi += 1;
++                }
++                _ => {
++                    slices.push(io::IoSlice::new(&chunk[po..po + n]));
++                    po += n;
++                }
++            }
++        }
++        let n = ready!(io.as_mut().poll_write_vectored(cx, &slices))?;
++        drop(slices);
++        // consume n bytes in plan order
++        let mut left = n;
++        let sp = self.split.as_mut().unwrap();
++        for &(kind, len, _) in &plan {
++            if left == 0 {
++                break;
++            }
++            let m = len.min(left);
++            match kind {
++                0 => self.buf.advance(m),
++                1 => sp.head_done += m,
++                _ => {
++                    frame.payload_mut().advance(m);
++                    sp.done += m;
++                    if sp.done % sp.max == 0 || sp.done == sp.total {
++                        sp.head_done = 0;
++                    }
++                }
++            }
++            left -= m;
++        }
++        Poll::Ready(Ok(n))
++    }
++
+     fn unset_frame(&mut self) -> ControlFlow {
++        self.split = None;
+         // Clear internal buffer
+         self.buf.set_position(0);
+         self.buf.get_mut().clear();
+@@ -233,11 +366,22 @@ where
+                 // Ensure that the payload is not greater than the max frame.
+                 let len = v.payload().remaining();
+ 
+-                if len > self.max_frame_size() {
++                if len > self.max_frame_size() * coalesce() {
+                     return Err(PayloadTooBig);
+                 }
+ 
+-                if len >= self.chain_threshold {
++                if len > self.max_frame_size() {
++                    let head = v.head();
++                    self.split = Some(Split {
++                        max: self.max_frame_size(),
++                        total: len,
++                        done: 0,
++                        head_done: 0,
++                        flag: head.flag(),
++                        stream_id: u32::from(head.stream_id()),
++                    });
++                    self.next = Some(Next::Data(v));
++                } else if len >= self.chain_threshold {
+                     let head = v.head();
+ 
+                     // Encode the frame head to the buffer
+diff --git a/src/codec/mod.rs b/src/codec/mod.rs
+index d7aecee..67fdca0 100644
+--- a/src/codec/mod.rs
++++ b/src/codec/mod.rs
+@@ -6,6 +6,7 @@ pub use self::error::{SendError, UserError};
+ 
+ use self::framed_read::FramedRead;
+ use self::framed_write::FramedWrite;
++pub(crate) use self::framed_write::coalesce;
+ 
+ use crate::frame::{self, Data, Frame};
+ use crate::proto::Error;
+diff --git a/src/proto/streams/prioritize.rs b/src/proto/streams/prioritize.rs
+index 6d6a883..a7cbce9 100644
+--- a/src/proto/streams/prioritize.rs
++++ b/src/proto/streams/prioritize.rs
+@@ -519,8 +519,9 @@ impl Prioritize {
+         // Reclaim any frame that has previously been written
+         self.reclaim_frame(buffer, store, dst);
+ 
+-        // The max frame length
+-        let max_frame_len = dst.max_send_frame_size();
++        // The max frame length (EXPERIMENT: times AK_H2_COALESCE; FramedWrite splits it back
++        // into frames of the peer's max size on the wire)
++        let max_frame_len = dst.max_send_frame_size() * crate::codec::coalesce();
+ 
+         tracing::trace!("buffer_pending");
+ 
