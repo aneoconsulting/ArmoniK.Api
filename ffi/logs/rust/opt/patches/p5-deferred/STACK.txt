@@ -1,0 +1,1 @@
+# stack: p1-ring, p2-take-framed, p3-exec-slot, then p5-deferred (ak-core rpc.rs, Cargo.toml: tokio-stream). stack-p1-p2-p3-p5.patch = the whole core stack against HEAD (the h2 patch p4 is a separate dependency patch, applied only in the ffi/poc/codec build)
