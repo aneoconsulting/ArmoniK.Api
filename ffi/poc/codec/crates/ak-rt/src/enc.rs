@@ -22,18 +22,23 @@ pub struct Mark {
 }
 
 /// A taken body (`Enc::take`): returns its buffer to the context's spare ring when its last
-/// `Bytes` clone is dropped, unless the ring is already full or locked (then it is freed).
+/// `Bytes` clone is dropped, unless the ring is already full (then it is freed). The return
+/// waits for the ring's lock rather than freeing the buffer when the lock is held: the lock is
+/// held only for a push or a pop, and a freed buffer is a fresh allocation (with its page
+/// faults) on a later encode.
 struct Recycle {
     v: Vec<u8>,
     slot: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 
-/// How many taken buffers the spare ring keeps (the stream probes, 2026-09-28: with ONE
-/// spare, a transport that still holds the previous message when the next encode starts
-/// left the slot empty and every such encode wrote into a fresh buffer; host encode per
-/// 2 MiB chunk on the framed stream 506 / 437 / 396 / 401 us with 1 / 2 / 3 / 4 spares,
-/// logs/rust/opt/framed-default/ring-size).
-pub const SPARES: usize = 3;
+/// How many taken buffers the spare ring keeps. With ONE spare, a transport that still holds
+/// the previous message when the next encode starts left the slot empty and every such encode
+/// wrote into a fresh buffer (logs/rust/opt/framed-default/ring-size). A ring of 3 with a
+/// `try_lock` return still allocated a fresh 4 MiB buffer 1.6 to 2.0 times per 16 MiB call in
+/// Cf and Cf-cb; 6 with the blocking return allocated none (logs/rust/opt/patches/p1-ring, the
+/// physical machine, 2026-09-30). One context shared by many calls in flight needs more: the
+/// C++ slice's queue cell, whose calls share one context, used 24 in its p1 measurement.
+pub const SPARES: usize = 6;
 
 /// Bytes kept free at the start of the buffer when `head` is on: the gRPC message prefix
 /// (1 flag byte, 4 length bytes), written in place by `take_framed`.
@@ -45,7 +50,7 @@ impl AsRef<[u8]> for Recycle {
 }
 impl Drop for Recycle {
     fn drop(&mut self) {
-        if let Ok(mut g) = self.slot.try_lock() {
+        if let Ok(mut g) = self.slot.lock() {
             if g.len() < SPARES {
                 g.push(core::mem::take(&mut self.v));
             }
