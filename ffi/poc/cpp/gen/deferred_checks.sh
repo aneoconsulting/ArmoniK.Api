@@ -6,6 +6,7 @@
 #   DC_CELLS   the grid's cells (default A, D, Cf, Cf-q; the deferred and zero-copy cells are retired from the
 #              defaults, owner 2026-10-01; name them here for a core that has them)
 #   DC_EXPECT  "WORD:N ..." semantics lines that must be present (default none; p5: deferred:7, p6: zero-copy:4)
+#   DC_STEP1_CORE=1  step 1's binaries load CORE_DIR / CORE_NOUNK_DIR through LD_LIBRARY_PATH (an h2 variant)
 #   AK_NET     tcp (default) or uds: the endpoint every client dials (gen/net_target.sh)
 #
 #   1. the patch tree's binaries (built against its cores): conformance full and no-unknown (byte
@@ -39,14 +40,20 @@ bad() { echo ">>> FAIL: $*"; F=$((F + 1)); }
   env $(net_server_env) AK_SERVER_THREADS=8 bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
   net_endpoints "$AK_SERVE_STATE" || exit 1; SOCK=$NET_TGT; CT=(--core-target "$NET_CTGT"); echo "# endpoint: $NET_DESC"
   echo "===== 1. the patch tree's binaries"
+  # DC_STEP1_CORE=1: the patch tree's binaries load CORE_DIR (CORE_NOUNK_DIR for the no-unknown ones) through
+  # LD_LIBRARY_PATH, as an h2 variant built beside the stock core is loaded in the timed runs
+  s1lib() { [ "${DC_STEP1_CORE:-}" = 1 ] || return 0; case "$1" in *nounk*) echo "LD_LIBRARY_PATH=$CDN" ;; *) echo "LD_LIBRARY_PATH=$CD" ;; esac; }
+  for c in conformance_a17_shared conformance_nounk_a17 campaign_codec campaign_codec_nounk; do
+    echo "  $c loads $(env $(s1lib $c) ldd "$PB/$c" | grep -o '/[^ ]*libak_core\.so') ($(env $(s1lib $c) ldd "$PB/$c" | grep -o '/[^ ]*libak_core\.so' | xargs sha256sum | cut -c1-16))"
+  done
   for c in conformance_a17_shared conformance_nounk_a17; do
-    (cd ../../schema/generated && env $KNOBS "$PB/$c" payloads > "$SCR/c" 2>&1); rc=$?
+    (cd ../../schema/generated && env $(s1lib $c) $KNOBS "$PB/$c" payloads > "$SCR/c" 2>&1); rc=$?
     r=$(grep -E 'checks,' "$SCR/c" | tail -1); echo "  $c: exit $rc: $r"
     [ $rc = 0 ] && echo "$r" | grep -q ' 0 failures' && ok "$c" || bad "$c"
   done
   python3 gen/u_rows.py ../../corpus/generated "$SCR/rows.tsv" 2>/dev/null
   for c in campaign_codec campaign_codec_nounk; do
-    (cd ../../schema/generated && env $KNOBS taskset -c "$AK_CPU_CLIENT" "$PB/$c" --rounds 0 --pool-bytes 1048576 \
+    (cd ../../schema/generated && env $(s1lib $c) $KNOBS taskset -c "$AK_CPU_CLIENT" "$PB/$c" --rounds 0 --pool-bytes 1048576 \
       --corpus "$PWD/../../corpus/generated" --rows "$SCR/rows.tsv" > "$SCR/p" 2>&1); rc=$?
     g=$(grep -o '"campaign_codec_gate": {[^}]*}' "$SCR/p"); echo "  $c: exit $rc $g"
     [ $rc = 0 ] && echo "$g" | grep -q '"failed": 0' && ok "$c pre-check" || bad "$c pre-check"

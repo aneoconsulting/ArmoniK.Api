@@ -228,7 +228,9 @@ case "$PHASE" in
     # then one strace process per unit, workload and W in SW_STRACE_WORKERS (default 1 8) for writes per call.
     : "${SW_STOCK:?}" "${SW_BATCH:?}"
     [ "$AK_NET" = tcp ] || { say "REFUSED: the sweep is TCP only"; exit 1; }
-    CFK=${SW_CF_KNOBS-AK_SPARES=6 AK_SPARE_LOCK=1}; CFQK=${SW_CFQ_KNOBS-AK_SPARES=24 AK_SPARE_LOCK=1}
+    # The landed core (82f3712a) fixes the spare ring at 6 with the lock and reads no AK_SPARES / AK_SPARE_LOCK:
+    # no ring knob by default (Cf-q runs with the ring of 6, not the 24 of the patch runs).
+    CFK=${SW_CF_KNOBS-}; CFQK=${SW_CFQ_KNOBS-}
     UNITS=("A|$SW_STOCK|AK_H2_COALESCE=1|A|$WK" "D-retain|$SW_STOCK|AK_H2_COALESCE=1|D|$WK")
     for v in "stock|$SW_STOCK|AK_H2_COALESCE=1" "batch|$SW_BATCH|AK_H2_COALESCE=16"; do
       vn=${v%%|*}; r=${v#*|}; vd=${r%%|*}; vk=${r#*|}

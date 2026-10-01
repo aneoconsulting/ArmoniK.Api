@@ -716,4 +716,30 @@ if(AK_RPC)
   target_link_directories(campaign_codec_nounk PRIVATE ${GRPCPP_LIBRARY_DIRS})
   target_link_libraries(campaign_codec_nounk PRIVATE ${GRPCPP_LIBRARIES} benchmark::benchmark)
   target_compile_definitions(campaign_codec_nounk PRIVATE AK_GBENCH_VERSION="${benchmark_VERSION}")
+
+  # ---- the h2-batch core variant (owner, 2026-10-01) ------------------------------------
+  # Two h2 variants of the core: stock (crates.io h2 0.4.19, every target above) and h2-batch
+  # (poc/codec/h2-batch: h2 PR 903 ported + p4, AK_H2_COALESCE=16 by default). The h2-batch
+  # cores are built OUTSIDE `all` and only on request, one at a time:
+  #   cmake --build build-campaign --target core_camp_h2batch core_camp_nounk_h2batch -j1
+  # because a path patch makes cargo rewrite poc/codec/Cargo.lock (restored after each build:
+  # a concurrent stock build would read the rewritten lock). The full core comes from
+  # poc/codec/h2-batch/build.sh (h2 source materialised from cargo's cached .crate, its sha256
+  # checked against Cargo.lock, patched into TARGET/h2-batch-src); the no-unknown twin is built
+  # with the same --config against that source. Binaries stay linked to the stock core: an
+  # h2-batch run loads the h2-batch core with LD_LIBRARY_PATH (same exports; it precedes RUNPATH),
+  # so every arm runs the same executable and differs only in libak_core.so.
+  set(CORE_CAMP_H2B_TGT "${CORE_TGT}/target-camp-h2batch")
+  set(CORE_CAMP_NOUNK_H2B_TGT "${CORE_TGT}/target-camp-nounk-h2batch")
+  set(H2B_BUILD "${AK_CORE_ROOT}/h2-batch/build.sh")
+  add_custom_target(core_camp_h2batch
+    COMMAND bash ${H2B_BUILD} h2-batch ${CORE_CAMP_H2B_TGT} rpc,${AK_CORE_FEATURES}
+    BYPRODUCTS ${CORE_CAMP_H2B_TGT}/release/libak_core.so
+    COMMENT "poc/codec/h2-batch/build.sh h2-batch: ak-core --features rpc,init-guard, h2-batch (campaign)")
+  add_custom_target(core_camp_nounk_h2batch
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/gen/h2batch_nounk.sh ${AK_CORE_ROOT} ${CORE_CAMP_H2B_TGT}/h2-batch-src
+            ${CORE_CAMP_NOUNK_H2B_TGT} rpc,${AK_CORE_FEATURES}
+    BYPRODUCTS ${CORE_CAMP_NOUNK_H2B_TGT}/release/libak_core.so
+    COMMENT "gen/h2batch_nounk.sh: ak-core no-unknown variant --features rpc,init-guard, h2-batch")
+  add_dependencies(core_camp_nounk_h2batch core_camp_h2batch)
 endif()

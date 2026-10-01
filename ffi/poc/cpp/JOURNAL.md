@@ -2133,3 +2133,8 @@ changes.
   failures, semantics 14/14 on HEAD's core, check-stream 16 matched), a gbench grid over TCP whose header reports 2
   TCP sockets both TCP_NODELAY 1.
 - CMake support for the h2-batch core waits for the Rust agent's build script (not landed yet).
+- CMake targets core_camp_h2batch / core_camp_nounk_h2batch (outside `all`; poc/codec/h2-batch/build.sh for the full
+  core, gen/h2batch_nounk.sh for the no-unknown twin against the same patched source; Cargo.lock restored), written
+  against the Rust agent's poc/codec/h2-batch/ as it is on disk (untracked at this commit); not built yet.
+  deferred_checks.sh DC_STEP1_CORE=1: conformance and pre-check load the given core (ldd and sha256 printed).
+- The landed p1 (82f3712a) has SPARES = 6 fixed and no AK_SPARES knob: the sweep sets no ring knob; Cf-q runs with 6.

@@ -206,7 +206,12 @@ explicit option; every TCP process refused unless every client TCP socket reads 
 stability.sh, core_ab.sh, physical_probe.sh (gbench; its CPU stays the process clock), deferred_checks.sh. Historical
 UDS-only drivers left as they were: tcp_uds.sh (compares both), profile_4a.sh, patch_ab.sh. Zero-copy and deferred
 cells are out of the default sets (TA_ZC=1, ST_ZC=1, DC_CELLS to bring them back). The worker sweep is the
-`sweep` phase of tcp_attrib.sh with `gen/sweep_tables.py`. Pending: CMake support for the h2-batch core (follows
+`sweep` phase of tcp_attrib.sh with `gen/sweep_tables.py`. CMake: `core_camp_h2batch` and
+`core_camp_nounk_h2batch` (outside `all`, built one at a time; `poc/codec/h2-batch/build.sh` and
+`gen/h2batch_nounk.sh`, both restoring poc/codec/Cargo.lock), loaded at run time with LD_LIBRARY_PATH; written against
+the Rust agent's uncommitted `poc/codec/h2-batch/` as found on disk, not yet built. `gen/deferred_checks.sh`
+DC_STEP1_CORE=1 makes the conformance and pre-check binaries load the given core. The landed p1 (82f3712a) fixes the
+ring at 6 with the lock and reads no AK_SPARES: Cf-q runs with 6 (the patch-era runs used 24). Pending: CMake support for the h2-batch core (follows
 the Rust agent's build script), the rebuild against the landed core, gates on both variants, then the sweep.
 
 **h2 PR #903 from C++ (2026-10-01)** (`gen/h2_variants_build.sh`, `gen/tcp_attrib.sh OUT h2|h2b` with H2_CTL, H2_H16,
