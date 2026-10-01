@@ -1,0 +1,20 @@
+# h2_variants_build 2026-09-30T23:58:55Z: worktree /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp at 5f701a31, stack /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/rust/opt/patches/p9-cb-at-take/stack-p1-p2-p3-p5-p6-p7-p8-p9.patch sha256 c13bec9fda6a303e
+===== ctl: h2 = crates
+  stack diff (without the workspace Cargo.toml / Cargo.lock) sha256 c13bec9fda6a303e
+  built in 17698 s
+  cargo tree: h2 v0.4.19
+  h2 sources /home/csdt/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/h2-0.4.19: src/ sha256 552baf4f8dd54157
+  core 4cdfbb6cf6dd00c6, no-unknown 5884c22b0552f840; AK_H2_COALESCE string in core: 0
+===== h16: h2 = /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-p4
+  stack diff (without the workspace Cargo.toml / Cargo.lock) sha256 c13bec9fda6a303e
+  built in 81 s
+  cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-p4)
+  h2 sources /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-p4: src/ sha256 86e6e0d549ca9675
+  core f4a3ab3e7b6dc806, no-unknown f86e67708c6bded2; AK_H2_COALESCE string in core: 1
+===== pr903: h2 = /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903
+  stack diff (without the workspace Cargo.toml / Cargo.lock) sha256 c13bec9fda6a303e
+  built in 81 s
+  cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903)
+  h2 sources /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903: src/ sha256 df9dfe5c35ecf5c7
+  core 5fd483714fb5544b, no-unknown 73df7f238379553d; AK_H2_COALESCE string in core: 0
+# done 2026-10-01T04:56:35Z

@@ -259,7 +259,9 @@ def load(dirp, unit_rx):
                   "s_sirq": it["server_cpus"]["softirq_ticks"] * 1e3 / hz / n if it else float("nan"),
                   "c_rx": it["client_cpus"]["net_rx"] / n if it else float("nan"),
                   "s_rx": it["server_cpus"]["net_rx"] / n if it else float("nan"),
-                  "c_irq": it["client_cpus"]["irq_ticks"] * 1e3 / hz / n if it else float("nan")})
+                  "c_irq": it["client_cpus"]["irq_ticks"] * 1e3 / hz / n if it else float("nan"),
+                  "csw": (p["rusage"]["nvcsw"] + p["rusage"]["nivcsw"]) / n,
+                  "s_csw": g(ps, "context-switches") / n})
     by = collections.defaultdict(list)
     for x in P:
         by[(x["wl"], x["unit"], x["tr"])].append(x)

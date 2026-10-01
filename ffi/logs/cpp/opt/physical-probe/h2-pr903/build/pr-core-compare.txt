@@ -1,0 +1,17 @@
+# PR core comparison 2026-10-01T04:57:02Z
+mine   5fd483714fb5544b size 3794824
+rust   525b8afa7a86c344 size 3795032
+exported dynamic symbols identical: yes
+ak_ symbols: 142
+strings differing (first 10 of mine not in rust's):
+ak_core.7ad839bdcbb5be2e-cgu.00
+ak_core.7ad839bdcbb5be2e-cgu.01
+ak_core.7ad839bdcbb5be2e-cgu.02
+ak_core.7ad839bdcbb5be2e-cgu.03
+ak_core.7ad839bdcbb5be2e-cgu.04
+ak_core.7ad839bdcbb5be2e-cgu.05
+ak_core.7ad839bdcbb5be2e-cgu.06
+ak_core.7ad839bdcbb5be2e-cgu.07
+ak_core.7ad839bdcbb5be2e-cgu.08
+ak_core.7ad839bdcbb5be2e-cgu.09
+count mine-only 3878, rust-only 3881

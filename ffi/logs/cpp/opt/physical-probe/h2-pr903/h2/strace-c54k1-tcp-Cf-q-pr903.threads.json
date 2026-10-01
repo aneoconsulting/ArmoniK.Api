@@ -1,0 +1,1 @@
+{"block_us": 50.0, "calls": 40.0, "per_call": {"epoll_blocked": 8.375, "epoll_wait": 9.975, "futex": 10.85, "futex_blocked": 4.95, "socket_reads": 3.0, "socket_writes": 258.0}, "per_call_us": {"epoll_us": 14298.225, "futex_us": 30355.625, "socket_write_us": 5603.15}, "threads_with_syscalls": 4, "threads_writing_the_socket": 3, "writers_share_of_writes": [0.45, 0.375, 0.175]}

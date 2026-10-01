@@ -2080,3 +2080,23 @@ changes.
     -0.88..-0.11); k=8 15.70, 9.28, 9.21 (+0.09); d/4 3.89, 1.99, 2.08; c/P5.4 3.93, 2.01, 2.12. Writes per d/16 call
     1027 against 73. Server task-clock at d/16 k=8: h16 15.28, A 11.71, ctl 23.79.
 - Not attributed: grpc++'s larger chunks on TCP; the module code by symbol (needs root).
+
+## 2026-10-01, h2 PR #903 against p4 and crates.io h2 from C++ (session 1)
+
+- Cores built in the worktree at 5f701a31 with the p1-p9 stack (stack-p1-p2-p3-p5-p6-p7-p8-p9.patch, c13bec9f; the
+  worktree's diff has the patch's sha256 for every variant), only the workspace `[patch.crates-io] h2` differing
+  (gen/h2_variants_build.sh): ctl (crates.io h2 0.4.19, core 4cdfbb6c), h16 (p4, f4a3ab3e), pr903 (5fd48371). Features
+  rpc,init-guard and the default unknown-fields, as the Rust agent's PR core.
+- The Rust agent's PR core (525b8afa) differs from mine by sha256 (paths and crate metadata hashes; exported symbols
+  identical), so the comparison uses my rebuild. Its h2 sources are the Rust agent's h2-pr903 git HEAD (221c21e, "DATA
+  frames need a free queue slot"), byte-identical in src/; the committed-to-be patch file in
+  logs/rust/opt/patches/h2-pr903/ (4aab4234) predates that commit and is NOT what the Rust core was built from. My src
+  patch at the port's HEAD is kept in logs/cpp/.../h2-pr903/build/.
+- The machine was suspended 02:00:53-06:53:46 local during the ctl build; its "built in 17698 s" is meaningless.
+- Checks (gen/deferred_checks.sh, per core): conformance 608/0-equivalent "0 failures" both builds and codec pre-check 0
+  failed (the worktree's binaries, pr903 build, for all three runs), --semantics 1 33/33 both builds per core, check-
+  stream A, D, Cf, Cf-q, Cf-zc at d/4 and d/16, k = 1 and 8: 20 benchmarks, every call's count and SHA-256 matched,
+  per core.
+- Session 1 (three cores, 1 round, 98 timed processes, 172 s; strace 98 processes, 179 s): writes per d/16 call Cf
+  ctl 1027, h16 73, pr903 1027 at k = 1; 1028, 74-83, 439-454 at k = 8. PR #903 alone does not batch one stream's
+  frames; it batches across streams.
