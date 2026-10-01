@@ -1,0 +1,113 @@
+# deferred_checks: commit 7d83c872 + UNCOMMITTED, 2026-10-01T21:20:20Z
+# patch tree /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/cpp/../../.. at 7d83c872, diff sha256 1597271444e3944f:  7 files changed, 739 insertions(+), 16 deletions(-)
+# core core-build/target-camp/release/libak_core.so sha256 788a879f7c57e6c4; no-unknown core-build/target-camp-nounk/release/libak_core.so sha256 ac194fff7cf53622; knobs: none
+# endpoint: tcp: grpc++ ipv4:127.0.0.1:37635, core http://127.0.0.1:37635 (tcp_nagle 0; server TCP_NODELAY on accept); TCP_NODELAY read back on every client socket of every process
+===== 1. the patch tree's binaries
+sha256sum: /target-camp/release/libak_core.so: No such file or directory
+  conformance_a17_shared loads /target-camp/release/libak_core.so ()
+sha256sum: /target-camp-nounk/release/libak_core.so: No such file or directory
+  conformance_nounk_a17 loads /target-camp-nounk/release/libak_core.so ()
+sha256sum: /target-camp/release/libak_core.so: No such file or directory
+  campaign_codec loads /target-camp/release/libak_core.so ()
+sha256sum: /target-camp-nounk/release/libak_core.so: No such file or directory
+  campaign_codec_nounk loads /target-camp-nounk/release/libak_core.so ()
+  conformance_a17_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_a17_shared
+  conformance_nounk_a17: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_a17
+  campaign_codec: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+>>> ok: campaign_codec pre-check
+  campaign_codec_nounk: exit 0 "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+>>> ok: campaign_codec_nounk pre-check
+===== 2. --semantics 1, this tree's clients on the patched core
+    PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [reference, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+    PASS [reference, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+    PASS [reference] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+    PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [framed, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+    PASS [framed, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+    PASS [framed] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+    PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    SKIP deferred send: this core does not export ak_call_send_deferred
+    SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc
+>>> ok: semantics full ("checks": 24)
+    PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [reference, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+    PASS [reference, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [reference, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [reference, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+    PASS [reference] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+    PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+    PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream q] cancel a pending send (6 1 MiB sends accepted, then #106 pending): a second send while pending -8; the pending send's completion tag 106 status -1/-1; recv 0, completion -12/1
+    PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+    PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+    PASS [framed, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+    PASS [framed, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+    PASS [framed, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+    PASS [framed, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+    PASS [framed] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+    PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+    SKIP deferred send: this core does not export ak_call_send_deferred
+    SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc
+>>> ok: semantics nounk ("checks": 24)
+===== 3. HEAD's core: the deferred cases skipped, a Cf-enc cell refused
+>>> ok: HEAD core: semantics pass, deferred skipped ("checks": 24)
+>>> ok: HEAD core refuses Cf-enc-retain: REFUSED: cell Cf-enc-retain needs a core that exports ak_call_send_deferred (patch p5-deferred); this one does not
+>>> ok: HEAD core refuses Cf-zc-retain: REFUSED: cell Cf-zc-retain needs a core that exports ak_enc_set_zc and ak_call_send_enc_zc (patch p6-zero-copy); this one does not
+>>> ok: HEAD core refuses Cf-zcp-retain: REFUSED: cell Cf-zcp-retain needs a core that exports ak_enc_set_zc and ak_call_send_deferred_zc (patch p7-deferred-zc); this one does not
+>>> ok: HEAD core refuses Cf-zcw-retain: REFUSED: cell Cf-zcw-retain needs a core that exports ak_enc_set_zc and ak_call_send_deferred_zc (patch p7-deferred-zc); this one does not
+===== 4. every d call checked against the server's count and SHA-256 (--check-stream 1), patched core
+    D-retain         4MiB   k=8  8 calls checked
+    A-q              16MiB  k=1  1 calls checked
+    A-cb             4MiB   k=1  1 calls checked
+    D-retain         4MiB   k=1  1 calls checked
+    Cf-retain        16MiB  k=8  8 calls checked
+    Cf-cb-retain     4MiB   k=1  1 calls checked
+    A                16MiB  k=1  1 calls checked
+    A-cb             4MiB   k=8  8 calls checked
+    Cf-q-retain      16MiB  k=1  1 calls checked
+    D-retain         16MiB  k=1  1 calls checked
+    A                4MiB   k=1  1 calls checked
+    A                4MiB   k=8  8 calls checked
+    Cf-cb-retain     16MiB  k=8  8 calls checked
+    A-q              16MiB  k=8  8 calls checked
+    A-q              4MiB   k=8  8 calls checked
+    A-cb             16MiB  k=8  8 calls checked
+    Cf-cb-retain     4MiB   k=8  8 calls checked
+    Cf-retain        4MiB   k=1  1 calls checked
+    Cf-q-retain      16MiB  k=8  8 calls checked
+    Cf-retain        16MiB  k=1  1 calls checked
+    Cf-q-retain      4MiB   k=8  8 calls checked
+    A                16MiB  k=8  8 calls checked
+    Cf-q-retain      4MiB   k=1  1 calls checked
+    A-q              4MiB   k=1  1 calls checked
+    Cf-retain        4MiB   k=8  8 calls checked
+    A-cb             16MiB  k=1  1 calls checked
+    Cf-cb-retain     16MiB  k=1  1 calls checked
+    D-retain         16MiB  k=8  8 calls checked
+>>> ok: check-stream grid: 28 benchmarks (7 cells x 2 payloads x k 1, 8), every call's count and SHA-256 matched
+deferred_checks: 0 failure(s)

@@ -72,6 +72,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <map>
 #include <set>
@@ -156,6 +157,8 @@ struct Cell {
   int deferred = 0;   // EXPERIMENT (Rust patch p5-deferred): Cf-enc-* (1) and Cf-encp-* (2), direction d
                       // only: each chunk encoded BY THE TRANSPORT through ak_call_send_deferred (found
                       // with dlsym; a core without it refuses the cell), wait = 1 / wait = 0
+  bool cb = false;    // owner 2026-10-01: the CALLBACK delivery (A-cb: grpc++'s callback API; Cf-cb: the
+                      // core's ak_call_*_cb), beside the blocking and queue ones; directions c and d
 };
 const char *mode_name(Mode m) {
   return m == kRetain ? "retain" : m == kDrop ? "drop" : m == kNoUnk ? "no-unknown" : "default";
@@ -211,6 +214,8 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       std::string rest = l.substr((fr || pu) ? 2 : 1);
       const bool qq = rest.compare(0, 2, "-q") == 0 && (rest.size() == 2 || rest[2] == '-');
       if (qq) rest = rest.substr(2);
+      const bool cbk = !qq && rest.compare(0, 3, "-cb") == 0 && (rest.size() == 3 || rest[3] == '-');
+      if (cbk) rest = rest.substr(3);
       int df = 0;
       if (rest.compare(0, 5, "-encp") == 0 && (rest.size() == 5 || rest[5] == '-')) { df = 2; rest = rest.substr(5); }
       else if (rest.compare(0, 4, "-enc") == 0 && (rest.size() == 4 || rest[4] == '-')) { df = 1; rest = rest.substr(4); }
@@ -223,6 +228,7 @@ std::vector<Cell> parse_cells(const std::string &spec) {
       } else if (!df && rest.compare(0, 3, "-zc") == 0 && (rest.size() == 3 || rest[3] == '-')) { zc = true; rest = rest.substr(3); }
       if (zc || df) m = rest.empty() ? kDefault : rest == "-retain" ? kRetain : rest == "-nounk" ? kNoUnk : kDrop;
       Cell cl{l[0], m, l, fr, pu, qq};
+      cl.cb = cbk;
       cl.deferred = df;
       cl.zc = zc;
       out.push_back(cl);
@@ -533,6 +539,11 @@ struct Conn {
   // so every call is a registered call, as the generated stub's methods are (before: an
   // RpcMethod without a channel per call, grpc-core's unregistered path).
   std::unique_ptr<grpc::internal::RpcMethod> m_fetch, m_push, m_upload, m_stream, m_stream_check;
+  // A-q: grpc++'s CompletionQueue, one per cell, drained by the issuing thread (as the core's queue)
+  std::unique_ptr<grpc::CompletionQueue> gcq;
+  // A-cb: the previous batch's contexts and reactors, released at the start of the next batch (a
+  // callback may still be on its way out of the library when the waiting caller wakes)
+  std::vector<std::shared_ptr<void> > keep;
 };
 
 struct World {
@@ -819,7 +830,8 @@ void check_answer(const Stream &st, const uint8_t *p, size_t n, bool check) {
 // completed, each completion matched to its call by its tag (slot << 8 | operation) and
 // checked, its response decoded on the draining thread; a stream's next send is issued from
 // the drain when its previous send has completed (at most one pending send per call).
-enum { kOpUnary = 1, kOpSend = 2, kOpRecv = 3 };
+enum { kOpUnary = 1, kOpSend = 2, kOpRecv = 3, kOpStart = 4, kOpWritesDone = 5 };
+bool g_check_stream = false;  // --check-stream 1: every d call to UploadStreamCheck (count and SHA-256)
 const int kMaxQ = 64;
 const uint64_t kQWaitMs = 60000;  // a completion missing for a minute is a failed check
 
@@ -874,8 +886,14 @@ ThreadCtx *q_slot_ctx(int s) {
   if (!slots[s]) slots[s] = new ThreadCtx();
   return slots[s];
 }
+long a_q_batch(World &w, size_t ci, const Job &job, int k, bool check);
 long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool check = false) {
+  // --check-stream reaches the queue cells through Pool::batch too (before 2026-10-01 only the
+  // blocking path read g_check_stream: a queue cell's d calls went to UploadStream, the server's
+  // byte count checked but not its SHA-256)
+  check = check || g_check_stream;
   const Cell &cl = w.cells[ci];
+  if (cl.base == 'A') return a_q_batch(w, ci, job, k, check);
   Conn &cn = w.conns[ci];
   if (k < 1 || k > kMaxQ) die("q_batch: in-flight level", k);
   ak_call *h[kMaxQ];
@@ -964,6 +982,264 @@ long q_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool che
   return n;
 }
 
+// ---- grpc++'s completion-queue delivery, cell A-q (owner, 2026-10-01: the deliveries compared) ----
+// grpc++ 1.80's async API on ONE grpc::CompletionQueue per cell, drained by the issuing thread with
+// AsyncNext, the analogue of the core's queue cells: c = the generated stub's AsyncUpload +
+// Finish(tag) per call (protobuf request, SerializationTraits); d = ClientAsyncWriterFactory<Pb5>
+// (start = true), Write(tag) of each chunk issued when the previous write completed, WritesDone(tag),
+// Finish(tag), the raw-bytes answer checked as A's. k calls in flight, each completion matched to
+// its call by its tag (slot << 8 | operation).
+void *gtag(int s, int op) { return (void *)(intptr_t)(((intptr_t)s << 8) | op); }
+bool gnext(grpc::CompletionQueue &cq, int *s, int *op) {
+  void *t = nullptr;
+  bool ok = false;
+  const grpc::CompletionQueue::NextStatus r =
+      cq.AsyncNext(&t, &ok, std::chrono::system_clock::now() + std::chrono::milliseconds(kQWaitMs));
+  if (r != grpc::CompletionQueue::GOT_EVENT) die("A-q: no completion within the wait", (long)r);
+  *s = (int)((intptr_t)t >> 8);
+  *op = (int)((intptr_t)t & 0xff);
+  return ok;
+}
+long a_q_batch(World &w, size_t ci, const Job &job, int k, bool check) {
+  Conn &cn = w.conns[ci];
+  grpc::CompletionQueue &cq = *cn.gcq;
+  if (k < 1 || k > kMaxQ) die("A-q: in-flight level", k);
+  std::unique_ptr<grpc::ClientContext> ctx[kMaxQ];
+  grpc::Status st[kMaxQ];
+  int state[kMaxQ];
+  if (job.dir == 'c') {
+    svcns::Empty rsp[kMaxQ];
+    std::unique_ptr<grpc::ClientAsyncResponseReader<svcns::Empty> > rd[kMaxQ];
+    for (int s = 0; s < k; ++s) {
+      ctx[s].reset(new grpc::ClientContext());
+      rd[s] = cn.stubs[0]->AsyncUpload(ctx[s].get(), w.pb_up[job.pi], &cq);
+      rd[s]->Finish(&rsp[s], &st[s], gtag(s, kOpUnary));
+      state[s] = kOpUnary;
+    }
+    for (int left = k; left > 0; --left) {
+      int s, op;
+      const bool ok = gnext(cq, &s, &op);
+      if (s >= k || op != kOpUnary || state[s] != kOpUnary) die("A-q/c: a completion matching no pending call", s);
+      if (!ok || !st[s].ok()) die("A-q/c status", (long)st[s].error_code());
+      if (w.want_c_len != 0) die("A-q/c response length", 0);
+      state[s] = 0;
+    }
+    return k;
+  }
+  if (job.dir != 'd') die("A-q: directions c and d only", job.dir);
+  const Stream &stv = w.st[job.pi];
+  const size_t nmsg = stv.f.size();
+  const grpc::internal::RpcMethod &method = check ? *cn.m_stream_check : *cn.m_stream;
+  grpc::ByteBuffer rsp[kMaxQ];
+  size_t next[kMaxQ];
+  std::unique_ptr<grpc::ClientAsyncWriter<Pb5> > wr[kMaxQ];
+  for (int s = 0; s < k; ++s) {
+    ctx[s].reset(new grpc::ClientContext());
+    wr[s].reset(grpc::internal::ClientAsyncWriterFactory<Pb5>::Create(cn.chan.get(), &cq, method, ctx[s].get(), &rsp[s],
+                                                                       true, gtag(s, kOpStart)));
+    state[s] = kOpStart;
+    next[s] = 0;
+  }
+  long n = 0;
+  for (int left = k; left > 0;) {
+    int s, op;
+    const bool ok = gnext(cq, &s, &op);
+    if (s >= k || op != state[s]) die("A-q/d: a completion matching no pending operation", s);
+    if (!ok && op != kOpRecv) die("A-q/d: the stream failed", op);
+    if (op == kOpStart) {
+      wr[s]->Write(stv.p[0], gtag(s, kOpSend));
+      state[s] = kOpSend;
+    } else if (op == kOpSend) {
+      if (++next[s] < nmsg) {
+        wr[s]->Write(stv.p[next[s]], gtag(s, kOpSend));
+      } else {
+        wr[s]->WritesDone(gtag(s, kOpWritesDone));
+        state[s] = kOpWritesDone;
+      }
+    } else if (op == kOpWritesDone) {
+      wr[s]->Finish(&st[s], gtag(s, kOpRecv));
+      state[s] = kOpRecv;
+    } else {
+      if (!st[s].ok()) die("A-q/d status", (long)st[s].error_code());
+      std::string a = flatten(rsp[s]);
+      check_answer(stv, (const uint8_t *)a.data(), a.size(), check);
+      state[s] = 0;
+      n += (long)nmsg;
+      --left;
+    }
+  }
+  return n;
+}
+
+// ---- the callback deliveries, cells A-cb and Cf-cb (owner, 2026-10-01) ----------------------
+// The issuing thread starts the batch's k calls and waits on a condition variable; each call's
+// last completion, run on the stack's own thread, signals it (CbWait::done). Nothing else runs on
+// the issuing thread while the calls are in flight; no caller thread of the pool is woken.
+//   A-cb  grpc++ 1.80's callback API: c = the generated stub's async()->Upload(ctx, req, rsp,
+//         std::function) per call; d = a grpc::ClientWriteReactor<Pb5> per call
+//         (ClientCallbackWriterFactory<Pb5>, raw-bytes answer as A's): StartWrite(chunk 0),
+//         StartCall, each next chunk written from OnWriteDone, StartWritesDone after the last,
+//         the answer checked in OnDone. The reactions run on grpc-core's callback threads.
+//   Cf-cb the core's callback delivery on the framed send path: c = ak_call_unary_enc_cb (the
+//         request encoded on the issuing thread, moved before the call returns); d =
+//         ak_call_open, ak_call_send_enc_cb of chunk 0, each next chunk ENCODED AND SENT FROM
+//         THE PREVIOUS SEND'S COMPLETION (on a core thread), ak_call_recv_cb after the last, the
+//         answer checked in its completion. Each in-flight slot has its own encode context: two
+//         streams' completions can run at once on two core workers (Cf-q's single drainer encodes
+//         every stream through one context; the blocking Cf, one per caller thread).
+struct CbWait {
+  std::mutex m;
+  std::condition_variable cv;
+  int pending = 0;
+  long n = 0;
+  void done(long v) {
+    std::lock_guard<std::mutex> l(m);
+    n += v;
+    if (--pending == 0) cv.notify_one();
+  }
+  long wait() {
+    std::unique_lock<std::mutex> l(m);
+    if (!cv.wait_for(l, std::chrono::milliseconds(kQWaitMs), [&] { return pending == 0; }))
+      die("callback delivery: a call did not complete within the wait", pending);
+    return n;
+  }
+};
+struct CoreCbSlot {
+  const Cell *cl = nullptr;
+  World *w = nullptr;
+  ak_call *h = nullptr;
+  const Stream *st = nullptr;
+  size_t next = 0;
+  bool check = false;
+  ThreadCtx *tc = nullptr;
+  CbWait *wt = nullptr;
+};
+ThreadCtx *cb_slot_ctx(int s) {  // created by the issuing thread on first use (warm-up), kept
+  static ThreadCtx *slots[kMaxQ] = {0};
+  if (!slots[s]) slots[s] = new ThreadCtx();
+  return slots[s];
+}
+void core_cb_d(void *u, struct ak_completion *c);
+void core_cb_send(CoreCbSlot &s) {
+  if (core_enc(s.tc->ec, s.st->f[s.next], s.cl->mode) < 0) die("Cf-cb/d encode", (long)s.next);
+  const int32_t rc = ak_call_send_enc_cb(s.h, s.tc->ec, s.next + 1 == s.st->f.size(), core_cb_d, &s, kOpSend);
+  if (rc != AK_OK) die("ak_call_send_enc_cb (refused)", rc);
+}
+void core_cb_d(void *u, struct ak_completion *c) {
+  CoreCbSlot &s = *(CoreCbSlot *)u;
+  if (c->tag == kOpSend) {
+    if (c->status != AK_OK || c->bytes.len != 0) die("ak_call_send_enc_cb completion", c->status);
+    if (++s.next < s.st->f.size()) {
+      core_cb_send(s);
+    } else {
+      const int32_t rc = ak_call_recv_cb(s.h, core_cb_d, &s, kOpRecv);
+      if (rc != AK_OK) die("ak_call_recv_cb (refused)", rc);
+    }
+    return;
+  }
+  q_status(*c, "d-cb gRPC status");
+  check_answer(*s.st, c->bytes.ptr, c->bytes.len, s.check);
+  ak_bytes_free(&c->bytes);
+  s.wt->done((long)s.st->f.size());
+}
+void core_cb_c(void *u, struct ak_completion *c) {
+  CoreCbSlot &s = *(CoreCbSlot *)u;
+  q_status(*c, "c-cb gRPC status");
+  if (c->bytes.len != s.w->want_c_len) die("c-cb response length", (long)c->bytes.len);
+  ak_bytes_free(&c->bytes);
+  s.wt->done(1);
+}
+struct AWriter : grpc::ClientWriteReactor<Pb5> {
+  const Stream *st = nullptr;
+  size_t next = 0;
+  bool check = false;
+  grpc::ClientContext ctx;
+  grpc::ByteBuffer rsp;
+  CbWait *wt = nullptr;
+  void go(Conn &cn, const grpc::internal::RpcMethod &m) {
+    grpc::internal::ClientCallbackWriterFactory<Pb5>::Create(cn.chan.get(), m, &ctx, &rsp, this);
+    StartWrite(&st->p[0]);
+    StartCall();
+  }
+  void OnWriteDone(bool ok) override {
+    if (!ok) return;  // the stream failed: OnDone carries the status
+    if (++next < st->f.size()) StartWrite(&st->p[next]);
+    else StartWritesDone();
+  }
+  void OnDone(const grpc::Status &s) override {
+    if (!s.ok()) die("A-cb/d status", (long)s.error_code());
+    std::string a = flatten(rsp);
+    check_answer(*st, (const uint8_t *)a.data(), a.size(), check);
+    wt->done((long)st->f.size());
+  }
+};
+long cb_batch(World &w, size_t ci, const Job &job, int k, ThreadCtx &tc, bool check = false) {
+  check = check || g_check_stream;
+  const Cell &cl = w.cells[ci];
+  Conn &cn = w.conns[ci];
+  if (k < 1 || k > kMaxQ) die("cb_batch: in-flight level", k);
+  if (job.dir != 'c' && job.dir != 'd') die("callback cells: directions c and d only", job.dir);
+  CbWait wt;
+  wt.pending = k;
+  if (cl.base == 'A') {
+    cn.keep.clear();  // the previous batch's contexts and reactors
+    if (job.dir == 'c') {
+      std::shared_ptr<grpc::ClientContext> ctx[kMaxQ];
+      std::shared_ptr<svcns::Empty> rsp[kMaxQ];
+      std::shared_ptr<grpc::Status> sts(new grpc::Status[kMaxQ], std::default_delete<grpc::Status[]>());
+      for (int s = 0; s < k; ++s) {
+        ctx[s].reset(new grpc::ClientContext());
+        rsp[s].reset(new svcns::Empty());
+        cn.keep.push_back(ctx[s]);
+        cn.keep.push_back(rsp[s]);
+        grpc::Status *slot = sts.get() + s;
+        cn.stubs[0]->async()->Upload(ctx[s].get(), &w.pb_up[job.pi], rsp[s].get(), [slot, &wt](grpc::Status x) {
+          *slot = x;
+          wt.done(1);
+        });
+      }
+      cn.keep.push_back(sts);
+      const long n = wt.wait();
+      for (int s = 0; s < k; ++s)
+        if (!sts.get()[s].ok()) die("A-cb/c status", (long)sts.get()[s].error_code());
+      if (w.want_c_len != 0) die("A-cb/c response length", 0);
+      return n;
+    }
+    const grpc::internal::RpcMethod &method = check ? *cn.m_stream_check : *cn.m_stream;
+    for (int s = 0; s < k; ++s) {
+      std::shared_ptr<AWriter> r(new AWriter());
+      r->st = &w.st[job.pi];
+      r->check = check;
+      r->wt = &wt;
+      cn.keep.push_back(r);
+      r->go(cn, method);
+    }
+    return wt.wait();
+  }
+  CoreCbSlot slot[kMaxQ];
+  if (job.dir == 'c') {
+    const size_t pl = std::strlen(kUpload);
+    for (int s = 0; s < k; ++s) {
+      slot[s].cl = &cl; slot[s].w = &w; slot[s].wt = &wt;
+      if (core_enc(tc.ec, w.fac_up[job.pi], cl.mode) < 0) die("Cf-cb/c encode", s);
+      slot[s].h = ak_call_unary_enc_cb(cn.cl, (const uint8_t *)kUpload, pl, tc.ec, core_cb_c, &slot[s], kOpUnary);
+      if (!slot[s].h) die("ak_call_unary_enc_cb (refused)", s);
+    }
+  } else {
+    const char *path = check ? kUploadStreamCheck : kUploadStream;
+    for (int s = 0; s < k; ++s) {
+      CoreCbSlot &x = slot[s];
+      x.cl = &cl; x.w = &w; x.wt = &wt; x.st = &w.st[job.pi]; x.next = 0; x.check = check; x.tc = cb_slot_ctx(s);
+      x.h = ak_call_open(cn.cl, (const uint8_t *)path, std::strlen(path), AK_CALL_CLIENT_STREAM, NULL);
+      if (!x.h) die("ak_call_open", s);
+      core_cb_send(x);
+    }
+  }
+  const long n = wt.wait();
+  for (int s = 0; s < k; ++s) ak_call_destroy(slot[s].h);  // after every completion was delivered
+  return n;
+}
+
 // EXPERIMENT (Rust patch p5-deferred): ak_call_send_deferred(h, enc, f, user, last, wait), found
 // at run time; NULL on a core without it. The callback encodes the chunk it is handed with the
 // core codec (the cell's mode) into the context the core hands it, on the core worker that
@@ -985,7 +1261,6 @@ const size_t kZcMin = 64 * 1024;  // blobs of 64 KiB and more borrowed (the Rust
 void zc_release(void *user) { ((std::atomic<long> *)user)->fetch_add(1); }
 // --check-stream 1 (a check run, never timed): every direction d call goes to UploadStreamCheck
 // and verifies the server's byte count and SHA-256 of the messages as received.
-bool g_check_stream = false;
 struct DefJob {
   const Fac5 *v;
   Mode m;
@@ -1009,6 +1284,7 @@ long stream_call(World &w, size_t ci, int pi, int t, ThreadCtx &tc, bool check =
   const Stream &st = w.st[pi];
   const size_t nmsg = st.f.size();
   const char *path = check ? kUploadStreamCheck : kUploadStream;
+  if (cl.cb) return cb_batch(w, ci, Job{'d', pi}, 1, tc, check);
   if (cl.q) return q_batch(w, ci, Job{'d', pi}, 1, tc, check);
   if (cl.base == 'A') {
     // grpc++'s ClientWriter with protobuf requests (SerializationTraits, the production path);
@@ -1172,6 +1448,8 @@ long cell_call(World &w, size_t ci, const Job &job, int t, ThreadCtx &tc) {
   const bool resp = dir == 'a' || dir == 'r';
   const bool read = dir == 'r';
   const bool up = dir == 'c';
+  if (cl.cb) return cb_batch(w, ci, job, 1, tc);  // one call, callback delivery (counts, probes)
+  if (cl.q && cell == 'A') return q_batch(w, ci, job, 1, tc);
   if (cell == 'A') {
     grpc::ClientContext ctx;
     gridns::Grid::Stub &st = *cn.stubs[(size_t)t % cn.stubs.size()];
@@ -1304,6 +1582,7 @@ struct Pool {
     // Queue cells (req. 16 as amended): the k calls are issued and drained by THIS thread
     // (q_batch); the caller threads are not woken.
     if (w->cells[c].q) return q_batch(*w, c, w->jobs[j], kk, qtc);
+    if (w->cells[c].cb) return cb_batch(*w, c, w->jobs[j], kk, qtc);  // the issuing thread starts and waits
     const bool tr = g_trace_calls.load(std::memory_order_relaxed);
     const int64_t b0 = tr ? mono_ns() : 0;
     const int per = (total + kk - 1) / kk;
@@ -1573,6 +1852,130 @@ int q_semantics(World &w) {
                 d0.status == AK_OK && d0.grpc_status == 0 && d0.bytes.len == 0 && !hn && !stray(), buf);
       if (g9) ak_bytes_free(&d9.bytes);
       if (g0) ak_bytes_free(&d0.bytes);
+    }
+    // The CALLBACK delivery (ak_call_*_cb, cell Cf-cb; owner 2026-10-01) on the same send path:
+    // every entry returning AK_OK is followed by exactly one completion, run on a core thread; a
+    // refusal by none. The completions are collected into a box the checking thread waits on.
+    {
+      struct CbBox { std::mutex m; std::condition_variable cv; std::deque<ak_completion> d; };
+      static CbBox box;  // static: a late completion of a failed case still has a home
+      ak_completion_cb cbf = [](void *u, struct ak_completion *c) {
+        CbBox &b = *(CbBox *)u;
+        std::lock_guard<std::mutex> l(b.m);
+        b.d.push_back(*c);
+        b.cv.notify_one();
+      };
+      auto cwait = [&](uint64_t ms, ak_completion *c) {
+        std::unique_lock<std::mutex> l(box.m);
+        if (!box.cv.wait_for(l, std::chrono::milliseconds(ms), [&] { return !box.d.empty(); })) return false;
+        *c = box.d.front();
+        box.d.pop_front();
+        return true;
+      };
+      auto cstray = [&]() {
+        ak_completion c;
+        if (!cwait(200, &c)) return false;
+        ak_bytes_free(&c.bytes);
+        return true;
+      };
+      const std::string wc = framed ? "[framed, stream cb]" : "[reference, stream cb]";
+      {  // status 6 on a stream
+        ak_call *h = open("StatusS6");
+        ak_completion sa, sb;
+        const int32_t a = ak_call_send_cb(h, x, 1, 1, cbf, &box, 71);
+        const bool ga = cwait(5000, &sa);
+        const int32_t b = ak_call_recv_cb(h, cbf, &box, 72);
+        const bool gb = cwait(5000, &sb);
+        ak_call_destroy(h);
+        const bool send_ok = ga && sa.tag == 71 && ((sa.status == AK_OK && sa.grpc_status == 0) ||
+                                                    (sa.status == AK_ERR_HOST && sa.grpc_status == -1));
+        std::snprintf(buf, sizeof(buf), "%s server status 6: send entry %d, completion tag %llu status %d/%d; recv entry %d, completion tag %llu status %d/%d",
+                      wc.c_str(), a, (unsigned long long)sa.tag, sa.status, sa.grpc_status, b,
+                      (unsigned long long)sb.tag, sb.status, sb.grpc_status);
+        check(a == AK_OK && send_ok && b == AK_OK && gb && sb.tag == 72 && sb.status == AK_ERR_RPC_STATUS &&
+                  sb.grpc_status == 6 && !cstray(), buf);
+        if (ga) ak_bytes_free(&sa.bytes);
+        if (gb) ak_bytes_free(&sb.bytes);
+      }
+      {  // moved-encode sends to the checking path, the server's count and SHA-256
+        const Stream &st = w.st[0];
+        ak_call *h = open(kUploadStreamCheck);
+        bool ok = true;
+        for (size_t j = 0; j < st.f.size(); ++j) {
+          if (core_enc(tc.ec, st.f[j], m) < 0) die("semantics: encode", (long)j);
+          const int32_t rc = ak_call_send_enc_cb(h, tc.ec, j + 1 == st.f.size(), cbf, &box, 80 + j);
+          ak_completion d;
+          const bool g = cwait(5000, &d);
+          ok = ok && rc == AK_OK && g && d.tag == 80 + j && d.status == AK_OK && d.grpc_status == 0 && d.bytes.len == 0;
+          if (g) ak_bytes_free(&d.bytes);
+        }
+        const int32_t r = ak_call_recv_cb(h, cbf, &box, 90);
+        ak_completion d;
+        const bool g = cwait(5000, &d);
+        ak_call_destroy(h);
+        const bool verdict = g && d.status == AK_OK && d.grpc_status == 0 && d.bytes.len == 40 &&
+                             le64(d.bytes.ptr) == st.bytes && std::string((const char *)d.bytes.ptr + 8, 32) == st.sha;
+        std::snprintf(buf, sizeof(buf), "%s moved-encode sends to the checking path: sends ok %d; recv %d, completion %d/%d, %zu B, server's count and SHA-256 match %d",
+                      wc.c_str(), (int)ok, r, g ? d.status : -99, g ? d.grpc_status : -99, g ? d.bytes.len : 0, (int)verdict);
+        check(ok && r == AK_OK && g && d.tag == 90 && verdict && !cstray(), buf);
+        if (g) ak_bytes_free(&d.bytes);
+      }
+      {  // cancel a pending recv (the server sleeps 3 s after the stream)
+        ak_call *h = open("SleepS");
+        ak_completion sa, early, sb;
+        const int32_t a = ak_call_send_cb(h, x, 1, 1, cbf, &box, 100);
+        const bool ga = cwait(5000, &sa);
+        const int32_t b = ak_call_recv_cb(h, cbf, &box, 101);
+        const bool ge = cwait(200, &early);
+        ak_call_cancel(h);
+        const bool gb = cwait(5000, &sb);
+        const int32_t again = ak_call_recv_cb(h, cbf, &box, 102);
+        const bool gn = cstray();
+        ak_call_destroy(h);
+        std::snprintf(buf, sizeof(buf), "%s cancel a pending recv: completion before the cancel %d; after it tag %llu status %d/%d (CANCELLED = 1); a second recv %d, a completion after it %d",
+                      wc.c_str(), (int)ge, (unsigned long long)sb.tag, sb.status, sb.grpc_status, again, (int)gn);
+        check(a == AK_OK && ga && sa.status == AK_OK && b == AK_OK && !ge && gb && sb.tag == 101 &&
+                  sb.status == AK_ERR_RPC_STATUS && sb.grpc_status == 1 && again == AK_ERR_INVALID_STATE && !gn, buf);
+        if (ga) ak_bytes_free(&sa.bytes);
+        if (gb) ak_bytes_free(&sb.bytes);
+      }
+      {  // misuse: a send after last (refused, no completion); a second recv refused
+        ak_call *h = open("EchoS");
+        ak_completion sa, d1;
+        const int32_t a = ak_call_send_cb(h, x, 1, 1, cbf, &box, 110);
+        const bool ga = cwait(5000, &sa);
+        const int32_t b = ak_call_send_cb(h, x, 1, 1, cbf, &box, 111);
+        const int32_t r1 = ak_call_recv_cb(h, cbf, &box, 112);
+        const bool g1 = cwait(5000, &d1);
+        const int32_t r2 = ak_call_recv_cb(h, cbf, &box, 113);
+        const bool gn = cstray();
+        ak_call_destroy(h);
+        std::snprintf(buf, sizeof(buf), "%s misuse: a send after last %d (no completion); recv %d completion %d/%d; a second recv %d; stray completion %d",
+                      wc.c_str(), b, r1, g1 ? d1.status : -99, g1 ? d1.grpc_status : -99, r2, (int)gn);
+        check(a == AK_OK && ga && sa.tag == 110 && b == AK_ERR_INVALID_STATE && r1 == AK_OK && g1 && d1.tag == 112 &&
+                  d1.status == AK_OK && d1.grpc_status == 0 && r2 == AK_ERR_INVALID_STATE && !gn, buf);
+        if (ga) ak_bytes_free(&sa.bytes);
+        if (g1) ak_bytes_free(&d1.bytes);
+      }
+      {  // ak_call_unary_enc_cb: a chosen status, then OK (the request moved out of the context)
+        ak_completion d9, d0;
+        if (core_enc(tc.ec, w.fac_req, m) < 0) die("semantics: encode P2.2", 0);
+        const std::string p9 = pre + "StatusU9";
+        ak_call *h = ak_call_unary_enc_cb(cl, (const uint8_t *)p9.data(), p9.size(), tc.ec, cbf, &box, 120);
+        const bool g9 = h && cwait(5000, &d9);
+        if (h) ak_call_destroy(h);
+        if (core_enc(tc.ec, w.fac_req, m) < 0) die("semantics: encode P2.2", 0);
+        ak_call *h2 = ak_call_unary_enc_cb(cl, (const uint8_t *)kPush, std::strlen(kPush), tc.ec, cbf, &box, 121);
+        const bool g0 = h2 && cwait(5000, &d0);
+        if (h2) ak_call_destroy(h2);
+        std::snprintf(buf, sizeof(buf), "[%s] ak_call_unary_enc_cb: server status 9 -> %d/%d; Push -> %d/%d, %zu B",
+                      framed ? "framed" : "reference", g9 ? d9.status : -99, g9 ? d9.grpc_status : -99,
+                      g0 ? d0.status : -99, g0 ? d0.grpc_status : -99, g0 ? d0.bytes.len : 0);
+        check(g9 && d9.tag == 120 && d9.status == AK_ERR_RPC_STATUS && d9.grpc_status == 9 && g0 && d0.tag == 121 &&
+                  d0.status == AK_OK && d0.grpc_status == 0 && d0.bytes.len == 0 && !cstray(), buf);
+        if (g9) ak_bytes_free(&d9.bytes);
+        if (g0) ak_bytes_free(&d0.bytes);
+      }
     }
     ak_queue_shutdown(q);
     ak_completion z;
@@ -1994,7 +2397,8 @@ int main(int argc, char **argv) {
     if (std::string("ABCDEF").find(cl.base) == std::string::npos || coded != (cl.mode != kDefault)
         || (cl.framed && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')
         || (cl.pull && cl.base != 'C' && cl.base != 'D')
-        || (cl.q && (cl.pull || (cl.base != 'B' && cl.base != 'C' && cl.base != 'E')))
+        || (cl.q && (cl.pull || (cl.base != 'A' && cl.base != 'B' && cl.base != 'C' && cl.base != 'E')))
+        || (cl.cb && (cl.pull || cl.q || !(cl.base == 'A' || (cl.base == 'C' && cl.framed))))
         || ((cl.deferred || cl.zc) && (cl.base != 'C' || !cl.framed || cl.q || cl.pull))
 #ifdef AK_NO_UNKNOWN_FIELDS
         || cl.mode == kRetain || cl.mode == kDrop
@@ -2029,6 +2433,13 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
+    if (cl.cb || (cl.q && cl.base == 'A')) {
+      for (size_t j = 0; j < w.jobs.size(); ++j)
+        if (w.jobs[j].dir != 'c' && w.jobs[j].dir != 'd') {
+          std::fprintf(stderr, "REFUSED: cell %s runs directions c and d only (--dirs c, d or cd)\n", cl.label.c_str());
+          return 2;
+        }
+    }
     if (cl.deferred || cl.zc) {
       for (size_t j = 0; j < w.jobs.size(); ++j)
         if (w.jobs[j].dir != 'd') {
@@ -2053,6 +2464,7 @@ int main(int argc, char **argv) {
       cn.m_upload.reset(new RM(kUpload, RM::NORMAL_RPC, cn.chan));
       cn.m_stream.reset(new RM(kUploadStream, RM::CLIENT_STREAMING, cn.chan));
       cn.m_stream_check.reset(new RM(kUploadStreamCheck, RM::CLIENT_STREAMING, cn.chan));
+      if (w.cells[i].q) cn.gcq.reset(new grpc::CompletionQueue());
     } else {
       cn.cl = core_client(w.rt, c.core_target, c.transport, w.cells[i].framed);
       if (!cn.cl) die("ak_client_new", (long)i);
@@ -2429,7 +2841,7 @@ int main(int argc, char **argv) {
         char tags[240];
         std::snprintf(tags, sizeof(tags), "inflight=%d,transport=%s,send_path=%s,build=%s%s%s", k, c.transport.c_str(),
                       cl.framed ? "framed" : "reference", kBuild, cl.pull ? ",decode=pull" : "",
-                      grpc_cell(cl.base) ? "" : cl.q ? ",delivery=queue" : cl.zc && cl.deferred == 1 ? ",delivery=blocking,send=deferred-zc-wait"
+                      cl.cb ? ",delivery=callback" : cl.q ? ",delivery=queue" : grpc_cell(cl.base) ? "" : cl.zc && cl.deferred == 1 ? ",delivery=blocking,send=deferred-zc-wait"
                       : cl.zc && cl.deferred == 2 ? ",delivery=blocking,send=deferred-zc-nowait" : cl.deferred == 1 ? ",delivery=blocking,send=deferred-wait"
                       : cl.deferred == 2 ? ",delivery=blocking,send=deferred-nowait"
                       : cl.zc ? ",delivery=blocking,send=zero-copy" : ",delivery=blocking");

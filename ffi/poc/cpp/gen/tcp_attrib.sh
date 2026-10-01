@@ -22,6 +22,8 @@
 #   sweep TCP only: A, D once; Cf, Cf-q per h2 variant (SW_STOCK, SW_BATCH at AK_H2_COALESCE=16) and core
 #         --workers in SW_WORKERS; SW_WLS, SW_ROUNDS; client and server perf stat, irq_time; strace for writes;
 #         allocprobe processes for Cf-q at k >= 8 (allocations of at least 1 MiB per call)
+#   deliv A, A-cb, A-q once; Cf, Cf-q, Cf-cb per h2 variant (DV_STOCK, DV_BATCH) and core --workers in DV_WORKERS;
+#         TCP; DV_WLS, DV_ROUNDS; as `sweep`, strace at W = 8
 #   p4    A (ctl core arm), Cf with CTL_CORE (p1-p3, crates.io h2, AK_H2_COALESCE=1) and Cf with H16_CORE
 #         (p1-p3 + p4 patched h2, AK_H2_COALESCE=16), ring 6 + lock; uds and tcp; d/16 k=1 and 8, d/4
 #         k=1, c/P5.4 k=1; 3 rounds, UDS and TCP back to back (alternating order), perf stat -p on the
@@ -279,6 +281,51 @@ case "$PHASE" in
       for u in "${UNITS[@]}"; do
         unit "$u"; [ "$cell" = Cf-q-retain ] || continue
         RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$(( n / 2 > 5 ? n / 2 : 5 ))" "$OUT/$PHASE/alloc-$name-tcp-$un" alloc
+      done
+    done ;;
+  deliv)
+    # The response deliveries compared (owner, 2026-10-01): A (grpc++ 1.80) blocking (sync stub), A-cb (callback
+    # API: ClientWriteReactor for d, the stub's async()->Upload for c), A-q (async CompletionQueue API, one drain
+    # thread = the issuing thread); Cf (core, framed) blocking, Cf-q (core queue, the landed ring of 6, one shared
+    # encode context), Cf-cb (core callback delivery: next chunk encoded and sent from the previous send's
+    # completion, a context per in-flight slot; the issuing thread waits on a condition variable). The A cells
+    # run once per round (grpc++'s transport: neither the h2 variant nor the core workers are on their path; the
+    # stock core loaded); Cf, Cf-q, Cf-cb on DV_STOCK and DV_BATCH (AK_H2_COALESCE=16) at core --workers in
+    # DV_WORKERS (default 8 1). Workloads DV_WLS (default d16k1 d16k8 d4k1 c54k1 c54k8), DV_ROUNDS (3), unit order
+    # rotated; client and server perf stat, irq_time, getrusage; then strace per unit and workload at W = 8.
+    : "${DV_STOCK:?}" "${DV_BATCH:?}"
+    [ "$AK_NET" = tcp ] || { say "REFUSED: TCP only"; exit 1; }
+    UNITS=("A|$DV_STOCK|AK_H2_COALESCE=1|A|$WK" "A-cb|$DV_STOCK|AK_H2_COALESCE=1|A-cb|$WK" "A-q|$DV_STOCK|AK_H2_COALESCE=1|A-q|$WK")
+    for v in "stock|$DV_STOCK|AK_H2_COALESCE=1" "batch|$DV_BATCH|AK_H2_COALESCE=16"; do
+      vn=${v%%|*}; r=${v#*|}; vd=${r%%|*}; vk=${r#*|}
+      for wk in ${DV_WORKERS:-8 1}; do
+        UNITS+=("Cf-retain|$vd|$vk|Cf-$vn-w$wk|$wk" "Cf-q-retain|$vd|$vk|Cf-q-$vn-w$wk|$wk" "Cf-cb-retain|$vd|$vk|Cf-cb-$vn-w$wk|$wk")
+      done
+    done
+    declare -A WLD=([d16k1]="d 16MiB 1 100 12" [d16k8]="d 16MiB 8 16 3" [d4k1]="d 4MiB 1 300 40"
+                    [c54k1]="c P5.4 1 300 40" [c54k8]="c P5.4 8 50 8")
+    NU=${#UNITS[@]}; seq_no=0
+    { echo "# deliv units (cell|core|knobs|name|core workers):"; for u in "${UNITS[@]}"; do echo "#   $u"; done
+      echo "# deliv workloads: ${DV_WLS:-d16k1 d16k8 d4k1 c54k1 c54k8}; rounds ${DV_ROUNDS:-3}; strace at W = 8"; } >> "$LOG"
+    unit() { cell=${1%%|*}; local r=${1#*|}; lib=${r%%|*}; r=${r#*|}; knobs=${r%%|*}; r=${r#*|}; un=${r%%|*}; uw=${r#*|}; }
+    for r in $(seq 1 "${DV_ROUNDS:-3}"); do
+      wi=0
+      for name in ${DV_WLS:-d16k1 d16k8 d4k1 c54k1 c54k8}; do
+        set -- ${WLD[$name]}; dirs=$1; pay=$2; k=$3; n=$4
+        for i in $(seq 0 $((NU - 1))); do
+          unit "${UNITS[$(( (i + r * 5 + wi * 3) % NU ))]}"
+          seq_no=$((seq_no + 1))
+          RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$n" "$OUT/$PHASE/$(printf '%04d' $seq_no)-r$r-$name-tcp-$un" stat
+        done
+        wi=$((wi + 1))
+      done
+      say "  deliv round $r done, $(( $(date +%s) - T0 )) s"
+    done
+    for name in ${DV_WLS:-d16k1 d16k8 d4k1 c54k1 c54k8}; do
+      set -- ${WLD[$name]}; dirs=$1; pay=$2; k=$3; ns=$5
+      for u in "${UNITS[@]}"; do
+        unit "$u"; [ "$uw" = 8 ] || continue
+        RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$ns" "$OUT/$PHASE/strace-$name-tcp-$un" strace
       done
     done ;;
   p4)

@@ -1,0 +1,5 @@
+  deliv round 1 done, 140 s
+  deliv round 2 done, 279 s
+  deliv round 3 done, 419 s
+deliv: 490 s of benchmark
+phase deliv: 501 s (lock held), exit 0

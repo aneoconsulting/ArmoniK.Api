@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Tables of `gen/tcp_attrib.sh OUT sweep` (the TCP worker sweep; absolute per call, ms; no ratio).
 
-  sweep_tables.py OUT_DIR > OUT_DIR/tables-sweep.md
+  sweep_tables.py OUT_DIR [PHASE] [--no-gaps] > OUT_DIR/tables.md
+  (PHASE sweep, the default, or deliv: the delivery comparison, printed with --no-gaps: raw figures only)
 
   1. per workload, cell, h2 variant and core workers W: client task-clock (perf stat around the loop;
      softirq run in the process's context included), median [p10-p90] over the processes' values, the
@@ -22,7 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tcp_attrib_tables as t  # noqa: E402
 
-WL = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d16k16", "d/16MiB k=16"),
+WL = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d16k16", "d/16MiB k=16"), ("d4k1", "d/4MiB k=1"),
       ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8"), ("c54k16", "c/P5.4 k=16")]
 
 
@@ -30,7 +31,9 @@ def order(units):
     def key(u):
         if u in ("A", "D"):
             return (0, u, 0, 0)
-        m = re.match(r"(Cf(?:-q)?)-(stock|batch)-w(\d+)$", u)
+        if u in ("A-cb", "A-q"):
+            return (0, "A" + u[1:], 0, 0)
+        m = re.match(r"(Cf(?:-q|-cb)?)-(stock|batch)-w(\d+)$", u)
         return (1, m.group(1), {"stock": 0, "batch": 1}[m.group(2)], int(m.group(3))) if m else (2, u, 9, 0)
     return sorted(units, key=key)
 
@@ -42,16 +45,23 @@ def mpq_proc(xs, k):
     return "%.3f [%.3f-%.3f]" % (statistics.median(v), t.q(v, 10), t.q(v, 90))
 
 
-def main(out):
-    d = os.path.join(out, "sweep")
+def main(out, phase="sweep", gaps=True):
+    d = os.path.join(out, phase)
     P, by = t.load(d, None)
     units = order({k[1] for k in by})
     L = []
     say = L.append
-    say("# TCP worker sweep from C++ (per call, ms unless stated; absolute; no ratio): %d timed processes" % len(P))
+    say("# %s from C++ (per call, ms unless stated; absolute; no ratio): %d timed processes" % (
+        "TCP worker sweep" if phase == "sweep" else "Response deliveries over TCP", len(P)))
     say("")
-    say("Units: A and D (grpc++ transport; stock core, core workers 8); Cf and Cf-q per h2 variant (stock = crates.io h2, "
-        "batch = h2-batch at AK_H2_COALESCE=16) and core --workers W. runner.log: cores, knobs, endpoint, machine.")
+    if phase == "sweep":
+        say("Units: A and D (grpc++ transport; stock core, core workers 8); Cf and Cf-q per h2 variant (stock = crates.io h2, "
+            "batch = h2-batch at AK_H2_COALESCE=16) and core --workers W. runner.log: cores, knobs, endpoint, machine.")
+    else:
+        say("Units: A (grpc++ sync stub), A-cb (grpc++ callback API), A-q (grpc++ async CompletionQueue, the issuing thread "
+            "drains); Cf (core blocking), Cf-q (core queue), Cf-cb (core callback) per h2 variant (stock = crates.io h2, "
+            "batch = h2-batch at AK_H2_COALESCE=16) and core --workers W. The A cells load the stock core and use grpc++'s "
+            "transport. runner.log: cores, knobs, endpoint, machine.")
     say("")
     say("## 1. CPU, wall, switches, server")
     say("")
@@ -100,6 +110,9 @@ def main(out):
             say("| %s | %s | %s | %.1f | %d |" % (wt, u, "%.2f" % (p["big_allocs"] / p["calls"]) if p.get("big_allocs", -1) >= 0 else "probe absent",
                                              p["rusage"]["minflt"] / p["calls"], p["calls"]))
     say("")
+    if not gaps:
+        print("\n".join(L))
+        return
     say("## 3. Unit minus A per round (same round and workload): task-clock / wall, median (min..max)")
     say("")
     say("| workload | unit | task-clock | wall | rounds |")
@@ -122,4 +135,5 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    a = sys.argv[1:]
+    main(a[0], a[1] if len(a) > 1 else "sweep", "--no-gaps" not in a)

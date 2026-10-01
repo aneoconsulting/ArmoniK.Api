@@ -2159,3 +2159,32 @@ changes.
   sweep-NOT-A-RESULT/, tables-NOT-A-RESULT.md, runner-NOT-A-RESULT.log, NOT-A-RESULT.txt. No figure read from it.
 - The rerun is `SC_ONLY_SWEEP=1 gen/sweep_chain.sh ../../logs/cpp/opt/physical-probe/tcp-sweep` once the owner has
   re-pinned the IRQs and re-armed the inhibitor.
+
+## 2026-10-01, the TCP sweep rerun and the response-delivery comparison
+
+- After the owner's re-pin (coordinator verified 47 IRQs on 0,9-10,19 and 2 on 0-19; inhibitor without limit), both
+  timed parts ran with 5 IRQs on the measured CPUs (headers). Sweep rerun 20:50-20:59Z, 514 s of benchmark
+  (logs/cpp/opt/physical-probe/tcp-sweep/tables.md); deliveries 490 s (logs/cpp/opt/physical-probe/deliv/tables.md).
+  Total about 17 minutes of benchmark wall for the 20 asked; nothing cut (core workers 8 and 1 both run).
+- New cells, harness only: A-q (grpc++ 1.80 async API: one grpc::CompletionQueue per cell, the issuing thread drains
+  it with AsyncNext; c = stub AsyncUpload + Finish(tag); d = ClientAsyncWriterFactory<Pb5> start=true, Write(tag) per
+  chunk after the previous completed, WritesDone(tag), Finish(tag)); A-cb (grpc++ callback API: c = stub
+  async()->Upload with a std::function; d = a ClientWriteReactor<Pb5> per call, next chunk from OnWriteDone,
+  StartWritesDone after the last, answer checked in OnDone; the issuing thread waits on a condition variable; the
+  previous batch's contexts and reactors are released at the start of the next); Cf-cb (core callback delivery: c =
+  ak_call_unary_enc_cb, request encoded on the issuing thread; d = ak_call_send_enc_cb with each next chunk encoded and
+  sent from the previous send's completion on a core thread, ak_call_recv_cb after the last; one encode context per
+  in-flight slot; the issuing thread waits on a condition variable). Directions c and d only (others refused).
+- Found and fixed (gate defect): Pool::batch called q_batch without `check`, so a check-stream grid sent every queue
+  cell's d call to UploadStream: the server's byte count was checked, its SHA-256 was not. Every earlier claim that
+  check-stream verified "count and SHA-256" for Cf-q (and Cf-q in this slice's checks logs since 2026-09-28) held for
+  the count only. q_batch now reads g_check_stream. The re-run checks below verify Cf-q's SHA-256.
+- --semantics 1 gains the core callback delivery on both send paths (status 6, moved-encode sends to the checking
+  path with count and SHA-256, cancel of a pending recv, misuse, ak_call_unary_enc_cb status 9 and OK): 24 checks per
+  build. Checks on both variants (deliv/checks/): conformance 608/0, 478/0, pre-check 0 failed, semantics 24/24 both
+  builds, check-stream 28 benchmarks (A, A-cb, A-q, D, Cf, Cf-q, Cf-cb at d/4 and d/16, k = 1 and 8) every call's count
+  and SHA-256 matched, c grid of the new cells 12 benchmarks (every call's status and length checked). After the
+  checks the benchmark-name label of the callback cells changed (delivery=callback; it read blocking); behaviour
+  unchanged.
+- The sweep's Cf-q at d/16 k=8 makes 3.25-3.67 allocations of at least 1 MiB per call on the ring of 6 (stock and
+  h2-batch, every W); c/P5.4 k=8 0.16-0.25.

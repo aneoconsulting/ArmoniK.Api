@@ -697,11 +697,18 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
 
 ## Next step
 
-TCP worker sweep (2026-10-01): cores built and checked (logs/cpp/opt/physical-probe/tcp-sweep/build/cores.txt,
+Response deliveries (2026-10-01): cells A-q (grpc++ async CompletionQueue), A-cb (grpc++ callback API), Cf-cb (core
+callback delivery) added beside A, Cf, Cf-q (harness only; directions c and d); `gen/tcp_attrib.sh OUT deliv`
+(DV_STOCK, DV_BATCH, DV_WORKERS, DV_WLS, DV_ROUNDS), tables `gen/sweep_tables.py OUT deliv --no-gaps`, checks
+`gen/deliv_checks.sh`; logs `logs/cpp/opt/physical-probe/deliv/` (checks/, deliv/, tables.md, runner.log). Fixed:
+check-stream now reaches the queue cells (it checked their byte count only before). `--semantics 1` covers the core's
+callback delivery (24 checks per build).
+
+TCP worker sweep (2026-10-01): rerun after the re-pin is the result (`tcp-sweep/tables.md`, `sweep/`, `runner.log`);
+cores built and checked (logs/cpp/opt/physical-probe/tcp-sweep/build/cores.txt,
 checks/: stock 788a879f, h2-batch b09e32cd, no-unknown ac194fff / d4d7c253; 0 failures on both variants over TCP). The
-timed sweep that ran after the second suspend is NOT A RESULT (tcp-sweep/NOT-A-RESULT.txt). Next: on the
-coordinator's word that the IRQs are re-pinned and the inhibitor re-armed,
-`SC_ONLY_SWEEP=1 gen/sweep_chain.sh ../../logs/cpp/opt/physical-probe/tcp-sweep` (about 9 minutes of benchmark).
+timed sweep that ran after the second suspend is NOT A RESULT (tcp-sweep/NOT-A-RESULT.txt). Both timed parts are
+done and reported; what follows is the coordinator's.
 
 Earlier plan, now executed up to the sweep: when the Rust agent's core lands (p1 in ffi/poc/codec; h2-batch as an opt-in
 build variant), add the CMake h2-batch build following its script, rebuild both variants, run
@@ -780,7 +787,8 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `tcp-vs-uds/` | UDS against TCP loopback (2026-10-01): `checks/client-nodelay.log` (TCP dialing, TCP_NODELAY read back on live client sockets), `proc/` (138 one-cell processes with the server's perf stat), `strace/`, `runner.log`, `tables.md`; its client CPU is the process clock, which misses softirq time (C43) |
 | `tcp-attrib/` | the TCP inversion attribution (2026-10-01): `runner.log` (per-phase headers: cores' sha256, endpoints, tcp sysctls, kernel accounting options, netfilter modules, machine facts; phase times), `perf/` (client and server perf record per cell and transport, gzip'd, with `*.net.json` buckets), `wall/` (`*.ss.txt.gz` ss -tinm samples, `*.st.*` strace per process with `threads.json` and `syscalls.txt`), `cpu/` (both CPU measures and irq_time per process, 2 rounds), `p4/` (ctl against h16 with A, 3 rounds, client and server perf stat, strace), `p4-run1/` (the same before the client perf stat existed: process clock only), `tables.md` |
 | `h2-pr903/` | h2 PR #903 against p4 and crates.io h2 (2026-10-01): `build/` (build logs per core with h2 source hashes and core sha256s, the src patches built, `pr-core-compare.txt`), `checks/` (deferred_checks per core), `h2/` (session 1: 98 timed processes + strace), `h2b/` (session 2: 248 timed processes + strace of pr903p4), `runner.log` (headers: suspend and IRQ re-pin note, cores, IRQs on the measured CPUs, machine facts), `tables-h2.md`, `tables-h2b.md` |
-| `tcp-sweep/` | the TCP worker sweep (2026-10-01): `build/` (build.log, cores.txt: sha256 and h2 compiled in of the four cores), `checks/` (both variants over TCP, 0 failures), `chain.log`; `sweep-NOT-A-RESULT/`, `tables-NOT-A-RESULT.md`, `runner-NOT-A-RESULT.log`: the sweep that ran with the IRQs unpinned after the second suspend, NOT A RESULT (`NOT-A-RESULT.txt`) |
+| `tcp-sweep/` | the TCP worker sweep (2026-10-01): `build/` (build.log, cores.txt: sha256 and h2 compiled in of the four cores), `checks/` (both variants over TCP, 0 failures), `chain.log`; `sweep-NOT-A-RESULT/`, `tables-NOT-A-RESULT.md`, `runner-NOT-A-RESULT.log`: the sweep that ran with the IRQs unpinned after the second suspend, NOT A RESULT (`NOT-A-RESULT.txt`); the rerun after the re-pin: `sweep/`, `runner.log`, `chain-rerun.log`, `tables.md` |
+| `deliv/` | the response deliveries over TCP (2026-10-01): `checks/` (both variants: semantics with the callback cases, check-stream of every d cell, c grid of the new cells), `deliv/` (225 timed processes + strace), `runner.log`, `chain.log`, `tables.md` (raw figures, no gaps) |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):
