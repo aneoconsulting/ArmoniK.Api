@@ -1,0 +1,155 @@
+ Downloading crates ...
+  Downloaded futures v0.3.34
+  Downloaded futures-io v0.3.34
+  Downloaded atty v0.2.14
+  Downloaded tracing-tree v0.2.5
+  Downloaded nu-ansi-term v0.46.0
+  Downloaded tracing-log v0.1.4
+  Downloaded tokio-test v0.4.6
+  Downloaded overload v0.1.1
+   Compiling tracing-core v0.1.36
+   Compiling tokio v1.53.1
+   Compiling syn v2.0.119
+   Compiling lazy_static v1.5.0
+   Compiling sharded-slab v0.1.7
+   Compiling thread_local v1.1.10
+   Compiling overload v0.1.1
+   Compiling futures-task v0.3.34
+   Compiling tracing-log v0.1.4
+   Compiling futures-util v0.3.34
+   Compiling nu-ansi-term v0.46.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling futures-channel v0.3.34
+   Compiling futures-io v0.3.34
+   Compiling futures v0.3.34
+   Compiling tracing-tree v0.2.5
+   Compiling atty v0.2.14
+   Compiling tokio-util v0.7.19
+   Compiling tracing-attributes v0.1.31
+   Compiling tokio-stream v0.1.19
+   Compiling tokio-test v0.4.6
+   Compiling tracing v0.1.44
+   Compiling h2 v0.4.19 ($SP/h2-pr903)
+   Compiling h2-support v0.1.0 ($SP/h2-pr903/tests/h2-support)
+   Compiling h2-tests v0.1.0 ($SP/h2-pr903/tests/h2-tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 33.52s
+     Running tests/client_request.rs (/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/client_request-618c719751a497e6)
+
+running 45 tests
+test client_builder_max_concurrent_streams ... ok
+test client_builder_header_table_size ... ok
+test client_other_thread ... ok
+test allow_empty_data_for_head ... ok
+test configured_max_concurrent_send_streams_and_update_it_based_on_empty_settings_frame ... ok
+test configured_max_concurrent_send_streams_and_update_it_based_on_non_empty_settings_frame ... ok
+test connection_close_notifies_client_poll_ready ... ok
+test connection_close_notifies_response_future ... ok
+test early_hints ... ok
+test drop_pending_open ... ok
+test extended_connect_request ... ok
+test extended_connect_protocol_disabled_by_default ... ok
+test extended_connect_protocol_enabled_during_handshake ... ok
+test handshake ... ok
+test http_11_request_without_scheme_or_authority ... ok
+test http_2_request_without_scheme_or_authority ... ok
+test http_2_connect_request_omit_scheme_and_path_fields ... ok
+test invalid_connect_protocol_enabled_setting ... ok
+test informational_while_local_streaming ... ok
+test notify_on_send_capacity ... ok
+test receive_settings_frame_twice_with_second_one_empty ... ok
+test receive_settings_frame_twice_with_second_one_non_empty ... ok
+test recv_decrement_max_concurrent_streams_when_requests_queued ... ok
+test recv_invalid_server_stream_id ... ok
+test recv_too_big_headers ... ok
+test reject_none_zero_content_length_header_with_end_stream ... ok
+test request_options_with_star ... ok
+test request_over_max_concurrent_streams_errors ... ok
+test request_stream_id_overflows ... ok
+test request_with_connection_headers ... ok
+test request_with_h1_version ... ignored
+test request_without_path ... ok
+test reset_before_headers_reaches_peer_without_headers ... ok
+test rogue_server_even_headers ... ok
+test rogue_server_odd_headers ... ok
+test rogue_server_reused_headers ... ok
+test send_request_poll_ready_when_connection_error ... ok
+test send_reset_notifies_recv_stream ... ok
+test send_stream_poll_reset ... ok
+test sending_request_on_closed_connection ... ok
+test server_drop_connection_after_go_away ... ok
+test server_drop_connection_unexpectedly_return_unexpected_eof_err ... ok
+test frame_on_pending_open_stream_is_conn_error ... ok
+test malformed_response_headers_dont_unlink_stream has been running for over 60 seconds
+test pending_send_request_gets_reset_by_peer_properly has been running for over 60 seconds
+error: test failed, to rerun pass `-p h2-tests --test client_request`
+
+Caused by:
+  process didn't exit successfully: `/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/client_request-618c719751a497e6` (signal: 15, SIGTERM: termination signal)
+     Running tests/codec_read.rs (/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/codec_read-938eaacb1c6332e6)
+
+running 14 tests
+test read_data_end_stream ... ok
+test read_data_empty_payload ... ok
+test read_data_no_padding ... ok
+test read_frame_too_big ... ignored
+test read_data_padding ... ok
+test read_data_stream_id_zero ... ok
+test read_goaway_with_debug_data ... ok
+test read_headers_empty_payload ... ignored
+test read_headers_with_pseudo ... ignored
+test read_headers_without_pseudo ... ignored
+test read_none ... ok
+test read_push_promise ... ok
+test update_max_frame_len_at_rest ... ok
+test read_continuation_frames ... ok
+
+test result: ok. 10 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/codec_write.rs (/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/codec_write-da9c01609b2d5fc2)
+
+running 4 tests
+test server_settings_header_table_size ... ok
+test write_zero_returns_write_zero_err ... ok
+test client_settings_header_table_size ... ok
+test write_continuation_frames ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/flow_control.rs (/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/flow_control-a4889806e3335a57)
+
+running 52 tests
+test client_increase_target_window_size ... ok
+test client_update_initial_window_size ... ok
+test capacity_not_assigned_to_unopened_streams ... ok
+test data_padding ... ok
+test expand_window_calls_are_coalesced ... ignored
+test expand_window_sends_window_update ... ignored
+test decrease_target_window_size ... ok
+test client_decrease_initial_window_size ... ok
+test increase_target_window_size_after_using_some ... ok
+test max_send_buffer_size_overflow ... ok
+test goaway_ignores_data_but_returns_connection_capacity ... ok
+test max_send_buffer_size_poll_capacity_wakes_task ... ok
+test new_initial_window_size_capacity_not_assigned_to_unopened_streams ... ok
+test padded_data_stream_error_releases_connection_capacity ... ok
+test poll_capacity_after_send_data_and_reserve ... ok
+test poll_capacity_after_send_data_and_reserve_with_max_send_buffer_size ... ok
+test poll_capacity_wakeup_after_window_update ... ok
+test padded_data_on_forgotten_stream_releases_connection_capacity ... ok
+test poll_capacity_window_update_settings_race ... ok
+test recv_data_overflows_connection_window ... ok
+test recv_data_overflows_stream_window ... ok
+test connection_notified_on_released_capacity ... ok
+test recv_no_init_window_then_receive_some_init_window ... ok
+test recv_settings_keeps_assigned_capacity ... ok
+test recv_settings_removes_available_capacity ... ok
+test recv_stream_drop_releases_only_buffered_connection_capacity ... ok
+test recv_window_update_causes_overflow ... ignored
+test recv_window_update_on_stream_closed_by_data_frame ... ok
+test release_capacity_of_small_amount_does_not_send_window_update ... ok
+test release_capacity_sends_window_update ... ok
+test reserve_capacity_after_peer_closes ... ok
+test poll_capacity_woken_on_library_reset has been running for over 60 seconds
+test reclaim_reserved_capacity has been running for over 60 seconds
+test recv_settings_increase_window_size_after_using_some has been running for over 60 seconds
+test reserve_capacity_then_cancel_does_not_leak has been running for over 60 seconds

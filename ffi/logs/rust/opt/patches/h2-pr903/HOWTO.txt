@@ -1,0 +1,67 @@
+# h2 PR 903 ("perf: allow multiple DATA frames per write", hyperium/h2#903, Ned Anderson)
+# https://github.com/hyperium/h2/pull/903
+#
+# PR head  a1f880bc6b11d71c2880240117eb569db7ee3d0e ("improve send buffer reclamation", 2026-05-22)
+# base     dbc204e57e0f96ea25d023c82d8a16340675b271 (first tag containing it: v0.4.14); the PR's
+#          Cargo.toml says version 0.4.13. 8 commits: pr903-commits.txt.
+# Stack versions: tonic 0.14.6 requires h2 "0.4"; hyper 1.11.1 requires h2 >= 0.4.14 (its
+# Cargo.toml [dependencies.h2] version = "0.4.14"); the workspaces lock h2 0.4.19. The PR as
+# published therefore does not satisfy hyper's requirement without a version change.
+#
+# What was built:
+# 1. the port (used for every measured "PR 903" condition): h2-pr903-on-0.4.19.patch, against h2
+#    v0.4.19 (d57d1b852fec9dda6d42d3454502006d52104da8); version stays 0.4.19.
+#    The PR's combined diff (git diff dbc204e a1f880b) applied with conflicts in
+#    src/codec/framed_write.rs and src/proto/streams/prioritize.rs, because v0.4.19 carries
+#    #918 (c2d3fb6: prioritize's poll_complete split into buffer_pending -> BufferStatus, the
+#    flush moved to Streams::poll_complete outside the stream locks, Codec::has_send_capacity)
+#    and #921 (7c97e89: WriteZero error when a write returns Ok(0)). Resolution:
+#    - framed_write.rs: the PR's file whole, plus #921's Ok(0) -> WriteZero check in the PR's
+#      poll_write_buf, plus FramedWrite::has_capacity (non-DATA frames: buffer room, the PR's
+#      Encoder::has_capacity) and FramedWrite::has_data_capacity (DATA frames: a free slot in
+#      the PR's frame queue, Encoder::has_vec_capacity);
+#    - codec/mod.rs: the PR's take_used_data_frames, plus Codec::has_data_send_capacity;
+#    - prioritize.rs: v0.4.19's buffer_pending structure kept, reclaim_frame -> the PR's
+#      reclaim_frames, the InFlightData tracking replaced by the PR's per-stream
+#      in_flight_partial_send, buffer_pending's capacity check = has_data_send_capacity;
+#    - stream.rs, mock.rs: the PR's changes (applied cleanly).
+#    The data/non-data capacity split is port-fix-data-capacity.patch: the first port mapped
+#    #918's has_send_capacity to the PR's strict queue-slot check, and the recv-side loops of
+#    0.4.19 (send_pending_refusal, window updates), which buffer only non-DATA frames after
+#    poll_ready, then spun forever (h2-tests: malformed_response_headers_dont_unlink_stream and
+#    pending_send_request_gets_reset_by_peer_properly hung; h2-tests/*before-fix*).
+# 2. the PR at its own head, version bumped to 0.4.14 so hyper accepts it
+#    (original-pr-version-bump.patch): compiled into a core (core903-orig) only to cross-check
+#    the port's write counts (counts-uds/, condition pr-orig). Not otherwise measured.
+#
+# h2's own tests (h2-tests/): lib tests 437 pass, 1 fail on the port AND on stock v0.4.19
+# (proto::streams::recv::tests::clear_recv_buffer_caps_capacity_before_overflow, the same panic
+# at store.rs:231); every h2-tests integration test run alone with a 30 s timeout: 227 tests on
+# the port and on stock, 200 on the original PR, all pass except hammer_client_concurrency, which
+# times out in debug on all three and passes on the port in release (153 s).
+#
+# Use (core-only, the shape of p4): in the private worktree carrying the core stack p1-p9,
+#   flock /tmp/ak-physical-bench.lock ffi/poc/rust/gen/h2_variant_build.sh core WT H2_COPY TARGET
+# builds ffi/poc/codec's ak-core (rpc, init-guard, unknown-fields) with cargo's
+# --config patch.crates-io.h2.path=H2_COPY (the manifest's own [patch] line set aside for the
+# build); the host loads TARGET/release/libak_core.so through LD_LIBRARY_PATH and keeps crates.io
+# h2. host-too: `h2_variant_build.sh host WT H2_COPY WT/ffi/poc/rust/target-pr903host` builds
+# the harness binaries with the same patch (h2 PR in tonic in the host and in that tree's core).
+# Each build prints the artifact sha256 and the h2 source compiled in (panic-location paths of
+# h2's src/codec/framed_write.rs read from the binary): build/.
+# H2_COPY = a checkout of h2 v0.4.19 with h2-pr903-on-0.4.19.patch applied.
+#
+# Trees, commits and patch files (sha256), as measured:
+#   PR 903 port   tree commit 221c21e (= 0574f78 "PR 903 (a1f880b) ported onto v0.4.19" + 221c21e
+#                 "port: DATA frames need a free queue slot, other frames only buffer room"),
+#                 committed 2026-10-01 01:37:30 local; core903-pr built 01:47:48 local from it
+#                 (sha256 525b8afa7a86c3445489c2e37ca9099d15cb7258e71449910126c19f650eebc7).
+#                 h2-pr903-on-0.4.19.patch = git diff v0.4.19 221c21e,
+#                 sha256 d1409e5bc8ab71730192df3e8ea22802b64aa9bff03956af142d0d150e20afcd; applied to a
+#                 fresh v0.4.19 checkout it gives a tree identical to 221c21e (checked: git diff 221c21e
+#                 empty). The file written at 01:30 local (sha256 4aab4234...) predated the fix commit and
+#                 did not rebuild the measured core; it was regenerated at 06:59 local.
+#   fix alone     port-fix-data-capacity.patch = git diff 0574f78 221c21e, sha256 a19cdeac...
+#   original PR   h2-pr903-a1f880b-original.patch = git diff dbc204e a1f880b, sha256 a35d8200...;
+#                 original-pr-version-bump.patch (0.4.13 -> 0.4.14), sha256 940637df...
+#   combined      see ../h2-pr903-p4/HOWTO.txt (tree b871798).

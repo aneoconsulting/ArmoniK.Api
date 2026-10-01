@@ -8,12 +8,45 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
+| **Next step** | none assigned. The h2 PR 903 unit (2026-10-01) is measured (section below). The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## h2 PR 903 unit (2026-10-01, owner): measured, two interleaved sessions
+
+hyperium/h2#903 (head a1f880b, base dbc204e, version 0.4.13; hyper 1.11.1 needs h2 >= 0.4.14) ported
+onto h2 v0.4.19 (tree 221c21e; conflicts with #918 and #921 resolved, one port defect found by h2's
+tests and fixed: DATA frames need a queue slot, other frames only buffer room), and combined with
+p4 (tree b871798, AK_H2_COALESCE=N). Patches, HOWTOs, tree commits, patch and core sha256:
+`logs/rust/opt/patches/h2-pr903/`, `h2-pr903-p4/`. Cores built in the worktree's poc/codec
+(stack p1-p9) by gen/h2_variant_build.sh and loaded by LD_LIBRARY_PATH; host-too = the harness
+built with the patch (target-pr903host).
+Checked: h2's own suites against stock v0.4.19 (lib and every integration test alone; the
+combination at N=16 adds one failure, send_err_with_buffered_data, which p4 alone at N=16 also
+fails); pre-check 0 failures, upload_check, rpc_semantics, burst_check on the PR core, the
+host-too build and the combined core at N=1 and 16; partial writev returns under burst_check.
+Write counts (UDS, /proc/self/io): the PR leaves k=1 at about 1,040 writes per d/16 call (one
+partial DATA frame in flight per stream, `in_flight_partial_send`), halves them at k=8 (Cf about
+530; A in host-too about 490); the original head gives the same counts as the port; PR+p4 N=16
+gives d/16 k=8 Cf about 105, k=1 about 135. Timed: `h2-pr903/timed/` (stock, p4, PR core-only,
+PR host-too) and `h2-pr903-p4/timed/` (stock, p4, PR, PR+p4), UDS and TCP, 3 processes each,
+task-clock beside the process clock, server task-clock per call; compact table
+`h2-pr903-p4/headline-both-sessions.md`. Attributed: the PR core-only costs about 1.5 to 2 ms
+more client CPU than stock per d/16 k=1 call at the same write count; perf record (h2-pr903/record2)
+puts 18% of Cf's client cycles in the PR's poll_write_buf, about 92% of whose samples are the
+stores initialising its 1,024-entry IoSlice array on every write.
+Syscall census (strace -f -c, untimed, whole process): `h2-pr903-p4/strace/tables.md`.
+Harness added: stream_probe AK_PROBE_TASKCLOCK (inherited perf task-clock), AK_PROBE_SERVER_PID
+(per-thread server task-clock), io_syscr/io_syscw per round; inproc.sh @SPID@ and the core named
+per condition (LD_LIBRARY_PATH honoured); gen/h2_variant_build.sh, h2_pr903_checks.sh,
+h2_pr903_bench.sh (AK_H9_SESSION=2), h2_pr903_strace.sh, h2_pr903_record.sh, h2pr903_tables.py,
+h2pr903_headline.py, h2pr903_strace_tables.py.
+Machine: suspended 02:00:53 to 06:53:46 local; both sessions ran after the IRQ re-pin. One
+unlocked debug build (05:09:08Z to 05:09:17Z) overlapped the C++ agent's session h2 (its
+processes 0065 to 0071), none of this slice's.
 
 ## Physical-machine optimisation unit (2026-09-30, owner's goals 1 and 2): patch experiments, all measured
 
@@ -590,6 +623,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   set is the campaign's and unchanged. Zero-copy and deferred entries are stream-only (no direction
   c); the send limit is not checked on those experimental paths.
 - **p4 edge cases**: PING or SETTINGS change mid-burst, GOAWAY during a burst.
+- **PR 903 and PR+p4**: the syscall census under timing (strace runs are untimed, whole-process); PR host-too on the combined h2; PR 903's cost with its IoSlice array sized to the work (not built); the edge cases listed for p4; h2's hammer test in debug (30 s timeout on every variant, stock included).
 - **WP11 item 5's added cells** (Df-chan on two runtimes, Ff in the probe, Df with one frame per
   message) and `perf record` / `perf stat`: not built into the physical probe (perf 7.2.8 exists on
   the campaign machine, perf_event_paranoid 1); the shipped transport is not in it (pinned only).
@@ -609,6 +643,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/patches/h2-pr903/` | h2 PR 903: HOWTO (sha, version, port, trees, patch sha256), the port and original patches, h2-tests/ (port, stock, original, before/after the port fix), build/ (core and host-too sha256, h2 compiled in), checks/, counts-uds/ (write counts incl. the original head), timed/ (session 1: stock, p4, PR core-only, PR host-too; h2pr903.md), record/, record2/ (perf report and annotate, d/16 k=1 UDS, Cf) |
+| `logs/rust/opt/patches/h2-pr903-p4/` | PR 903 + p4 combined: HOWTO, patches, h2-tests/ (N=1, N=16, p4 alone N=16), build/, checks-N1/, checks-N16/, partial-writes/, counts-uds/, timed/ (session 2: stock, p4, PR, PR+p4; h2pr903.md), headline-both-sessions.md |
 | `logs/rust/opt/physical-probe/stability/` | the stability campaign: per-process medians in run order, gap distributions, A2 - A floor, pooled absolutes (stability.md) |
 | `logs/rust/opt/cb-track/` | the Cf-cb attribution: one-cell and in-process profiles, per core worker count 1, 2, 8; `workers-sweep/` the core worker count 1/2/4/8 x p9 at k 1 to 32 with one and four core clients (gen/workers_sweep.sh, gen/sweep_tables.py) |
 | `logs/rust/opt/physical-probe/opt-stack/` | the consolidated run: HEAD core against the stack p1+p2+p3+p5+p6+p7 and the same with p4, cells A, Df, Df-1f, Cn-1rt, C, Cf, Cf-cb, Cf-encp, Cf-zc, Cf-zcp, Cf-zcw, every workload at k 1 and 8, pinned allocator (3 processes) and default allocator (1) |

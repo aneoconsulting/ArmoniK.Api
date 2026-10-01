@@ -1,0 +1,39 @@
+help: first cast to a pointer `as *const ()`
+help: first cast to a pointer `as *const ()`
+# core build, manifest /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/codec/Cargo.toml, h2 crates, target /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-ctl, 2026-09-30T23:50:37Z
+# cargo tree: h2 v0.4.19
+d6829b7c6b143e634fe7da07215f119e64bd0aec84313f75368578d98ebbf5ea  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-ctl/release/libak_core.so
+    h2 compiled in: /home/csdt/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/h2-0.4.19/src/codec/framed_write.rs
+help: first cast to a pointer `as *const ()`
+help: first cast to a pointer `as *const ()`
+# core build, manifest /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/codec/Cargo.toml, h2 /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-exp, target /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-p4, 2026-09-30T23:50:37Z
+# cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-exp)
+e7837cdf66ab70d60bf900e5a74f8773c6d088e4f3d495fe3eea9349c14bf45e  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-p4/release/libak_core.so
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-exp/src/codec/framed_write.rs
+help: first cast to a pointer `as *const ()`
+help: first cast to a pointer `as *const ()`
+# core build, manifest /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/codec/Cargo.toml, h2 /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903, target /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr, 2026-09-30T23:50:38Z
+# cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903)
+525b8afa7a86c3445489c2e37ca9099d15cb7258e71449910126c19f650eebc7  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903/src/codec/framed_write.rs
+help: first cast to a pointer `as *const ()`
+help: first cast to a pointer `as *const ()`
+help: convert the identifier to upper case
+2640 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+2640 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+help: convert the identifier to upper case
+3391 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+3391 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+help: convert the identifier to upper case
+3878 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+3878 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+# host build, manifest /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/Cargo.toml, h2 /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903, target /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host, 2026-09-30T23:50:38Z
+# cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903)
+71241be6447d51b13124ced92972444d242743110295173bd2d5a8e81788bca4  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/stream_probe
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903/src/codec/framed_write.rs
+81ee921c2701071c8493d1672f7faa5a6f5ac753ebdcbbc0f442a32e172b9e32  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/upload_check
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903/src/codec/framed_write.rs
+5b37d743ff4f93216ae3511667f01eb8dc356ba9f2fa6ebbc0b948788c30b190  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/rpc_semantics
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903/src/codec/framed_write.rs
+6f133b57a29c777395d2424ffea997a296034d37ea3ec65d7a718ecc5cdf69e7  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/deps/libak_core.so
+    h2 compiled in: /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903/src/codec/framed_write.rs

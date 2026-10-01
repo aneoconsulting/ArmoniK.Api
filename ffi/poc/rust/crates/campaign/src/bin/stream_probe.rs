@@ -29,6 +29,18 @@
 //! `CTL_FIFO,ACK_FIFO` of `perf stat|record --control fifo:CTL,ACK -D -1`: the probe sends
 //! `enable` before its first timed round and `disable` after its last, so perf counts the
 //! timed rounds only (warm-up and connection setup excluded).
+//!
+//! Added for the h2 PR 903 unit (2026-10-01): AK_PROBE_TASKCLOCK=1 opens, before any thread
+//! exists, one inherited perf task-clock counter on the process (every thread created after it
+//! is counted; the kernel sums the inherited children on read) and records `task_clock_ns` per
+//! call beside `cpu_ns`: the scheduler's run time of the process's threads, which on this kernel
+//! (CONFIG_IRQ_TIME_ACCOUNTING=y) includes the softirq work done in their context while
+//! CLOCK_PROCESS_CPUTIME_ID excludes it. AK_PROBE_SERVER_PID=PID opens one task-clock counter
+//! per thread of that process after the warm-up (`perf stat -p` does the same) and records
+//! `server_task_clock_ns` per call and the server's thread count before and after
+//! (`server_threads`, `server_threads_end`: threads it creates later are not counted). Every
+//! round also records the process's read-family and write-family syscalls per call from
+//! /proc/self/io (`io_syscr`, `io_syscw`: all threads, exited ones included).
 use campaign::grid::{self, Call, Conn};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -866,7 +878,34 @@ fn tcp_nodelay_census() -> (usize, usize) {
     (tcp, on)
 }
 
+
+/// A perf task-clock counter (PERF_TYPE_SOFTWARE, PERF_COUNT_SW_TASK_CLOCK) on `pid` (0 = this
+/// thread), counting its future children when `inherit`; None when perf_event_open refuses.
+fn task_clock_fd(pid: i32, inherit: bool) -> Option<i32> {
+    let mut attr = [0u64; 16];
+    attr[0] = 1 | (128u64 << 32); // type PERF_TYPE_SOFTWARE, size 128
+    attr[1] = 1; // config PERF_COUNT_SW_TASK_CLOCK
+    attr[5] = if inherit { 1 << 1 } else { 0 }; // flags: inherit (bit 1); enabled
+    let fd = unsafe { libc::syscall(libc::SYS_perf_event_open, attr.as_ptr(), pid, -1i32, -1i32, 8 as libc::c_ulong) }; // PERF_FLAG_FD_CLOEXEC
+    (fd >= 0).then_some(fd as i32)
+}
+fn read_counter(fd: i32) -> u64 {
+    let mut v = 0u64;
+    let n = unsafe { libc::read(fd, &mut v as *mut u64 as *mut libc::c_void, 8) };
+    assert_eq!(n, 8, "perf counter read");
+    v
+}
+/// syscr and syscw of this process (/proc/self/io).
+fn proc_io() -> [u64; 2] {
+    let s = std::fs::read_to_string("/proc/self/io").unwrap_or_default();
+    let f = |k: &str| s.lines().find_map(|l| l.strip_prefix(k)).and_then(|v| v.trim().parse().ok()).unwrap_or(0);
+    [f("syscr:"), f("syscw:")]
+}
+
 fn main() {
+    // AK_PROBE_TASKCLOCK=1: opened first, so every thread of the process is an inherited child.
+    let task_clock: Option<i32> = (std::env::var("AK_PROBE_TASKCLOCK").as_deref() == Ok("1"))
+        .then(|| task_clock_fd(0, true).expect("AK_PROBE_TASKCLOCK: perf_event_open refused"));
     assert!(harness::generated::binding::ak_init_once() >= 0);
     // AK_RPC_TARGET (a URI, e.g. http://127.0.0.1:PORT) overrides the Unix socket.
     let socket: String = std::env::var("AK_RPC_SOCKET").unwrap_or_default();
@@ -1085,6 +1124,15 @@ fn main() {
         s => grid::cell_of(s),
     });
     let mut perf_on = false;
+    // AK_PROBE_SERVER_PID: one task-clock counter per server thread, opened after the warm-up.
+    let server_tids = |pid: &str| -> Vec<i32> {
+        std::fs::read_dir(format!("/proc/{pid}/task")).map(|d| d.filter_map(|e| e.ok()?.file_name().to_str()?.parse().ok()).collect()).unwrap_or_default()
+    };
+    let server_pid = std::env::var("AK_PROBE_SERVER_PID").ok();
+    let server_fds: Vec<i32> = server_pid.as_deref().map_or(Vec::new(), |pid| {
+        server_tids(pid).into_iter().map(|t| task_clock_fd(t, false).expect("AK_PROBE_SERVER_PID: perf_event_open refused")).collect()
+    });
+    let server_clock = || server_fds.iter().map(|&fd| read_counter(fd)).sum::<u64>();
     for (r, i) in order {
         {
             let (cell, label, caller) = &work[i];
@@ -1097,9 +1145,15 @@ fn main() {
             let a0 = alloc_counts();
             let s0 = split();
             let u0 = rusage();
+            let io0 = proc_io();
+            let sc0 = server_clock();
+            let tc0 = task_clock.map(read_counter);
             let (c0, w0) = (campaign::process_clock_ns(), Instant::now());
             let per_call = caller.run(calls).unwrap_or_else(|e| panic!("ABORT (requirement 18): {cell} {label}: {e}"));
             let (cpu, wall) = (campaign::process_clock_ns() - c0, w0.elapsed().as_nanos() as u64);
+            let tc1 = task_clock.map(read_counter);
+            let sc1 = server_clock();
+            let io1 = proc_io();
             let u1 = rusage();
             let a1 = alloc_counts();
             let s1 = split();
@@ -1119,6 +1173,16 @@ fn main() {
                 "cpu_ns": cpu as f64 / per, "wall_ns": wall as f64 / per, "cpu_calls": per_call,
                 "ru_nvcsw": (u1[0] - u0[0]) as f64 / per, "ru_nivcsw": (u1[1] - u0[1]) as f64 / per, "ru_minflt": (u1[2] - u0[2]) as f64 / per,
             });
+            o["io_syscr"] = ((io1[0] - io0[0]) as f64 / per).into();
+            o["io_syscw"] = ((io1[1] - io0[1]) as f64 / per).into();
+            if let (Some(a), Some(b)) = (tc0, tc1) {
+                o["task_clock_ns"] = ((b - a) as f64 / per).into();
+            }
+            if let Some(pid) = &server_pid {
+                o["server_task_clock_ns"] = ((sc1 - sc0) as f64 / per).into();
+                o["server_threads"] = server_fds.len().into();
+                o["server_threads_end"] = server_tids(pid).len().into();
+            }
             if s1 != s0 {
                 for (i, k) in ["host_encode_cpu", "host_send_cpu", "host_send_wall", "host_recv_wall"].iter().enumerate() {
                     o[*k] = ((s1[i] - s0[i]) as f64 / per).into();

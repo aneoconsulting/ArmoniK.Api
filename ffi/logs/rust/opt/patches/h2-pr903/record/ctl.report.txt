@@ -1,0 +1,45 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 3K of event 'cpu/cycles/P'
+# Event count (approx.): 1569326913
+#
+# Overhead  Shared Object         Symbol                                                                                                                               
+# ........  ....................  .....................................................................................................................................
+#
+    22.99%  [unknown]             [k] 0xffffffff88c9d9ca
+    12.00%  [unknown]             [k] 0xffffffff88c9d2eb
+     6.59%  libc.so.6             [.] __memmove_evex_unaligned_erms
+     2.67%  [unknown]             [k] 0xffffffff87c001c2
+     2.50%  [unknown]             [k] 0xffffffff87c0010f
+     2.16%  [unknown]             [k] 0xffffffff87c00150
+     1.58%  [unknown]             [k] 0xffffffff87c000a0
+     1.01%  [unknown]             [k] 0xffffffff87c001b9
+     0.92%  libak_core.so         [.] h2::proto::streams::prioritize::Prioritize::buffer_pending
+     0.91%  [unknown]             [k] 0xffffffff88cb9697
+     0.91%  [unknown]             [k] 0xffffffff88cb9fd2
+     0.89%  [unknown]             [k] 0xffffffff8859b387
+     0.78%  [unknown]             [k] 0xffffffff88cb9d67
+     0.74%  libak_core.so         [.] tokio_util::util::poll_buf::poll_write_buf
+     0.69%  [unknown]             [k] 0xffffffff8825c198
+     0.67%  [unknown]             [k] 0xffffffff889da1c0
+     0.66%  [unknown]             [k] 0xffffffff88243c85
+     0.60%  libak_core.so         [.] h2::proto::streams::streams::Streams<B,P>::poll_complete
+     0.55%  [unknown]             [k] 0xffffffff889daae6
+     0.55%  [unknown]             [.] 0000000000000000
+     0.53%  [unknown]             [k] 0xffffffff8825c1af
+     0.46%  [unknown]             [k] 0xffffffff8824970d
+     0.44%  libak_core.so         [.] <h2::proto::streams::store::Ptr as core::ops::deref::DerefMut>::deref_mut
+     0.38%  [unknown]             [k] 0xffffffff882bf818
+     0.37%  libak_core.so         [.] <h2::proto::streams::store::Ptr as core::ops::deref::Deref>::deref
+     0.36%  libak_core.so         [.] <bytes::bytes_mut::BytesMut as bytes::buf::buf_mut::BufMut>::put_slice
+     0.35%  libak_core.so         [.] h2::codec::framed_write::Encoder<B>::buffer
+     0.33%  libak_core.so         [.] tokio::runtime::io::registration::Registration::poll_ready
+     0.33%  [unknown]             [k] 0xffffffff8824b574
+     0.32%  libak_core.so         [.] tokio::runtime::io::registration::Registration::poll_io
+     0.32%  [unknown]             [k] 0xffffffff882b8d1a
+#
+# (Tip: To compare scalability of two workload samples use perf diff -c ratio file1 file2)
+#

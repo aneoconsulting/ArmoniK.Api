@@ -1,0 +1,13 @@
+== h2-pr903 0574f78 PR 903 (a1f880b) ported onto v0.4.19
+test malformed_response_headers_dont_unlink_stream has been running for over 60 seconds
+test pending_send_request_gets_reset_by_peer_properly has been running for over 60 seconds
+rc=0
+== h2-stock d57d1b8 v0.4.19
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.11s
+rc=0
+== h2-pr a1f880b improve send buffer reclamation
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.11s
+rc=0
+== h2-base dbc204e fix: check final response in poll_informational (#889)
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.11s
+rc=0

@@ -1,0 +1,2 @@
+- Second session of the h2 PR 903 unit (owner): stock, p4 N=16, PR 903 core-only and PR 903 + p4 N=16 (the combined h2, core-only), on UDS and TCP, interleaved, 3 processes each. The machine had been suspended 02:00:53 to 06:53:46 local and the IRQs re-pinned before the first session (see h2-pr903/timed/NOTES.txt); nothing changed between the sessions.
+- Server task-clock: see the n and the server_threads fields; checked below by the tables script run.

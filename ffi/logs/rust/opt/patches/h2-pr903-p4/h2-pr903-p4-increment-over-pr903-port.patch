@@ -1,0 +1,254 @@
+diff --git a/src/codec/framed_write.rs b/src/codec/framed_write.rs
+index 76652c1..d074d2d 100644
+--- a/src/codec/framed_write.rs
++++ b/src/codec/framed_write.rs
+@@ -61,6 +61,69 @@ struct BufElement<B> {
+     buf_len: usize,
+     /// Data frame of the payload that should be written as part of this buffer element.
+     data_frame: frame::Data<B>,
++    /// EXPERIMENT h2-pr903-p4: set when the payload is longer than the max frame size; it is
++    /// written as consecutive DATA frames of at most `max` bytes (the first head is in `buf`).
++    split: Option<Split>,
++}
++
++/// EXPERIMENT (ffi/logs/rust/opt/patches/h2-pr903-p4, not committed anywhere): the number of
++/// max-size DATA frames one queued data frame may span (AK_H2_COALESCE, read once; 1 = the
++/// PR-903 behaviour). Such a frame is written as consecutive DATA frames of at most the peer's
++/// max frame size, each its own 9-byte head, END_STREAM only on the last, inside the same
++/// vectored writes as the other queued frames.
++pub(crate) fn coalesce() -> usize {
++    static C: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
++    *C.get_or_init(|| std::env::var("AK_H2_COALESCE").ok().and_then(|v| v.parse().ok()).filter(|n: &usize| *n >= 1).unwrap_or(1))
++}
++
++/// The sub-frames of a queued data frame longer than the max frame size. The wire bytes after
++/// the element's `buf_len` are: payload window 0, then for j = 1.. : heads[j - 1], window j.
++#[derive(Debug)]
++struct Split {
++    /// max frame size at buffer time
++    max: usize,
++    /// payload length of the whole queued frame
++    total: usize,
++    /// heads of sub-frames 1..
++    heads: Vec<[u8; frame::HEADER_LEN]>,
++    /// bytes of the pending head already written (meaningful only on a window boundary)
++    head_done: usize,
++}
++
++/// One step of a split element's remaining wire bytes.
++enum Piece {
++    Head(usize, usize), // head index, first unwritten byte
++    Payload(usize),     // bytes left in the current window
++    Done,
++}
++
++impl Split {
++    fn piece(&self, payload_left: usize) -> Piece {
++        let done = self.total - payload_left;
++        if done == self.total {
++            return Piece::Done;
++        }
++        let j = done / self.max;
++        if j >= 1 && done == j * self.max && self.head_done < frame::HEADER_LEN {
++            return Piece::Head(j - 1, self.head_done);
++        }
++        Piece::Payload(((j + 1) * self.max).min(self.total) - done)
++    }
++    /// Unwritten head bytes.
++    fn heads_left(&self, payload_left: usize) -> usize {
++        let done = self.total - payload_left;
++        let k = self.heads.len() + 1;
++        let mut n = 0;
++        for j in 1..k {
++            let at = j * self.max;
++            if done < at {
++                n += frame::HEADER_LEN;
++            } else if done == at {
++                n += frame::HEADER_LEN - self.head_done;
++            }
++        }
++        n
++    }
+ }
+ 
+ /// Initialize the connection with this amount of write buffer.
+@@ -236,13 +299,31 @@ where
+                 // Ensure that the payload is not greater than the max frame.
+                 let len = v.payload().remaining();
+ 
+-                if len > self.max_frame_size() {
++                if len > self.max_frame_size() * coalesce() {
+                     return Err(PayloadTooBig);
+                 }
+ 
+                 let mut buf_len_to_push = 0;
++                let mut split = None;
+ 
+-                if len >= self.chain_threshold {
++                if len > self.max_frame_size() {
++                    let max = self.max_frame_size();
++                    let head = v.head();
++                    let k = (len + max - 1) / max;
++                    let sub = |j: usize| (len - j * max).min(max);
++                    let flag = |j: usize| if j + 1 == k { head.flag() } else { head.flag() & !0x1 };
++                    frame::Head::new(head.kind(), flag(0), head.stream_id()).encode(sub(0), self.buf.get_mut());
++                    let heads = (1..k)
++                        .map(|j| {
++                            let mut a = [0u8; frame::HEADER_LEN];
++                            frame::Head::new(head.kind(), flag(j), head.stream_id()).encode(sub(j), &mut &mut a[..]);
++                            a
++                        })
++                        .collect();
++                    split = Some(Split { max, total: len, heads, head_done: 0 });
++                    buf_len_to_push = self.buf.remaining();
++                    self.buf.advance(buf_len_to_push);
++                } else if len >= self.chain_threshold {
+                     let head = v.head();
+ 
+                     // Encode the frame head to the buffer
+@@ -267,6 +348,7 @@ where
+                 self.next_vec.push_back(BufElement {
+                     buf_len: buf_len_to_push,
+                     data_frame: v,
++                    split,
+                 });
+             }
+             Frame::Headers(v) => {
+@@ -331,7 +413,11 @@ impl<B: Buf> Buf for Encoder<B> {
+     fn remaining(&self) -> usize {
+         let mut n = self.buf.get_ref().len();
+         for next in self.next_vec.iter() {
+-            n = n.saturating_add(next.data_frame.payload().remaining());
++            let left = next.data_frame.payload().remaining();
++            n = n.saturating_add(left);
++            if let Some(sp) = &next.split {
++                n = n.saturating_add(sp.heads_left(left));
++            }
+         }
+         n
+     }
+@@ -341,7 +427,18 @@ impl<B: Buf> Buf for Encoder<B> {
+             if next.buf_len > 0 {
+                 return &self.buf.get_ref()[..next.buf_len];
+             }
+-            let slice = next.data_frame.payload().chunk();
++            let payload = next.data_frame.payload();
++            if let Some(sp) = &next.split {
++                match sp.piece(payload.remaining()) {
++                    Piece::Head(h, from) => return &sp.heads[h][from..],
++                    Piece::Payload(w) => {
++                        let c = payload.chunk();
++                        return &c[..w.min(c.len())];
++                    }
++                    Piece::Done => continue,
++                }
++            }
++            let slice = payload.chunk();
+             if !slice.is_empty() {
+                 return slice;
+             }
+@@ -362,6 +459,28 @@ impl<B: Buf> Buf for Encoder<B> {
+                     return;
+                 }
+             }
++            if let Some(sp) = next.split.as_mut() {
++                loop {
++                    match sp.piece(next.data_frame.payload().remaining()) {
++                        Piece::Done => break,
++                        _ if n == 0 => return,
++                        Piece::Head(_, from) => {
++                            let i = n.min(frame::HEADER_LEN - from);
++                            sp.head_done += i;
++                            n -= i;
++                        }
++                        Piece::Payload(w) => {
++                            let i = n.min(w);
++                            next.data_frame.payload_mut().advance(i);
++                            n -= i;
++                            if i == w {
++                                sp.head_done = 0;
++                            }
++                        }
++                    }
++                }
++                continue;
++            }
+             let rem = next.data_frame.payload().remaining();
+             if rem > 0 {
+                 let i = n.min(rem);
+@@ -392,6 +511,48 @@ impl<B: Buf> Buf for Encoder<B> {
+                         break;
+                     }
+                 }
++                if let Some(sp) = &next.split {
++                    // walk the sub-frames from the current position, as far as `dst` and the
++                    // payload's contiguous chunk reach
++                    let payload = next.data_frame.payload();
++                    let c = payload.chunk();
++                    let mut left = payload.remaining();
++                    let mut off = 0usize;
++                    let mut head_done = sp.head_done;
++                    let mut complete = true;
++                    while n < dst.len() {
++                        let done = sp.total - left;
++                        if done == sp.total {
++                            break;
++                        }
++                        let j = done / sp.max;
++                        if j >= 1 && done == j * sp.max && head_done < frame::HEADER_LEN {
++                            dst[n] = IoSlice::new(&sp.heads[j - 1][head_done..]);
++                            n += 1;
++                            head_done = frame::HEADER_LEN;
++                            continue;
++                        }
++                        let w = ((j + 1) * sp.max).min(sp.total) - done;
++                        let m = w.min(c.len() - off);
++                        if m == 0 {
++                            complete = false;
++                            break;
++                        }
++                        dst[n] = IoSlice::new(&c[off..off + m]);
++                        n += 1;
++                        off += m;
++                        left -= m;
++                        head_done = 0;
++                        if m < w {
++                            complete = false;
++                            break;
++                        }
++                    }
++                    if !complete || left > 0 {
++                        break;
++                    }
++                    continue;
++                }
+                 let mut rem = next.data_frame.payload().remaining();
+                 if rem > 0 {
+                     let n0 = n;
+diff --git a/src/codec/mod.rs b/src/codec/mod.rs
+index 96ebea3..3c26374 100644
+--- a/src/codec/mod.rs
++++ b/src/codec/mod.rs
+@@ -6,6 +6,7 @@ pub use self::error::{SendError, UserError};
+ 
+ use self::framed_read::FramedRead;
+ use self::framed_write::FramedWrite;
++pub(crate) use self::framed_write::coalesce;
+ 
+ use crate::frame::{self, Data, Frame};
+ use crate::proto::Error;
+diff --git a/src/proto/streams/prioritize.rs b/src/proto/streams/prioritize.rs
+index 988133b..45f9998 100644
+--- a/src/proto/streams/prioritize.rs
++++ b/src/proto/streams/prioritize.rs
+@@ -504,7 +504,9 @@ impl Prioritize {
+         self.reclaim_frames(buffer, store, dst);
+ 
+         // The max frame length
+-        let max_frame_len = dst.max_send_frame_size();
++        // The max frame length (EXPERIMENT h2-pr903-p4: times AK_H2_COALESCE; FramedWrite
++        // splits it back into frames of the peer's max size on the wire)
++        let max_frame_len = dst.max_send_frame_size() * crate::codec::coalesce();
+ 
+         tracing::trace!("buffer_pending");
+ 

@@ -1,0 +1,13 @@
+# host build, manifest /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/Cargo.toml, h2 /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903, target /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host, 2026-09-30T23:58:05Z
+# cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/h2-pr903)
+a9f415eaed42a199f83c911d7a8f55c04e2314936c9383f8a08eaeae3c84121d  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/stream_probe
+    h2 compiled in: /h2-pr903/src/codec/framed_write.rs
+81ee921c2701071c8493d1672f7faa5a6f5ac753ebdcbbc0f442a32e172b9e32  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/upload_check
+    h2 compiled in: /h2-pr903/src/codec/framed_write.rs
+5b37d743ff4f93216ae3511667f01eb8dc356ba9f2fa6ebbc0b948788c30b190  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/rpc_semantics
+    h2 compiled in: /h2-pr903/src/codec/framed_write.rs
+6f133b57a29c777395d2424ffea997a296034d37ea3ec65d7a718ecc5cdf69e7  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/deps/libak_core.so
+    h2 compiled in: /h2-pr903/src/codec/framed_write.rs
+# stack probe (worktree target/, crates.io h2 in the host)
+23cf2bd1feda8ddfe0e3085fbf9ec0ca878d1f188cf225071129caf9c5df12df  /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target/release/stream_probe
+    h2 compiled in: /h2-0.4.19/src/codec/framed_write.rs

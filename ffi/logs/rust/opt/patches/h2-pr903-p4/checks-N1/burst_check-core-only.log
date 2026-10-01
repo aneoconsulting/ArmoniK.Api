@@ -1,0 +1,12 @@
+# burst check: AK_H2_COALESCE=1; core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release
+ok   shipped: 4 x 16 MiB streams, checked: identical bytes
+ok   shipped: 4 x 4 MiB streams, checked: identical bytes
+ok   shipped: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 490.2 median 535.0 max 552.5
+ok   shipped: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   shipped: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 4 x 16 MiB streams, checked: identical bytes
+ok   pinned: 4 x 4 MiB streams, checked: identical bytes
+ok   pinned: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 389.7 median 467.6 max 478.7
+ok   pinned: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+BURST CHECK PASSED

@@ -1,0 +1,14 @@
+# h2 PR 903 checks, 2026-09-30T23:51:34Z; core-only core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so sha256 525b8afa7a86c344
+precheck-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so
+precheck-core-only: rc 0, # precheck: 5740 checks, 0 failures, 114 inputs, 5132 cases
+upload_check-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so
+upload_check-core-only: rc 0, UPLOAD CHECK PASSED
+rpc_semantics-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so
+rpc_semantics-core-only: rc 0, RPC SEMANTICS PASSED
+upload_check-host-too: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/deps/libak_core.so
+upload_check-host-too: rc 0, UPLOAD CHECK PASSED
+rpc_semantics-host-too: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-rust/ffi/poc/rust/target-pr903host/release/deps/libak_core.so
+rpc_semantics-host-too: rc 0, RPC SEMANTICS PASSED
+burst_check-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr/release/libak_core.so
+burst_check-core-only: rc 0, BURST CHECK PASSED
+checks rc=0

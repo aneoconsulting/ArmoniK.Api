@@ -1,0 +1,10 @@
+# h2 PR 903 checks, 2026-10-01T05:23:59Z; AK_H2_COALESCE=16; core-only core /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release/libak_core.so sha256 d021602b837c44f4
+precheck-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release/libak_core.so
+precheck-core-only: rc 0, # precheck: 5740 checks, 0 failures, 114 inputs, 5132 cases
+upload_check-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release/libak_core.so
+upload_check-core-only: rc 0, UPLOAD CHECK PASSED
+rpc_semantics-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release/libak_core.so
+rpc_semantics-core-only: rc 0, RPC SEMANTICS PASSED
+burst_check-core-only: loads /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/core903-pr903p4/release/libak_core.so
+burst_check-core-only: rc 0, BURST CHECK PASSED
+checks rc=0

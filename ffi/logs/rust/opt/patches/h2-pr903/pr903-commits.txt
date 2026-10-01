@@ -1,0 +1,8 @@
+a1f880bc6b11d71c2880240117eb569db7ee3d0e 2026-05-22 16:35:32 -0400 Ned Anderson improve send buffer reclamation
+4fde2a169212938fb7728746dc4c718f6ef4f719 2026-05-20 04:07:22 -0400 Ned Anderson fix buffer behavior & mock send
+6da4f72e60fe7729c072a216a294686ebe050252 2026-05-13 17:07:26 -0400 Ned Anderson fix hang due to inappropriate pending return in poll_ready
+ecab674f6452aebb613d3e00926ac29b5d05acc0 2026-05-13 17:02:46 -0400 Ned Anderson fix issue with old rust version
+6d39ee7cae331a12635765774321966a0ca5637c 2026-05-13 16:00:48 -0400 Ned Anderson return use of stream key
+8c006353f9078f4a6af7a3a253d7b90e373682ea 2026-05-13 15:50:42 -0400 Ned Anderson remove previously re-introduced debug assertion
+f56ee72439926a95f32a85ec21be997d336f359a 2026-05-06 21:33:48 -0400 Ned Anderson fix formatting
+caf6941d8c0bca0837c5fa262a786e8d0baee548 2026-04-28 12:09:45 -0400 Ned Anderson perf: allow multiple DATA frames per write

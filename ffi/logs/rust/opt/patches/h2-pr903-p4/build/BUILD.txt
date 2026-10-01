@@ -1,0 +1,4 @@
+# core build, manifest $SP/wt-rust/ffi/poc/codec/Cargo.toml, h2 $SP/h2-pr903p4, target $SP/core903-pr903p4, 2026-10-01T05:19:38Z
+# cargo tree: h2 v0.4.19 ($SP/h2-pr903p4)
+d021602b837c44f4dfe6fb7203e2fd66f16fa5469a9ab79e6333ccbf8d941157  $SP/core903-pr903p4/release/libak_core.so
+    h2 compiled in: /h2-pr903p4/src/codec/framed_write.rs

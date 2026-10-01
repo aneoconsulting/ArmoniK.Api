@@ -1,0 +1,52 @@
+diff --git a/src/codec/framed_write.rs b/src/codec/framed_write.rs
+index 12fb5db..76652c1 100644
+--- a/src/codec/framed_write.rs
++++ b/src/codec/framed_write.rs
+@@ -132,9 +132,15 @@ where
+         }
+     }
+ 
+-    /// Returns whether a frame can be buffered without first flushing the
+-    /// underlying I/O object.
++    /// Returns whether a non-DATA frame can be buffered without first
++    /// flushing the underlying I/O object.
+     pub(crate) fn has_capacity(&self) -> bool {
++        self.encoder.has_capacity()
++    }
++
++    /// Returns whether a DATA frame can be buffered without first flushing
++    /// the underlying I/O object (a free slot in the vectored-write queue).
++    pub(crate) fn has_data_capacity(&self) -> bool {
+         self.encoder.has_vec_capacity()
+     }
+ 
+diff --git a/src/codec/mod.rs b/src/codec/mod.rs
+index e9d9af1..96ebea3 100644
+--- a/src/codec/mod.rs
++++ b/src/codec/mod.rs
+@@ -144,6 +144,12 @@ where
+         self.framed_write().has_capacity()
+     }
+ 
++    /// Returns whether the codec can buffer a DATA frame without flushing the
++    /// underlying I/O object.
++    pub(crate) fn has_data_send_capacity(&mut self) -> bool {
++        self.framed_write().has_data_capacity()
++    }
++
+     /// Buffer a frame.
+     ///
+     /// `poll_ready` must be called first to ensure that a frame may be
+diff --git a/src/proto/streams/prioritize.rs b/src/proto/streams/prioritize.rs
+index 09e6f1e..988133b 100644
+--- a/src/proto/streams/prioritize.rs
++++ b/src/proto/streams/prioritize.rs
+@@ -509,7 +509,7 @@ impl Prioritize {
+         tracing::trace!("buffer_pending");
+ 
+         loop {
+-            if !dst.has_send_capacity() {
++            if !dst.has_data_send_capacity() {
+                 return Ok(BufferStatus::CodecFull);
+             }
+ 

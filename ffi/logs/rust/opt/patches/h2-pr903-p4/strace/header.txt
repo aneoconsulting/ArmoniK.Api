@@ -1,0 +1,1 @@
+# strace census 2026-10-01T05:46:16Z; strace strace -- version 7.2; per process: rounds 2, calls 4 (k=1) or 1 batch (k=8), warm 2 (k=1) or 1 batch (k=8)

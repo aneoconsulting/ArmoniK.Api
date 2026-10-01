@@ -1,0 +1,46 @@
+ Percent |	Source code & Disassembly of libak_core.so for cpu/cycles/P (575 samples, percent: local period)
+----------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3     Disassembly of section .text:
+         :
+         : 5     00000000000e5d10 <h2::codec::framed_write::poll_write_buf>:
+    0.19 :   e5d3f:  movq   $0x0,(%rsp)
+    0.18 :   e5d5a:  mov    %rcx,%rbx
+    0.21 :   e5d5d:  mov    %rdx,%r15
+   12.09 :   e5d90:  movq   $0x1,0x30(%rsp,%rax,1)
+   16.20 :   e5d99:  movq   $0x0,0x38(%rsp,%rax,1)
+   11.73 :   e5da2:  movq   $0x1,0x40(%rsp,%rax,1)
+   15.96 :   e5dab:  movq   $0x0,0x48(%rsp,%rax,1)
+    9.88 :   e5db4:  movq   $0x1,0x50(%rsp,%rax,1)
+    7.80 :   e5dbd:  movq   $0x0,0x58(%rsp,%rax,1)
+    9.69 :   e5dc6:  movq   $0x1,0x60(%rsp,%rax,1)
+    7.57 :   e5dcf:  movq   $0x0,0x68(%rsp,%rax,1)
+    1.05 :   e5de2:  jne    e5d90 <h2::codec::framed_write::poll_write_buf+0x80>
+    1.23 :   e5de4:  mov    0xb0(%rbx),%rsi
+    0.15 :   e5e12:  cmovae %rcx,%rdx
+    0.18 :   e5ebf:  xor    %r15d,%r15d
+    0.17 :   e5ee5:  mov    %r8,%rbp
+    0.18 :   e5efe:  je     e5f10 <h2::codec::framed_write::poll_write_buf+0x200>
+    0.39 :   e5f2b:  mov    %rax,%rsi
+    0.18 :   e5f2e:  add    %r15,%rsi
+    0.37 :   e5f69:  mov    0x0(%rbp),%rax
+    0.18 :   e5fab:  cmovb  %rax,%r14
+    0.18 :   e5fb2:  je     e6030 <h2::codec::framed_write::poll_write_buf+0x320>
+    0.17 :   e5fb4:  mov    %r9,0x18(%rsp)
+    0.18 :   e5fc8:  sub    %r13,%rdx
+    0.19 :   e5fd6:  add    $0x68,%rbx
+    0.31 :   e6009:  test   %rax,%rax
+    0.17 :   e6089:  mov    0x18(%rsp),%r9
+    0.73 :   e621a:  mov    0xb0(%rbx),%rsi
+    0.20 :   e62a5:  add    %rsi,%r14
+    0.18 :   e62f3:  je     e6408 <h2::codec::framed_write::poll_write_buf+0x6f8>
+    0.35 :   e6301:  mov    0x48(%r13),%rbp
+    0.37 :   e63da:  jae    e62c0 <h2::codec::framed_write::poll_write_buf+0x5b0>
+    0.19 :   e640b:  je     e6435 <h2::codec::framed_write::poll_write_buf+0x725>
+    0.18 :   e6435:  mov    0x8(%rsp),%r14
+    0.19 :   e643a:  movq   $0x0,(%r14)
+    0.31 :   e645f:  call   *0x1d963b(%rip)        # 2bfaa0 <_GLOBAL_OFFSET_TABLE_+0x19b8>
+    0.17 :   e64c3:  movq   $0x1,(%r14)
+    0.34 :   e64dd:  pop    %r12

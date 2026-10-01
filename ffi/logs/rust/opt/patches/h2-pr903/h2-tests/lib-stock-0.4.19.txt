@@ -1,0 +1,509 @@
+   Compiling h2 v0.4.19 ($SP/h2-pr903)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.85s
+     Running unittests src/lib.rs (/data/csdt/.cargo-build/a2/05af4cd79a88bb/debug/deps/h2-76d5ed57067e5cb1)
+
+running 439 tests
+test frame::data::tests::padding_overhead_max_does_not_overflow ... ok
+test frame::data::tests::padding_overhead_max_with_data ... ok
+test error::tests::error_from_reason ... ok
+test frame::data::tests::padding_overhead_no_padding ... ok
+test frame::data::tests::padding_overhead_small ... ok
+test frame::headers::test::test_connect_request_pseudo_headers_omits_path_and_scheme ... ok
+test frame::headers::test::test_extended_connect_request_pseudo_headers_includes_path_and_scheme ... ok
+test frame::headers::test::test_options_request_with_empty_path_has_asterisk_as_pseudo_path ... ok
+test frame::headers::test::test_nameless_header_at_resume ... ok
+test frame::headers::test::test_non_option_and_non_connect_requests_include_path_and_scheme ... ok
+test frame::tests::test_unpack_octets_4 ... ok
+test hpack::decoder::test::test_decode_empty ... ok
+test hpack::decoder::test::test_decode_continuation_header_with_non_huff_encoded_name ... ok
+test hpack::decoder::test::test_decode_indexed_larger_than_table ... ok
+test hpack::decoder::test::test_decode_string_empty ... ok
+test hpack::encoder::test::test_content_length_value_not_indexed ... ok
+test hpack::decoder::test::test_peek_u8 ... ok
+test hpack::encoder::test::test_decreasing_table_size_without_eviction ... ok
+test hpack::encoder::test::test_encode_method_get ... ok
+test hpack::encoder::test::test_encode_indexed_name_literal_value ... ok
+test hpack::encoder::test::test_encode_method_post ... ok
+test hpack::encoder::test::test_encode_method_patch ... ok
+test hpack::encoder::test::test_evicted_overflow ... ignored
+test hpack::encoder::test::test_encoding_headers_with_same_name ... ok
+test hpack::encoder::test::test_evicting_headers_when_multiple_of_same_name_are_in_table ... ok
+test hpack::encoder::test::test_large_headers_are_not_indexed ... ok
+test hpack::encoder::test::test_large_size_update ... ok
+test hpack::encoder::test::test_large_size_update_is_capped ... ok
+test hpack::encoder::test::test_max_size_zero ... ok
+test hpack::encoder::test::test_nameless_header ... ok
+test hpack::encoder::test::test_repeated_headers_are_indexed ... ok
+test hpack::encoder::test::test_resizing_table ... ok
+test hpack::encoder::test::test_update_max_size_combos ... ok
+test hpack::encoder::test::test_sensitive_headers_are_never_indexed ... ok
+test hpack::huffman::test::decode_single_byte ... ok
+test hpack::huffman::test::encode_decode_all_octets ... ok
+test hpack::huffman::test::encode_decode_u8 ... ok
+test hpack::huffman::test::encode_single_byte ... ok
+test hpack::huffman::test::multi_char ... ok
+test hpack::huffman::test::encode_decode_str ... ok
+test hpack::huffman::test::rejects_eos_and_invalid_padding ... ok
+test hpack::huffman::test::single_char_multi_byte ... ok
+test hpack::test::fixture::go_hpack::story_00 ... ok
+test hpack::test::fixture::go_hpack::story_01 ... ok
+test hpack::encoder::test::test_evicting_headers ... ok
+test hpack::test::fixture::go_hpack::story_03 ... ok
+test hpack::test::fixture::go_hpack::story_02 ... ok
+test hpack::test::fixture::go_hpack::story_04 ... ok
+test hpack::test::fixture::go_hpack::story_05 ... ok
+test hpack::test::fixture::go_hpack::story_06 ... ok
+test hpack::test::fixture::go_hpack::story_07 ... ok
+test hpack::test::fixture::go_hpack::story_08 ... ok
+test hpack::test::fixture::go_hpack::story_09 ... ok
+test hpack::test::fixture::go_hpack::story_10 ... ok
+test hpack::test::fixture::go_hpack::story_13 ... ok
+test hpack::test::fixture::go_hpack::story_11 ... ok
+test hpack::test::fixture::go_hpack::story_12 ... ok
+test hpack::test::fixture::go_hpack::story_15 ... ok
+test hpack::test::fixture::go_hpack::story_14 ... ok
+test hpack::test::fixture::go_hpack::story_17 ... ok
+test hpack::test::fixture::go_hpack::story_16 ... ok
+test hpack::test::fixture::go_hpack::story_18 ... ok
+test hpack::test::fixture::go_hpack::story_19 ... ok
+test hpack::test::fixture::go_hpack::story_20 ... ok
+test frame::headers::test::test_try_append_prevents_panic_on_max_size_reached ... ok
+test hpack::test::fixture::go_hpack::story_24 ... ok
+test hpack::test::fixture::go_hpack::story_22 ... ok
+test hpack::test::fixture::go_hpack::story_21 ... ok
+test hpack::test::fixture::go_hpack::story_26 ... ok
+test hpack::test::fixture::go_hpack::story_25 ... ok
+test hpack::test::fixture::go_hpack::story_23 ... ok
+test hpack::test::fixture::go_hpack::story_28 ... ok
+test hpack::test::fixture::go_hpack::story_31 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_00 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_01 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_02 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_03 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_04 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_05 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_06 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_07 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_08 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_09 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_10 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_11 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_12 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_13 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_14 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_15 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_16 ... ok
+test hpack::test::fixture::go_hpack::story_27 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_17 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_18 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_19 ... ok
+test hpack::test::fixture::go_hpack::story_29 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_20 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_22 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_21 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_24 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_23 ... ok
+test hpack::test::fixture::go_hpack::story_30 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_26 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_28 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_25 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_31 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_00 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_01 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_02 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_03 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_04 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_05 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_06 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_07 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_08 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_27 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_09 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_10 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_11 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_12 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_13 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_14 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_15 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_17 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_16 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_18 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_19 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_29 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_20 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_22 ... ok
+test hpack::test::fixture::haskell_http2_linear::story_30 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_24 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_23 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_21 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_26 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_28 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_25 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_31 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_00 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_01 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_02 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_03 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_04 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_27 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_05 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_07 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_06 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_09 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_08 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_10 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_11 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_12 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_13 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_14 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_15 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_17 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_16 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_18 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_19 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_29 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_20 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_22 ... ok
+test hpack::test::fixture::haskell_http2_linear_huffman::story_30 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_24 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_21 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_23 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_26 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_25 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_28 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_31 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_00 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_01 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_02 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_03 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_04 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_05 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_06 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_07 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_27 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_08 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_09 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_10 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_11 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_12 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_13 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_14 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_15 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_29 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_17 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_16 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_19 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_18 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_20 ... ok
+test hpack::test::fixture::haskell_http2_naive::story_30 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_22 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_24 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_21 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_23 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_26 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_28 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_25 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_31 ... ok
+test hpack::test::fixture::haskell_http2_static::story_00 ... ok
+test hpack::test::fixture::haskell_http2_static::story_01 ... ok
+test hpack::test::fixture::haskell_http2_static::story_02 ... ok
+test hpack::test::fixture::haskell_http2_static::story_03 ... ok
+test hpack::test::fixture::haskell_http2_static::story_04 ... ok
+test hpack::test::fixture::haskell_http2_static::story_05 ... ok
+test hpack::test::fixture::haskell_http2_static::story_06 ... ok
+test hpack::test::fixture::haskell_http2_static::story_07 ... ok
+test hpack::test::fixture::haskell_http2_static::story_08 ... ok
+test hpack::test::fixture::haskell_http2_static::story_09 ... ok
+test hpack::test::fixture::haskell_http2_static::story_10 ... ok
+test hpack::test::fixture::haskell_http2_static::story_11 ... ok
+test hpack::test::fixture::haskell_http2_static::story_12 ... ok
+test hpack::test::fixture::haskell_http2_static::story_13 ... ok
+test hpack::test::fixture::haskell_http2_static::story_14 ... ok
+test hpack::test::fixture::haskell_http2_static::story_15 ... ok
+test hpack::test::fixture::haskell_http2_static::story_16 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_27 ... ok
+test hpack::test::fixture::haskell_http2_static::story_17 ... ok
+test hpack::test::fixture::haskell_http2_static::story_18 ... ok
+test hpack::test::fixture::haskell_http2_static::story_19 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_29 ... ok
+test hpack::test::fixture::haskell_http2_static::story_20 ... ok
+test hpack::test::fixture::haskell_http2_static::story_22 ... ok
+test hpack::test::fixture::haskell_http2_static::story_24 ... ok
+test hpack::test::fixture::haskell_http2_static::story_21 ... ok
+test hpack::test::fixture::haskell_http2_static::story_23 ... ok
+test hpack::test::fixture::haskell_http2_static::story_26 ... ok
+test hpack::test::fixture::haskell_http2_static::story_25 ... ok
+test hpack::test::fixture::haskell_http2_naive_huffman::story_30 ... ok
+test hpack::test::fixture::haskell_http2_static::story_28 ... ok
+test hpack::test::fixture::haskell_http2_static::story_27 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_00 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_01 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_02 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_03 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_04 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_05 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_06 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_07 ... ok
+test hpack::test::fixture::haskell_http2_static::story_31 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_08 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_10 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_09 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_11 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_12 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_13 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_14 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_15 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_17 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_16 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_18 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_19 ... ok
+test hpack::test::fixture::haskell_http2_static::story_29 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_20 ... ok
+test hpack::test::fixture::haskell_http2_static::story_30 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_22 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_24 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_21 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_23 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_26 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_28 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_25 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_31 ... ok
+test hpack::test::fixture::nghttp2::story_00 ... ok
+test hpack::test::fixture::nghttp2::story_01 ... ok
+test hpack::test::fixture::nghttp2::story_02 ... ok
+test hpack::test::fixture::nghttp2::story_03 ... ok
+test hpack::test::fixture::nghttp2::story_04 ... ok
+test hpack::test::fixture::nghttp2::story_05 ... ok
+test hpack::test::fixture::nghttp2::story_06 ... ok
+test hpack::test::fixture::nghttp2::story_07 ... ok
+test hpack::test::fixture::nghttp2::story_08 ... ok
+test hpack::test::fixture::nghttp2::story_09 ... ok
+test hpack::test::fixture::nghttp2::story_10 ... ok
+test hpack::test::fixture::nghttp2::story_11 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_27 ... ok
+test hpack::test::fixture::nghttp2::story_12 ... ok
+test hpack::test::fixture::nghttp2::story_13 ... ok
+test hpack::test::fixture::nghttp2::story_14 ... ok
+test hpack::test::fixture::nghttp2::story_15 ... ok
+test hpack::test::fixture::nghttp2::story_17 ... ok
+test hpack::test::fixture::nghttp2::story_16 ... ok
+test hpack::test::fixture::nghttp2::story_18 ... ok
+test hpack::test::fixture::nghttp2::story_19 ... ok
+test hpack::test::fixture::nghttp2::story_20 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_29 ... ok
+test hpack::test::fixture::nghttp2::story_22 ... ok
+test hpack::test::fixture::nghttp2::story_24 ... ok
+test hpack::test::fixture::nghttp2::story_21 ... ok
+test hpack::test::fixture::nghttp2::story_23 ... ok
+test hpack::test::fixture::haskell_http2_static_huffman::story_30 ... ok
+test hpack::test::fixture::nghttp2::story_26 ... ok
+test hpack::test::fixture::nghttp2::story_25 ... ok
+test hpack::test::fixture::nghttp2::story_28 ... ok
+test hpack::test::fixture::nghttp2::story_27 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_00 ... ok
+test hpack::test::fixture::nghttp2::story_31 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_01 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_03 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_02 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_04 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_05 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_07 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_06 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_09 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_08 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_10 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_11 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_13 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_12 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_14 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_15 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_16 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_17 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_19 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_18 ... ok
+test hpack::test::fixture::nghttp2::story_29 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_20 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_22 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_24 ... ok
+test hpack::test::fixture::nghttp2::story_30 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_21 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_23 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_26 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_28 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_25 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_00 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_01 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_02 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_03 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_04 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_05 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_06 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_07 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_08 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_09 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_10 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_11 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_12 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_13 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_14 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_15 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_16 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_17 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_18 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_19 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_27 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_20 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_29 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_22 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_24 ... ok
+test hpack::test::fixture::nghttp2_16384_4096::story_30 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_21 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_23 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_26 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_28 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_25 ... ok
+test hpack::test::fixture::node_http2_hpack::story_00 ... ok
+test hpack::test::fixture::node_http2_hpack::story_01 ... ok
+test hpack::test::fixture::node_http2_hpack::story_02 ... ok
+test hpack::test::fixture::node_http2_hpack::story_03 ... ok
+test hpack::test::fixture::node_http2_hpack::story_04 ... ok
+test hpack::test::fixture::node_http2_hpack::story_05 ... ok
+test hpack::test::fixture::node_http2_hpack::story_06 ... ok
+test hpack::test::fixture::node_http2_hpack::story_07 ... ok
+test hpack::test::fixture::node_http2_hpack::story_08 ... ok
+test hpack::test::fixture::node_http2_hpack::story_09 ... ok
+test hpack::test::fixture::node_http2_hpack::story_10 ... ok
+test hpack::test::fixture::node_http2_hpack::story_11 ... ok
+test hpack::test::fixture::node_http2_hpack::story_12 ... ok
+test hpack::test::fixture::node_http2_hpack::story_13 ... ok
+test hpack::test::fixture::node_http2_hpack::story_14 ... ok
+test hpack::test::fixture::node_http2_hpack::story_15 ... ok
+test hpack::test::fixture::node_http2_hpack::story_16 ... ok
+test hpack::test::fixture::node_http2_hpack::story_17 ... ok
+test hpack::test::fixture::node_http2_hpack::story_18 ... ok
+test hpack::test::fixture::node_http2_hpack::story_19 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_27 ... ok
+test hpack::test::fixture::node_http2_hpack::story_20 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_29 ... ok
+test hpack::test::fixture::node_http2_hpack::story_22 ... ok
+test hpack::test::fixture::node_http2_hpack::story_24 ... ok
+test hpack::test::fixture::node_http2_hpack::story_21 ... ok
+test hpack::test::fixture::node_http2_hpack::story_23 ... ok
+test hpack::test::fixture::nghttp2_change_table_size::story_30 ... ok
+test hpack::test::fixture::node_http2_hpack::story_26 ... ok
+test hpack::test::fixture::node_http2_hpack::story_28 ... ok
+test hpack::test::fixture::node_http2_hpack::story_25 ... ok
+test hpack::test::fixture::node_http2_hpack::story_31 ... ok
+test hpack::test::fixture::python_hpack::story_00 ... ok
+test hpack::test::fixture::python_hpack::story_01 ... ok
+test hpack::test::fixture::python_hpack::story_02 ... ok
+test hpack::test::fixture::python_hpack::story_03 ... ok
+test hpack::test::fixture::python_hpack::story_04 ... ok
+test hpack::test::fixture::python_hpack::story_05 ... ok
+test hpack::test::fixture::python_hpack::story_06 ... ok
+test hpack::test::fixture::node_http2_hpack::story_27 ... ok
+test hpack::test::fixture::python_hpack::story_07 ... ok
+test hpack::test::fixture::python_hpack::story_08 ... ok
+test hpack::test::fixture::python_hpack::story_09 ... ok
+test hpack::test::fixture::python_hpack::story_10 ... ok
+test hpack::test::fixture::python_hpack::story_11 ... ok
+test hpack::test::fixture::python_hpack::story_12 ... ok
+test hpack::test::fixture::python_hpack::story_13 ... ok
+test hpack::test::fixture::python_hpack::story_14 ... ok
+test hpack::test::fixture::python_hpack::story_15 ... ok
+test hpack::test::fixture::python_hpack::story_16 ... ok
+test hpack::test::fixture::python_hpack::story_17 ... ok
+test hpack::test::fixture::python_hpack::story_18 ... ok
+test hpack::test::fixture::python_hpack::story_19 ... ok
+test hpack::test::fixture::node_http2_hpack::story_29 ... ok
+test hpack::test::fixture::python_hpack::story_20 ... ok
+test hpack::test::fixture::python_hpack::story_22 ... ok
+test hpack::test::fixture::node_http2_hpack::story_30 ... ok
+test hpack::test::fixture::python_hpack::story_24 ... ok
+test hpack::test::fixture::python_hpack::story_21 ... ok
+test hpack::test::fixture::python_hpack::story_23 ... ok
+test hpack::test::fixture::python_hpack::story_26 ... ok
+test hpack::test::fixture::python_hpack::story_28 ... ok
+test hpack::test::fixture::python_hpack::story_25 ... ok
+test hpack::test::fixture::python_hpack::story_31 ... ok
+test hpack::test::fixture::python_hpack::story_27 ... ok
+test proto::connection::tests::auto_data_frame_budget_has_minimum ... ok
+test proto::connection::tests::auto_data_frame_budget_scales_with_connection_window ... ok
+test proto::connection::tests::configured_data_frame_budget_is_unchanged ... ok
+test proto::streams::counts::tests::budget_is_bounded ... ok
+test proto::streams::counts::tests::budget_reports_exhaustion_without_underflowing ... ok
+test hpack::test::fixture::python_hpack::story_29 ... ok
+test proto::streams::counts::tests::empty_data_frames_do_not_consume_data_frame_budget ... ok
+test proto::streams::counts::tests::consumed_small_data_frames_do_not_exhaust_budget ... ok
+test proto::streams::counts::tests::large_data_frames_do_not_replenish_empty_data_frame_limit ... ok
+test proto::streams::flow_control::sanity_unclaimed_ratio ... ok
+test proto::streams::recv::tests::clear_recv_buffer_caps_capacity_before_overflow ... FAILED
+test proto::streams::state::tests::recv_reset_preserves_received_end_stream ... ok
+test proto::streams::counts::tests::good_sized_data_frames_do_not_exhaust_budget ... ok
+test hpack::test::fixture::python_hpack::story_30 ... ok
+test hpack::test::fuzz::hpack_fuzz ... ok
+
+failures:
+
+---- proto::streams::recv::tests::clear_recv_buffer_caps_capacity_before_overflow stdout ----
+
+thread 'proto::streams::recv::tests::clear_recv_buffer_caps_capacity_before_overflow' (626905) panicked at src/proto/streams/store.rs:231:13:
+assertion failed: self.slab.is_empty()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    proto::streams::recv::tests::clear_recv_buffer_caps_capacity_before_overflow
+
+test result: FAILED. 437 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 12.49s
+
+error: test failed, to rerun pass `--lib`
+   Doc-tests h2
+
+running 41 tests
+test src/client.rs - client (line 67) - compile ... ok
+test src/client.rs - client::Builder (line 289) ... ok
+test src/client.rs - client::Builder::enable_push (line 1097) ... ok
+test src/client.rs - client::Builder::handshake (line 1212) ... ok
+test src/client.rs - client::Builder::handshake (line 1233) ... ok
+test src/client.rs - client::Builder::initial_connection_window_size (line 722) ... ok
+test src/client.rs - client::Builder::initial_max_send_streams (line 891) ... ok
+test src/client.rs - client::Builder::header_table_size (line 1131) ... ok
+test src/client.rs - client::Builder::initial_window_size (line 687) ... ok
+test src/client.rs - client::Builder::max_concurrent_streams (line 845) ... ok
+test src/client.rs - client::Builder::max_frame_size (line 756) ... ok
+test src/client.rs - client::Builder::max_concurrent_reset_streams (line 936) ... ok
+test src/client.rs - client::Builder::max_header_list_size (line 796) ... ok
+test src/client.rs - client::Builder::new (line 641) ... ok
+test src/client.rs - client::Builder::max_pending_accept_reset_streams (line 1042) ... ok
+test src/client.rs - client::Builder::reset_stream_duration (line 981) ... ok
+test src/client.rs - client::Connection (line 211) ... ok
+test src/client.rs - client::SendRequest<B>::ready (line 389) ... ok
+test src/frame/mod.rs - frame::unpack_octets_4 (line 14) ... ignored
+test src/client.rs - client::SendRequest<B>::send_request (line 448) ... ok
+test src/client.rs - client::SendRequest<B>::send_request (line 472) ... ok
+test src/server.rs - server (line 66) - compile ... ok
+test src/client.rs - client::handshake (line 1286) ... ok
+test src/server.rs - server::Builder (line 217) ... ok
+test src/server.rs - server::Builder::handshake (line 1091) ... ok
+test src/server.rs - server::Builder::handshake (line 1111) ... ok
+test src/server.rs - server::Builder::initial_connection_window_size (line 714) ... ok
+test src/server.rs - server::Builder::initial_window_size (line 680) ... ok
+test src/server.rs - server::Builder::max_concurrent_reset_streams (line 892) ... ok
+test src/server.rs - server::Builder::max_concurrent_streams (line 846) ... ok
+test src/server.rs - server::Builder::max_frame_size (line 747) ... ok
+test src/server.rs - server::Builder::max_header_list_size (line 786) ... ok
+test src/server.rs - server::Builder::max_pending_accept_reset_streams (line 953) ... ok
+test src/server.rs - server::Builder::new (line 637) ... ok
+test src/server.rs - server::Builder::reset_stream_duration (line 1017) ... ok
+test src/server.rs - server::Connection (line 177) ... ok
+test src/server.rs - server::SendResponse<B>::send_informational (line 1163) ... ok
+test src/server.rs - server::handshake (line 356) ... ok
+test src/share.rs - share::SendStream<B>::reserve_capacity (line 237) ... ok
+test src/share.rs - share::SendStream<B>::reserve_capacity (line 251) ... ok
+test src/share.rs - share::SendStream<B>::reserve_capacity (line 269) ... ok
+
+test result: ok. 40 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.27s
+
+error: 1 target failed:
+    `--lib`

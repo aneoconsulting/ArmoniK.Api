@@ -1,0 +1,34 @@
+# h2 PR 903 port + p4 combined (2026-10-01, owner): EXPERIMENT, not committed anywhere.
+#
+# Tree commit b871798 ("EXPERIMENT h2-pr903-p4: a queued DATA element may span AK_H2_COALESCE
+# max-size frames", 2026-10-01 07:09:39 local) on top of the PR 903 port 221c21e (see
+# ../h2-pr903/HOWTO.txt), on h2 v0.4.19. core903-pr903p4 built 07:19:38 local from it
+# (sha256 d021602b837c44f4dfe6fb7203e2fd66f16fa5469a9ab79e6333ccbf8d941157; build/BUILD.txt).
+#   h2-pr903-p4-on-0.4.19.patch               = git diff v0.4.19 b871798,
+#                                               sha256 f2b762231984b681b9d467dcd825290d0978c9de10987f946c5d3d89528afb2c
+#   h2-pr903-p4-increment-over-pr903-port.patch = git diff 221c21e b871798,
+#                                               sha256 a9081449189685eb776c387f8b0f84a6624dcfb7b9bb8617cf3a7ddae2705777
+#
+# What it does: AK_H2_COALESCE=N (read once; unset or 1 = the PR-903 behaviour).
+#  - prioritize::buffer_pending hands out up to N x max_frame_size per pop (p4's change), so one
+#    stream's queued element is up to N frames long; the PR's per-stream in_flight_partial_send is
+#    unchanged: a stream has at most one queued element in flight.
+#  - Encoder::buffer: an element longer than the max frame size gets a Split: the first sub-frame
+#    head goes in the shared buffer (as the PR's chained head does), the heads of sub-frames 1.. are
+#    stored in the element; END_STREAM only on the last sub-frame.
+#  - Buf for Encoder (chunk, advance, chunks_vectored, remaining): a split element's wire bytes
+#    are walked as payload window 0, head 1, window 1, ... inside the same vectored write as the
+#    other queued elements (up to the PR's 1024 slices), stopping where the payload's contiguous
+#    chunk or the slice array ends; advance keeps the per-element position (head bytes written).
+#
+# h2's own tests (h2-tests/, runner h2-tests/pertest.sh: every integration test alone, 30 s):
+#  - N=1: lib 437 pass / 1 fail (the failure stock v0.4.19 has); integration 227, all pass except
+#    hammer_client_concurrency (30 s timeout in debug, as on stock).
+#  - N=16: the same plus stream_states::send_err_with_buffered_data failing: it expects exactly one
+#    16 KiB DATA frame before the RST_STREAM of a stream reset while its data was queued; at N=16
+#    the already-queued sub-frames of that element go out before the RST (already charged to flow
+#    control at pop). p4 alone (v0.4.19 + ../p4-h2-coalesce/p4-h2-coalesce.patch) at N=16 fails the
+#    same test (h2-tests/p4-alone-each-N16.txt).
+# Checks: checks-N1/, checks-N16/ (pre-check, upload_check, rpc_semantics, burst_check);
+# partial-writes/ (burst_check under strace at N=16: partial writev returns with batched and
+# split elements in one writev; burst_check PASSED).
