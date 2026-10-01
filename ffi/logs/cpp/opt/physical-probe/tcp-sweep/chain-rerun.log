@@ -1,0 +1,7 @@
+== 3 sweep 2026-10-01T20:50:25Z
+  sweep round 1 done, 140 s
+  sweep round 2 done, 280 s
+  sweep round 3 done, 420 s
+sweep: 514 s of benchmark
+phase sweep: 520 s (lock held), exit 0
+tables: /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/cpp/opt/physical-probe/tcp-sweep/tables.md

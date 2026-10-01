@@ -34,6 +34,6 @@ DC_STEP1_CORE=1 taskset -c 0,9,10,19 bash gen/deferred_checks.sh "$OUT/checks/ch
 [ $F = 0 ] || { echo "CHECKS FAILED: no timing"; exit 1; }
 fi
 echo "== 3 sweep $(date -u +%FT%TZ)"
-SW_STOCK=$ST SW_BATCH=$HB TA_NOTE="TCP worker sweep (owner, 2026-10-01): core at p1 (82f3712a), two h2 variants (stock; h2-batch e4853d55 at AK_H2_COALESCE=16); Docker running, netfilter modules loaded (a machine condition, below); Cf-q on the landed ring of 6, no ring knob" \
+SW_STOCK=$ST SW_BATCH=$HB TA_NOTE="TCP worker sweep (owner, 2026-10-01): core at p1 (82f3712a), two h2 variants (stock; h2-batch e4853d55 at AK_H2_COALESCE=16); Docker running, netfilter modules loaded (a machine condition, below); Cf-q on the landed ring of 6, no ring knob${SC_NOTE:+. $SC_NOTE}" \
   taskset -c 0,9,10,19 bash gen/tcp_attrib.sh "$OUT" sweep "$ST" "$ST" "$HB" || { echo "SWEEP FAILED"; exit 1; }
 python3 gen/sweep_tables.py "$OUT" > "$OUT/tables.md" && echo "tables: $OUT/tables.md"
