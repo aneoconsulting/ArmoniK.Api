@@ -211,7 +211,9 @@ cells are out of the default sets (TA_ZC=1, ST_ZC=1, DC_CELLS to bring them back
 `gen/h2batch_nounk.sh`, both restoring poc/codec/Cargo.lock), loaded at run time with LD_LIBRARY_PATH; written against
 the Rust agent's uncommitted `poc/codec/h2-batch/` as found on disk, not yet built. `gen/deferred_checks.sh`
 DC_STEP1_CORE=1 makes the conformance and pre-check binaries load the given core. The landed p1 (82f3712a) fixes the
-ring at 6 with the lock and reads no AK_SPARES: Cf-q runs with 6 (the patch-era runs used 24). Pending: CMake support for the h2-batch core (follows
+ring at 6 with the lock and reads no AK_SPARES: Cf-q runs with 6 (the patch-era runs used 24); the sweep records
+minor faults per call for every process and, in untimed allocprobe processes, allocations of at least 1 MiB per call
+for Cf-q at k = 8 on both variants (coordinator). Agreed scope: 3 rounds, no k = 16. Pending: CMake support for the h2-batch core (follows
 the Rust agent's build script), the rebuild against the landed core, gates on both variants, then the sweep.
 
 **h2 PR #903 from C++ (2026-10-01)** (`gen/h2_variants_build.sh`, `gen/tcp_attrib.sh OUT h2|h2b` with H2_CTL, H2_H16,

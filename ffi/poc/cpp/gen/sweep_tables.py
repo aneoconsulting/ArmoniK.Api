@@ -9,7 +9,8 @@
      client CPUs, context switches per call (getrusage), the server's task-clock and context switches
      (perf stat -p); A and D (grpc++ transport, W = 8, stock core) head each workload;
   2. socket writes per call, bytes per write, epoll_wait, futex and all syscalls per call (strace, one
-     process per unit at the W of SW_STRACE_WORKERS);
+     process per unit at the W of SW_STRACE_WORKERS); 2b. allocations of at least 1 MiB per call for Cf-q at
+     k >= 8 (allocprobe processes) and minor faults (section 1 has them for every timed process);
   3. Cf-* minus A per round (same round and workload): task-clock / wall, median (min..max).
 """
 import json
@@ -56,17 +57,17 @@ def main(out):
     say("")
     say("task-clock: median [p10-p90] over the processes; process clock and wall: median [p10-p90] over every chunk.")
     say("")
-    say("| workload | unit | task-clock | process clock | wall | softirq client CPUs | NET_RX client | csw | server task-clock | server csw | processes |")
-    say("|---|---|---|---|---|---|---|---|---|---|---|")
+    say("| workload | unit | task-clock | process clock | wall | softirq client CPUs | NET_RX client | csw | minor faults | server task-clock | server csw | processes |")
+    say("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for w, wt in WL:
         for u in units:
             xs = by.get((w, u, "tcp"))
             if not xs:
                 continue
-            say("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d |" % (
+            say("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d |" % (
                 wt, u, mpq_proc(xs, "ctc"), t.mpq([v for x in xs for v in x["cpu"]]),
                 t.mpq([v for x in xs for v in x["wall"]]), t.med(xs, "c_sirq"), t.med(xs, "c_rx", "%.0f"),
-                t.med(xs, "csw", "%.0f"), t.med(xs, "srv"), t.med(xs, "s_csw", "%.0f"), len(xs)))
+                t.med(xs, "csw", "%.0f"), t.med(xs, "flt", "%.1f"), t.med(xs, "srv"), t.med(xs, "s_csw", "%.0f"), len(xs)))
     say("")
     say("## 2. Writes and syscalls per call (strace -f, one process per unit, fewer batches)")
     say("")
@@ -86,6 +87,18 @@ def main(out):
                 wt, u, sw / n, j["socket_write_bytes"] / max(1, sw), sr / n,
                 sum(cnt.get(x, 0) for x in ("epoll_wait", "epoll_pwait", "epoll_pwait2")) / n, cnt.get("futex", 0) / n,
                 sum(cnt.values()) / n))
+    say("")
+    say("## 2b. Allocations of at least 1 MiB per call (gen/allocprobe.c preloaded, separate untimed processes; Cf-q at k >= 8)")
+    say("")
+    say("| workload | unit | allocations >= 1 MiB per call | minor faults per call (this process) | calls |")
+    say("|---|---|---|---|---|")
+    for w, wt in WL:
+        for u in units:
+            p = t.prof(os.path.join(d, "alloc-%s-tcp-%s.out" % (w, u)))
+            if not p:
+                continue
+            say("| %s | %s | %s | %.1f | %d |" % (wt, u, "%.2f" % (p["big_allocs"] / p["calls"]) if p.get("big_allocs", -1) >= 0 else "probe absent",
+                                             p["rusage"]["minflt"] / p["calls"], p["calls"]))
     say("")
     say("## 3. Unit minus A per round (same round and workload): task-clock / wall, median (min..max)")
     say("")

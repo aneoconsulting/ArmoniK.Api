@@ -2138,3 +2138,8 @@ changes.
   against the Rust agent's poc/codec/h2-batch/ as it is on disk (untracked at this commit); not built yet.
   deferred_checks.sh DC_STEP1_CORE=1: conformance and pre-check load the given core (ldd and sha256 printed).
 - The landed p1 (82f3712a) has SPARES = 6 fixed and no AK_SPARES knob: the sweep sets no ring knob; Cf-q runs with 6.
+- Coordinator: keep the landed ring (6, shared context), no knob; record minor faults and allocations of at least
+  1 MiB per call for Cf-q at k = 8 on both variants. The sweep phase now ends with allocprobe processes (untimed;
+  gen/allocprobe.c preloaded beside the shim) for Cf-q at every W on the k >= 8 workloads, and sweep_tables.py prints
+  minor faults per call for every timed process and the allocations in a section 2b. Smoke (c903 cores, not kept):
+  both columns produced.

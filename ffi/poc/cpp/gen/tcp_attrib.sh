@@ -20,7 +20,8 @@
 #   h2    A, D (H2_CTL), Cf, Cf-q (ring 24), Cf-zc on each of H2_CTL, H2_H16 (AK_H2_COALESCE=16), H2_PR; d/16 k=1
 #         and 8, d/4 k=1, c/P5.4 k=1 and 8 (Cf-zc d only); uds and tcp; H2_ROUNDS rounds; as `cpu`, plus strace
 #   sweep TCP only: A, D once; Cf, Cf-q per h2 variant (SW_STOCK, SW_BATCH at AK_H2_COALESCE=16) and core
-#         --workers in SW_WORKERS; SW_WLS, SW_ROUNDS; client and server perf stat, irq_time; strace for writes
+#         --workers in SW_WORKERS; SW_WLS, SW_ROUNDS; client and server perf stat, irq_time; strace for writes;
+#         allocprobe processes for Cf-q at k >= 8 (allocations of at least 1 MiB per call)
 #   p4    A (ctl core arm), Cf with CTL_CORE (p1-p3, crates.io h2, AK_H2_COALESCE=1) and Cf with H16_CORE
 #         (p1-p3 + p4 patched h2, AK_H2_COALESCE=16), ring 6 + lock; uds and tcp; d/16 k=1 and 8, d/4
 #         k=1, c/P5.4 k=1; 3 rounds, UDS and TCP back to back (alternating order), perf stat -p on the
@@ -48,6 +49,7 @@ say() { echo "$*" | tee -a "$LOG"; }
 SCR=$(mktemp -d)
 trap '[ -n "${SSP:-}" ] && kill $SSP 2>/dev/null; [ -f "$SCR/serve.state" ] && bash "$SERVE" stop > /dev/null 2>&1; rm -rf "$SCR"' EXIT
 taskset -c "$OSSET" gcc -O2 -shared -fPIC -o "$SCR/ncpus.so" gen/ncpus_shim.c -ldl || exit 1
+taskset -c "$OSSET" gcc -O2 -shared -fPIC -o "$SCR/allocprobe.so" gen/allocprobe.c -ldl || exit 1
 export AK_SERVE_STATE=$SCR/serve.state
 AK_SERVER_THREADS=$WK AK_SERVER_TCP=0 bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
 bash "$SERVE" warm 64 > "$SCR/warm.log" 2>&1 || { cat "$SCR/warm.log"; exit 1; }
@@ -87,9 +89,12 @@ print(len(out), ' '.join(out))" "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"
   echo "# kernel: $(uname -r); $(zcat /proc/config.gz 2>/dev/null | grep -E '^CONFIG_(IRQ_TIME_ACCOUNTING|VIRT_CPU_ACCOUNTING_GEN|HZ)=' | tr '\n' ' ')(IRQ_TIME_ACCOUNTING: softirq time is charged to no task; the client's CLOCK_PROCESS_CPUTIME_ID and getrusage miss it, perf stat task-clock and cycles do not)"
   echo "# netfilter (read-only): modules $(lsmod | awk 'NR>1 && $1 ~ /^(nf|nft|xt|ipt|ip6t|ip_set|br_netfilter|bridge|x_tables|iptable|ip6table)/ {printf "%s ", $1}'); nf_conntrack_count $(cat /proc/sys/net/netfilter/nf_conntrack_count 2>&1); bridge-nf-call-iptables $(cat /proc/sys/net/bridge/bridge-nf-call-iptables 2>&1); ruleset: nft $(command -v nft > /dev/null && (nft list ruleset 2>&1 | wc -l) || echo 'not installed'), iptables-save $(command -v iptables-save > /dev/null && (iptables-save 2>&1 | head -1) || echo 'not installed')"
   echo "# machine $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER" "$SPID")"; } >> "$LOG"
-# run TR LIB KNOBS CELL DIRS PAY K N FILE MODE   (MODE: plain | stat | record | strace | ss)
+# run TR LIB KNOBS CELL DIRS PAY K N FILE MODE   (MODE: plain | stat | record | strace | ss | alloc)
+# alloc: gen/allocprobe.c preloaded beside the shim, the allocations of at least 1 MiB made during the loop
+# (profile big_allocs); not timed, the probe wraps malloc
 run() {
-  local tr=$1 lib=$2 knobs=$3 cell=$4 dirs=$5 pay=$6 k=$7 n=$8 f=$9 mode=${10} tgt ct pre=() ctl=() spf=""
+  local tr=$1 lib=$2 knobs=$3 cell=$4 dirs=$5 pay=$6 k=$7 n=$8 f=$9 mode=${10} tgt ct pre=() ctl=() spf="" pl="$SCR/ncpus.so"
+  [ "$mode" = alloc ] && pl="$SCR/ncpus.so:$SCR/allocprobe.so"
   if [ "$tr" = tcp ]; then tgt="ipv4:$TCPA"; ct="http://$TCPA"; else tgt="unix:$SOCK"; ct="unix:$SOCK"; fi
   aff_ok
   case "$mode" in
@@ -107,7 +112,7 @@ run() {
     ss) ( while :; do echo "@ $(date +%s.%N)"; ss -tinmH "( sport = :$PORT or dport = :$PORT )" 2>/dev/null; sleep 0.005; done ) > "$f.ss.txt" &
         SSP=$! ;;
   esac
-  taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$SCR/ncpus.so" \
+  taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$pl" \
     AK_SHIM_NCPUS=$GCPUS "$EXE" --target "$tgt" --core-target "$ct" --expect 540422 --transport pinned --cells "$cell" \
     --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers ${RUN_WK:-$WK} --profile "$n" --profile-chunks $([ "$mode" = strace ] && echo 1 || echo 10) \
     "${ctl[@]}" > "$f.out" 2>&1 || { tail -3 "$f.out"; say "FAILED $f"; [ -n "$spf" ] && kill -INT "$spf"; exit 1; }
@@ -263,6 +268,17 @@ case "$PHASE" in
         unit "$u"
         [[ " ${SW_STRACE_WORKERS:-1 8} " == *" $uw "* ]] || [[ "$un" =~ ^(A|D)$ ]] || continue
         RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$ns" "$OUT/$PHASE/strace-$name-tcp-$un" strace
+      done
+    done
+    # Cf-q at k >= 8 on both variants and every W: allocations of at least 1 MiB per call (the landed ring of 6,
+    # one shared encode context, against the 24 of the patch runs; coordinator 2026-10-01). Minor faults per call
+    # are in every timed process's getrusage.
+    for name in ${SW_WLS:-d16k1 d16k8 c54k1 c54k8}; do
+      set -- ${WLD[$name]}; dirs=$1; pay=$2; k=$3; n=$4
+      [ "$k" -ge 8 ] || continue
+      for u in "${UNITS[@]}"; do
+        unit "$u"; [ "$cell" = Cf-q-retain ] || continue
+        RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$(( n / 2 > 5 ? n / 2 : 5 ))" "$OUT/$PHASE/alloc-$name-tcp-$un" alloc
       done
     done ;;
   p4)
