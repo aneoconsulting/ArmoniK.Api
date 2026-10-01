@@ -2143,3 +2143,19 @@ changes.
   gen/allocprobe.c preloaded beside the shim) for Cf-q at every W on the k >= 8 workloads, and sweep_tables.py prints
   minor faults per call for every timed process and the allocations in a section 2b. Smoke (c903 cores, not kept):
   both columns produced.
+
+## 2026-10-01, the TCP worker sweep: builds and checks; the timed sweep void (second suspend)
+
+- gen/sweep_chain.sh: build, checks on both variants, sweep, each under the lock; logs/cpp/opt/physical-probe/tcp-sweep/.
+- Cores (build/cores.txt; at 1b3388b2 with p1 82f3712a and h2-batch e4853d55): stock 788a879f (no-unknown ac194fff,
+  crates.io h2-0.4.19 compiled in, no AK_H2_COALESCE string); h2-batch b09e32cd (no-unknown d4d7c253, the h2-batch-src
+  that poc/codec/h2-batch/build.sh materialised compiled in, AK_H2_COALESCE present). The CMake targets drive the
+  committed build.sh unchanged; Cargo.lock left unmodified after the builds. campaign_rpc resolves the stock core.
+- Checks over TCP on both variants (DC_STEP1_CORE=1: each binary's core printed): conformance 608/0 and 478/0, codec
+  pre-check 0 failed both builds, --semantics 1 14/14 both builds, check-stream 16 benchmarks (A, D, Cf, Cf-q at d/4
+  and d/16, k = 1 and 8), every call's count and SHA-256 matched. 0 failures.
+- The sweep ran 21:43-21:52 local (3 rounds, 514 s) entirely after the machine's second suspend (19:53:03-20:36:33
+  local) with the IRQs unpinned (header: 13 IRQs on the measured CPUs against 5). NOT A RESULT: kept as
+  sweep-NOT-A-RESULT/, tables-NOT-A-RESULT.md, runner-NOT-A-RESULT.log, NOT-A-RESULT.txt. No figure read from it.
+- The rerun is `SC_ONLY_SWEEP=1 gen/sweep_chain.sh ../../logs/cpp/opt/physical-probe/tcp-sweep` once the owner has
+  re-pinned the IRQs and re-armed the inhibitor.

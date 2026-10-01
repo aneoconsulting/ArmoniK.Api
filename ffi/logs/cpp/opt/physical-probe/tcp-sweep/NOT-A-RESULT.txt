@@ -1,0 +1,7 @@
+sweep-NOT-A-RESULT/, tables-NOT-A-RESULT.md, runner-NOT-A-RESULT.log: NOT A RESULT.
+The machine suspended 2026-10-01 19:53:03 to 20:36:33 local (CEST); after the resume the sleep inhibitor had expired
+and 10 IRQs were back on CPUs 0-19, including eno1 and enp5s0 queues on CPUs 3 to 8 (the CLIENT and SERVER sets;
+coordinator's message). This sweep ran 21:43:27 to 21:52 local, entirely after the resume; its header records 13 IRQs
+with effective affinity on the measured CPUs (5 in the earlier runs). Kept as the record of what ran, not for use.
+The builds (build/, 21:23-21:32 local) and the checks (checks/, 21:32-21:43 local) stand (coordinator): they are
+correctness, not timing.
