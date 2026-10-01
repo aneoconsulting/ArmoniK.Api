@@ -4045,3 +4045,41 @@ on the current stack, core-only and host-too, against stock h2 and p4, UDS and T
 - Syscall census (strace -f -c, untimed, h2-pr903-p4/strace/): on UDS stock spends about one
   epoll_wait per writev (d/16 k=1 Cf: 1,069 writes, 1,017 epoll_wait per call); p4 and PR+p4 cut
   both (127/82 and 130/63); on TCP epoll_wait is about 30 per call for every condition.
+
+## 2026-10-01 (evening) -- owner decisions: p1 landed, h2-batch variant, TCP only, TCP worker sweep
+
+- Decisions relayed by the coordinator: h2 has two variants (stock = crates.io 0.4.19, the default;
+  h2-batch = the PR 903 port + p4, AK_H2_COALESCE=16); zero copy (p6, p7) and p2, p3, p5, p8, p9
+  are dropped; p1 is kept in the core; TCP only for every benchmark; Docker keeps running
+  (netfilter recorded as a machine condition).
+- p1 landed in poc/codec/crates/ak-rt/src/enc.rs (82f3712a): SPARES 3 -> 6 and `lock()` in place
+  of `try_lock()` on the buffer's return. Constants, because the core had no experiment knobs (the
+  only env read is the AK_RPC_TRACE diagnostic); the C++ queue cell's 24 is recorded at the
+  constant. Full gate PASSED on the working tree before the commit (logs/rust/opt/p1-landed).
+- h2-batch: tree 4861bb0 = b871798 + "AK_H2_COALESCE defaults to 16". The committed patch is the
+  src/ part of git diff v0.4.19 4861bb0 (the h2-support mock change is test-only and not in the
+  crate); the crates.io .crate was packaged from d57d1b8 and its src/ equals the tag's.
+  poc/codec/h2-batch/build.sh materialises h2 from the cached .crate (sha256 checked against
+  Cargo.lock), patches it, builds with --config patch.crates-io.h2.path and restores the
+  Cargo.lock cargo rewrites. Both cores built by it and checked (pre-check 0 failures,
+  upload_check, rpc_semantics, burst_check); an untimed TCP smoke shows 78 writes per d/16 Cf
+  call on h2-batch without any env (the default is in effect), 1036 on stock.
+- gen/inproc.sh: TCP by default (AK_IP_TRANSPORT), base env per process (task-clock, server
+  task-clock, target, TCP_NODELAY check), netfilter modules in the header; the two historical
+  drivers that alternate transports per condition pin AK_IP_TRANSPORT=uds.
+- TCP worker sweep (gen/tcp_sweep.sh, logs/rust/opt/tcp-sweep; low 310 s, high 578 s): stock and
+  h2-batch cores built by poc/codec/h2-batch/build.sh, AK_CORE_WORKERS 1/2/4/8, cells A, Cf, Cf-cb
+  (and Cf-m4, Cf-cb-m4 at k >= 16), d/16 and c/P5.4 at k 1/8/16/32, 3 processes each. Measured
+  (task-clock ms per call, medians): d/16 k=1 Cf stock 14.73 (1 worker) to 15.31 (8), h2-batch
+  7.32 to 7.86; Cf-cb stock 14.73 to 15.81, h2-batch 7.49 to 8.74 (no monotone order); A 14.86 to
+  15.07 in every condition. Voluntary switches grow with the core worker count (Cf stock 10 ->
+  46 per call, Cf-cb 21 -> 78). One connection gives the same wall per call at k 1 to 32 (about
+  13 ms stock, 8 to 9 ms h2-batch per 16 MiB: about 1.3 and 2.0 GB/s); four connections (-m4)
+  4.4 to 4.8 ms stock, 3.5 to 3.9 h2-batch. Server task-clock per d/16 call at k >= 8: stock about
+  21 to 23 ms, h2-batch about 14. c/P5.4: h2-batch Cf about 1.8 to 2.3 against stock 3.8 to 4.1.
+  TCP k >= 8 rows are bimodal by round (p10 near 9 ms against a median near 15 for A and stock
+  cells), as in the PR 903 sessions.
+- Machine: a second suspend, 19:53:03 to 20:36:33 local, despite the inhibitor; the IRQs were not
+  re-pinned before the gate, the checks and the sweep (10 on 0-19; eno1 effective on CPU 3, about
+  7.5 interrupts/s measured after the sweep). Noticed only after the sweep, from the header's irq
+  line; recorded in tcp-sweep/NOTES.txt.

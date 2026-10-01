@@ -39,6 +39,8 @@ for sess in ["low", "high"]:
     if os.path.exists(h):
         print(f"## header ({sess})\n")
         print("```\n" + open(h).read() + "```\n")
+if os.path.exists(os.path.join(out, "NOTES.txt")):
+    print("## Notes\n\n" + open(os.path.join(out, "NOTES.txt")).read())
 print("CPU = client task-clock; P5.4 throughput in calls/s only.\n")
 order = ["A", "Cf", "Cf-cb", "Cf-m4", "Cf-cb-m4"]
 for work in ["d16k1", "d16k8", "d16k16", "d16k32", "c54k1", "c54k8", "c54k16", "c54k32"]:

@@ -1,0 +1,12 @@
+- MACHINE CONDITION: the machine was suspended a second time, from 2026-10-01 19:53:03 to 20:36:33 local
+  (17:53:03Z to 18:36:33Z; kernel "PM: suspend entry/exit"), although a sleep inhibitor had been
+  reported in place. After that resume the IRQ affinities were NOT re-pinned before this sweep (low session
+  started 19:23:06Z, high 19:32:42Z): the headers show 10 IRQs on 0-19 and 39 on 0,9-10,19 (the baseline
+  after the first re-pin was 2 on 0-19 and 47 on 0,9-10,19). Effective CPUs of the 0-19 IRQs, read after the
+  sweep: mei_me 1, enp5s0 4, enp5s0-rx-0 5, rx-1 6, tx-0 7, tx-1 8, nvme0q0 2, eno1 3 (all benchmark
+  CPUs). Rates read after the sweep over 20 s: eno1 150 interrupts on CPU 3 (about 7.5/s), every other one 0.
+  The loopback path raises no device interrupt. The gate (p1-landed) and the h2-variant checks and smoke
+  ran in the same state (correctness only).
+- Affinity line present in all 192 jsonl; TCP_NODELAY on every live client socket of every process
+  (3 or 11 sockets); the server's thread count was 9 at the start and end of every round.
+- Benchmark wall: low 310 s, high 578 s (888 s in all).

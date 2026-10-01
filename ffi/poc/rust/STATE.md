@@ -8,12 +8,40 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. The h2 PR 903 unit (2026-10-01) is measured (section below). The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
+| **Next step** | none assigned after the TCP worker sweep (section "Owner decisions of 2026-10-01"); the core worker count is the owner's decision. The h2 PR 903 unit (2026-10-01) is measured (section below). The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Owner decisions of 2026-10-01 and what was done
+
+- **p1 is landed** in poc/codec (82f3712a): `SPARES = 6`, and a returned buffer waits for the
+  ring's lock. Both are constants: the core read no experiment knobs, so AK_SPARES and
+  AK_SPARE_LOCK are now no-ops. The C++ queue cell (one context shared by its calls) used 24 in
+  its p1 measurement; that is recorded at the constant. Full gate PASSED on it
+  (`logs/rust/opt/p1-landed/gate.log`).
+- **h2 has two variants.** stock (crates.io 0.4.19) is the default build. h2-batch (PR 903 port
+  + p4, AK_H2_COALESCE default 16) is opt-in: `poc/codec/h2-batch/` holds the patch (sha256
+  c64ffd96...), `build.sh`, and a README with provenance and how each slice builds a variant
+  (e4853d55). Checked on both cores (`logs/rust/opt/h2-batch-variant/`): pre-check 0 failures,
+  upload_check, rpc_semantics and burst_check PASSED. The default of 16 is in effect without env
+  (78 writes per d/16 call on h2-batch, against 1036 on stock).
+- **Dropped by the owner:** p2, p3, p5, p8 and p9, and zero copy (p6, p7). Their patches stay
+  under logs/ as history; the probe cells that use them are found by dlsym and are skipped on a
+  core without them.
+- **TCP only** for every benchmark from now on. gen/inproc.sh is TCP by default
+  (AK_IP_TRANSPORT=uds is the explicit option): server on 127.0.0.1, TCP_NODELAY read back on
+  every client socket, CPU from task-clock with the process clock beside it, server task-clock
+  per call, netfilter modules in the header. Drivers not built on inproc.sh are UDS-only history.
+- **TCP worker sweep:** gen/tcp_sweep.sh, AK_CORE_WORKERS 1/2/4/8 by {stock, h2-batch}, cells A,
+  Cf, Cf-cb (Cf-m4, Cf-cb-m4 at k >= 16), d/16 MiB and c/P5.4 at k 1/8/16/32; tables by
+  gen/sweep_tcp_tables.py: `logs/rust/opt/tcp-sweep/` (888 s of benchmark, 3 processes per
+  condition). Run after a SECOND suspend (19:53:03 to 20:36:33 local) with the IRQs NOT re-pinned:
+  10 IRQs on 0-19 with effective CPUs on benchmark CPUs (eno1 on CPU 3, about 7.5 interrupts/s
+  measured afterwards; the others idle). Recorded in tcp-sweep/NOTES.txt; whether it stands is
+  the coordinator's call.
 
 ## h2 PR 903 unit (2026-10-01, owner): measured, two interleaved sessions
 
@@ -643,6 +671,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep: low/ (k 1, 8) and high/ (k 16, 32), tables.md |
+| `logs/rust/opt/p1-landed/`, `logs/rust/opt/h2-batch-variant/` | the gate on the landed p1; both h2 variants' builds (sha256), checks and the TCP-default smoke |
 | `logs/rust/opt/patches/h2-pr903/` | h2 PR 903: HOWTO (sha, version, port, trees, patch sha256), the port and original patches, h2-tests/ (port, stock, original, before/after the port fix), build/ (core and host-too sha256, h2 compiled in), checks/, counts-uds/ (write counts incl. the original head), timed/ (session 1: stock, p4, PR core-only, PR host-too; h2pr903.md), record/, record2/ (perf report and annotate, d/16 k=1 UDS, Cf) |
 | `logs/rust/opt/patches/h2-pr903-p4/` | PR 903 + p4 combined: HOWTO, patches, h2-tests/ (N=1, N=16, p4 alone N=16), build/, checks-N1/, checks-N16/, partial-writes/, counts-uds/, timed/ (session 2: stock, p4, PR, PR+p4; h2pr903.md), headline-both-sessions.md |
 | `logs/rust/opt/physical-probe/stability/` | the stability campaign: per-process medians in run order, gap distributions, A2 - A floor, pooled absolutes (stability.md) |
