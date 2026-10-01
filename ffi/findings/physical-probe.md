@@ -234,3 +234,50 @@ or near 15 ms).
   arriving mid-burst; why grpc++ writes larger chunks on TCP than on UDS.
 - The managed hosts (C#, Java, Python) on this machine.
 - grpc++ 1.54.0 (ArmoniK's version) on this machine.
+
+## 9. Response deliveries over TCP (2026-10-01 evening, after the re-pin)
+
+Client CPU (task-clock) / wall per call in ms, medians, core workers 8; p10-p90 and the
+1-worker rows are in `logs/rust/opt/delivery/tables.md` and
+`logs/cpp/opt/physical-probe/deliv/tables.md`. "p1" is the core as committed (stock h2);
+"p1 + h2-batch" the opt-in variant. Rust A runs on stock h2 unless marked host-too; C++ A
+is grpc++ 1.80 and does not use h2. The delivery forms are harness constructions and
+differ by host: Rust A-blk is `block_on` per caller thread, A-cb a completion callback
+counting down a latch, A-q completions posted to one mpsc queue drained by one thread;
+C++ A is the sync stub, A-cb grpc++'s callback API, A-q grpc++'s CompletionQueue drained
+by the issuing thread. Rust Cf-q uses one encode context per in-flight call; C++ Cf-q one
+shared context (ring of 6). C++ Cf-cb sends each next chunk from the previous send's
+completion, on a core thread.
+
+| Rust | blocking | callback | queue |
+|---|---|---|---|
+| A, stock h2, d/16 k=1 | 15.31 / 14.70 | 15.08 / 14.79 | 15.00 / 14.75 |
+| A, stock h2, d/16 k=8 | 15.15 / 13.13 | 15.51 / 13.16 | 15.47 / 13.33 |
+| A, stock h2, c/P5.4 k=1 | 3.73 / 4.15 | 3.82 / 4.22 | 3.85 / 4.25 |
+| A, host-too h2-batch, d/16 k=1 | 7.99 / 8.46 | 8.02 / 9.17 | 7.90 / 9.04 |
+| A, host-too h2-batch, d/16 k=8 | 8.20 / 8.51 | 7.65 / 10.01 | 7.47 / 10.22 |
+| Cf, p1, d/16 k=1 | 15.33 / 13.33 | 15.83 / 13.55 | 15.56 / 13.37 |
+| Cf, p1, d/16 k=8 | 15.45 / 13.08 | 15.33 / 12.99 | 14.69 / 12.97 |
+| Cf, p1 + h2-batch, d/16 k=1 | 7.98 / 9.14 | 7.82 / 9.34 | 7.93 / 9.04 |
+| Cf, p1 + h2-batch, d/16 k=8 | 8.24 / 8.36 | 8.67 / 8.20 | 7.24 / 8.31 |
+| Cf, p1 + h2-batch, c/P5.4 k=8 | 2.22 / 3.08 | 1.93 / 2.87 | 1.87 / 2.73 |
+
+| C++ | blocking | callback | queue |
+|---|---|---|---|
+| A (grpc++), d/16 k=1 | 7.80 / 9.15 | 8.37 / 8.93 | 7.67 / 11.17 |
+| A (grpc++), d/16 k=8 | 9.16 / 8.86 | 8.73 / 9.73 | 8.32 / 9.18 |
+| A (grpc++), c/P5.4 k=8 | 2.55 / 3.77 | 2.05 / 3.47 | 2.03 / 3.38 |
+| Cf, p1, d/16 k=1 | 15.28 / 13.28 | 15.55 / 13.82 | 15.61 / 13.24 |
+| Cf, p1, d/16 k=8 | 15.98 / 13.06 | 15.23 / 12.97 | 13.12 / 12.14 (bimodal) |
+| Cf, p1 + h2-batch, d/16 k=1 | 8.01 / 9.23 | 8.01 / 9.43 | 8.57 / 8.69 |
+| Cf, p1 + h2-batch, d/16 k=8 | 8.84 / 8.13 | 8.53 / 8.23 | 7.88 / 8.46 |
+| Cf, p1 + h2-batch, c/P5.4 k=8 | 2.26 / 2.93 | 1.76 / 2.97 | 1.78 / 2.74 |
+
+Writes per d/16 MiB call: Rust A and every stock-h2 core cell about 1,030 to 1,050;
+h2-batch 73 to 89 at k = 1 and 42 to 70 at k = 8; grpc++ 11 to 15. The TCP worker sweeps
+(`logs/rust/opt/tcp-sweep/`, `logs/cpp/opt/physical-probe/tcp-sweep/`) move no cell by
+more than about 1 ms between 1 and 8 core workers.
+
+**A harness defect found here:** the C++ check-stream grids sent the queue cells' d calls
+to the server's unchecked UploadStream since 2026-09-28, so Cf-q was verified by byte
+count, not SHA-256, until this run (fixed in `campaign_rpc.cpp`; the new checks pass).
