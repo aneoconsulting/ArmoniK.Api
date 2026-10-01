@@ -962,7 +962,13 @@ frame (before, two: the prefix, then the bytes); and the buffer recycling an enc
 context does after `ak_call_*_enc` / `ak_enc_take_owned` keeps a **ring of 3 spare
 buffers** instead of one slot, so a stream with several messages in flight encodes
 into a recycled buffer rather than a fresh one (fresh 2 MiB buffers page-fault:
-`logs/rust/opt/stream-probe2`). A host that copies bytes in (`ak_call_unary`,
+`logs/rust/opt/stream-probe2`). **Since 2026-10-01 (owner, D13) the ring keeps 6 spare
+buffers, and a returned buffer waits for the ring's lock instead of being freed when
+the lock is busy** (commit 82f3712a): with 3, the transport held more buffers than the
+ring kept and each 16 MiB streamed call still allocated 1.6 to 2.0 fresh 4 MiB buffers
+(`logs/rust/opt/patches/p1-ring/`). One context shared by several concurrent streams
+(the C++ queue cell's drain thread feeds 8 through one) needed 24 to stop allocating at
+k = 8 (`logs/cpp/opt/physical-probe/patches/p1-ring/spares24/`). A host that copies bytes in (`ak_call_unary`,
 `ak_call_send`) goes framed too, with one copy of its own into a core buffer.
 
 **`ak_call_unary_enc` is additive (2026-09-26, the Rust optimisation
