@@ -4083,3 +4083,19 @@ on the current stack, core-only and host-too, against stock h2 and p4, UDS and T
   re-pinned before the gate, the checks and the sweep (10 on 0-19; eno1 effective on CPU 3, about
   7.5 interrupts/s measured after the sweep). Noticed only after the sweep, from the header's irq
   line; recorded in tcp-sweep/NOTES.txt.
+- After the owner's re-pin (verified: 47 IRQs on 0,9-10,19, 2 on 0-19; `sleep infinity` inhibitor):
+  the TCP sweep re-run into logs/rust/opt/tcp-sweep (308 + 578 s); the first run renamed
+  tcp-sweep-unpinned-irqs. Medians of the two runs agree within the run-to-run spread (e.g. d/16
+  k=1 Cf stock 14.63 to 15.26 against 14.73 to 15.31 ms; h2-batch 7.00 to 8.22 against 7.32 to
+  8.13).
+- Response-delivery comparison (owner): new probe cells A-blk, A-cb, A-q, Cf-q (stream_probe
+  `delivery_batch`, a Caller::Batch: one caller thread per cell issues each batch of k and waits by
+  the cell's delivery). Checks: every new cell passes the server's byte count and SHA-256 (d) and
+  the response length (c) on stock, h2-batch and host-too; the plant control (AK_PROBE_PLANT=1,
+  one byte more expected) first PASSED on A-blk: A-blk was built from build_call("A"), which
+  never sees the plant (the control did its job: the cell's expectation was not the one under
+  test). Fixed (A-blk, A-cb and A-q build cell A's call through one function, a_call) and every
+  plant then failed with the planted error. Timed: sessions a (112 s) and cf (227 s), TCP, 3
+  processes per condition. Raw (task-clock ms per call, medians): d/16 k=1 A stock 15.0 to 15.3 in
+  every A form, host-too 7.7 to 8.0; Cf / Cf-cb / Cf-q stock w8 15.33 / 15.83 / 15.56, h2-batch w8
+  7.98 / 7.82 / 7.93; with 1 core worker stock 14.70 / 14.72 / 14.53, h2-batch 7.82 / 8.10 / 7.90.

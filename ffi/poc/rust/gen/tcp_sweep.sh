@@ -25,6 +25,8 @@ for cw in 1 2 4 8; do
   done
 done
 export AK_IP_CONDS="${C# }" AK_IP_REPS=${AK_TS_REPS:-3} AK_IP_TRANSPORT=tcp
+# AK_TS_NOTE: a line written to OUT_DIR/NOTES.txt (machine state the header cannot read, e.g. a re-pin)
+[ -n "${AK_TS_NOTE:-}" ] && echo "$AK_TS_NOTE" > "$OUT/NOTES.txt"
 if [ "${AK_TS_SKIP_LOW:-0}" != 1 ]; then
   flock /tmp/ak-physical-bench.lock env AK_IP_WORKS="d16k1 d16k8 c54k1 c54k8" AK_IP_CELLS=A,Cf,Cf-cb AK_IP_CELLS_C=A,Cf,Cf-cb bash gen/inproc.sh "$OUT/low"
 fi

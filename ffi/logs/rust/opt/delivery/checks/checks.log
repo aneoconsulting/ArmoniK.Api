@@ -1,0 +1,32 @@
+# stock: probe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target-deliv/release/stream_probe (38f9fc7b27c4e040), core /data/csdt/ak-cores/stock/release (fe9f27d51c2a95ba)
+check stock-k1-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=1, server byte count + SHA-256): rc 0, 14 rounds
+check stock-k1-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=1, response length): rc 0, 7 rounds
+check stock-k8-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=8, server byte count + SHA-256): rc 0, 14 rounds
+check stock-k8-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=8, response length): rc 0, 7 rounds
+# h2-batch: probe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target-deliv/release/stream_probe (38f9fc7b27c4e040), core /data/csdt/ak-cores/h2-batch/release (6e5a84caeab66f39)
+check h2-batch-k1-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=1, server byte count + SHA-256): rc 0, 14 rounds
+check h2-batch-k1-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=1, response length): rc 0, 7 rounds
+check h2-batch-k8-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=8, server byte count + SHA-256): rc 0, 14 rounds
+check h2-batch-k8-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=8, response length): rc 0, 7 rounds
+# host-too: probe /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/poc/rust/target-deliv-h2batch/release/stream_probe (f18f20bb0fc7f43f), core /data/csdt/ak-cores/h2-batch/release (6e5a84caeab66f39)
+check host-too-k1-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=1, server byte count + SHA-256): rc 0, 14 rounds
+check host-too-k1-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=1, response length): rc 0, 7 rounds
+check host-too-k8-16MiB (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, 16MiB,4MiB, k=8, server byte count + SHA-256): rc 0, 14 rounds
+check host-too-k8-P5.4 (A,A-blk,A-cb,A-q,Cf,Cf-cb,Cf-q, P5.4, k=8, response length): rc 0, 7 rounds
+plant A-blk 4MiB (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-blk 4MiB: cell A: the server received 4194304 data bytes, expected 4194305
+plant A-blk P5.4 (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-blk P5.4: cell A upload response 0 B, expected 1
+plant A-cb 4MiB (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-cb 4MiB: cell A: the server received 4194304 data bytes, expected 4194305
+plant A-cb P5.4 (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-cb P5.4: cell A upload response 0 B, expected 1
+plant A-q 4MiB (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-q 4MiB: cell A: the server received 4194304 data bytes, expected 4194305
+plant A-q P5.4 (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up A-q P5.4: cell A upload response 0 B, expected 1
+plant Cf-q 4MiB (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up Cf-q 4MiB: cell Cf-q: the server received 4194304 data bytes, expected 4194305
+plant Cf-q P5.4 (one byte more expected): rc 101 (FAILED as required): panicked at crates/campaign/src/bin/stream_probe.rs:1264:49:
+warm-up Cf-q P5.4: Cf-q upload response 0 B, expected 1
+checks rc=0

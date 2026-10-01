@@ -37,11 +37,21 @@ here. This file states what exists and what was checked; the choice is the owner
   per call, netfilter modules in the header. Drivers not built on inproc.sh are UDS-only history.
 - **TCP worker sweep:** gen/tcp_sweep.sh, AK_CORE_WORKERS 1/2/4/8 by {stock, h2-batch}, cells A,
   Cf, Cf-cb (Cf-m4, Cf-cb-m4 at k >= 16), d/16 MiB and c/P5.4 at k 1/8/16/32; tables by
-  gen/sweep_tcp_tables.py: `logs/rust/opt/tcp-sweep/` (888 s of benchmark, 3 processes per
-  condition). Run after a SECOND suspend (19:53:03 to 20:36:33 local) with the IRQs NOT re-pinned:
-  10 IRQs on 0-19 with effective CPUs on benchmark CPUs (eno1 on CPU 3, about 7.5 interrupts/s
-  measured afterwards; the others idle). Recorded in tcp-sweep/NOTES.txt; whether it stands is
-  the coordinator's call.
+  gen/sweep_tcp_tables.py: `logs/rust/opt/tcp-sweep/` (886 s of benchmark, 3 processes per
+  condition), run after the owner's re-pin (47 IRQs on 0,9-10,19, 2 on 0-19, sleep inhibitor
+  without limit). The first run, after a second suspend with the IRQs NOT re-pinned, is kept as
+  `tcp-sweep-unpinned-irqs/` (its medians agree with the re-run within the run-to-run spread).
+- **Response-delivery comparison** (owner): gen/delivery.sh, gen/deliv_tables.py, raw figures in
+  `logs/rust/opt/delivery/tables.md`. Harness-only cells in stream_probe (`delivery_batch`):
+  A-blk (block_on from caller threads), A-cb (spawned, completion callback on the runtime worker
+  counting down a latch the caller parks on), A-q (spawned, completions posted to one mpsc queue
+  per cell drained by the caller thread), Cf-q (the core's ak_queue, one per cell, one caller
+  thread issues k and drains, one encode context per in-flight slot). Session a: A forms on stock
+  and on h2-batch in the host (host-too; target-deliv-h2batch); session cf: A, Cf, Cf-cb, Cf-q on
+  {stock, h2-batch} x core workers {8, 1}. Checked before timing (delivery/checks: server byte
+  count + SHA-256 for d, response length for c, plant control fails each new cell); the plant
+  first passed on A-blk, a defect in its construction, fixed before timing. Builds:
+  gen/deliv_build.sh (target-deliv, target-deliv-h2batch).
 
 ## h2 PR 903 unit (2026-10-01, owner): measured, two interleaved sessions
 
@@ -671,7 +681,8 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
-| `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep: low/ (k 1, 8) and high/ (k 16, 32), tables.md |
+| `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep after the re-pin: low/ (k 1, 8) and high/ (k 16, 32), tables.md; `tcp-sweep-unpinned-irqs/` the same run before the re-pin (machine condition in its NOTES.txt) |
+| `logs/rust/opt/delivery/` | the response-delivery comparison: build.raw, checks/, a/ and cf/ sessions, tables.md |
 | `logs/rust/opt/p1-landed/`, `logs/rust/opt/h2-batch-variant/` | the gate on the landed p1; both h2 variants' builds (sha256), checks and the TCP-default smoke |
 | `logs/rust/opt/patches/h2-pr903/` | h2 PR 903: HOWTO (sha, version, port, trees, patch sha256), the port and original patches, h2-tests/ (port, stock, original, before/after the port fix), build/ (core and host-too sha256, h2 compiled in), checks/, counts-uds/ (write counts incl. the original head), timed/ (session 1: stock, p4, PR core-only, PR host-too; h2pr903.md), record/, record2/ (perf report and annotate, d/16 k=1 UDS, Cf) |
 | `logs/rust/opt/patches/h2-pr903-p4/` | PR 903 + p4 combined: HOWTO, patches, h2-tests/ (N=1, N=16, p4 alone N=16), build/, checks-N1/, checks-N16/, partial-writes/, counts-uds/, timed/ (session 2: stock, p4, PR, PR+p4; h2pr903.md), headline-both-sessions.md |

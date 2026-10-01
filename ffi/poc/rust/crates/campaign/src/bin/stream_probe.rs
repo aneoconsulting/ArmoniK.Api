@@ -143,6 +143,38 @@ enum Caller {
     Threads(Vec<std::sync::mpsc::Sender<()>>, std::sync::mpsc::Receiver<Result<(), String>>),
     /// k > 1: k tasks spawned per batch.
     Tasks(Arc<tokio::runtime::Runtime>, Arc<dyn Fn(usize) -> grid::Fut + Send + Sync>, usize),
+    /// The delivery cells (A-cb, A-q, Cf-q): ONE caller thread issues each batch of k calls and
+    /// waits for all k by the cell's own delivery (any k, 1 included); `run(n)` is n batches.
+    Batch(std::sync::mpsc::Sender<usize>, std::sync::mpsc::Receiver<Result<Vec<u64>, String>>),
+}
+
+/// One batch of `k` calls of a delivery cell, issued and waited for on the calling thread.
+type BatchFn = Arc<dyn Fn(usize) -> Result<(), String> + Send + Sync>;
+
+impl Caller {
+    fn batch(f: BatchFn, k: usize) -> Caller {
+        let (jtx, jrx) = std::sync::mpsc::channel::<usize>();
+        let (dtx, drx) = std::sync::mpsc::channel();
+        std::thread::Builder::new().name("caller".into()).spawn(move || {
+            for n in jrx {
+                let mut r = Ok(Vec::with_capacity(n));
+                for _ in 0..n {
+                    let c0 = campaign::process_clock_ns();
+                    if let Err(e) = f(k) {
+                        r = Err(e);
+                        break;
+                    }
+                    if let Ok(v) = r.as_mut() {
+                        v.push((campaign::process_clock_ns() - c0) / k as u64);
+                    }
+                }
+                if dtx.send(r).is_err() {
+                    break;
+                }
+            }
+        }).unwrap();
+        Caller::Batch(jtx, drx)
+    }
 }
 
 impl Caller {
@@ -199,7 +231,7 @@ impl Caller {
     /// `n` calls; the process CPU of each, read on the thread that runs it.
     fn run(&self, n: usize) -> Result<Vec<u64>, String> {
         match self {
-            Caller::Thread(j, d) => {
+            Caller::Thread(j, d) | Caller::Batch(j, d) => {
                 j.send(n).map_err(|_| "caller gone".to_string())?;
                 d.recv().map_err(|_| "caller gone".to_string())?
             }
@@ -812,7 +844,12 @@ fn core_zc(conn: &Conn, chunks: usize, k: usize) -> Call {
 
 /// One (cell, size) call of the probe on `conn` (the per-cell constructors).
 fn build_call(cell: &'static str, conn: &Conn, label: &'static str, chunks: usize, k: usize, base: &dyn Fn(&'static str) -> &'static str) -> Call {
-    if cell == "Ff-1f" {
+    if cell == "A-blk" {
+        // see delivery_batch: a caller thread blocks in Runtime::block_on on cell A's call
+        let _ = base;
+        let (rt, f) = a_call(conn, label, chunks, k);
+        Call::Blocking(Arc::new(move |i| rt.block_on(f(i))))
+    } else if cell == "Ff-1f" {
         ff_one_frame(conn, label, chunks, k)
     } else if cell == "Df-1f" {
         df_one_frame(conn, label, chunks, k)
@@ -836,6 +873,214 @@ fn build_call(cell: &'static str, conn: &Conn, label: &'static str, chunks: usiz
     } else {
         grid::call_of_d(base(cell), conn, chunks, grid::slots(k), (chunks * grid::CHUNK) as u64, std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1"))
     }
+}
+
+/// The response-delivery comparison (2026-10-01, owner). Harness-only forms of cell A (tonic,
+/// the host's own transport; the same tonic call as A: grid::call_of_d / call_of_c of "A") and
+/// the core's queue delivery for Cf:
+///   A-blk  blocking: a caller thread (k caller threads at k > 1) runs `Runtime::block_on` on the
+///          call; the cell runtime's workers drive the connection, the caller's thread polls the
+///          call's future.
+///   A-cb   callback: the caller thread spawns the k calls on the cell's runtime; each task, when
+///          its call completes, runs a completion callback ON THE RUNTIME WORKER that records the
+///          result and counts down a latch; the last one unparks the caller thread, which waits
+///          parked (std::thread::park) until all k have completed.
+///   A-q    queue: the caller thread spawns the k calls on the cell's runtime; each task posts its
+///          completion (slot, result) into ONE queue per cell (std::sync::mpsc); the caller thread
+///          drains the queue (recv, blocking) until all k have completed.
+///   Cf-q   the core's completion queue (ak_queue): ONE queue per cell, ONE caller thread issues
+///          the k calls and drains (ak_queue_next) until all k have completed, as the C++ slice's
+///          Cf-q does. Direction d: per call ak_call_open, chunk j encoded into the call's slot
+///          context (one context per in-flight slot, as Cf's caller threads have; the C++ cell's
+///          AK_Q_SLOT_CTX=1 form) and sent with ak_call_send_enc_q; the next chunk is encoded and
+///          sent from the drain when the previous send completes (one pending send per call),
+///          then ak_call_recv_q; the response checked on the draining thread (server data byte
+///          count, and the SHA-256 on the check path). Direction c: ak_call_unary_enc_q per slot,
+///          the response length checked.
+/// A (tonic tasks awaited by block_on, the probe's reference A), Cf (blocking) and Cf-cb (the
+/// core's callback into a tokio oneshot, awaited by tasks on the cell's runtime) are unchanged.
+/// AK_PROBE_PLANT=1 (the checks' negative control only): these cells expect one byte more than
+/// the server receives (d) or answers (c), so every call must fail.
+fn plant() -> u64 {
+    std::env::var("AK_PROBE_PLANT").map_or(0, |v| (v == "1") as u64)
+}
+/// Cell A's call (the delivery cells' tonic call), with the plant control applied.
+fn a_call(conn: &Conn, label: &'static str, chunks: usize, k: usize) -> (Arc<tokio::runtime::Runtime>, Arc<dyn Fn(usize) -> grid::Fut + Send + Sync>) {
+    let c = if chunks == 0 { grid::call_of_c("A", conn, label, grid::slots(k), plant()) } else {
+        grid::call_of_d("A", conn, chunks, grid::slots(k), (chunks * grid::CHUNK) as u64 + plant(),
+                        std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1"))
+    };
+    match c {
+        Call::Async(rt, f) => (rt, f),
+        _ => unreachable!("cell A is async"),
+    }
+}
+fn delivery_batch(cell: &str, conn: &Conn, label: &'static str, chunks: usize, k: usize) -> Option<BatchFn> {
+    let a_call = || a_call(conn, label, chunks, k);
+    match cell {
+        "A-cb" => {
+            let (rt, f) = a_call();
+            struct Latch { left: std::sync::atomic::AtomicUsize, err: std::sync::Mutex<Option<String>>, waiter: std::thread::Thread }
+            Some(Arc::new(move |k| {
+                let latch = Arc::new(Latch { left: std::sync::atomic::AtomicUsize::new(k), err: std::sync::Mutex::new(None), waiter: std::thread::current() });
+                for i in 0..k {
+                    let l = latch.clone();
+                    let on_done = move |r: Result<(), String>| {
+                        if let Err(e) = r {
+                            l.err.lock().unwrap().get_or_insert(e);
+                        }
+                        if l.left.fetch_sub(1, std::sync::atomic::Ordering::AcqRel) == 1 {
+                            l.waiter.unpark();
+                        }
+                    };
+                    let fut = f(i);
+                    rt.spawn(async move { on_done(fut.await) });
+                }
+                while latch.left.load(std::sync::atomic::Ordering::Acquire) != 0 {
+                    std::thread::park();
+                }
+                let e = latch.err.lock().unwrap().take();
+                e.map_or(Ok(()), Err)
+            }))
+        }
+        "A-q" => {
+            let (rt, f) = a_call();
+            let (tx, rx) = std::sync::mpsc::channel::<(usize, Result<(), String>)>();
+            let rx = std::sync::Mutex::new(rx);
+            Some(Arc::new(move |k| {
+                for i in 0..k {
+                    let (tx, fut) = (tx.clone(), f(i));
+                    rt.spawn(async move {
+                        let _ = tx.send((i, fut.await));
+                    });
+                }
+                let rx = rx.lock().unwrap();
+                let mut first = Ok(());
+                for _ in 0..k {
+                    let (_slot, r) = rx.recv().map_err(|_| "A-q: queue closed".to_string())?;
+                    if first.is_ok() {
+                        first = r;
+                    }
+                }
+                first
+            }))
+        }
+        "Cf-q" => Some(core_q(conn, label, chunks, k)),
+        _ => None,
+    }
+}
+
+/// Cell Cf-q (see `delivery_batch`).
+fn core_q(conn: &Conn, label: &'static str, chunks: usize, k: usize) -> BatchFn {
+    use ak_abi::*;
+    use campaign::generated::roots::R_UploadResultDataMessage as M5;
+    use campaign::Ops;
+    let cc = match conn {
+        Conn::Core(cc) => cc.clone(),
+        _ => panic!("Cf-q needs a core connection"),
+    };
+    struct Q(*mut ak_queue);
+    unsafe impl Send for Q {}
+    unsafe impl Sync for Q {}
+    let q = Arc::new(Q(unsafe { ak_queue_new() }));
+    assert!(!q.0.is_null(), "ak_queue_new");
+    let sl = grid::slots(k);
+    const WAIT_MS: u64 = 60_000;
+    const OP_SEND: u64 = 1;
+    const OP_RECV: u64 = 2;
+    const OP_UNARY: u64 = 3;
+    let next = |q: *mut ak_queue| -> Result<ak_completion, String> {
+        let mut c = ak_completion::default();
+        let r = unsafe { ak_queue_next(q, &mut c, WAIT_MS) };
+        if r != AK_QUEUE_OK { Err(format!("Cf-q: ak_queue_next {r}")) } else { Ok(c) }
+    };
+    if chunks == 0 {
+        let (f_val, _, _) = grid::m5_values(label);
+        return Arc::new(move |k| unsafe {
+            let mut h = vec![std::ptr::null_mut::<ak_call>(); k];
+            for s in 0..k {
+                M5::f_encode(&sl[s].ctx, f_val, true).map_err(|e| format!("Cf-q encode {e}"))?;
+                h[s] = ak_call_unary_enc_q(cc.raw(), grid::UPLOAD.as_ptr(), grid::UPLOAD.len(), sl[s].ctx.enc, q.0, ((s as u64) << 8) | OP_UNARY);
+                if h[s].is_null() {
+                    return Err(format!("Cf-q: ak_call_unary_enc_q refused (slot {s})"));
+                }
+            }
+            let mut r = Ok(());
+            for _ in 0..k {
+                let mut c = next(q.0)?;
+                let s = (c.tag >> 8) as usize;
+                if s >= k || c.tag & 0xff != OP_UNARY || h[s].is_null() {
+                    return Err(format!("Cf-q: a completion matching no pending call (tag {})", c.tag));
+                }
+                if r.is_ok() {
+                    r = if c.status != AK_OK { Err(format!("Cf-q upload status {}, grpc status {}", c.status, c.grpc_status)) }
+                        else if c.bytes.len as u64 != plant() { Err(format!("Cf-q upload response {} B, expected {}", c.bytes.len, plant())) } else { Ok(()) };
+                }
+                if !c.bytes.owner.is_null() { ak_bytes_free(&mut c.bytes); }
+                ak_call_destroy(h[s]);
+                h[s] = std::ptr::null_mut();
+            }
+            r
+        });
+    }
+    let pl = grid::stream_payload(chunks);
+    let want = (chunks * grid::CHUNK) as u64 + plant();
+    let check = std::env::var("AK_PROBE_CHECK").map_or(false, |v| v == "1");
+    let (path, sha) = if check { (grid::STREAM_CHECK, Some(&pl.sha256)) } else { (grid::STREAM, None) };
+    Arc::new(move |k| unsafe {
+        let mut h = vec![std::ptr::null_mut::<ak_call>(); k];
+        let mut sent = vec![0usize; k];
+        let send = |s: usize, h: *mut ak_call, j: usize| -> Result<(), String> {
+            M5::f_encode(&sl[s].ctx, &pl.f[j], true).map_err(|e| format!("Cf-q encode {e}"))?;
+            let rc = ak_call_send_enc_q(h, sl[s].ctx.enc, (j + 1 == chunks) as i32, q.0, ((s as u64) << 8) | OP_SEND);
+            if rc != AK_OK { Err(format!("Cf-q: ak_call_send_enc_q rc {rc} (slot {s}, chunk {j})")) } else { Ok(()) }
+        };
+        for s in 0..k {
+            h[s] = ak_call_open(cc.raw(), path.as_ptr(), path.len(), AK_CALL_CLIENT_STREAM, std::ptr::null());
+            if h[s].is_null() {
+                return Err("Cf-q: ak_call_open NULL".into());
+            }
+            send(s, h[s], 0)?;
+        }
+        let mut left = k;
+        let mut r = Ok(());
+        while left > 0 {
+            let mut c = next(q.0)?;
+            let (s, op) = ((c.tag >> 8) as usize, c.tag & 0xff);
+            if s >= k || h[s].is_null() {
+                return Err(format!("Cf-q: a completion matching no pending call (tag {})", c.tag));
+            }
+            if op == OP_SEND {
+                if c.status != AK_OK {
+                    return Err(format!("Cf-q: send completion status {} (slot {s})", c.status));
+                }
+                sent[s] += 1;
+                if sent[s] < chunks {
+                    send(s, h[s], sent[s])?;
+                } else {
+                    let rc = ak_call_recv_q(h[s], q.0, ((s as u64) << 8) | OP_RECV);
+                    if rc != AK_OK {
+                        return Err(format!("Cf-q: ak_call_recv_q rc {rc}"));
+                    }
+                }
+                continue;
+            }
+            if op != OP_RECV {
+                return Err(format!("Cf-q: unexpected operation in tag {}", c.tag));
+            }
+            if r.is_ok() {
+                r = if c.status != AK_OK { Err(format!("Cf-q stream status {}, grpc status {}", c.status, c.grpc_status)) } else {
+                    let b = if c.bytes.len == 0 { &[][..] } else { std::slice::from_raw_parts(c.bytes.ptr, c.bytes.len) };
+                    grid::stream_response(b, want, sha).map_err(|e| format!("cell Cf-q: {e}"))
+                };
+            }
+            if !c.bytes.owner.is_null() { ak_bytes_free(&mut c.bytes); }
+            ak_call_destroy(h[s]);
+            h[s] = std::ptr::null_mut();
+            left -= 1;
+        }
+        r
+    })
 }
 
 /// `<cell>-m<N>` (N >= 2): the base cell and N.
@@ -925,6 +1170,7 @@ fn main() {
     let cells: Vec<&'static str> = env("AK_PROBE_CELLS", "A,D,Df,C,Cf,C-cb,Cf-cb,B,Bf".to_string())
         .split(',').map(|s| match s { "Df-chan" => "Df-chan", "Cf-split" => "Cf-split", "C-split" => "C-split",
                                        "Cf-cb-split" => "Cf-cb-split", "C-cb-split" => "C-cb-split", "A2" => "A2", "Ff-1f" => "Ff-1f", "Df-1f" => "Df-1f", "Cf-cb-1rt" => "Cf-cb-1rt", "Cn-1rt" => "Cn-1rt", "Cf-enc" => "Cf-enc", "Cf-encp" => "Cf-encp", "Cf-zc" => "Cf-zc", "Cf-zcp" => "Cf-zcp", "Cf-zcw" => "Cf-zcw",
+                                       "A-blk" => "A-blk", "A-cb" => "A-cb", "A-q" => "A-q", "Cf-q" => "Cf-q",
                                        s if multi_of(s).is_some() => Box::leak(s.to_string().into_boxed_str()) as &'static str,
                                        s => grid::cell_of(s) }).collect();
     // AK_PROBE_SKIP_MISSING=1: a cell that needs an entry the loaded core does not export (a
@@ -955,7 +1201,7 @@ fn main() {
     let base = |c: &'static str| -> &'static str {
         let c = multi_of(c).map_or(c, |(b, _)| b);
         match c { "Df-chan" => grid::cell_of("Df"), "Cf-split" => grid::cell_of("Cf"), "C-split" => grid::cell_of("C"),
-                  "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", "Ff-1f" => grid::cell_of("Ff"), "Df-1f" => grid::cell_of("Df"), "Cf-cb-1rt" => grid::cell_of("Cf-cb"), "Cn-1rt" => grid::cell_of("Ff"), "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" => grid::cell_of("Cf"), c => c }
+                  "Cf-cb-split" => grid::cell_of("Cf-cb"), "C-cb-split" => grid::cell_of("C-cb"), "A2" => "A", "Ff-1f" => grid::cell_of("Ff"), "Df-1f" => grid::cell_of("Df"), "Cf-cb-1rt" => grid::cell_of("Cf-cb"), "Cn-1rt" => grid::cell_of("Ff"), "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" | "Cf-q" => grid::cell_of("Cf"), "A-blk" | "A-cb" | "A-q" => "A", c => c }
     };
     // (label, chunks): direction d's sizes, or direction c's payload with chunks = 0.
     let sizes: Vec<(&'static str, usize)> = env("AK_PROBE_SIZES", "16MiB,4MiB".to_string()).split(',')
@@ -1011,8 +1257,10 @@ fn main() {
                 work.push((cell, label, caller));
                 continue;
             }
-            let call = build_call(cell, &conns[ci], label, chunks, k, &base);
-            let caller = Caller::new(&call, k);
+            let caller = match delivery_batch(cell, &conns[ci], label, chunks, k) {
+                Some(f) => Caller::batch(f, k),
+                None => Caller::new(&build_call(cell, &conns[ci], label, chunks, k, &base), k),
+            };
             caller.run(warm).unwrap_or_else(|e| panic!("warm-up {cell} {label}: {e}"));
             work.push((cell, label, caller));
         }
@@ -1120,7 +1368,7 @@ fn main() {
     }
     // AK_PERF_CELL: perf counts only that cell's timed rounds (every other cell runs as usual).
     let perf_cell: Option<&'static str> = std::env::var("AK_PERF_CELL").ok().map(|c| match c.as_str() {
-        "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" | "Cf-cb-1rt" | "Cn-1rt" | "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" => Box::leak(c.into_boxed_str()) as &'static str,
+        "Df-chan" | "Cf-split" | "C-split" | "Cf-cb-split" | "C-cb-split" | "A2" | "Ff-1f" | "Df-1f" | "Cf-cb-1rt" | "Cn-1rt" | "Cf-enc" | "Cf-encp" | "Cf-zc" | "Cf-zcp" | "Cf-zcw" | "A-blk" | "A-cb" | "A-q" | "Cf-q" => Box::leak(c.into_boxed_str()) as &'static str,
         s => grid::cell_of(s),
     });
     let mut perf_on = false;

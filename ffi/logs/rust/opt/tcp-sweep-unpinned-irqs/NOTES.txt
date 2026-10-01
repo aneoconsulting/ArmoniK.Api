@@ -1,3 +1,4 @@
+- SUPERSEDED for IRQ state: this sweep ran after the second suspend with the IRQs NOT re-pinned; re-run after the re-pin in ../tcp-sweep/.
 - MACHINE CONDITION: the machine was suspended a second time, from 2026-10-01 19:53:03 to 20:36:33 local
   (17:53:03Z to 18:36:33Z; kernel "PM: suspend entry/exit"), although a sleep inhibitor had been
   reported in place. After that resume the IRQ affinities were NOT re-pinned before this sweep (low session

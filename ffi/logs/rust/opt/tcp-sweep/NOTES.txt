@@ -1,0 +1,1 @@
+- Run after the owner's re-pin following the second suspend (19:53:03 to 20:36:33 local), verified by the coordinator and here before the run: 47 IRQs on 0,9-10,19 and 2 on 0-19; sleep inhibitor 'sleep infinity' (block, sleep) in place. Same driver, cores and conditions as ../tcp-sweep-unpinned-irqs/.
