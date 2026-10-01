@@ -1,0 +1,3 @@
+# rpc_server: shipped on unix:/tmp/aksrv.34FZFV/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 897467
+# rpc_server: pinned on unix:/tmp/aksrv.34FZFV/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 897467
+# rpc_server: pinned configuration on tcp 127.0.0.1:33275 (TCP_NODELAY set on every accepted socket), P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 897467

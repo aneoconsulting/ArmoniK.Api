@@ -1,0 +1,12 @@
+# burst check: AK_H2_COALESCE=unset (1); core /data/csdt/ak-cores/h2-batch/release
+ok   shipped: 4 x 16 MiB streams, checked: identical bytes
+ok   shipped: 4 x 4 MiB streams, checked: identical bytes
+ok   shipped: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 482.0 median 507.6 max 549.0
+ok   shipped: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   shipped: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 4 x 16 MiB streams, checked: identical bytes
+ok   pinned: 4 x 4 MiB streams, checked: identical bytes
+ok   pinned: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 407.8 median 437.3 max 459.8
+ok   pinned: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+BURST CHECK PASSED

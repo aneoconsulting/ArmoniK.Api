@@ -101,3 +101,17 @@ be selected per call.
 `SleepS` (answer after 3 s), `EchoS` (echo the request metadata) under the same service,
 used by the Rust slice's `bin/rpc_semantics`. Any other method path under the service is
 answered like Fetch.
+
+## The core's two h2 variants (2026-10-01)
+
+The core has two h2 variants. **stock** (crates.io h2 0.4.19) is every ordinary build.
+**h2-batch** is h2 PR 903 ported to 0.4.19 and combined with p4, with AK_H2_COALESCE
+defaulting to 16. It is opt-in and never in a default build. Build either one with
+`poc/codec/h2-batch/build.sh stock|h2-batch TARGET_DIR [FEATURES]`. `poc/codec/h2-batch/README.md`
+holds the patch's provenance and sha256, and says how each slice builds and loads a variant.
+The server (`bin/rpc_server`) is always built stock.
+
+Timed runs use TCP from 2026-10-01 (owner). `serve.sh` with `AK_SERVER_TCP=0` also listens on
+127.0.0.1 (TCP_NODELAY on accept) and writes `tcp 127.0.0.1:PORT` in its state file. Clients
+target `http://127.0.0.1:PORT`. `gen/inproc.sh` does this by default (`AK_IP_TRANSPORT=tcp`;
+`uds` is the explicit option).

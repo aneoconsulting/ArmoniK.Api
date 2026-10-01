@@ -21,7 +21,7 @@ CELLS=A,Df,Df-1f,Cf,Cf-cb,Cf-zc; CELLS_C=A,Df,Df-1f,Cf,Cf-cb
 COMMON="AK_HOST_WORKERS=8,AK_CORE_WORKERS=8,AK_SPARES=6,AK_SPARE_LOCK=1,$TUN"
 
 # 1. timed, in-process
-env AK_IP_SERVER_TCP=1 AK_IP_REPS=${AK_TU_REPS:-3} AK_IP_WORKS="d16k1 d16k8 d4k1 c54k1 c54k8" AK_IP_CELLS=$CELLS AK_IP_CELLS_C=$CELLS_C \
+env AK_IP_TRANSPORT=uds AK_IP_SERVER_TCP=1 AK_IP_REPS=${AK_TU_REPS:-3} AK_IP_WORKS="d16k1 d16k8 d4k1 c54k1 c54k8" AK_IP_CELLS=$CELLS AK_IP_CELLS_C=$CELLS_C \
     AK_IP_CONDS="uds=$B:$COMMON tcp=$B:AK_RPC_TARGET=http://@TCP@,AK_EXPECT_NODELAY=1,$COMMON" bash gen/inproc.sh "$OUT/timed"
 
 # 2-4 on one more server of the same configuration

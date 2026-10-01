@@ -1,0 +1,10 @@
+# h2 PR 903 checks, 2026-10-01T19:17:34Z; AK_H2_COALESCE=unset; core-only core /data/csdt/ak-cores/stock/release/libak_core.so sha256 fe9f27d51c2a95ba
+precheck-core-only: loads /data/csdt/ak-cores/stock/release/libak_core.so
+precheck-core-only: rc 0, # precheck: 5740 checks, 0 failures, 114 inputs, 5132 cases
+upload_check-core-only: loads /data/csdt/ak-cores/stock/release/libak_core.so
+upload_check-core-only: rc 0, UPLOAD CHECK PASSED
+rpc_semantics-core-only: loads /data/csdt/ak-cores/stock/release/libak_core.so
+rpc_semantics-core-only: rc 0, RPC SEMANTICS PASSED
+burst_check-core-only: loads /data/csdt/ak-cores/stock/release/libak_core.so
+burst_check-core-only: rc 0, BURST CHECK PASSED
+checks rc=0

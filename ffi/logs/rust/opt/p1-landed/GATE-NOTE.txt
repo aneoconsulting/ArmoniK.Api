@@ -1,0 +1,1 @@
+# gate run on the working tree = 82f3712a's core (p1 landed: enc.rs, committed after this gate passed, unchanged) + uncommitted driver scripts (gen/inproc.sh, gen/tcp_sweep.sh, ...) that the gate does not run; PATH with gen/cargo-shim, taskset -c 0,9,10,19, under the bench lock

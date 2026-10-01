@@ -1,0 +1,6 @@
+# ak-core stock, features rpc,init-guard, 2026-10-01T19:16:15Z
+fe9f27d51c2a95ba602fe36fda4fa6e9472dadc87bfa29f719afb9b725c15acc  /data/csdt/ak-cores/stock/release/libak_core.so
+    h2 compiled in: h2-0.4.19/src/codec/framed_write.rs
+# ak-core h2-batch, features rpc,init-guard, 2026-10-01T19:17:15Z
+6e5a84caeab66f398086de43614281298f5433d647ab6b6dbb1bcec0fbab2650  /data/csdt/ak-cores/h2-batch/release/libak_core.so
+    h2 compiled in: h2-batch-src/src/codec/framed_write.rs

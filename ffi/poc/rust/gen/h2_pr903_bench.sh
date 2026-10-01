@@ -32,5 +32,5 @@ for t in uds tcp; do
     C+=" prh-$t=$H:LD_LIBRARY_PATH=$CP-pr/release,$x"
   fi
 done
-env AK_IP_SERVER_TCP=1 AK_IP_REPS=${AK_H9_REPS:-3} AK_IP_WORKS="${AK_H9_WORKS:-d16k1 d16k8 d4k1 c54k1 c54k8}" \
+env AK_IP_TRANSPORT=uds AK_IP_SERVER_TCP=1 AK_IP_REPS=${AK_H9_REPS:-3} AK_IP_WORKS="${AK_H9_WORKS:-d16k1 d16k8 d4k1 c54k1 c54k8}" \
     AK_IP_CELLS=A,Cf,Cf-cb,Cf-zc AK_IP_CELLS_C=A,Cf,Cf-cb AK_IP_CONDS="${C# }" bash gen/inproc.sh "$OUT"

@@ -1,0 +1,4 @@
+stock d16k1 1 done at +3 s, server CPU ticks 142
+h2-batch d16k1 1 done at +5 s, server CPU ticks 139
+stock d16k8 1 done at +9 s, server CPU ticks 464
+h2-batch d16k8 1 done at +12 s, server CPU ticks 386
