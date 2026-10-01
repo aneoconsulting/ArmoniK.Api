@@ -18,7 +18,10 @@ in its container shows it executes (section 9).
 ## 2. Machine
 
 1. **One physical machine, bare metal, no other tenant.** Slices run **one after
-   another**, never concurrently. Nothing else runs during a slice.
+   another**, never concurrently. Nothing else runs during a slice. **Amended by
+   the owner 2026-10-01 (D15):** the reference machine's few, mostly idle Docker
+   containers may stay running, confined to the `OS` set; the netfilter modules they
+   load sit on the loopback TCP path and are recorded in every header.
 2. **Frequency:** governor `performance`, turbo **off**, SMT state recorded (either
    is allowed, but one state for the whole campaign). **Reference machine**
    (owner, 2026-09-26): an Intel Core i9-7900X, 10 cores and 20 threads on one
@@ -29,7 +32,12 @@ in its container shows it executes (section 9).
    machine.
 3. **Isolation:** the CPUs used for measurement are isolated from the scheduler
    (`isolcpus`/`nohz_full` or a cpuset cgroup), and one CPU is left for the OS and
-   the runner. The mechanism is recorded.
+   the runner. The mechanism is recorded. **On the reference machine (2026-09-30):**
+   no `isolcpus`; systemd `AllowedCPUs` on the system slices, IRQ affinity and the
+   owner's user processes on the `OS` set, the client and the server pinned by
+   `taskset`, and every server and client thread's affinity checked before and after
+   each process (a mismatch aborts before timing). The machine's sleep is inhibited
+   for the length of a run.
 4. **CPU sets, three of them, disjoint, on one NUMA node, and no two sets sharing
    SMT siblings:**
    - `CLIENT`: the process that is measured (codec benchmarks and RPC clients);
@@ -41,6 +49,13 @@ in its container shows it executes (section 9).
    `ffi/campaign.machine` and checked by `ffi/campaign.sh`, because stacks size
    their thread pools from them. **Every log header records each stack's worker
    thread counts.
+   **Amended by the owner 2026-09-29 (D8):** each set is 4 cores **with both SMT
+   threads** (`CLIENT` 1-4,11-14, `SERVER` 5-8,15-18, `OS` 0,9,10,19 on the reference
+   machine), and every pool is sized to 8 workers: the server, the host runtimes, the
+   core runtime, and grpc-core (which sizes itself from `_SC_NPROCESSORS_CONF`, not
+   from the affinity mask, so a slice states how it sizes it). `campaign.sh` and
+   `campaign.machine` still encode the earlier rule (no two siblings in one set,
+   FIX-PLAN WP12).
 
 ## 3. Runtimes and versions (owner's levels)
 
@@ -181,6 +196,11 @@ in its container shows it executes (section 9).
     **The socket is a Unix domain socket in every slice** (owner, 2026-09-26,
     R-H28). `packages/java` configures no UDS channel, so Java's `shipped` is
     grpc-java's defaults over Netty epoll, stated.
+    **Amended by the owner 2026-10-01 (D10): the transport is TCP over 127.0.0.1 in
+    every slice**, Nagle off on every client and server socket, read back on the live
+    sockets of each timed process (`getsockopt TCP_NODELAY`). Reason: over TCP the
+    stacks do not keep their Unix-socket ordering (`findings/physical-probe.md`
+    section 4), and TCP is closer to the target. Unix-socket figures are history.
 18. **Every call is checked**: status OK and response length equal to the
     expected payload; one failure aborts the run and produces no figure.
 
@@ -211,6 +231,16 @@ in its container shows it executes (section 9).
     clocks are no longer the campaign's CPU figure.
     `Process.TotalProcessorTime` and any counter coarser than 1 microsecond are not
     allowed. **Wall time** is recorded beside CPU for RPC cells.
+    **Amended 2026-10-01 for RPC cells over TCP:** on a kernel with
+    `CONFIG_IRQ_TIME_ACCOUNTING=y`, softirq time is charged to no task, and on
+    loopback the receive path runs in softirq on the sending CPU, so the process
+    clock misses part of the client's cost, by an amount that depends on the number
+    of writes (`findings/physical-probe.md` section 2). The RPC client's CPU figure is
+    perf `task-clock` of the whole process (a counter the process opens itself, or
+    `perf stat` around it), with the process clock recorded beside it and the
+    softirq time on the `CLIENT` CPUs. A `perf stat` attached around a cell inflates
+    it in proportion to its context switches, so it is used for categories, not for
+    absolutes.
 22. **Order of arms** (amended 2026-09-25, owner): on a machine that meets section 2,
     arms and cells may run in blocks, one after another, and need not be
     interleaved within a process. The order of arms is **rotated between launches**
@@ -262,6 +292,12 @@ in its container shows it executes (section 9).
     R-H32).
 25. **Allocator state** is warmed identically for every arm before timing (the
     Python J26 lesson); GC settings are stated, and managed GC is on.
+    **Amended by the owner 2026-09-30 (D9):** glibc's trim of the arena put the same
+    unchanged code in two cost modes between processes (Rust A, about 8 against 11
+    ms per 16 MiB call). Main figures run every cell of a native slice under
+    `GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432`,
+    stated in the header, and each comparison adds one default-allocator pass with
+    the minor faults per call recorded beside every gap.
 
 ## 6. Correctness before timing
 

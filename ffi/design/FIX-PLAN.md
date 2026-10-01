@@ -648,6 +648,39 @@ encodes through the core codec's FFI entries and sends two frames per message.
 Done when the difference is attributed to named mechanisms, stated as facts with the logs
 that carry them. No recommendation follows from it by itself (CLAUDE.md).
 
+**Status (2026-10-01): attributed on the campaign machine**, items 1 to 5 done in both
+slices; the facts, tables and logs are in `findings/physical-probe.md`. In short: on a
+Unix socket, blocking Cf is level with A from both hosts once Rust A's glibc trim mode is
+removed (pinned allocator), the remainder being the kernel reading a buffer another CPU
+encoded; Df's extra was its second body frame; the callback and queue deliveries' extra
+follows the core runtime's worker count. Over TCP loopback the core cells cost about
+twice grpc++ A's client CPU on 16 MiB uploads, because tonic's h2 writes one 16 KiB DATA
+frame per syscall and each write pays the TCP send path, netfilter and the loopback
+receive softirq on the client's CPU; batching the writes in h2 removes it. Two measurement
+defects found on the way: the process CPU clock misses softirq time on TCP
+(`CONFIG_IRQ_TIME_ACCOUNTING`), and attached `perf stat` inflates cells in proportion to
+their context switches.
+
+### WP12. The rest of the POC on TCP, with two h2 variants (owner, 2026-10-01)
+
+1. **Core:** land p1 (the ring of spare encode buffers) in `poc/codec`; add the h2-batch
+   build variant (h2 0.4.19 with the hyperium/h2#903 port and p4, `AK_H2_COALESCE` 16) as
+   an opt-in build beside the default stock h2. Both slices build and gate both variants.
+2. **Transport:** every timed run uses TCP 127.0.0.1 with Nagle off, read back on the live
+   sockets. RPC client CPU is perf task-clock (softirq-inclusive) beside the process clock
+   (CAMPAIGN req 21 as amended).
+3. **Core worker count:** repeat the worker sweep (1, 2, 4, 8 core workers) on TCP with
+   both h2 variants, in both slices, before the owner decides the main configuration.
+4. **Not pursued:** zero copy (p6, p7), the executor slot (p3), p2, p5, p8, p9. Their
+   patch files and logs stay under `logs/rust/opt/patches/` as history.
+5. **Runner:** `campaign.sh` and `campaign.machine` still encode the earlier CPU-set
+   rule (one thread per core, `AK_SET_SIZE` counting CPUs, a set holding two siblings
+   refused); D8 needs them updated before `campaign.sh` drives a run. The slices' own
+   drivers take `AK_CPU_CLIENT` / `AK_CPU_SERVER` from the environment and already run
+   the D8 sets.
+
+Done when both variants pass both slices' gates and the TCP worker sweep is recorded.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
@@ -723,6 +756,20 @@ Facts that bear on the design constraints and are not in `README.md`:
 | D5 | Streamed upload | worth having but not required; optional and scheduled last (WP3 item 22). **Amended 2026-09-27: required** in every slice, as CAMPAIGN req 14 directions (c) unary upload and (d) client-streamed upload, because they stress a path unary calls do not |
 | D6 | Traffic statistics | none exist; the report states the payload set is not weighted by traffic |
 | D7 | Generator | one generator implementation, wire rules written once (WP5); crucial |
+
+**Recorded 2026-09-29 to 2026-10-01** (the physical-machine probe,
+`findings/physical-probe.md`):
+
+| # | Question | Decision |
+|---|---|---|
+| D8 | CPU sets and SMT | CLIENT 1-4,11-14, SERVER 5-8,15-18 (both SMT threads of 4 cores each), OS 0,9,10,19; every pool sized to 8 workers (2026-09-29) |
+| D9 | Rust A's allocator mode | main figures with the glibc trim and mmap thresholds pinned for every cell, plus one default-allocator pass per comparison (2026-09-30) |
+| D10 | Transport | TCP 127.0.0.1 only, Nagle off, from 2026-10-01; Unix-socket results are history |
+| D11 | h2 | two core variants for the rest of the POC: stock h2 0.4.19 and h2-batch (#903 port + p4); nothing reported upstream for now |
+| D12 | Zero copy | not pursued: does not fit the ABI and the managed hosts, complex tradeoffs |
+| D13 | Other core patches | p1 kept; p2, p3, p5, p8, p9 dropped |
+| D14 | Core worker count | decided after the TCP worker sweep (WP12 item 3) |
+| D15 | Other tenants | Docker's few, mostly idle containers stay running; netfilter is recorded as a machine condition |
 
 Still open, and not blocking this plan: README section 15 question 6 (Java
 packaging), question 7 (audience of `REPORT.md`).

@@ -1079,7 +1079,27 @@ through it and `connect()` cannot complete until something drains; and
 `ak_runtime_destroy` must not run while a host thread might be inside a poll,
 because a thread inside a native call does not observe an interrupt. **Offered
 instead**: a current-thread runtime, described accurately as "no worker pool, one
-mostly-parked thread" rather than "shares the host's threads".
+mostly-parked thread" rather than "shares the host's threads". **Re-measured on the
+campaign machine (2026-09-30, `findings/physical-probe.md` section 3):** a Rust host
+driving the core's tasks through an executor slot (patch p3, cell Cf-cb-1rt) costs about
+1 ms more client CPU per 16 MiB streamed call than the callback delivery on the core's own
+runtime (533 against 216 context switches per call). The core's sockets belong to its own
+statically linked tokio, so a core thread still drives their readiness and every event
+becomes a cross-thread wake into the host's runtime. The cost of the callback and queue
+deliveries follows the core runtime's worker count instead (8 against 1 worker: about
++1.2 ms per 16 MiB call), which a host sets through `ak_runtime_opts`.
+
+**Not offered: a borrowed payload (zero copy) or a deferred encode (owner, 2026-10-01,
+D12).** Both were built as additive experiments and measured on the campaign machine:
+a send whose large `bytes` fields stay in host memory until a release callback (patches
+p6 and p7), and a send whose encode runs on the transport's writing worker through a host
+callback (p5). The borrowed payload removes the encode copy (about 2 ms per 16 MiB call)
+and puts Rust and C++ hosts below their incumbents on a Unix socket; it needs the host to
+lend memory it may not move or modify until the release, which Java heap arrays cannot do
+beyond a short critical call and C# only through pinning, and it moves the release later
+than the send's return. It is not pursued: it does not fit this ABI's managed hosts, and
+its tradeoffs are complex. The deferred encode saves 0.4 to 0.5 ms of CPU and costs more
+than that in wall time. The patches and their logs stay under `logs/rust/opt/patches/`.
 
 **The streaming concurrency contract** is unchanged from the base design:
 `send || recv` on one call allowed from any threads, `send || send` and
