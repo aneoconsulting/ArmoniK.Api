@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, and the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
+| **Status** | 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
 | **Physical machine build** | `nix-shell gen/shell.nix` (the system's nixpkgs): g++ 15.3.0, cmake 4.1.6, protobuf 34.1 (C++ version 7.34.1), grpc++ 1.80.0 (the "current" incumbent of CAMPAIGN section 3; ArmoniK's v1.54.0 is not on this machine), abseil 20260107; rustc 1.95.0 (ambient); Google Benchmark v1.8.3 Release (gbench_release, now installed with `CMAKE_INSTALL_LIBDIR=lib`). Changes this build needed: `shapes_pb` at C++17 when protobuf is 22 or later, plus utf8_range and protobuf.pc's abseil libraries; rt.cpp's protobuf UTF-8 ceiling through `utf8_range::IsStructurallyValid` there; `Arena::Create` for `CreateMessage` (removed); every cargo invocation's `CARGO_BUILD_BUILD_DIR` = its `CARGO_TARGET_DIR` (the machine's `~/.cargo/config.toml` sets one shared `build.build-dir`); grpc++ channels set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost" (below). Only the C++17 targets were built here; the C++11 / C++14 floor targets include protobuf headers, which need C++17 from protobuf 22 on, and were not attempted |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
@@ -197,6 +197,19 @@ k=1 is +7.29 ms of client task-clock (process clock +3.32), Cf-zc - A +5.42 (+1.
 agree within 0.25 ms and softirq time on the client CPUs is 0.00-0.06 ms per call. The core cells' TCP wall (13.0-13.3
 ms at k = 1 and 8) comes with no send-buffer wait (0 EAGAIN, sndbuf_limited never reported, Send-Q median 16-33 KiB).
 With p4 (73 writes per d/16 call), Cf-h16 - A on TCP is -0.63 ms of client task-clock at d/16 k=1 and +0.09 at k = 8.
+
+**h2 PR #903 from C++ (2026-10-01)** (`gen/h2_variants_build.sh`, `gen/tcp_attrib.sh OUT h2|h2b` with H2_CTL, H2_H16,
+H2_PR, H2_COMB, H2_ROUNDS, H2_STRACE, TA_NOTE; tables `gen/h2pr_tables.py OUT SESSION...`; logs
+`logs/cpp/opt/physical-probe/h2-pr903/`). Four cores built in the worktree on the p1-p9 stack, differing only in the
+workspace `[patch.crates-io] h2`: ctl (crates.io 0.4.19, 4cdfbb6c), h16 (p4, f4a3ab3e), pr903 (PR #903 port at the
+Rust agent's 221c21e, 5fd48371), pr903p4 (PR #903 + p4 at b871798, 8e43391f). The Rust agent's PR and combined cores
+differ from these by sha256 (build paths; same h2 sources, same exports), so these rebuilds are what was measured.
+The committed-to-be patch file `logs/rust/opt/patches/h2-pr903/h2-pr903-on-0.4.19.patch` predates 221c21e; the src
+patches actually built are in `h2-pr903/build/`. Checks per core: 0 failures, semantics 33/33, check-stream matched.
+Session 1 (`h2/`, three cores, 1 round, strace of every unit) and session 2 (`h2b/`, four cores, 2 rounds, strace of
+pr903p4 only); the machine was suspended before session 1 and its IRQs re-pinned (headers). Measured: PR #903 alone
+keeps one stream's frames as separate writes (1027 per d/16 call at k = 1) and batches across streams (439-454 at
+k = 8); with p4 combined, 73 (k = 1) and 36-52 (k = 8).
 
 ## What exists
 
@@ -666,7 +679,9 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
 
 ## Next step
 
-TCP attribution (`logs/cpp/opt/physical-probe/tcp-attrib/`) is done and reported; what follows is the coordinator's.
+The h2 PR #903 comparison (`logs/cpp/opt/physical-probe/h2-pr903/`) is done and reported, as is the TCP attribution
+(`tcp-attrib/`); what follows is the coordinator's. Open from the h2 run: why PR #903 alone costs more client CPU than
+crates.io h2 at the same write count (k = 1) while the server's CPU falls (no profile taken).
 Not attributed there: why grpc++ writes 1.2 MB chunks on TCP against about 360 KB on UDS, and what the netfilter
 module code is by name (the module symbols need root).
 
@@ -733,6 +748,7 @@ Physical machine (`logs/cpp/opt/physical-probe/`):
 | `stability/run1/`, `stability/run2/` | the stability campaign: `proc/*.out` (one-cell processes in run order), `runner.log` (headers, machine facts after every round), `tables.md` |
 | `tcp-vs-uds/` | UDS against TCP loopback (2026-10-01): `checks/client-nodelay.log` (TCP dialing, TCP_NODELAY read back on live client sockets), `proc/` (138 one-cell processes with the server's perf stat), `strace/`, `runner.log`, `tables.md`; its client CPU is the process clock, which misses softirq time (C43) |
 | `tcp-attrib/` | the TCP inversion attribution (2026-10-01): `runner.log` (per-phase headers: cores' sha256, endpoints, tcp sysctls, kernel accounting options, netfilter modules, machine facts; phase times), `perf/` (client and server perf record per cell and transport, gzip'd, with `*.net.json` buckets), `wall/` (`*.ss.txt.gz` ss -tinm samples, `*.st.*` strace per process with `threads.json` and `syscalls.txt`), `cpu/` (both CPU measures and irq_time per process, 2 rounds), `p4/` (ctl against h16 with A, 3 rounds, client and server perf stat, strace), `p4-run1/` (the same before the client perf stat existed: process clock only), `tables.md` |
+| `h2-pr903/` | h2 PR #903 against p4 and crates.io h2 (2026-10-01): `build/` (build logs per core with h2 source hashes and core sha256s, the src patches built, `pr-core-compare.txt`), `checks/` (deferred_checks per core), `h2/` (session 1: 98 timed processes + strace), `h2b/` (session 2: 248 timed processes + strace of pr903p4), `runner.log` (headers: suspend and IRQ re-pin note, cores, IRQs on the measured CPUs, machine facts), `tables-h2.md`, `tables-h2b.md` |
 | `checks/authority.log` | grpc++ 1.80's `unix:` authority reset by the shared server (RST_STREAM PROTOCOL_ERROR), and the calls passing with "localhost" |
 
 Optimisation unit (`logs/cpp/opt/`):

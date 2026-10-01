@@ -2100,3 +2100,18 @@ changes.
 - Session 1 (three cores, 1 round, 98 timed processes, 172 s; strace 98 processes, 179 s): writes per d/16 call Cf
   ctl 1027, h16 73, pr903 1027 at k = 1; 1028, 74-83, 439-454 at k = 8. PR #903 alone does not batch one stream's
   frames; it batches across streams.
+- Session 2 (h2b; four cores interleaved, 2 rounds; 124 timed processes per round, 415 s; strace of the pr903p4 units
+  only, 29 s). Fourth core pr903p4: my rebuild (8e43391f) from the Rust agent's h2-pr903p4 at b871798 (src identical;
+  no source file newer than the Rust agent's core d021602b, which differs from mine by sha256 only through the build:
+  exported symbols identical), AK_H2_COALESCE=16. Checks before timing as for the others: 0 failures throughout,
+  semantics 33/33 both builds, check-stream 20 benchmarks matched. Benchmark wall in all: 587 s timed + 208 s strace.
+  Rounds cut: session 1 one round, session 2 two (3 asked). No timed or strace process of mine ran in the Rust agent's
+  unlocked build window 05:14-05:17Z (session 1 ended 05:13:05Z, session 2 ran 05:27-05:34Z).
+- Measured (h2b, task-clock, per call, median [min-max] of 2 processes): d/16 k=1 TCP: A 7.69, Cf ctl 15.25, h16
+  7.51, pr903 17.09, pr903p4 8.34; UDS: A 8.55, ctl 8.38, h16 6.69, pr903 9.46, pr903p4 6.86. d/16 k=8 TCP: A 9.16,
+  ctl 15.41, h16 9.24, pr903 11.61 [10.46-12.75], pr903p4 8.50. Writes per d/16 call: pr903p4 73 (k=1), 36 on TCP and
+  52 on UDS (k=8); pr903 1027 and 439-454; h16 73 and 74-83. Softirq on the client CPUs, d/16 k=1 TCP: ctl 4.5,
+  pr903 4.85, h16 0.9, pr903p4 1.25 ms.
+- Not attributed: pr903 alone costs MORE client CPU than ctl at the same write count at k = 1 (d/16 UDS 9.46 against
+  8.38 task-clock; TCP 17.09 against 15.25) while the server's CPU on UDS is lower (7.5 against 12.1 ms per call) and
+  the UDS wall lower (7.95 against 8.61). No perf profile was taken of it.

@@ -1,0 +1,8 @@
+# h2_variants_build 2026-10-01T05:21:51Z: worktree /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/wt-cpp at 5f701a31, stack /home/csdt/work/aneo/armonik/ArmoniK.Api/ffi/logs/rust/opt/patches/p9-cb-at-take/stack-p1-p2-p3-p5-p6-p7-p8-p9.patch sha256 c13bec9fda6a303e
+===== pr903p4: h2 = /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903p4
+  stack diff (without the workspace Cargo.toml / Cargo.lock) sha256 c13bec9fda6a303e
+  built in 128 s
+  cargo tree: h2 v0.4.19 (/tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903p4)
+  h2 sources /tmp/claude-1000/-home-csdt-work-aneo-armonik-ArmoniK-Api/25aa83e6-3099-4e10-96fd-6061e612205d/scratchpad/cpp-h2-pr903p4: src/ sha256 db065cc806318664
+  core 8e43391f2238a5fc, no-unknown 89196ddd8cc98070; AK_H2_COALESCE string in core: 1
+# done 2026-10-01T05:23:59Z
