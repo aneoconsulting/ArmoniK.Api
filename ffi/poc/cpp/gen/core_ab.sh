@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Several builds of the shared core compared from C++ (physical probe, owner 2026-09-30), in
-# one-cell `campaign_rpc --profile` processes with no perf attached. Every arm runs THIS tree's
+# one-cell `campaign_rpc --profile` processes under a client perf stat (task-clock). Every arm runs THIS tree's
 # campaign_rpc with LD_LIBRARY_PATH on the arm's libak_core.so (it precedes the binary's RUNPATH),
 # so arms differ only in the core and in their knobs; runner.log names every core and its sha256.
 #
@@ -22,6 +22,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 FFI=$(cd "$HERE/../.." && pwd)
+. gen/net_target.sh
 OUT=${1:?usage: gen/core_ab.sh OUT_DIR PHASE ARM=CORE_DIR[:K=V,...] ...}; PHASE=${2:?phase}; shift 2
 mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1-4,11-14} AK_CPU_SERVER=${AK_CPU_SERVER:-5-8,15-18}
@@ -52,9 +53,9 @@ SCR=$(mktemp -d)
 trap '[ -f "$SCR/serve.state" ] && bash "$SERVE" stop > /dev/null 2>&1; rm -rf "$SCR"' EXIT
 taskset -c "$OSSET" gcc -O2 -shared -fPIC -o "$SCR/ncpus.so" gen/ncpus_shim.c -ldl || exit 1
 export AK_SERVE_STATE=$SCR/serve.state
-AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
+env $(net_server_env) AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
 bash "$SERVE" warm 64 > /dev/null 2>&1 || exit 1
-SOCK=$(sed -n 's/^pinned //p' "$AK_SERVE_STATE")
+net_endpoints "$AK_SERVE_STATE" || exit 1
 ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
 { echo "# core_ab $PHASE: commit $(git -C "$FFI" rev-parse --short HEAD)$(git -C "$FFI" status --porcelain -- poc/cpp/src poc/cpp/gen poc/codec | grep -q . && echo ' + UNCOMMITTED'), $(date -u +%FT%TZ)"
   echo "# exe $EXE sha256 $(sha256sum "$EXE" | cut -c1-16); server pid $(sed -n 's/^pid //p' "$AK_SERVE_STATE"), $(head -2 "$SCR/srv/rpc-server.log" | tail -1 | sed 's/.*tokio/tokio/')"
@@ -63,6 +64,7 @@ ENVX=""; [ "$PHASE" != default ] && ENVX=${AB_ENV:-}
     echo "# arm $n: core $r sha256 $(sha256sum "$r" | cut -c1-16); knobs: ${AKNOB[$n]:-none}"
     [ "$r" = "${ACORE[$n]}/libak_core.so" ] || { echo "REFUSED: arm $n resolves $r"; exit 1; }
   done
+  echo "# endpoint: $NET_DESC; client CPU: perf stat task-clock around the loop in the measure and default phases (FILE.client.perfstat)"
   echo "# every process: ${ENVX:-no extra environment (default allocator)}; cell knobs: ${AB_CELL_KNOBS:-none}"
   echo "# workloads: ${WLS[*]}; cells: ${CELLS[*]} (direction d only: ${AB_D_ONLY:-none}); rounds: $ROUNDS"
   echo "# CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER; server 8 workers; core --workers ${AB_CLIENT_WORKERS:-$WK}; grpc-core sysconf = $GCPUS (ncpus_shim); pinned; retain"
@@ -72,6 +74,8 @@ rm -f "$SCR/ctl" "$SCR/ack" "$SCR/sctl" "$SCR/sack"; mkfifo "$SCR/ctl" "$SCR/ack
 run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
   local arm=$1 cell=$2 dirs=$3 pay=$4 k=$5 n=$6 f=$7 st=${8:-} pre=() ctl=()
   case "$st" in
+    '') pre=(perf stat -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -x, -o "${f%.out}.client.perfstat" -e task-clock,cycles,context-switches --)
+      ctl=(--perf-ctl "$SCR/ctl,$SCR/ack") ;;
     strace) pre=(strace -f -qq -yy -s 24 -e signal=none -o "$SCR/st.txt" \
       -e trace=write,writev,sendmsg,sendto,read,readv,recvmsg,recvfrom,futex,epoll_wait,epoll_pwait,epoll_pwait2,mmap,munmap,madvise,mremap,brk,sched_yield,poll,ppoll,io_uring_enter) ;;
     stat:*) pre=(perf stat -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -x, -o "${st#stat:}" \
@@ -93,10 +97,11 @@ run() {  # run ARM CELL DIRS PAY K N OUTFILE [strace|stat:FILE|record:FILE]
     ctl=(--perf-ctl "$SCR/ctl,$SCR/ack;$SCR/sctl,$SCR/sack")
   fi
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="${ACORE[$arm]}" ${AKNOB[$arm]} $(cellknobs "$cell") $ENVX \
-    AK_SERVER_PID="$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned \
+    AK_SERVER_PID="$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" LD_PRELOAD="$SCR/ncpus.so" AK_SHIM_NCPUS=$GCPUS "$EXE" --target "$NET_TGT" --core-target "$NET_CTGT" --expect 540422 --transport pinned \
     --cells "$cell" --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers ${AB_CLIENT_WORKERS:-$WK} --profile "$n" \
     --profile-chunks $([ "$st" = strace ] && echo 1 || echo 10) "${ctl[@]}" > "$f" 2>&1 || { tail -3 "$f"; say "FAILED $f"; [ -n "$spf" ] && kill -INT $spf; exit 1; }
   if [ -n "$spf" ]; then kill -INT "$spf" 2> /dev/null; wait "$spf" 2> /dev/null; fi
+  net_nodelay_ok "$f" || { say "REFUSED $f: a client TCP socket without TCP_NODELAY, or none"; exit 1; }
 }
 NA=${#ARMS[@]}; NC=${#CELLS[@]}
 case "$PHASE" in

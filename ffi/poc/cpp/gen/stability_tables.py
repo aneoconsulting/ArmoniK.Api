@@ -49,7 +49,14 @@ def main(out, sel=None):
         cpu = [ch["cpu_ns"] / (ch["batches"] * p["k"]) / 1e6 for ch in p["chunks"]]
         wall = [ch["wall_ns"] / (ch["batches"] * p["k"]) / 1e6 for ch in p["chunks"]]
         ru = p["rusage"]
-        P.append({"seq": int(m.group(1)), "round": int(m.group(2)), "wl": m.group(3), "unit": m.group(4) + "/" + m.group(5),
+        pc = f[:-len(".out")] + ".client.perfstat"  # perf stat around the loop, task-clock in msec
+        tc = float("nan")
+        if os.path.exists(pc):
+            for l in open(pc):
+                c = l.strip().split(",")
+                if len(c) > 3 and c[2] == "task-clock" and c[0][:1].isdigit():
+                    tc = float(c[0]) / p["calls"]
+        P.append({"tc": tc, "seq": int(m.group(1)), "round": int(m.group(2)), "wl": m.group(3), "unit": m.group(4) + "/" + m.group(5),
                   "cpu": cpu, "wall": wall, "mcpu": statistics.median(cpu), "mwall": statistics.median(wall),
                   "csw": (ru["nvcsw"] + ru["nivcsw"]) / p["calls"], "flt": ru["minflt"] / p["calls"]})
     L = []
@@ -60,8 +67,12 @@ def main(out, sel=None):
     say("")
     say("## 1. Pooled per unit: CPU and wall per call, median [p10-p90] over every chunk of every process")
     say("")
-    say("| workload | unit | CPU | wall | csw | flt | processes |")
-    say("|---|---|---|---|---|---|---|")
+    say("CPU = the process clock per chunk (softirq time excluded on this kernel); task-clock = perf stat on the client "
+        "around the loop (softirq run in the process's context included), median [min-max] over processes; '-' for runs "
+        "before 2026-10-01, which had no client perf stat.")
+    say("")
+    say("| workload | unit | task-clock | CPU (process clock) | wall | csw | flt | processes |")
+    say("|---|---|---|---|---|---|---|---|")
     by = collections.defaultdict(list)
     for x in P:
         by[(x["wl"], x["unit"])].append(x)
@@ -70,7 +81,9 @@ def main(out, sel=None):
             xs = by.get((w, u))
             if not xs:
                 continue
-            say("| %s | %s | %s | %s | %.1f | %.1f | %d |" % (wt, u, mpq([c for x in xs for c in x["cpu"]]),
+            tcs = [x["tc"] for x in xs if x["tc"] == x["tc"]]
+            tcf = "%.3f [%.3f-%.3f]" % (statistics.median(tcs), min(tcs), max(tcs)) if tcs else "-"
+            say("| %s | %s | %s | %s | %s | %.1f | %.1f | %d |" % (wt, u, tcf, mpq([c for x in xs for c in x["cpu"]]),
                                                       mpq([c for x in xs for c in x["wall"]]),
                                                       statistics.median([x["csw"] for x in xs]),
                                                       statistics.median([x["flt"] for x in xs]), len(xs)))
@@ -79,8 +92,8 @@ def main(out, sel=None):
     say("")
     say("The cur/D-retain rows are the D - A floor (same codec as the core cells, grpc++ transport).")
     say("")
-    say("| workload | unit | CPU gap: median [p10-p90] (min..max) | wall gap: median [p10-p90] (min..max) | rounds |")
-    say("|---|---|---|---|---|")
+    say("| workload | unit | task-clock gap: median (min..max) | CPU gap: median [p10-p90] (min..max) | wall gap: median [p10-p90] (min..max) | rounds |")
+    say("|---|---|---|---|---|---|")
     for w, wt in WLS:
         a = {x["round"]: x for x in by.get((w, "cur/A"), [])}
         for u in UNITS[1:]:
@@ -90,7 +103,9 @@ def main(out, sel=None):
             gc = [x["mcpu"] - a[x["round"]]["mcpu"] for x in xs]
             gw = [x["mwall"] - a[x["round"]]["mwall"] for x in xs]
             f = lambda g: "%+.3f [%+.3f..%+.3f] (%+.3f..%+.3f)" % (statistics.median(g), q(g, 10), q(g, 90), min(g), max(g))
-            say("| %s | %s | %s | %s | %d |" % (wt, u, f(gc), f(gw), len(xs)))
+            gt = [x["tc"] - a[x["round"]]["tc"] for x in xs if x["tc"] == x["tc"] and a[x["round"]]["tc"] == a[x["round"]]["tc"]]
+            ft = "%+.3f (%+.3f..%+.3f)" % (statistics.median(gt), min(gt), max(gt)) if gt else "-"
+            say("| %s | %s | %s | %s | %s | %d |" % (wt, u, ft, f(gc), f(gw), len(xs)))
     say("")
     say("## 3. Drift: per-process median CPU (wall) per call in run order")
     for w, wt in WLS:

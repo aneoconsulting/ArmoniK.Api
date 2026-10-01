@@ -11,7 +11,8 @@
 #   poc/rust/serve.sh (four lines: shipped PATH, pinned PATH, pid N, dir D). The driver never
 #   starts, stops, restarts or warms it; before EVERY client process it checks that the pid is
 #   the one it read first and that the process's affinity is AK_CPU_SERVER, and aborts before
-#   timing otherwise. It dials unix:<pinned path>.
+#   timing otherwise. It dials 127.0.0.1 over TCP (AK_NET=tcp, the default since 2026-10-01; the shared
+#   server must then carry a tcp line) or unix:<pinned path> (AK_NET=uds); gen/net_target.sh.
 #   Own server (standalone use, and --smoke): with AK_SERVE_STATE unset, the driver starts one
 #   with serve.sh at the segment's worker count, warms it (serve.sh warm 50) and stops it.
 #
@@ -44,6 +45,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 FFI=$(cd "$HERE/../.." && pwd); REPO=$(git -C "$FFI" rev-parse --show-toplevel)
+. gen/net_target.sh
 SEG=""; OUT=""; SMOKE=0; GCPUS=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -137,7 +139,7 @@ OWN=0
 if [ -z "${AK_SERVE_STATE:-}" ]; then
   OWN=1; export AK_SERVE_STATE=$SCRATCH/serve.state
   bash "$SERVE" build > "$SCRATCH/sb.log" 2>&1 || { cat "$SCRATCH/sb.log"; say "serve.sh build failed"; exit 1; }
-  AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$OUT/server" > "$SCRATCH/srv.out" 2>&1 || { cat "$SCRATCH/srv.out"; say "the server did not start"; exit 1; }
+  env $(net_server_env) AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$OUT/server" > "$SCRATCH/srv.out" 2>&1 || { cat "$SCRATCH/srv.out"; say "the server did not start"; exit 1; }
   bash "$SERVE" warm 50 > "$OUT/server-warm.log" 2>&1 || { say "server warm-up failed"; bash "$SERVE" stop; exit 1; }
 fi
 cleanup() { [ $OWN = 1 ] && [ -f "$AK_SERVE_STATE" ] && bash "$SERVE" stop > /dev/null 2>&1; rm -rf "$SCRATCH"; true; }
@@ -145,6 +147,7 @@ trap cleanup EXIT
 [ -f "$AK_SERVE_STATE" ] || { say "REFUSED: no server state file $AK_SERVE_STATE"; exit 2; }
 SPID=$(sed -n 's/^pid //p' "$AK_SERVE_STATE"); SOCK=$(sed -n 's/^pinned //p' "$AK_SERVE_STATE")
 [ -n "$SPID" ] && [ -S "$SOCK" ] || { say "REFUSED: $AK_SERVE_STATE names no pid or no pinned socket"; exit 2; }
+m=$(net_endpoints "$AK_SERVE_STATE") || { say "$m"; exit 2; }; net_endpoints "$AK_SERVE_STATE"
 EXP=${AK_EXPECT_P22:-540422}   # SERVER.md; every client process checks it (pre-check and every call)
 server_check() {  # the pid unchanged, alive, pinned to AK_CPU_SERVER, AK_SERVER_THREADS = WK
   python3 - "$SPID" "$AK_CPU_SERVER" "$WK" "$(sed -n 's/^pid //p' "$AK_SERVE_STATE")" <<'PY'
@@ -176,7 +179,7 @@ m=$(server_check) || { say "REFUSED before any timing: $m"; exit 2; }
 NB_SPREAD=$(( $(echo "$SPREAD_CELLS" | tr ',' '\n' | wc -l) * 6 )); NB_MAIN=$(( $(echo "${MAIN_CELLS:-x}" | tr ',' '\n' | wc -l) * 6 ))
 {
   echo "# {\"physical_probe\": {\"slice\": \"cpp\", \"segment\": \"$SEG\", \"smoke\": $([ $SMOKE = 1 ] && echo true || echo false), \"instrumentation\": $([ $SMOKE = 1 ] || [ -n "$DIRTY" ] && echo true || echo false), \"commit\": \"$(git -C "$REPO" rev-parse HEAD)\", \"dirty\": $([ -n "$DIRTY" ] && echo true || echo false), \"date\": \"$(date -u +%FT%TZ)\","
-  echo "#   \"server\": {\"mode\": \"$([ $OWN = 1 ] && echo "own: serve.sh start with AK_SERVER_THREADS=$WK, serve.sh warm 50" || echo "shared: started by the owner, never started, stopped or warmed here")\", \"state\": \"$AK_SERVE_STATE\", \"pid\": $SPID, \"socket\": \"unix:$SOCK (pinned)\", \"expected_workers\": $WK, \"p22_bytes\": $EXP},"
+  echo "#   \"server\": {\"mode\": \"$([ $OWN = 1 ] && echo "own: serve.sh start with AK_SERVER_THREADS=$WK, serve.sh warm 50" || echo "shared: started by the owner, never started, stopped or warmed here")\", \"state\": \"$AK_SERVE_STATE\", \"pid\": $SPID, \"endpoint\": \"$NET_DESC\", \"cpu\": \"process clock per repetition (softirq time excluded on this kernel; per-cell task-clock needs the one-cell --profile drivers)\", \"expected_workers\": $WK, \"p22_bytes\": $EXP},"
   echo "#   \"client\": {\"exe\": \"${EXE#$HERE/}\", \"exe_sha256\": \"$EXE_SHA\", \"core\": \"${CORE#$HERE/}\", \"core_sha256\": \"$CORE_SHA\", \"core_features\": \"rpc,init-guard,unknown-fields\", \"core_runtime_workers\": $WK, \"caller_threads\": 8, \"grpc_cpus_shim\": \"$([ -n "$GCPUS" ] && echo "sysconf(_SC_NPROCESSORS_*) = $GCPUS (gen/ncpus_shim.c preloaded)" || echo "off: grpc-core sizes itself from sysconf(_SC_NPROCESSORS_CONF)")\", \"taskset\": \"$AK_CPU_CLIENT\"},"
   echo "#   \"grid\": {\"transport\": \"$T\", \"mode\": \"$MODE\", \"dirs\": \"c (P5.4), d (4MiB, 16MiB)\", \"inflight\": \"$KS\", \"spread_passes\": $SPREAD_PASSES, \"spread_cells\": \"$SPREAD_CELLS\", \"main_passes\": $MAIN_PASSES, \"main_cells\": \"$MAIN_CELLS\", \"order\": \"spread passes S1..S$SPREAD_PASSES, then main passes M1..M$MAIN_PASSES; one client process per pass; launch index = pass number (1..), rotating Google Benchmark's registration order; --benchmark_enable_random_interleaving within a pass\", \"repetitions_per_pass\": $ROUNDS, \"warmup_s_per_benchmark\": $WARM_S, \"fixed_iterations\": \"$ITERS\", \"benchmarks_per_pass\": {\"spread\": $NB_SPREAD, \"main\": $([ $MAIN_PASSES -gt 0 ] && echo $NB_MAIN || echo 0)}},"
   echo "#   \"spread\": \"a pass = one client process; per pass and workload the in-process gap of a cell = median(cell) - median(A) of per-call client CPU (and wall); the spread of D - A and Cf - A = max - min of that gap over the segment's spread passes; absolute times only\"}}"
@@ -193,12 +196,13 @@ run_pass() {  # run_pass KIND N LAUNCH CELLS
   local tag=$kind$n C=$OUT/pass-$1$2.console G=$SCRATCH/g.json F=$OUT/pass-$1$2.jsonl s=$(date +%s)
   rm -f "$G"
   env ${PRELOAD:+LD_PRELOAD=$PRELOAD AK_SHIM_NCPUS=$GCPUS} timeout 1200 taskset -c "$AK_CPU_CLIENT" "$EXE" \
-    --target "unix:$SOCK" --expect "$EXP" --transport $T --cells "$cells" --dirs cd --payloads "$PAYLOADS" \
+    --target "$NET_TGT" --core-target "$NET_CTGT" --expect "$EXP" --transport $T --cells "$cells" --dirs cd --payloads "$PAYLOADS" \
     --inflight $KS --launch "$launch" --rounds $ROUNDS --warmup-s $WARM_S --min-time-s 0.05 --iters "$ITERS" \
     --workers $WK --gbench-out "$G" > "$C" 2>&1; local rc=$?
   if [ $rc != 0 ] || [ ! -s "$G" ]; then
     say "pass $tag ABORTED (exit $rc; req. 18): no figure; $(grep -m1 -E 'CALL CHECK|pre-check|unknown' "$C")"; exit 1
   fi
+  net_nodelay_ok "$C" || { say "pass $tag REFUSED: a client TCP socket without TCP_NODELAY, or none, in the grid header"; rm -f "$F"; exit 1; }
   m=$(server_check) || { say "pass $tag: the server changed during the pass ($m): its samples are discarded"; rm -f "$F"; exit 2; }
   { echo "# pass $tag (launch $launch, cells $cells), $(( $(date +%s) - s )) s, client pid-independent header below"
     echo "# machine_end $(python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER" "$SPID")"

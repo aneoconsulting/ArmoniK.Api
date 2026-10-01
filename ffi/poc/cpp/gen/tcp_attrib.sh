@@ -19,14 +19,19 @@
 #         the server's perf stat -p, the loop's irq/softirq time on both CPU sets
 #   h2    A, D (H2_CTL), Cf, Cf-q (ring 24), Cf-zc on each of H2_CTL, H2_H16 (AK_H2_COALESCE=16), H2_PR; d/16 k=1
 #         and 8, d/4 k=1, c/P5.4 k=1 and 8 (Cf-zc d only); uds and tcp; H2_ROUNDS rounds; as `cpu`, plus strace
+#   sweep TCP only: A, D once; Cf, Cf-q per h2 variant (SW_STOCK, SW_BATCH at AK_H2_COALESCE=16) and core
+#         --workers in SW_WORKERS; SW_WLS, SW_ROUNDS; client and server perf stat, irq_time; strace for writes
 #   p4    A (ctl core arm), Cf with CTL_CORE (p1-p3, crates.io h2, AK_H2_COALESCE=1) and Cf with H16_CORE
 #         (p1-p3 + p4 patched h2, AK_H2_COALESCE=16), ring 6 + lock; uds and tcp; d/16 k=1 and 8, d/4
 #         k=1, c/P5.4 k=1; 3 rounds, UDS and TCP back to back (alternating order), perf stat -p on the
 #         server around each loop; then one strace process per unit, workload and transport
+# Every TCP process must report TCP_NODELAY = 1 on every client TCP socket (refused otherwise). The
+# zero-copy cells only with TA_ZC=1. The core's --workers is 8 except in the sweep (RUN_WK).
 # Every process: GLIBC_TUNABLES trim 256 MiB / mmap 32 MiB, core --workers 8, ncpus_shim 8, pinned.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 FFI=$(cd "$HERE/../.." && pwd)
+. gen/net_target.sh
 OUT=${1:?usage}; PHASE=${2:?phase}; STK=${3:?}; CTL=${4:?}; H16=${5:?}
 mkdir -p "$OUT/$PHASE"; OUT=$(cd "$OUT" && pwd); STK=$(cd "$STK" && pwd); CTL=$(cd "$CTL" && pwd); H16=$(cd "$H16" && pwd)
 if [ "${TA_LOCKED:-}" != 1 ]; then
@@ -74,6 +79,7 @@ for l in sys.stdin.read().split():
         if p: a,_,b=p.partition('-'); s.update(range(int(a),int(b or a)+1))
     if s & want: out.append(l)
 print(len(out), ' '.join(out))" "$AK_CPU_CLIENT" "$AK_CPU_SERVER")"
+  [ -n "${SW_STOCK:-}" ] && for v in SW_STOCK SW_BATCH; do echo "# $v ${!v}: core sha256 $(sha256sum "${!v}/libak_core.so" | cut -c1-16)"; done
   [ -n "${H2_CTL:-}" ] && for v in H2_CTL H2_H16 H2_PR ${H2_COMB:+H2_COMB}; do echo "# $v ${!v}: core sha256 $(sha256sum "${!v}/libak_core.so" | cut -c1-16)"; done
   echo "# server pid $SPID: $(tr '\n' ' ' < "$SCR/srv/rpc-server.log")"
   echo "# endpoints: uds unix:$SOCK; tcp ipv4:$TCPA (grpc++) and http://$TCPA (core, tcp_nagle 0)"
@@ -103,9 +109,11 @@ run() {
   esac
   taskset -c "$AK_CPU_CLIENT" "${pre[@]}" env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$SCR/ncpus.so" \
     AK_SHIM_NCPUS=$GCPUS "$EXE" --target "$tgt" --core-target "$ct" --expect 540422 --transport pinned --cells "$cell" \
-    --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" --profile-chunks $([ "$mode" = strace ] && echo 1 || echo 10) \
+    --dirs "$dirs" --payloads "$pay" --inflight "$k" --workers ${RUN_WK:-$WK} --profile "$n" --profile-chunks $([ "$mode" = strace ] && echo 1 || echo 10) \
     "${ctl[@]}" > "$f.out" 2>&1 || { tail -3 "$f.out"; say "FAILED $f"; [ -n "$spf" ] && kill -INT "$spf"; exit 1; }
   if [ -n "$spf" ]; then kill -INT "$spf" 2> /dev/null; wait "$spf" 2> /dev/null; fi
+  # Nagle off, verified: every TCP socket of the process read TCP_NODELAY = 1 (gen/net_target.sh)
+  if [ "$tr" = tcp ] && ! AK_NET=tcp net_nodelay_ok "$f.out"; then say "REFUSED $f: a client TCP socket without TCP_NODELAY, or none"; exit 1; fi
   if [ "$mode" = ss ]; then kill $SSP 2>/dev/null; wait $SSP 2>/dev/null; SSP=""; gzip -9 "$f.ss.txt"; fi
   if [ "$mode" = strace ]; then
     local calls; calls=$(python3 -c "import json,sys
@@ -115,7 +123,10 @@ for l in open(sys.argv[1]):
     python3 gen/strace_window.py "$SCR/st.txt" > "$f.syscalls.txt"; gzip -9c "$SCR/st.txt" > "$f.strace.gz"
   fi
 }
-CELLS1=("A|$CUR|" "D-retain|$CUR|" "Cf-retain|$CUR|" "Cf-zc-retain|$STK|AK_SPARES=6 AK_SPARE_LOCK=1")
+# The zero-copy and deferred cells are retired from the default sets (owner, 2026-10-01: zero copy is not
+# pursued; they refuse on the core): TA_ZC=1 brings Cf-zc back into the perf, wall, cpu and h2 phases.
+CELLS1=("A|$CUR|" "D-retain|$CUR|" "Cf-retain|$CUR|")
+[ "${TA_ZC:-}" = 1 ] && CELLS1+=("Cf-zc-retain|$STK|AK_SPARES=6 AK_SPARE_LOCK=1")
 WL1=("d16k1 d 16MiB 1 120 12" "d16k8 d 16MiB 8 20 3")
 T0=$(date +%s)
 case "$PHASE" in
@@ -174,7 +185,8 @@ case "$PHASE" in
     [ -n "${H2_COMB:-}" ] && COS+=("pr903p4|$H2_COMB|AK_H2_COALESCE=${H2_COMB_COALESCE:-16}")
     for co in "${COS[@]}"; do
       cn=${co%%|*}; r=${co#*|}; cd_=${r%%|*}; ck=${r#*|}
-      UNITS+=("Cf-retain|$cd_|$ck $R6|Cf-$cn" "Cf-q-retain|$cd_|$ck $R24|Cf-q-$cn" "Cf-zc-retain|$cd_|$ck $R6|Cf-zc-$cn")
+      UNITS+=("Cf-retain|$cd_|$ck $R6|Cf-$cn" "Cf-q-retain|$cd_|$ck $R24|Cf-q-$cn")
+      [ "${TA_ZC:-}" = 1 ] && UNITS+=("Cf-zc-retain|$cd_|$ck $R6|Cf-zc-$cn")
     done
     WL2=("d16k1 d 16MiB 1 100 12" "d16k8 d 16MiB 8 16 3" "d4k1 d 4MiB 1 300 40" "c54k1 c P5.4 1 300 40" "c54k8 c P5.4 8 50 8")
     NU=${#UNITS[@]}; seq_no=0
@@ -204,6 +216,51 @@ case "$PHASE" in
         [ "$cell" = Cf-zc-retain ] && [ "$dirs" != d ] && continue
         [[ "$un" =~ ^(${H2_STRACE:-.*})$ ]] || continue  # H2_STRACE: the units to strace (regex; default all)
         for tr in uds tcp; do run "$tr" "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$ns" "$OUT/$PHASE/strace-$name-$tr-$un" strace; done
+      done
+    done ;;
+  sweep)
+    # The TCP worker sweep (owner, 2026-10-01): the core's --workers W in SW_WORKERS (default 1 2 4 8) by h2
+    # variant {stock: SW_STOCK, h2-batch: SW_BATCH with AK_H2_COALESCE=16}; cells Cf (SW_CF_KNOBS) and Cf-q
+    # (SW_CFQ_KNOBS) per variant and W; A and D once per workload and round (grpc++'s transport: neither the h2
+    # variant nor W is on their path; stock core, W = 8). Transport: TCP only (AK_NET=uds is refused here).
+    # Workloads SW_WLS (default d16k1 d16k8 c54k1 c54k8; d16k16 c54k16 available), SW_ROUNDS rounds (default 3),
+    # unit order rotated per round and workload; client perf stat (task-clock), server perf stat -p, irq_time;
+    # then one strace process per unit, workload and W in SW_STRACE_WORKERS (default 1 8) for writes per call.
+    : "${SW_STOCK:?}" "${SW_BATCH:?}"
+    [ "$AK_NET" = tcp ] || { say "REFUSED: the sweep is TCP only"; exit 1; }
+    CFK=${SW_CF_KNOBS-AK_SPARES=6 AK_SPARE_LOCK=1}; CFQK=${SW_CFQ_KNOBS-AK_SPARES=24 AK_SPARE_LOCK=1}
+    UNITS=("A|$SW_STOCK|AK_H2_COALESCE=1|A|$WK" "D-retain|$SW_STOCK|AK_H2_COALESCE=1|D|$WK")
+    for v in "stock|$SW_STOCK|AK_H2_COALESCE=1" "batch|$SW_BATCH|AK_H2_COALESCE=16"; do
+      vn=${v%%|*}; r=${v#*|}; vd=${r%%|*}; vk=${r#*|}
+      for wk in ${SW_WORKERS:-1 2 4 8}; do
+        UNITS+=("Cf-retain|$vd|$vk $CFK|Cf-$vn-w$wk|$wk" "Cf-q-retain|$vd|$vk $CFQK|Cf-q-$vn-w$wk|$wk")
+      done
+    done
+    declare -A WLD=([d16k1]="d 16MiB 1 100 12" [d16k8]="d 16MiB 8 16 3" [d16k16]="d 16MiB 16 8 2"
+                    [c54k1]="c P5.4 1 300 40" [c54k8]="c P5.4 8 50 8" [c54k16]="c P5.4 16 25 4")
+    NU=${#UNITS[@]}; seq_no=0
+    { echo "# sweep units (cell|core|knobs|name|core workers):"; for u in "${UNITS[@]}"; do echo "#   $u"; done
+      echo "# sweep workloads: ${SW_WLS:-d16k1 d16k8 c54k1 c54k8}; rounds ${SW_ROUNDS:-3}; strace at W in ${SW_STRACE_WORKERS:-1 8}"; } >> "$LOG"
+    unit() { cell=${1%%|*}; local r=${1#*|}; lib=${r%%|*}; r=${r#*|}; knobs=${r%%|*}; r=${r#*|}; un=${r%%|*}; uw=${r#*|}; }
+    for r in $(seq 1 "${SW_ROUNDS:-3}"); do
+      wi=0
+      for name in ${SW_WLS:-d16k1 d16k8 c54k1 c54k8}; do
+        set -- ${WLD[$name]}; dirs=$1; pay=$2; k=$3; n=$4
+        for i in $(seq 0 $((NU - 1))); do
+          unit "${UNITS[$(( (i + r * 5 + wi * 3) % NU ))]}"
+          seq_no=$((seq_no + 1))
+          RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$n" "$OUT/$PHASE/$(printf '%04d' $seq_no)-r$r-$name-tcp-$un" stat
+        done
+        wi=$((wi + 1))
+      done
+      say "  sweep round $r done, $(( $(date +%s) - T0 )) s"
+    done
+    for name in ${SW_WLS:-d16k1 d16k8 c54k1 c54k8}; do
+      set -- ${WLD[$name]}; dirs=$1; pay=$2; k=$3; ns=$5
+      for u in "${UNITS[@]}"; do
+        unit "$u"
+        [[ " ${SW_STRACE_WORKERS:-1 8} " == *" $uw "* ]] || [[ "$un" =~ ^(A|D)$ ]] || continue
+        RUN_WK=$uw run tcp "$lib" "$knobs" "$cell" "$dirs" "$pay" "$k" "$ns" "$OUT/$PHASE/strace-$name-tcp-$un" strace
       done
     done ;;
   p4)

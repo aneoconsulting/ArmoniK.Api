@@ -2115,3 +2115,21 @@ changes.
 - Not attributed: pr903 alone costs MORE client CPU than ctl at the same write count at k = 1 (d/16 UDS 9.46 against
   8.38 task-clock; TCP 17.09 against 15.25) while the server's CPU on UDS is lower (7.5 against 12.1 ms per call) and
   the UDS wall lower (7.95 against 8.61). No perf profile was taken of it.
+
+## 2026-10-01, owner decisions: TCP only, two h2 variants; drivers prepared (no timing)
+
+- gen/net_target.sh (sourced): AK_NET=tcp (default) or uds; the server started with AK_SERVER_TCP=0; grpc++ dials
+  ipv4:127.0.0.1:PORT, the core http://127.0.0.1:PORT; net_nodelay_ok refuses a TCP process unless every client TCP
+  socket read TCP_NODELAY = 1 (profile JSON and grid header). Wired into tcp_attrib.sh (every TCP process checked),
+  stability.sh, core_ab.sh (both now wrap every timed client in perf stat task-clock; tables print task-clock beside
+  the process clock), physical_probe.sh (gbench: CPU stays the process clock per repetition, said in its header) and
+  deferred_checks.sh (checks over TCP by default).
+- Retired from the default sets: Cf-zc / Cf-zcw (stability.sh, ST_ZC=1; tcp_attrib.sh, TA_ZC=1), Cf-enc / Cf-encp
+  (deferred_checks.sh DC_CELLS now A, D, Cf, Cf-q; DC_EXPECT empty). The code stays; the cells still refuse on a core
+  without the entries (checked in the smoke).
+- tcp_attrib.sh sweep phase (SW_STOCK, SW_BATCH, SW_WORKERS, SW_WLS incl. d16k16 / c54k16, SW_ROUNDS,
+  SW_STRACE_WORKERS, SW_CF_KNOBS, SW_CFQ_KNOBS) and gen/sweep_tables.py.
+- Smoke (not kept; c903 cores as stand-ins): sweep 6 processes + strace, core_ab 2 processes, checks over TCP (0
+  failures, semantics 14/14 on HEAD's core, check-stream 16 matched), a gbench grid over TCP whose header reports 2
+  TCP sockets both TCP_NODELAY 1.
+- CMake support for the h2-batch core waits for the Rust agent's build script (not landed yet).

@@ -198,6 +198,17 @@ agree within 0.25 ms and softirq time on the client CPUs is 0.00-0.06 ms per cal
 ms at k = 1 and 8) comes with no send-buffer wait (0 EAGAIN, sndbuf_limited never reported, Send-Q median 16-33 KiB).
 With p4 (73 writes per d/16 call), Cf-h16 - A on TCP is -0.63 ms of client task-clock at d/16 k=1 and +0.09 at k = 8.
 
+**TCP by default (owner, 2026-10-01).** Decisions: two h2 variants (stock = crates.io 0.4.19, the default;
+h2-batch = PR #903 port + p4 at AK_H2_COALESCE=16), zero copy not pursued (p2, p3, p5, p8, p9 dropped; p1 kept in the
+core), TCP only (127.0.0.1, Nagle off, verified), CPU from task-clock with the process clock beside it, Docker running
+(netfilter recorded as a machine condition). The drivers source `gen/net_target.sh` (AK_NET=tcp default, uds an
+explicit option; every TCP process refused unless every client TCP socket reads TCP_NODELAY = 1): tcp_attrib.sh,
+stability.sh, core_ab.sh, physical_probe.sh (gbench; its CPU stays the process clock), deferred_checks.sh. Historical
+UDS-only drivers left as they were: tcp_uds.sh (compares both), profile_4a.sh, patch_ab.sh. Zero-copy and deferred
+cells are out of the default sets (TA_ZC=1, ST_ZC=1, DC_CELLS to bring them back). The worker sweep is the
+`sweep` phase of tcp_attrib.sh with `gen/sweep_tables.py`. Pending: CMake support for the h2-batch core (follows
+the Rust agent's build script), the rebuild against the landed core, gates on both variants, then the sweep.
+
 **h2 PR #903 from C++ (2026-10-01)** (`gen/h2_variants_build.sh`, `gen/tcp_attrib.sh OUT h2|h2b` with H2_CTL, H2_H16,
 H2_PR, H2_COMB, H2_ROUNDS, H2_STRACE, TA_NOTE; tables `gen/h2pr_tables.py OUT SESSION...`; logs
 `logs/cpp/opt/physical-probe/h2-pr903/`). Four cores built in the worktree on the p1-p9 stack, differing only in the
@@ -678,6 +689,13 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
   Bazel.
 
 ## Next step
+
+Next unit (owner, 2026-10-01): when the Rust agent's core lands (p1 in ffi/poc/codec; h2-batch as an opt-in
+build variant), add the CMake h2-batch build following its script, rebuild both variants, run
+`gen/deferred_checks.sh` on both (TCP; conformance and pre-check 0 failures, --semantics 1, check-stream), then
+the TCP worker sweep: `SW_STOCK=<stock core dir> SW_BATCH=<h2-batch core dir> gen/tcp_attrib.sh OUT sweep ...`
+(W 1, 2, 4, 8; A, D, Cf, Cf-q; d/16 and c/P5.4 at k = 1 and 8, k = 16 if the budget allows; about 12 minutes,
+after the Rust agent's sweep, under the lock), tables `gen/sweep_tables.py OUT`.
 
 The h2 PR #903 comparison (`logs/cpp/opt/physical-probe/h2-pr903/`) is done and reported, as is the TCP attribution
 (`tcp-attrib/`); what follows is the coordinator's. Open from the h2 run: why PR #903 alone costs more client CPU than

@@ -16,7 +16,7 @@ import os
 import statistics
 import sys
 
-CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain", "Cf-zc-retain", "Cf-zcp-retain", "Cf-zcw-retain"]
+CELLS = ["A", "D-retain", "Cf-retain", "Cf-q-retain", "Cf-enc-retain", "Cf-encp-retain", "Cf-zc-retain", "Cf-zcp-retain", "Cf-zcw-retain"]  # tables read old runs too
 WLS = [("d16k1", "d/16MiB k=1"), ("d16k8", "d/16MiB k=8"), ("d4k1", "d/4MiB k=1"), ("d4k8", "d/4MiB k=8"),
        ("c54k1", "c/P5.4 k=1"), ("c54k8", "c/P5.4 k=8")]
 THREADS = ["caller", "main", "tokio-rt-worker", "event_engine"]
@@ -46,7 +46,7 @@ def chunks(p):
 def main(out, arms):
     L = []
     say = L.append
-    say("# %s: core builds compared from C++ (one-cell `campaign_rpc --profile` processes, no perf)" % os.path.basename(out))
+    say("# %s: core builds compared from C++ (one-cell `campaign_rpc --profile` processes)" % os.path.basename(out))
     say("")
     say("Arms, cores, knobs and the environment of every process: runner.log. CPU (process) and wall per call, median "
         "[p10-p90] over the 10 chunks of every process of the phase; flt = minor faults, csw = voluntary + involuntary "
@@ -58,8 +58,11 @@ def main(out, arms):
         say("")
         say("## %s: %s" % (phase, title))
         say("")
-        say("| workload | cell | arm | CPU ms | wall ms | flt | csw | n |")
-        say("|---|---|---|---|---|---|---|---|")
+        say("task-clock: perf stat on the client around the loop (softirq run in the process's context included), median "
+            "[min-max] over processes ('-' for runs before 2026-10-01); CPU: the process clock per chunk.")
+        say("")
+        say("| workload | cell | arm | task-clock ms | CPU ms | wall ms | flt | csw | n |")
+        say("|---|---|---|---|---|---|---|---|---|")
         thr, med = [], {}
         for w, wt in WLS:
             for c in CELLS:
@@ -67,7 +70,7 @@ def main(out, arms):
                     fs = sorted(glob.glob(os.path.join(out, phase, "%s-%s-%s-r*.out" % (w, c, a))))
                     if not fs:
                         continue
-                    cpu, wall, flt, csw = [], [], [], []
+                    cpu, wall, flt, csw, tcs = [], [], [], [], []
                     per = collections.defaultdict(list)
                     for f in fs:
                         p = prof(f)
@@ -75,11 +78,18 @@ def main(out, arms):
                         cpu += cc; wall += ww
                         r = int(f.rsplit("-r", 1)[1].split(".")[0])
                         med[(w, c, a, r)] = (statistics.median(cc), statistics.median(ww))
+                        pcf = f[:-len(".out")] + ".client.perfstat"
+                        if os.path.exists(pcf):
+                            for l in open(pcf):
+                                cc_ = l.strip().split(",")
+                                if len(cc_) > 3 and cc_[2] == "task-clock" and cc_[0][:1].isdigit():
+                                    tcs.append(float(cc_[0]) / p["calls"])  # msec
                         ru = p["rusage"]
                         flt.append(ru["minflt"] / p["calls"]); csw.append((ru["nvcsw"] + ru["nivcsw"]) / p["calls"])
                         for cls, v in p["thread_cpu_ns"].items():
                             per[cls].append(v["ns"] / p["calls"] / 1e6)
-                    say("| %s | %s | %s | %s | %s | %.1f | %.1f | %d |" % (wt, c, a, mpq(cpu), mpq(wall),
+                    tcf = "%.3f [%.3f-%.3f]" % (statistics.median(tcs), min(tcs), max(tcs)) if tcs else "-"
+                    say("| %s | %s | %s | %s | %s | %s | %.1f | %.1f | %d |" % (wt, c, a, tcf, mpq(cpu), mpq(wall),
                                                                      statistics.median(flt), statistics.median(csw), len(cpu)))
                     if c.startswith("Cf"):
                         thr.append((wt, c, a, {t: statistics.median(per[t]) for t in THREADS if per.get(t)}))

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # The stability campaign (owner, 2026-09-30): do the main results hold over a long run? Many
-# one-cell `campaign_rpc --profile` processes, the current core and the patch stack interleaved,
-# no perf attached, under /tmp/ak-physical-bench.lock (held for the whole campaign), with an own
+# one-cell `campaign_rpc --profile` processes (under a client perf stat), the current core and the patch stack interleaved,
+# no perf on the server, under /tmp/ak-physical-bench.lock (held for the whole campaign), with an own
 # 8-worker server (poc/rust/serve.sh at HEAD), the allocator pinned, grpc-core sized for 8 CPUs.
 #
 #   gen/stability.sh OUT_DIR STACK_CORE_DIR [ROUNDS]
+#   AK_NET=tcp (default) | uds (gen/net_target.sh); every client process under perf stat (task-clock)
 #
 #   units (arm/cell, knobs):
 #     cur/A, cur/D-retain, cur/Cf-retain, cur/Cf-q-retain           this tree's core (HEAD)
@@ -21,6 +22,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 FFI=$(cd "$HERE/../.." && pwd)
+. gen/net_target.sh
 OUT=${1:?usage: gen/stability.sh OUT_DIR STACK_CORE_DIR [ROUNDS]}; STK=${2:?STACK_CORE_DIR}; ROUNDS=${3:-14}
 mkdir -p "$OUT/proc"; OUT=$(cd "$OUT" && pwd); STK=$(cd "$STK" && pwd)
 if [ "${ST_LOCKED:-}" != 1 ]; then
@@ -36,21 +38,25 @@ LOG=$OUT/runner.log
 say() { echo "$*" | tee -a "$LOG"; }
 UNITS=("cur|A|" "cur|D-retain|" "cur|Cf-retain|" "cur|Cf-q-retain|"
        "stk|Cf-retain|AK_SPARES=6 AK_SPARE_LOCK=1" "stk|Cf-q-retain|AK_SPARES=24 AK_SPARE_LOCK=1"
-       "stk|Cf-zc-retain|AK_SPARES=6 AK_SPARE_LOCK=1" "stk|Cf-zcw-retain|AK_SPARES=6 AK_SPARE_LOCK=1")
+)
+# zero copy is not pursued (owner, 2026-10-01): the zero-copy units only with ST_ZC=1
+[ "${ST_ZC:-}" = 1 ] && UNITS+=("stk|Cf-zc-retain|AK_SPARES=6 AK_SPARE_LOCK=1" "stk|Cf-zcw-retain|AK_SPARES=6 AK_SPARE_LOCK=1")
 WLS=("d16k1 d 16MiB 1 120" "d16k8 d 16MiB 8 20" "d4k1 d 4MiB 1 400" "c54k1 c P5.4 1 400" "c54k8 c P5.4 8 50")
 SCR=$(mktemp -d)
 trap '[ -f "$SCR/serve.state" ] && bash "$SERVE" stop > /dev/null 2>&1; rm -rf "$SCR"' EXIT
 taskset -c "$OSSET" gcc -O2 -shared -fPIC -o "$SCR/ncpus.so" gen/ncpus_shim.c -ldl || exit 1
 export AK_SERVE_STATE=$SCR/serve.state
-AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
+env $(net_server_env) AK_SERVER_THREADS=$WK bash "$SERVE" start --out "$SCR/srv" > "$SCR/srv.out" 2>&1 || { cat "$SCR/srv.out"; exit 1; }
 bash "$SERVE" warm 64 > /dev/null 2>&1 || exit 1
-SOCK=$(sed -n 's/^pinned //p' "$AK_SERVE_STATE"); SPID=$(sed -n 's/^pid //p' "$AK_SERVE_STATE")
+SPID=$(sed -n 's/^pid //p' "$AK_SERVE_STATE"); net_endpoints "$AK_SERVE_STATE" || exit 1
+rm -f "$SCR/ctl" "$SCR/ack"; mkfifo "$SCR/ctl" "$SCR/ack"
 facts() { python3 gen/machine_facts.py "$AK_CPU_CLIENT" "$AK_CPU_SERVER" "$SPID"; }
 { echo "# stability: commit $(git -C "$FFI" rev-parse --short HEAD)$(git -C "$FFI" status --porcelain -- poc/cpp/src poc/cpp/gen poc/codec | grep -q . && echo ' + UNCOMMITTED'), $(date -u +%FT%TZ), rounds $ROUNDS"
   echo "# exe $EXE sha256 $(sha256sum "$EXE" | cut -c1-16)"
   echo "# arm cur: $CUR/libak_core.so sha256 $(sha256sum "$CUR/libak_core.so" | cut -c1-16); arm stk: $STK/libak_core.so sha256 $(sha256sum "$STK/libak_core.so" | cut -c1-16) (LD_LIBRARY_PATH)"
   echo "# units: ${UNITS[*]}"
   echo "# workloads: ${WLS[*]}; every process: $ENVX, core --workers $WK, grpc-core sysconf $GCPUS (ncpus_shim), pinned transport, retain"
+  echo "# endpoint: $NET_DESC; client CPU: perf stat task-clock around the loop (softirq run in the process's context included; STEM.client.perfstat) and the process clock per chunk"
   echo "# server pid $SPID: $(head -2 "$SCR/srv/rpc-server.log" | tail -1 | sed 's/.*tokio/tokio/'); CLIENT $AK_CPU_CLIENT SERVER $AK_CPU_SERVER"
   echo "# machine_start $(facts)"; } >> "$LOG"
 T0=$(date +%s); N=${#UNITS[@]}; seq_no=0
@@ -78,10 +84,12 @@ print(int(r(sys.argv[1])==r(sys.argv[2])))" "$sa" "$AK_CPU_SERVER")" != 1 ]; the
       fi
       seq_no=$((seq_no + 1))
       f=$OUT/proc/$(printf '%04d' $seq_no)-r$r-$name-$arm-$cell.out
-      taskset -c "$AK_CPU_CLIENT" env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$SCR/ncpus.so" \
-        AK_SHIM_NCPUS=$GCPUS "$EXE" --target "unix:$SOCK" --expect 540422 --transport pinned --cells "$cell" --dirs "$dirs" \
-        --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" --profile-chunks 10 > "$f" 2>&1 \
+      taskset -c "$AK_CPU_CLIENT" perf stat -D -1 --control "fifo:$SCR/ctl,$SCR/ack" -x, -o "${f%.out}.client.perfstat" \
+        -e task-clock,cycles,context-switches -- env LD_LIBRARY_PATH="$lib" $knobs $ENVX AK_SERVER_PID="$SPID" LD_PRELOAD="$SCR/ncpus.so" \
+        AK_SHIM_NCPUS=$GCPUS "$EXE" --target "$NET_TGT" --core-target "$NET_CTGT" --expect 540422 --transport pinned --cells "$cell" --dirs "$dirs" \
+        --payloads "$pay" --inflight "$k" --workers $WK --profile "$n" --profile-chunks 10 --perf-ctl "$SCR/ctl,$SCR/ack" > "$f" 2>&1 \
         || { tail -3 "$f"; say "FAILED $f"; exit 1; }
+      net_nodelay_ok "$f" || { say "REFUSED $f: a client TCP socket without TCP_NODELAY, or none"; exit 1; }
     done
     wi=$((wi + 1))
   done
