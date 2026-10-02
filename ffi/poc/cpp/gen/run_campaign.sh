@@ -39,6 +39,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 SLICE=$PWD
+. "$SLICE/gen/core_swap.sh"   # AK_CORE_SWAP (inert when unset): a core variant loaded by LD_LIBRARY_PATH
 SUITE=""; OUT=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -240,17 +241,17 @@ run_gate() {
     [ $ngr = 0 ] || echo ">>> FAIL: the no-unknown gate"
     echo "===== the codec campaign binary's own gate, and its planted control ====="
     unknown_rows
-    (cd "$FFI/schema/generated" && "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+    (cd "$FFI/schema/generated" && env $(cs_env "$B/campaign_codec") "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
     grep '^#' "$TMPD/g.log" | sed 's/^/  /'
     [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: campaign_codec gate"; }
-    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
+    (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 env $(cs_env "$B/campaign_codec") "$B/campaign_codec" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
       && echo ">>> FAIL: the planted codec gate passed" \
       || echo "  control campaign_codec plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     for cb in campaign_codec_nounk; do   # the no-unknown codec binary: its own gate and plant
-      (cd "$FFI/schema/generated" && "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
+      (cd "$FFI/schema/generated" && env $(cs_env "$B/$cb") "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1); rc=$?
       grep '^#' "$TMPD/g.log" | sed 's/^/  /'
       [ $rc = 0 ] || { grep 'GATE FAIL' "$TMPD/g.log" | head; echo ">>> FAIL: $cb gate"; }
-      (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
+      (cd "$FFI/schema/generated" && AK_CAMPAIGN_PLANT=1 env $(cs_env "$B/$cb") "$B/$cb" --rounds 0 --bytes 1 --warmup 1 --pool-bytes "$POOL" --corpus "$FFI/corpus/generated" --rows "$ROWS" > "$TMPD/g.log" 2>&1) \
         && echo ">>> FAIL: the planted $cb gate passed" \
         || echo "  control $cb plant: $(grep -c 'GATE FAIL' "$TMPD/g.log") slots failed as required"
     done
@@ -259,7 +260,7 @@ run_gate() {
     warm_server "$TMPD/warm.log" && echo "  server warm-up (poc/rust/serve.sh warm $SRVWARM): passed" \
       || echo ">>> FAIL: the server warm-up"
     for rb in campaign_rpc campaign_rpc_nounk; do
-      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect $((EXP + 1)) \
+      env $(cs_env "$B/$rb") timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect $((EXP + 1)) \
         --transport shipped --cells C --dirs a --inflight 1 --rounds 1 --calls 2 --warmup-s 0 \
         --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
       ns=$(gb_samples "$TMPD/ctl.json")
@@ -267,7 +268,7 @@ run_gate() {
                    || echo ">>> FAIL: a wrong response length did not abort, or left $ns sample(s) ($rb)"
       # An abort AFTER samples were taken (--fail-after 2): the samples already measured must
       # not reach the output either (buffered in the client, written only on success).
-      timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
+      env $(cs_env "$B/$rb") timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
         --transport shipped --cells AB --dirs a --inflight 1 --rounds 2 --calls 2 --warmup-s 0 --fail-after 2 \
         --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
       ns=$(gb_samples "$TMPD/ctl.json")
@@ -283,7 +284,7 @@ run_gate() {
       for pl in c-len d-sha d-count; do
         dd=${pl%%-*}; nok=0; nbad=0
         for lb in $LBL; do
-          timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
+          env $(cs_env "$B/$rb") timeout 120 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of shipped)" --expect "$EXP" \
             --transport shipped --cells "$lb," --dirs "$dd" --inflight 1 --rounds 1 --calls 1 --warmup-s 0 \
             --plant "$pl" --gbench-out "$TMPD/ctl.json" > "$TMPD/r.log" 2>&1; rc=$?
           ns=$(gb_samples "$TMPD/ctl.json")
@@ -298,7 +299,7 @@ run_gate() {
     # binaries, against the committed files (a difference stops the run).
     for v in "" _nounk; do
       want=$FFI/logs/cpp/rpc-counts$( [ -n "$v" ] && echo -nounk ).log
-      taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc_count$v" --target "$(sock_of shipped)" --expect "$EXP" \
+      env $(cs_env "$B/campaign_rpc_count$v") taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc_count$v" --target "$(sock_of shipped)" --expect "$EXP" \
         --transport shipped --count 4 > "$OUT/rpc-counts$v.log" 2>&1
       if diff <(grep -E '^  [BCDE]' "$want") <(grep -E '^  [BCDE]' "$OUT/rpc-counts$v.log") > "$TMPD/rd"; then
         echo "  $(grep -cE '^  [BCDE]' "$OUT/rpc-counts$v.log") RPC count rows identical to logs/cpp/$(basename "$want")"
@@ -358,7 +359,7 @@ rpc_launch_file() {
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
   [ "$BUILDS" = full ] && RBS=campaign_rpc; [ "$BUILDS" = no-unknown ] && RBS=campaign_rpc_nounk
   for rb in $RBS; do
-    timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
+    env $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
       --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" $extra \
       --gbench-out "$TMPD/rpc.gbench.json" > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
@@ -384,9 +385,9 @@ calib_one() {
   local f=$1 d=$2 l=$3 rc
   if [ -n "${PERF:-}" ]; then
     taskset -c "$AK_CPU_CLIENT" "$PERF" stat -x, -e cycles,instructions -o "$TMPD/perf" \
-      "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" > "$TMPD/calib.out" 2>&1; rc=$?
+      env $(cs_env "$B/campaign_calib") "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" > "$TMPD/calib.out" 2>&1; rc=$?
   else
-    taskset -c "$AK_CPU_CLIENT" "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" \
+    env $(cs_env "$B/campaign_calib") taskset -c "$AK_CPU_CLIENT" "$B/campaign_calib" --dir "$d" --launch "$l" --rounds "$ROUNDS" --iters "$CITERS" \
       > "$TMPD/calib.out" 2>&1; rc=$?
   fi
   if [ $rc != 0 ]; then echo "campaign_calib --dir $d failed (exit $rc)" >&2; rm -f "$f"; return $rc; fi
@@ -447,7 +448,7 @@ case "$SUITE" in
       # Google Benchmark JSON is kept beside them.
       gb=$OUT/codec-${tag}launch$l.gbench.json
       { header codec "$l"
-        (cd "$FFI/schema/generated" && taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
+        (cd "$FFI/schema/generated" && env $(cs_env "$B/$cb") taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
            --rounds "$ROUNDS" --min-time-s "$MINT" --warmup-s "$WARM" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" --pool-bytes "$POOL" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"

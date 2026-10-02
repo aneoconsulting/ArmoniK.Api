@@ -15,10 +15,10 @@ DC_STEP1_CORE=1 DC_CELLS=A,A-cb,A-q,D-retain,Cf-retain,Cf-q-retain,Cf-cb-retain 
   bash gen/deferred_checks.sh "$L/checks-$N.log" "$HERE/../../.." "$CD" "$CDN" "$KNOBS" || F=1
 flock /tmp/ak-physical-bench.lock bash -c '
   . gen/net_target.sh
-  S=$(mktemp -d); export AK_SERVE_STATE=$S/st AK_CPU_SERVER=5-8,15-18
+  S=$(mktemp -d); export AK_SERVE_STATE=$S/st AK_CPU_SERVER=${AK_CPU_SERVER:-5-8,15-18}
   env $(net_server_env) AK_SERVER_THREADS=8 bash ../rust/serve.sh start --out $S/srv > $S/o 2>&1 || { cat $S/o; exit 1; }
   net_endpoints $AK_SERVE_STATE; echo "# endpoint: $NET_DESC; core '"$CD"' $(sha256sum '"$CD"'/libak_core.so | cut -c1-16)"
-  env LD_LIBRARY_PATH='"$CD"' '"$KNOBS"' taskset -c 1-4,11-14 build-campaign/campaign_rpc --target $NET_TGT --core-target $NET_CTGT \
+  env LD_LIBRARY_PATH='"$CD"' '"$KNOBS"' taskset -c ${AK_CPU_CLIENT:-1-4,11-14} build-campaign/campaign_rpc --target $NET_TGT --core-target $NET_CTGT \
     --expect 540422 --transport pinned --cells A-cb,A-q,Cf-cb-retain --dirs c --inflight 1,8 --rounds 1 --min-time-s 0.001 \
     --warmup-s 0 --workers 8 --gbench-out $S/g.json > $S/r 2>&1; rc=$?
   grep -E "^(A-cb|A-q|Cf-cb)|REFUSED|CALL CHECK|status" $S/r | head -20

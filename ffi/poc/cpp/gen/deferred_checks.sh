@@ -22,6 +22,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 FFI=$(cd "$HERE/../.." && pwd)
 . gen/net_target.sh
+. gen/core_swap.sh   # AK_CORE_SWAP (inert when unset): step 3 loads the swapped core too
 LOGF=${1:?LOG}; PT=${2:?PATCH_TREE}; CD=${3:?CORE_DIR}; CDN=${4:?CORE_NOUNK_DIR}; KNOBS=${5:-}
 if [ "${DC_LOCKED:-}" != 1 ]; then DC_LOCKED=1 exec flock /tmp/ak-physical-bench.lock bash "$0" "$@"; fi
 mkdir -p "$(dirname "$LOGF")"
@@ -67,10 +68,10 @@ bad() { echo ">>> FAIL: $*"; F=$((F + 1)); }
     [ $rc = 0 ] && grep -q '"failed": 0' "$SCR/s" && [ $need = 1 ] && ok "semantics $v ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "semantics $v rc=$rc"
   done
   echo "===== 3. HEAD's core: the deferred cases skipped, a Cf-enc cell refused"
-  taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" "${CT[@]}" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
+  env $(cs_env "$B/campaign_rpc") taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" "${CT[@]}" --expect 540422 --transport pinned --semantics 1 > "$SCR/s" 2>&1; rc=$?
   [ $rc = 0 ] && grep -q '^SKIP deferred' "$SCR/s" && ok "HEAD core: semantics pass, deferred skipped ($(grep -o '"checks": [0-9]*' "$SCR/s"))" || bad "HEAD core semantics rc=$rc"
   for rc_cell in Cf-enc-retain Cf-zc-retain Cf-zcp-retain Cf-zcw-retain; do
-    taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" "${CT[@]}" --expect 540422 --transport pinned --cells $rc_cell --dirs d \
+    env $(cs_env "$B/campaign_rpc") taskset -c "$AK_CPU_CLIENT" "$B/campaign_rpc" --target "$SOCK" "${CT[@]}" --expect 540422 --transport pinned --cells $rc_cell --dirs d \
       --inflight 1 --rounds 1 --gbench-out "$SCR/g.json" > "$SCR/r" 2>&1; rc=$?
     [ $rc = 2 ] && grep -q REFUSED "$SCR/r" && ok "HEAD core refuses $rc_cell: $(grep REFUSED "$SCR/r")" || bad "HEAD core did not refuse $rc_cell (rc=$rc)"
   done

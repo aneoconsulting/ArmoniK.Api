@@ -15,6 +15,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE" || exit 2
 LOG=${1:?usage: gen/q_checks.sh LOG [ASAN_BUILD_DIR]}; ASAN=${2:-}
 FFI=$(cd "$HERE/../.." && pwd); B=${BUILD:-$HERE/build-campaign}; SERVE=$FFI/poc/rust/serve.sh
+. gen/core_swap.sh   # AK_CORE_SWAP (inert when unset)
 export AK_CPU_CLIENT=${AK_CPU_CLIENT:-1} AK_CPU_SERVER=${AK_CPU_SERVER:-2,3}
 SCRATCH=$(mktemp -d); export AK_SERVE_STATE=$SCRATCH/serve.state
 cleanup() { [ -f "$AK_SERVE_STATE" ] && bash "$SERVE" stop > /dev/null 2>&1; rm -rf "$SCRATCH"; true; }
@@ -31,7 +32,7 @@ bad() { echo ">>> FAIL: $*"; FAILS=$((FAILS + 1)); }
   echo "#   server  $(head -1 "$SCRATCH/srv/rpc-server.log")"
   cells() { [ "$1" = full ] && echo B-q,Bf-q,C-q-drop,C-q-retain,Cf-q-drop,Cf-q-retain,E-q-drop,E-q-retain,Ef-q-drop,Ef-q-retain \
                             || echo B-q,Bf-q,C-q-nounk,Cf-q-nounk,E-q-nounk,Ef-q-nounk; }
-  run() { taskset -c "$AK_CPU_CLIENT" "$@" > "$SCRATCH/o.log" 2>&1; }
+  run() { env $(cs_env "$1") taskset -c "$AK_CPU_CLIENT" "$@" > "$SCRATCH/o.log" 2>&1; }
   for v in full nounk; do
     exe=campaign_rpc; [ $v = nounk ] && exe=campaign_rpc_nounk
     C=$(cells $v); q1=${C%%,*}

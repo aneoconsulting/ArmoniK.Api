@@ -22,6 +22,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 B=${1:-build}
 B=$(cd "$B" && pwd) || exit 2   # absolute: the steps below run from other directories
+. gen/core_swap.sh   # AK_CORE_SWAP (inert when unset): a core variant loaded by LD_LIBRARY_PATH
 L=../../logs/cpp
 PAY=../../schema/generated
 S=$(mktemp -d)
@@ -45,14 +46,14 @@ ufam() { nm -D --defined-only "$1" 2>/dev/null | grep -cE ' (ak_uencode_|ak_uele
   for b in conformance_nounk_a17 conformance_nounk_c11 corpus_nounk_a17 corpus_nounk_c11 counts_nounk \
            campaign_codec_nounk campaign_rpc_nounk; do
     [ -x "$B/$b" ] || { bad "$b not built"; continue; }
-    so=$(ldd "$B/$b" | awk '/libak_core/{print $3}'); n=$(ufam "$so")
+    so=$(env $(cs_env "$B/$b") ldd "$B/$b" | awk '/libak_core/{print $3}'); n=$(ufam "$so")
     echo "  $b -> ${so#$PWD/} : u-family exports $n"
     [ "$n" = 0 ] || bad "$b loads a core WITH the u-family"
   done
   n=$(nm "$B/conformance_nounk_static" | grep -cE ' T (ak_uencode_|ak_uelem|ak_dec_reset_)')
   echo "  conformance_nounk_static (static core): u-family symbols $n"; [ "$n" = 0 ] || bad "static variant has the u-family"
   for b in conformance_a17_shared corpus_all_a17 campaign_codec campaign_rpc; do
-    so=$(ldd "$B/$b" | awk '/libak_core/{print $3}'); n=$(ufam "$so")
+    so=$(env $(cs_env "$B/$b") ldd "$B/$b" | awk '/libak_core/{print $3}'); n=$(ufam "$so")
     echo "  (full) $b -> ${so#$PWD/} : u-family exports $n"
     [ "$n" -gt 0 ] || bad "full binary $b loads a core WITHOUT the u-family"
   done

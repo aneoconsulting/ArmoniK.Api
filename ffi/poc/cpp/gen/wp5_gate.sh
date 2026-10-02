@@ -36,6 +36,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 B=${1:-build}
+. gen/core_swap.sh   # AK_CORE_SWAP (inert when unset): a core variant loaded by LD_LIBRARY_PATH
 L=../../logs/cpp
 S=$(mktemp -d)
 trap 'rm -rf "$S"' EXIT
@@ -268,7 +269,7 @@ fi
   else head -10 "$S/cdiff"; echo ">>> FAIL: crossing counts differ from the baseline"; FAILS=$((FAILS+1)); fi
   if [ -x "$B/rpccounts" ]; then
     step "RPC crossing counts (the binding's ak_init_once before the first RPC)"
-    must "rpccounts" 0 timeout 120 "$B/rpccounts" 5
+    must "rpccounts" 0 env $(cs_env "$B/rpccounts") timeout 120 "$B/rpccounts" 5
   fi
 } > "$L/wp5-gates.log" 2>&1
 
