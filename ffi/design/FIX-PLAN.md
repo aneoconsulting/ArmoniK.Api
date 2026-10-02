@@ -681,6 +681,18 @@ their context switches.
 
 Done when both variants pass both slices' gates and the TCP worker sweep is recorded.
 
+**Status (2026-10-02): met.** Both slices' gates PASSED on both variants, in the cloud
+container (correctness only, no timing): Rust, the full gate in both builds on the stock and
+the h2-batch core, every process's loaded core checked (`logs/rust/opt/wp12-gates/`); C++,
+wp5_gate (C++17, C++14, C++11), ASan, the campaign gate and the queue checks, on grpc++
+1.51.1 / protobuf 3.21.12 (`logs/cpp/opt/wp12-gates/`). Both added the RPC checks over TCP
+127.0.0.1 and a write-count marker (d/16 MiB k = 1: about 1,030 writes per call stock, 73 to
+78 h2-batch). The TCP worker sweep is recorded (`logs/rust/opt/tcp-sweep/`,
+`logs/cpp/opt/physical-probe/tcp-sweep/`). Not covered: the gates on the campaign machine
+(grpc++ 1.80 there, where the C++11/14 floors do not build, C++ C42), the Rust 1.88 floor
+on h2-batch, and any check counting the frames sent after a cancel (D16). Still open: item 5
+(`campaign.sh`, `campaign.machine`) and D14.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
