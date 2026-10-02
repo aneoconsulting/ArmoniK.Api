@@ -17,7 +17,8 @@
 #
 # Steps (WP12_STEPS, default "build wp5 asan campaign deliv q marker"):
 #   build     stock: Google Benchmark v1.8.3 release (as run_campaign.sh builds it), cmake -DAK_RPC=ON into
-#             build-campaign (run_campaign.sh's) and into build (wp5_gate.sh's; its checks name build/), every
+#             build-campaign (run_campaign.sh's) and into build (wp5_gate.sh's; its checks name build/; configured with the same Google
+#             Benchmark, which wp5_gate.sh's own configure keeps from the cache), every
 #             target, serve.sh build; h2-batch: the six twins. Every build under
 #             flock $AK_CODEC_LOCK (the Rust agent builds the same core variants in parallel)
 #   wp5       gen/wp5_gate.sh build (C++17 target and floor, C++14, C++11, static; corpus; plants;
@@ -139,7 +140,7 @@ for st in $STEPS; do
         tail -5 "$SCR/build.log" >> "$OUT/build-errors.log"
         [ $rc = 0 ] || { say "FAILED: build (build-errors.log)"; exit 1; }
         say "build: the wp5_gate build directory ./build (cmake -DAK_RPC=ON, every target; flock $LOCK)"
-        { cmake -S . -B build -DAK_RPC=ON && flock "$LOCK" cmake --build build -j"$(nproc)"; } > "$SCR/build-wp5.log" 2>&1; rc=$?
+        { cmake -S . -B build -DAK_RPC=ON -Dbenchmark_DIR="$B/gbench-v1.8.3-release/lib/cmake/benchmark" && flock "$LOCK" cmake --build build -j"$(nproc)"; } > "$SCR/build-wp5.log" 2>&1; rc=$?
         { grep -E 'error|Error [0-9]|FAILED' "$SCR/build-wp5.log" | head -40; echo "exit $rc; $(grep -c 'Linking' "$SCR/build-wp5.log") executables linked"; tail -3 "$SCR/build-wp5.log"; } > "$OUT/build-wp5-errors.log"
         [ $rc = 0 ] || { say "FAILED: the ./build build (build-wp5-errors.log)"; exit 1; }
         say "build: serve.sh build (flock $LOCK)"
