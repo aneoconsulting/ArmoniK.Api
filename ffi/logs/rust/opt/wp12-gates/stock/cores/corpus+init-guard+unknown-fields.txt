@@ -1,0 +1,6 @@
+variant stock
+features corpus,init-guard,unknown-fields
+built 2026-10-02T08:04:57Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-stock (by hand, the same cargo command)
+sha256 99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c
+h2 compiled in: none (no h2 in this core)
+AK_H2_COALESCE read by the core: 0 string(s)

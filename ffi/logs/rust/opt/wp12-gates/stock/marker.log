@@ -1,0 +1,4 @@
+# WP12 marker, variant stock: write syscalls per d/16 MiB call (k=1, TCP 127.0.0.1, server serve.sh pinned listener), stream_probe io_syscw per call per round
+# expected: Cf (the core's client) about 1,030 on stock and about 75 on h2-batch (AK_H2_COALESCE 16); A (tonic in the host, crates.io h2) about 1,030 on both
+Cf-retain  rounds 3, writes per call: 1039.5, 1039.0, 1039.0
+A          rounds 3, writes per call: 1036.5, 1035.0, 1038.0

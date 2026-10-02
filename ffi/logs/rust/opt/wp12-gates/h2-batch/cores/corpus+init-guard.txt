@@ -1,0 +1,6 @@
+variant h2-batch
+features corpus,init-guard
+built 2026-10-02T08:22:20Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+sha256 1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31
+h2 compiled in: none (no h2 in this core)
+AK_H2_COALESCE read by the core: 0 string(s)

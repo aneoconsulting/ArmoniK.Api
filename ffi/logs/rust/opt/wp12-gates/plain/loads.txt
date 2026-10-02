@@ -1,0 +1,177 @@
+# WP12 core loads: variant plain, 2166 processes loaded a libak_core.so, 10 more listed by ldd only
+# columns: step | processes | executable (how) | path opened by the loader -> what it is (sha256)
+
+## step 3
+   1  target/release/conformance (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 4
+   1  target/release/shapes (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 5
+   1  target-count/release/counts (needed)
+      target-count/release/deps/libak_core.so -> target's own core (target-count) (sha256 f5422ff723f4f911)
+   1  target-count/release/pullbench (needed)
+      target-count/release/deps/libak_core.so -> target's own core (target-count) (sha256 f5422ff723f4f911)
+
+## step 6
+   1  target/release/contentall (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 7
+   1  target-count/release/concur (needed)
+      target-count/release/deps/libak_core.so -> target's own core (target-count) (sha256 f5422ff723f4f911)
+   3  target/release/concur (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+   1  target-count/release/concur (needed)
+      target-count/release/deps/libak_core.so -> target's own core (target-count) (sha256 f5422ff723f4f911)
+   1  target-gw-pad/release/concur (needed)
+      target-gw-pad/release/deps/libak_core.so -> target's own core (target-gw-pad) (sha256 195aea0cd4c1d44f)
+   3  target-gw/release/concur (needed)
+      target-gw/release/deps/libak_core.so -> target's own core (target-gw) (sha256 b2b2aeeace2c8b57)
+   1  target-pad/release/concur (needed)
+      target-pad/release/deps/libak_core.so -> target's own core (target-pad) (sha256 ea552f11231dc285)
+   3  target/release/concur (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 8
+   1  ./target-ig/release/conformance (needed)
+      target-ig/release/deps/libak_core.so -> target's own core (target-ig) (sha256 ff637c192c6bdac1)
+   1  ./target-ig/release/lifecycle (needed)
+      target-ig/release/deps/libak_core.so -> target's own core (target-ig) (sha256 ff637c192c6bdac1)
+   1  ./target-noig/release/lifecycle (needed)
+      target-noig/release/deps/libak_core.so -> target's own core (target-noig) (sha256 ff1fb44801d84487)
+  15  target-ig/release/lifecycle (needed)
+      target-ig/release/deps/libak_core.so -> target's own core (target-ig) (sha256 ff637c192c6bdac1)
+  15  target-noig/release/lifecycle (needed)
+      target-noig/release/deps/libak_core.so -> target's own core (target-noig) (sha256 ff1fb44801d84487)
+
+## step 9
+  11  target/release/rdrepro (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 10
+   1  target/release/stickyerr (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 11
+   5  gen/../target-corpus-nounk/release/corpus (needed)
+      corpus/../target-corpus-nounk/release/deps/libak_core.so -> target's own core (target-corpus-nounk) (sha256 09e177c3568749dc)
+1034  target-corpus-nounk/release/corpus (needed)
+      corpus/../target-corpus-nounk/release/deps/libak_core.so -> target's own core (target-corpus-nounk) (sha256 09e177c3568749dc)
+1041  target-corpus/release/corpus (needed)
+      corpus/../target-corpus/release/deps/libak_core.so -> target's own core (target-corpus) (sha256 12e437aec5d67dfa)
+
+## step 11b
+   1  target/release/deps/codec_suite-3211c86b37bffe91 (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 11c
+   1  target-count/release/crossings (needed)
+      target-count/release/deps/libak_core.so -> target's own core (target-count) (sha256 f5422ff723f4f911)
+
+## step 11d
+   1  target/release/header_diff (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 11e
+   1  target/release/upload_check (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 11f
+   1  target/release/rpc_semantics (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## step 12
+   1  target-nounk/release/deps/codec_suite-99bc45b4604d3141 (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   1  /tmp/tmp.7boyeQKWqi/h-full-full (needed)
+      /tmp/tmp.7boyeQKWqi/so-full/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.7boyeQKWqi/h-full-nounk (needed)
+      /tmp/tmp.7boyeQKWqi/so-nounk/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.7boyeQKWqi/h-nounk-full (needed)
+      /tmp/tmp.7boyeQKWqi/so-full/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.7boyeQKWqi/h-nounk-nounk (needed)
+      /tmp/tmp.7boyeQKWqi/so-nounk/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  target-count-nounk/release/crossings (needed)
+      target-count-nounk/release/deps/libak_core.so -> target's own core (target-count-nounk) (sha256 f987d39b014bd544)
+   1  target-nounk/release/conformance (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   1  target-nounk/release/rpc_semantics (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   1  target-nounk/release/shapes (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   1  target-nounk/release/upload_check (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+
+## marker
+   1  target/release/stream_probe (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+## tcp
+   1  target-nounk/release/rpc_semantics (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   1  target-nounk/release/upload_check (needed)
+      target-nounk/release/deps/libak_core.so -> target's own core (target-nounk) (sha256 754a342bfd0b7f5f)
+   2  target/release/burst_check (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+   1  target/release/header_diff (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+   1  target/release/rpc_semantics (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+   1  target/release/upload_check (needed)
+      target/release/deps/libak_core.so -> target's own core (target) (sha256 577b9b2e83079ce9)
+
+# static-link check, every executable above
+# columns: executable | DT_RUNPATH | DT_RPATH | ak_* C symbols defined in the executable | h2 compiled into the executable
+gen/../target-corpus-nounk/release/corpus | yes | no | 0 | none
+target-corpus-nounk/release/corpus | yes | no | 0 | none
+target-corpus/release/corpus | yes | no | 0 | none
+target-count-nounk/release/crossings | yes | no | 0 | h2-0.4.19
+target-count/release/concur | yes | no | 0 | none
+target-count/release/counts | yes | no | 0 | none
+target-count/release/crossings | yes | no | 0 | h2-0.4.19
+target-count/release/pullbench | yes | no | 0 | none
+target-gw-pad/release/concur | yes | no | 0 | none
+target-gw/release/concur | yes | no | 0 | none
+target-ig/release/conformance | yes | no | 0 | none
+target-ig/release/lifecycle | yes | no | 0 | none
+target-noig/release/lifecycle | yes | no | 0 | none
+target-nounk/release/conformance | yes | no | 0 | none
+target-nounk/release/deps/codec_suite-99bc45b4604d3141 | yes | no | 0 | none
+target-nounk/release/rpc_semantics | yes | no | 0 | h2-0.4.19
+target-nounk/release/shapes | yes | no | 0 | none
+target-nounk/release/upload_check | yes | no | 0 | h2-0.4.19
+target-pad/release/concur | yes | no | 0 | none
+target/release/burst_check | yes | no | 0 | none
+target/release/concur | yes | no | 0 | none
+target/release/conformance | yes | no | 0 | none
+target/release/contentall | yes | no | 0 | none
+target/release/deps/codec_suite-3211c86b37bffe91 | yes | no | 0 | none
+target/release/header_diff | yes | no | 0 | h2-0.4.19
+target/release/rdrepro | yes | no | 0 | none
+target/release/rpc_semantics | yes | no | 0 | h2-0.4.19
+target/release/shapes | yes | no | 0 | none
+target/release/stickyerr | yes | no | 0 | none
+target/release/stream_probe | yes | no | 0 | h2-0.4.19
+target/release/upload_check | yes | no | 0 | h2-0.4.19
+/tmp/tmp.7boyeQKWqi/h-full-full | (gone)
+/tmp/tmp.7boyeQKWqi/h-full-nounk | (gone)
+/tmp/tmp.7boyeQKWqi/h-nounk-full | (gone)
+/tmp/tmp.7boyeQKWqi/h-nounk-nounk | (gone)
+
+# the cores of this run (h2 compiled in)
+target/release/deps/libak_core.so  sha256 577b9b2e83079ce95b73a8668b85541672569e2bc7db42497cbe56828276f016  h2: h2-0.4.19
+target-corpus/release/deps/libak_core.so  sha256 12e437aec5d67dfa37b6e8c6da9e4ca935e589127228b5e6f880c6591f7eb98f  h2: none
+target-corpus-nounk/release/deps/libak_core.so  sha256 09e177c3568749dc99f9c5ce9106353676fb0138807fb7db9d15fcdab962e1b9  h2: none
+target-count/release/deps/libak_core.so  sha256 f5422ff723f4f911da48b96aef9ee6613eb7ea264c801ae5e1d7cd801ecc84bf  h2: h2-0.4.19
+target-nounk/release/deps/libak_core.so  sha256 754a342bfd0b7f5f37ca7ffa18f7beaa68f480fd45c805c7248d2d482e54a16b  h2: h2-0.4.19
+target-count-nounk/release/deps/libak_core.so  sha256 f987d39b014bd544c26e828699763eff951fb092f2811ef1faab0bb1f8ab43a0  h2: h2-0.4.19
+target-gw/release/deps/libak_core.so  sha256 b2b2aeeace2c8b57032820451160c49a13b353e26a3320911e43aff98de6c05c  h2: h2-0.4.19
+target-pad/release/deps/libak_core.so  sha256 ea552f11231dc2853de1f6c4a06cd498e0a3e66dadc836b754815b7dd336ffc1  h2: h2-0.4.19
+target-gw-pad/release/deps/libak_core.so  sha256 195aea0cd4c1d44f72832bb33b75d517ff2ad035138f36dd0344780dc8e8a6b0  h2: h2-0.4.19
+target-noig/release/deps/libak_core.so  sha256 ff1fb44801d84487b77c002135690356db77c9e966b6333d12304bf057493dfa  h2: h2-0.4.19
+target-ig/release/deps/libak_core.so  sha256 ff637c192c6bdac17484882395bb03ff29703a372fa5f7e0af41ceacd4d2fb9e  h2: h2-0.4.19
+
+LOADS CHECK PASSED: every process that loaded a core loaded exactly one; no executable carries a DT_RPATH or defines an ak_* symbol

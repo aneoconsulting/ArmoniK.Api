@@ -1,0 +1,6 @@
+variant h2-batch
+features rpc
+built 2026-10-02T08:21:21Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+sha256 d50eb7e1cde658a73f959744db41a554951122dc795d5309ba54a243fdcf6265
+h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+AK_H2_COALESCE read by the core: 1 string(s)

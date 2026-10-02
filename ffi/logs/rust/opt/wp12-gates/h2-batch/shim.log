@@ -1,0 +1,1784 @@
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  build.sh: # ak-core h2-batch, features init-guard,rpc,unknown-fields, 2026-10-02T08:17:35Z
+  build.sh: e8073eecd5479d78da6bb3d54c1c818f0cbd88564d4560ddb639f99f4b3f7bc0  /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/release/libak_core.so
+  build.sh:     h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  checked: no-op rebuild fresh, ak-core features init-guard,rpc,unknown-fields
+  variant h2-batch
+  features init-guard,rpc,unknown-fields
+  built 2026-10-02T08:17:35Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+  sha256 e8073eecd5479d78da6bb3d54c1c818f0cbd88564d4560ddb639f99f4b3f7bc0
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+  by hand: cargo build --release --manifest-path poc/codec/crates/ak-core/Cargo.toml --no-default-features --features init-guard,rpc --config patch.crates-io.h2.path="/home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/h2-batch-src"
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:457:11
+    |
+457 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:479:11
+    |
+479 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:502:11
+    |
+502 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:523:11
+    |
+523 | unsafe fn enc_list_probe_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:543:11
+    |
+543 | unsafe fn enc_list_metrics_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:564:11
+    |
+564 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:582:11
+    |
+582 | unsafe fn enc_dual_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1264:11
+     |
+1264 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1296:11
+     |
+1296 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1338:11
+     |
+1338 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1438:11
+     |
+1438 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1575:11
+     |
+1575 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1619:11
+     |
+1619 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  checked: no-op rebuild fresh, ak-core features init-guard,rpc
+  variant h2-batch
+  features init-guard,rpc
+  built 2026-10-02T08:17:48Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+  sha256 0ff0580daa8d683f3737b1f0805ddcc4b4becb2083177addabce32b372436ea6
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:17:58 cargo test -q -p ak-core -p ak-rt (cwd /home/user/ArmoniK.Api/ffi/poc/codec, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-codec-test)
+08:17:58 cargo run --release -q -p harness --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:18:21   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:18:21   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/conformance 
+08:18:22 cargo run --release -q -p harness --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:18:23   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:18:23   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/shapes 
+08:18:24 cargo run --release -q -p harness --features count --bin counts (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:18:46   building the h2-batch core with features [count,init-guard,rpc,unknown-fields] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/count+init-guard+rpc+unknown-fields
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  build.sh: # ak-core h2-batch, features count,init-guard,rpc,unknown-fields, 2026-10-02T08:19:14Z
+  build.sh: 7a89311a549ef3c19125aaf422254cfda2d3792ac1412e619019e0ac6e3f0a5e  /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/release/libak_core.so
+  build.sh:     h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  checked: no-op rebuild fresh, ak-core features count,init-guard,rpc,unknown-fields
+  variant h2-batch
+  features count,init-guard,rpc,unknown-fields
+  built 2026-10-02T08:19:14Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+  sha256 7a89311a549ef3c19125aaf422254cfda2d3792ac1412e619019e0ac6e3f0a5e
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:19:14   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1); the target's own core f65cf1bafb07e4eb
+08:19:14   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/counts 
+08:19:14 cargo run --release -q -p harness --features count --bin pullbench (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:19:15   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1); the target's own core f65cf1bafb07e4eb
+08:19:15   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/pullbench 
+08:19:16 cargo run --release -q -p harness --bin contentall (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:19:18   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:19:18   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/contentall 
+08:19:19 cargo build --release -q -p harness --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target)
+08:19:20   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:19:20 cargo build --release -q -p harness --features global-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw)
+08:19:20   building the h2-batch core with features [global-widths,init-guard,rpc,unknown-fields] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/global-widths+init-guard+rpc+unknown-fields
+warning: unused variable: `sites`
+   --> crates/ak-rt/src/enc.rs:126:16
+    |
+126 |     pub fn new(sites: usize) -> Self {
+    |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_sites`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  build.sh: # ak-core h2-batch, features global-widths,init-guard,rpc,unknown-fields, 2026-10-02T08:19:54Z
+  build.sh: 9d9f0b12973cdbef2903a9fe329544cb4fb9ec7d6a0cbfaf71bd690ecb5f54b8  /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/release/libak_core.so
+  build.sh:     h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  checked: no-op rebuild fresh, ak-core features global-widths,init-guard,rpc,unknown-fields
+  variant h2-batch
+  features global-widths,init-guard,rpc,unknown-fields
+  built 2026-10-02T08:19:54Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+  sha256 9d9f0b12973cdbef2903a9fe329544cb4fb9ec7d6a0cbfaf71bd690ecb5f54b8
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:19:54   target-gw/release: core features [global-widths,init-guard,rpc,unknown-fields] -> h2-batch/global-widths+init-guard+rpc+unknown-fields (sha256 9d9f0b12973cdbef); the target's own core b2b2aeeace2c8b57
+08:19:54 cargo build --release -q -p harness --features pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-pad)
+08:19:55   building the h2-batch core with features [init-guard,pad-widths,rpc,unknown-fields] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/init-guard+pad-widths+rpc+unknown-fields
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  build.sh: # ak-core h2-batch, features init-guard,pad-widths,rpc,unknown-fields, 2026-10-02T08:20:21Z
+  build.sh: e3a52f8c9b0a76d3acd823ebad2a123849dbda214bd35e7d6c9872f9550b45f5  /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/release/libak_core.so
+  build.sh:     h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  checked: no-op rebuild fresh, ak-core features init-guard,pad-widths,rpc,unknown-fields
+  variant h2-batch
+  features init-guard,pad-widths,rpc,unknown-fields
+  built 2026-10-02T08:20:21Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+  sha256 e3a52f8c9b0a76d3acd823ebad2a123849dbda214bd35e7d6c9872f9550b45f5
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:20:21   target-pad/release: core features [init-guard,pad-widths,rpc,unknown-fields] -> h2-batch/init-guard+pad-widths+rpc+unknown-fields (sha256 e3a52f8c9b0a76d3); the target's own core ea552f11231dc285
+08:20:21 cargo build --release -q -p harness --features global-widths,pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw-pad)
+08:20:21   building the h2-batch core with features [global-widths,init-guard,pad-widths,rpc,unknown-fields] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/global-widths+init-guard+pad-widths+rpc+unknown-fields
+warning: unused variable: `sites`
+   --> crates/ak-rt/src/enc.rs:126:16
+    |
+126 |     pub fn new(sites: usize) -> Self {
+    |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_sites`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2416:11
+     |
+2416 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2452:11
+     |
+2452 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2498:11
+     |
+2498 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2620:11
+     |
+2620 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2771:11
+     |
+2771 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/codec.rs:2819:11
+     |
+2819 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  build.sh: # ak-core h2-batch, features global-widths,init-guard,pad-widths,rpc,unknown-fields, 2026-10-02T08:20:49Z
+  build.sh: bd8f450b4f86772965a98773a319523d8d3582bd789d58371da34f35fcaf9ab9  /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/release/libak_core.so
+  build.sh:     h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  checked: no-op rebuild fresh, ak-core features global-widths,init-guard,pad-widths,rpc,unknown-fields
+  variant h2-batch
+  features global-widths,init-guard,pad-widths,rpc,unknown-fields
+  built 2026-10-02T08:20:49Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+  sha256 bd8f450b4f86772965a98773a319523d8d3582bd789d58371da34f35fcaf9ab9
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:20:49   target-gw-pad/release: core features [global-widths,init-guard,pad-widths,rpc,unknown-fields] -> h2-batch/global-widths+init-guard+pad-widths+rpc+unknown-fields (sha256 bd8f450b4f867729); the target's own core 195aea0cd4c1d44f
+08:20:49 cargo run --release -q -p harness --features count --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-count)
+08:20:50   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1); the target's own core f65cf1bafb07e4eb
+08:20:50   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/concur 
+08:21:10 cargo build --release -q -p harness --no-default-features --features guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-noig)
+08:21:10   building the h2-batch core with features [rpc] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/rpc
+  by hand: cargo build --release --manifest-path poc/codec/crates/ak-core/Cargo.toml --no-default-features --features rpc --config patch.crates-io.h2.path="/home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/h2-batch-src"
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:457:11
+    |
+457 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:479:11
+    |
+479 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:502:11
+    |
+502 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:523:11
+    |
+523 | unsafe fn enc_list_probe_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:543:11
+    |
+543 | unsafe fn enc_list_metrics_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:564:11
+    |
+564 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:582:11
+    |
+582 | unsafe fn enc_dual_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1264:11
+     |
+1264 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1296:11
+     |
+1296 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1338:11
+     |
+1338 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1438:11
+     |
+1438 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1575:11
+     |
+1575 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1619:11
+     |
+1619 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  checked: no-op rebuild fresh, ak-core features rpc
+  variant h2-batch
+  features rpc
+  built 2026-10-02T08:21:21Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+  sha256 d50eb7e1cde658a73f959744db41a554951122dc795d5309ba54a243fdcf6265
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:21:22   target-noig/release: core features [rpc] -> h2-batch/rpc (sha256 d50eb7e1cde658a7); the target's own core ff1fb44801d84487
+08:21:22 cargo build --release -q -p harness --features init-guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-ig)
+08:21:22   target-ig/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:21:23 cargo build --release -p harness --bin rdrepro (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:21:23   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:21:24 cargo run --release -q -p harness --bin stickyerr (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:21:24   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core ff637c192c6bdac1
+08:21:24   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/stickyerr 
+08:21:24 cargo build --release -q (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus)
+08:21:25   building the h2-batch core with features [corpus,init-guard,unknown-fields] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/corpus+init-guard+unknown-fields
+  by hand: cargo build --release --manifest-path poc/codec/crates/ak-core/Cargo.toml  --features corpus,init-guard,unknown-fields --config patch.crates-io.h2.path="/home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/h2-batch-src"
+warning: function `enc_duration_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:102:11
+    |
+102 | unsafe fn enc_duration_group(g: &ak_efix_Duration, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_duration_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:109:11
+    |
+109 | unsafe fn enc_duration_ugroup(g: &ak_ufix_Duration, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_options_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:196:11
+    |
+196 | unsafe fn enc_task_options_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_options_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:242:11
+    |
+242 | unsafe fn enc_task_options_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_output_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:290:11
+    |
+290 | unsafe fn enc_task_output_group(g: &ak_efix_TaskOutput, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_output_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:299:11
+    |
+299 | unsafe fn enc_task_output_ugroup(g: &ak_ufix_TaskOutput, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:939:11
+    |
+939 | unsafe fn enc_upload_result_data_group(g: &ak_efix_UploadResultData, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_ugroup` is never used
+   --> crates/ak-core/src/generated/../generated_corpus/codec.rs:953:11
+    |
+953 | unsafe fn enc_upload_result_data_ugroup(g: &ak_ufix_UploadResultData, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1106:11
+     |
+1106 | unsafe fn enc_list_results_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1128:11
+     |
+1128 | unsafe fn enc_list_results_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1151:11
+     |
+1151 | unsafe fn enc_list_tasks_detailed_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1174:11
+     |
+1174 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1198:11
+     |
+1198 | unsafe fn enc_list_task_summary_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1219:11
+     |
+1219 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1241:11
+     |
+1241 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1261:11
+     |
+1261 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1282:11
+     |
+1282 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1303:11
+     |
+1303 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1325:11
+     |
+1325 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1343:11
+     |
+1343 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1363:11
+     |
+1363 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1392:11
+     |
+1392 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunk_inner_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1441:11
+     |
+1441 | unsafe fn enc_chunk_inner_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunk_inner_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1470:11
+     |
+1470 | unsafe fn enc_chunk_inner_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1610:11
+     |
+1610 | unsafe fn enc_chunked_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1632:11
+     |
+1632 | unsafe fn enc_chunked_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_wide_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1655:11
+     |
+1655 | unsafe fn enc_chunked_response_wide_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_wide_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1676:11
+     |
+1676 | unsafe fn enc_chunked_response_wide_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_leaf_response_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1730:11
+     |
+1730 | unsafe fn enc_leaf_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_leaf_response_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1750:11
+     |
+1750 | unsafe fn enc_leaf_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1771:11
+     |
+1771 | unsafe fn enc_surrogate_group(
+     |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1813:11
+     |
+1813 | unsafe fn enc_surrogate_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_inner_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1857:11
+     |
+1857 | unsafe fn enc_surrogate_inner_group(g: &ak_efix_SurrogateInner, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_inner_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1865:11
+     |
+1865 | unsafe fn enc_surrogate_inner_ugroup(g: &ak_ufix_SurrogateInner, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_wire_zoo_group` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1874:11
+     |
+1874 | unsafe fn enc_wire_zoo_group(g: &ak_efix_WireZoo, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_wire_zoo_ugroup` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:1898:11
+     |
+1898 | unsafe fn enc_wire_zoo_ugroup(g: &ak_ufix_WireZoo, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_chunk_element_attrs_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5729:11
+     |
+5729 | unsafe fn dec_chunk_element_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkElementAttrsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_chunk_leaf_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5777:11
+     |
+5777 | unsafe fn dec_chunk_leaf_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkLeaf {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5823:11
+     |
+5823 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_leaf_element_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5859:11
+     |
+5859 | unsafe fn dec_leaf_element_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_LeafElement {
+     |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5939:11
+     |
+5939 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:5985:11
+     |
+5985 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:6107:11
+     |
+6107 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_surrogate_attrs_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:6258:11
+     |
+6258 | unsafe fn dec_surrogate_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_SurrogateAttrsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:6306:11
+     |
+6306 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus/codec.rs:6354:11
+     |
+6354 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  checked: no-op rebuild fresh, ak-core features corpus,init-guard,unknown-fields
+  variant h2-batch
+  features corpus,init-guard,unknown-fields
+  built 2026-10-02T08:21:46Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command)
+  sha256 99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c
+  h2 compiled in: none (no h2 in this core)
+  AK_H2_COALESCE read by the core: 0 string(s)
+08:21:46   target-corpus/release: core features [corpus,init-guard,unknown-fields] -> h2-batch/corpus+init-guard+unknown-fields (sha256 99235c735634bf03); the target's own core 12e437aec5d67dfa
+08:21:59 cargo build --release -q --no-default-features --features init-guard (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-corpus-nounk)
+08:21:59   building the h2-batch core with features [corpus,init-guard] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/corpus+init-guard
+  by hand: cargo build --release --manifest-path poc/codec/crates/ak-core/Cargo.toml --no-default-features --features corpus,init-guard --config patch.crates-io.h2.path="/home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/h2-batch-src"
+warning: function `enc_duration_group` is never used
+  --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:69:11
+   |
+69 | unsafe fn enc_duration_group(g: &ak_efix_Duration, cx: *mut EncCtxImpl) -> bool {
+   |           ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_task_options_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:114:11
+    |
+114 | unsafe fn enc_task_options_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_task_output_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:160:11
+    |
+160 | unsafe fn enc_task_output_group(g: &ak_efix_TaskOutput, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:473:11
+    |
+473 | unsafe fn enc_upload_result_data_group(g: &ak_efix_UploadResultData, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:555:11
+    |
+555 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:577:11
+    |
+577 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:600:11
+    |
+600 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:621:11
+    |
+621 | unsafe fn enc_list_probe_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:641:11
+    |
+641 | unsafe fn enc_list_metrics_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:662:11
+    |
+662 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:680:11
+    |
+680 | unsafe fn enc_dual_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunk_inner_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:718:11
+    |
+718 | unsafe fn enc_chunk_inner_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:801:11
+    |
+801 | unsafe fn enc_chunked_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_chunked_response_wide_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:823:11
+    |
+823 | unsafe fn enc_chunked_response_wide_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_leaf_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:859:11
+    |
+859 | unsafe fn enc_leaf_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:879:11
+    |
+879 | unsafe fn enc_surrogate_group(
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_surrogate_inner_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:921:11
+    |
+921 | unsafe fn enc_surrogate_inner_group(g: &ak_efix_SurrogateInner, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_wire_zoo_group` is never used
+   --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:929:11
+    |
+929 | unsafe fn enc_wire_zoo_group(g: &ak_efix_WireZoo, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_chunk_element_attrs_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:2890:11
+     |
+2890 | unsafe fn dec_chunk_element_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkElementAttrsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_chunk_leaf_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:2934:11
+     |
+2934 | unsafe fn dec_chunk_leaf_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkLeaf {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:2976:11
+     |
+2976 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_leaf_element_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3008:11
+     |
+3008 | unsafe fn dec_leaf_element_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_LeafElement {
+     |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3079:11
+     |
+3079 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3121:11
+     |
+3121 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3221:11
+     |
+3221 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_surrogate_attrs_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3358:11
+     |
+3358 | unsafe fn dec_surrogate_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_SurrogateAttrsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3402:11
+     |
+3402 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_corpus_nounk/codec.rs:3446:11
+     |
+3446 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  checked: no-op rebuild fresh, ak-core features corpus,init-guard
+  variant h2-batch
+  features corpus,init-guard
+  built 2026-10-02T08:22:20Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+  sha256 1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31
+  h2 compiled in: none (no h2 in this core)
+  AK_H2_COALESCE read by the core: 0 string(s)
+08:22:20   target-corpus-nounk/release: core features [corpus,init-guard] -> h2-batch/corpus+init-guard (sha256 1dd4b46c5cb2d764); the target's own core 09e177c3568749dc
+08:22:32 cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:23:24   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:24:49 cargo run --release -q -p campaign --features count --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:25:25   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1); the target's own core f5422ff723f4f911
+08:25:25   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/crossings 
+08:25:32 cargo run --release -q -p campaign --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:25:32   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:25:32   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/header_diff 
+08:25:32 cargo run --release -q -p campaign --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:25:33   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:25:33   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/upload_check 
+08:25:39 cargo run --release -q -p campaign --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:25:39   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:25:39   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rpc_semantics 
+08:25:46 cargo bench -q -p campaign --no-default-features --features init-guard --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:26:02   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core 754a342bfd0b7f5f
+08:26:45 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:27:04   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core dc7eedde344acfca
+08:27:04   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/conformance 
+08:27:05 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:27:07   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core dc7eedde344acfca
+08:27:07   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/shapes 
+08:27:07 cargo run --release -q -p campaign --no-default-features --features count,init-guard --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count-nounk)
+08:27:07   building the h2-batch core with features [count,init-guard,rpc] -> /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-cores/h2-batch/count+init-guard+rpc
+  by hand: cargo build --release --manifest-path poc/codec/crates/ak-core/Cargo.toml --no-default-features --features count,init-guard,rpc --config patch.crates-io.h2.path="/home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch/h2-batch-src"
+warning: unnecessary `unsafe` block
+   --> crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:457:11
+    |
+457 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:479:11
+    |
+479 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:502:11
+    |
+502 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:523:11
+    |
+523 | unsafe fn enc_list_probe_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:543:11
+    |
+543 | unsafe fn enc_list_metrics_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:564:11
+    |
+564 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+   --> crates/ak-core/src/generated/../generated_nounk/codec.rs:582:11
+    |
+582 | unsafe fn enc_dual_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1264:11
+     |
+1264 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1296:11
+     |
+1296 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1338:11
+     |
+1338 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1438:11
+     |
+1438 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1575:11
+     |
+1575 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> crates/ak-core/src/generated/../generated_nounk/codec.rs:1619:11
+     |
+1619 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1010:35
+     |
+1010 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1010 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> crates/ak-core/src/lib.rs:1104:39
+     |
+1104 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1104 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+  checked: no-op rebuild fresh, ak-core features count,init-guard,rpc
+  variant h2-batch
+  features count,init-guard,rpc
+  built 2026-10-02T08:27:22Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (by hand, the same cargo command with --no-default-features)
+  sha256 0237bd4be5b23647cadd2af0aec854c2889cdafe1da06c21ec2292925a9192f7
+  h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+  AK_H2_COALESCE read by the core: 1 string(s)
+08:27:22   target-count-nounk/release: core features [count,init-guard,rpc] -> h2-batch/count+init-guard+rpc (sha256 0237bd4be5b23647); the target's own core f987d39b014bd544
+08:27:22   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count-nounk/release/crossings 
+08:27:26 cargo run --release -q -p campaign --no-default-features --features init-guard --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:27:50   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core 754a342bfd0b7f5f
+08:27:50   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/upload_check 
+08:27:54 cargo run --release -q -p campaign --no-default-features --features init-guard --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:27:56   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core 754a342bfd0b7f5f
+08:27:56   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/rpc_semantics 
+08:28:02 cargo build --release -q -p campaign --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:28:03   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:28:03 cargo build --release -q -p campaign --bin burst_check --bin stream_probe --bin upload_check --bin rpc_semantics --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:28:04   target/release: core features [init-guard,rpc,unknown-fields] -> h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78); the target's own core 577b9b2e83079ce9
+08:28:04 cargo build --release -q -p campaign --no-default-features --features init-guard --bin upload_check --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:28:04   target-nounk/release: core features [init-guard,rpc] -> h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f); the target's own core 754a342bfd0b7f5f
+08:28:29 cargo build --release -q -p campaign --bin rpc_server --bin rpc_warm (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-server)

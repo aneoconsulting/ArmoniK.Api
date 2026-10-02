@@ -1,0 +1,6 @@
+variant stock
+features init-guard,rpc,unknown-fields
+built 2026-10-02T07:52:12Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-stock (poc/codec/h2-batch/build.sh)
+sha256 9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82
+h2 compiled in: h2-0.4.19/src/codec/framed_write.rs
+AK_H2_COALESCE read by the core: 0 string(s)

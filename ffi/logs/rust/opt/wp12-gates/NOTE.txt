@@ -1,0 +1,17 @@
+# WP12 Rust gates, container, 2026-10-02 (no figure here is a timing)
+# Driver: poc/rust/gen/wp12_gate.sh VARIANT DIR at e3f6afe8 (clean tree; HEAD later moved to d5e23249,
+# a poc/cpp-only commit, before the plain run: poc/rust and poc/codec identical in both).
+#   h2-batch/  every binary of gen/gate.sh loads the h2-batch core of its own ak-core feature set
+#              (poc/codec/h2-batch/build.sh h2-batch, or the same cargo command by hand where build.sh
+#              cannot build the set: no-unknown sets, the h2-free corpus core); AK_H2_COALESCE unset
+#   stock/     the same with build.sh stock cores
+#   plain/     gen/gate.sh as committed (each target directory's own core), only the build lock added
+# Per directory: gate.log (header: commit, rustc, the full and no-unknown cores with sha256 and the h2
+# compiled in; gate.sh's output; the WP12 footer: every feature set's core, the loads verdict, the TCP
+# checks, the marker), loads.txt (LD_DEBUG=libs record of every process that loaded a libak_core.so,
+# per gate step, and the static-link check), lddebug-excerpt.txt (one raw loader record per step),
+# shim.log (every cargo command, the feature set each target directory compiled, the core it maps to,
+# the core builds), cores/*.txt (each core's info), tcp/ (AK_CHECK_TRANSPORT=tcp upload_check,
+# rpc_semantics, header_diff on the full and no-unknown builds; burst_check on serve.sh's Unix sockets
+# and its TCP listener; marker.jsonl: stream_probe io_syscw per d/16 MiB call, cells Cf and A).
+# burst_check prints per-stream wall ms: container instrumentation, not a result.

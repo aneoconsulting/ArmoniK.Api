@@ -1,0 +1,15 @@
+# WP12 RPC checks over TCP 127.0.0.1, variant stock, 2026-10-02T08:35:12Z; in-process server (AK_CHECK_TRANSPORT=tcp: pinned
+# configuration, TCP_NODELAY on accept) for upload_check / rpc_semantics / header_diff; serve.sh's rpc_server for burst_check
+PASS upload_check-full: 0 PASS/ok lines, 0 FAIL; UPLOAD CHECK PASSED
+PASS rpc_semantics-full: 72 PASS/ok lines, 0 FAIL; RPC SEMANTICS PASSED
+PASS header_diff-full: 0 PASS/ok lines, 0 FAIL;   send limit 2 B framed Err(OutOfRange, "Error, encoded message length too large: found 3 bytes, the limit is: 2 bytes") (expected OutOfRange, not sent)
+PASS upload_check-nounk: 0 PASS/ok lines, 0 FAIL; UPLOAD CHECK PASSED
+PASS rpc_semantics-nounk: 72 PASS/ok lines, 0 FAIL; RPC SEMANTICS PASSED
+# serve.sh: pid 16648, shipped /tmp/aksrv.CbtEB2/shipped.sock, pinned /tmp/aksrv.CbtEB2/pinned.sock, tcp 127.0.0.1:41705; rpc_server links no libak_core (host side only)
+PASS burst_check-uds: 10 PASS/ok lines, 0 FAIL; BURST CHECK PASSED
+PASS burst_check-tcp: 5 PASS/ok lines, 0 FAIL; BURST CHECK PASSED
+# WP12 marker, variant stock: write syscalls per d/16 MiB call (k=1, TCP 127.0.0.1, server serve.sh pinned listener), stream_probe io_syscw per call per round
+# expected: Cf (the core's client) about 1,030 on stock and about 75 on h2-batch (AK_H2_COALESCE 16); A (tonic in the host, crates.io h2) about 1,030 on both
+Cf-retain  rounds 3, writes per call: 1039.5, 1039.0, 1039.0
+A          rounds 3, writes per call: 1036.5, 1035.0, 1038.0
+tcp checks rc=0

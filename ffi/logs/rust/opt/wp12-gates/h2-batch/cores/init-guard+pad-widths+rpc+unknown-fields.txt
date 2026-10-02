@@ -1,0 +1,6 @@
+variant h2-batch
+features init-guard,pad-widths,rpc,unknown-fields
+built 2026-10-02T08:20:21Z in /home/user/ArmoniK.Api/ffi/poc/rust/target-wp12-h2-batch (poc/codec/h2-batch/build.sh)
+sha256 e3a52f8c9b0a76d3acd823ebad2a123849dbda214bd35e7d6c9872f9550b45f5
+h2 compiled in: h2-batch-src/src/codec/framed_write.rs
+AK_H2_COALESCE read by the core: 1 string(s)

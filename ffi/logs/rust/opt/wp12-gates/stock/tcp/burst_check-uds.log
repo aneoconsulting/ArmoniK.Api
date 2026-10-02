@@ -1,0 +1,12 @@
+# burst check: AK_H2_COALESCE=unset (1); core $ORIGIN/ak-variant:$ORIGIN/../ak-variant
+ok   shipped: 4 x 16 MiB streams, checked: identical bytes
+ok   shipped: 4 x 4 MiB streams, checked: identical bytes
+ok   shipped: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 263.8 median 277.6 max 282.9
+ok   shipped: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   shipped: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 4 x 16 MiB streams, checked: identical bytes
+ok   pinned: 4 x 4 MiB streams, checked: identical bytes
+ok   pinned: 8 concurrent 16 MiB streams on one connection, each checked: 8 ok; per-stream wall ms min 197.7 median 242.5 max 256.8
+ok   pinned: 10 x (cancel after 1 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+ok   pinned: 10 x (cancel after 4 of 8 chunks: CANCELLED; then a checked 16 MiB stream on the same connection)
+BURST CHECK PASSED

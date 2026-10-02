@@ -4099,3 +4099,50 @@ on the current stack, core-only and host-too, against stock h2 and p4, UDS and T
   processes per condition. Raw (task-clock ms per call, medians): d/16 k=1 A stock 15.0 to 15.3 in
   every A form, host-too 7.7 to 8.0; Cf / Cf-cb / Cf-q stock w8 15.33 / 15.83 / 15.56, h2-batch w8
   7.98 / 7.82 / 7.93; with 1 core worker stock 14.70 / 14.72 / 14.53, h2-batch 7.82 / 8.10 / 7.90.
+
+## 2026-10-02 -- WP12: the full gate on both h2 variants of the core (container)
+
+Task (coordinator): close WP12's "both variants pass both slices' gates" for this slice: the gate that
+produced opt/p1-landed/gate.log, both builds, once on the stock core and once on the h2-batch core
+(build.sh, AK_H2_COALESCE default), with proof the variant is in effect, the RPC checks over TCP, and a
+write-count marker. Container: no timing claims.
+
+- Linkage: ak-core is `crate-type = ["cdylib", "staticlib"]` and every harness/campaign binary links the
+  cdylib (DT_NEEDED libak_core.so, RUNPATH <target>/release/deps, no DT_RPATH, no SONAME). So no gate
+  step links the core statically and library substitution covers every step. The obstacle is
+  `cargo run` (gate steps 3-6, 10, 11c-11f, 12): cargo prepends its own deps directory to
+  LD_LIBRARY_PATH, which would hide a substituted core. A second obstacle: the gate's target
+  directories compile 11 different ak-core feature sets (count, global-widths, pad-widths, guard off =
+  `rpc` only, corpus, no-unknown, ...), so a substituted core must match each one.
+- Built: gen/wp12-shim/cargo (lock every build; after each build read ak-core's feature set from a
+  no-op `--message-format=json` rebuild; gen/wp12_core.sh builds that set for the variant;
+  <target>/release/ak-variant -> it; `cargo run` = build + exec), LD_LIBRARY_PATH='$ORIGIN/ak-variant:
+  $ORIGIN/../ak-variant' (glibc expands $ORIGIN per executable in LD_LIBRARY_PATH: checked with ldd
+  first), gate.sh's step() exporting LD_DEBUG=libs and a per-step LD_DEBUG_OUTPUT, gen/wp12_loads.py
+  (the summary), gen/wp12_gate.sh (the driver: header, gate, TCP checks, marker, loads). The check bins
+  upload_check, rpc_semantics and header_diff take AK_CHECK_TRANSPORT=tcp (server::spawn_check_server,
+  an in-process serve_tcp), burst_check takes AK_RPC_TCP=HOST:PORT; defaults unchanged.
+- build.sh limits met on the way (shared core, not changed; for the aggregating session): it passes
+  `--features` only, so it cannot build a no-unknown core (unknown-fields is a default feature); and its
+  last pipeline (`strings | grep framed_write.rs`) exits non-zero under `set -e` for a core holding no
+  h2 (the corpus core, which has no rpc), so build.sh fails although the build succeeded. wp12_core.sh
+  uses build.sh where it can and the same cargo command by hand (same --config, same h2-batch-src,
+  Cargo.lock restored) otherwise; each core is then checked fresh with exactly the wanted features.
+- Tooling defects found and fixed before the counted runs: (1) the loads parser took the first
+  "initialize program" of a pid (an exec chain env -> bash -> cargo -> binary keeps the pid and the
+  LD_DEBUG file), and "needed by" lines are not in the `libs` category; fixed by splitting images at
+  the dynamic linker's own init. (2) The first stock run failed at gate step 11 (corpus) because
+  wp12_core.sh called build.sh for the corpus core (build.sh's failing last line, above); fixed. The
+  preliminary runs' logs were deleted; the counted runs are from the committed driver (e3f6afe8).
+- Runs (e3f6afe8, clean tree; the plain run after the C++ agent's d5e23249, poc/cpp only): h2-batch
+  GATE PASSED, stock GATE PASSED, plain GATE PASSED; LOADS CHECK PASSED in each (2,166 processes loaded
+  a core, one each, the intended one); TCP checks PASSED in each (upload_check, rpc_semantics 72 cases,
+  header_diff full; upload_check, rpc_semantics no-unknown; burst_check UDS and TCP).
+- Marker (d/16 MiB, k=1, TCP, write syscalls per call, 3 rounds): Cf 77.8-78.0 on h2-batch,
+  1,035.0-1,039.5 on stock, 1,039.2-1,041.0 plain; A (host tonic) 1,033.8-1,039.8 in all three.
+- Cores: full h2-batch e8073eec..., no-unknown h2-batch 0ff0580d..., full stock 9e4eaa7d..., no-unknown
+  stock 00de6be8...; the corpus cores (no h2) are byte-identical across variants.
+- D16: no step failed on h2-batch only. The passing cancel checks look at status and the connection
+  afterwards, not at the DATA frames delivered after the reset, so they neither show nor exclude it.
+- Not covered: gate step 2 builds ak-core without rpc (no h2 in it on either variant); the 1.88 floor
+  and the campaign machine on h2-batch.

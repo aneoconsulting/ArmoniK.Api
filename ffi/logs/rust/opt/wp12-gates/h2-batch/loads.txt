@@ -1,0 +1,174 @@
+# WP12 core loads: variant h2-batch, 2166 processes loaded a libak_core.so, 10 more listed by ldd only
+# columns: step | processes | executable (how) | path opened by the loader -> what it is (sha256)
+
+## step 3
+   1  target/release/conformance (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 4
+   1  target/release/shapes (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 5
+   1  target-count/release/counts (needed)
+      target-count/release/ak-variant/libak_core.so -> variant core h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1)
+   1  target-count/release/pullbench (needed)
+      target-count/release/ak-variant/libak_core.so -> variant core h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1)
+
+## step 6
+   1  target/release/contentall (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 7
+   2  target-count/release/concur (needed)
+      target-count/release/ak-variant/libak_core.so -> variant core h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1)
+   3  target/release/concur (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  target-gw-pad/release/concur (needed)
+      target-gw-pad/release/ak-variant/libak_core.so -> variant core h2-batch/global-widths+init-guard+pad-widths+rpc+unknown-fields (sha256 bd8f450b4f867729)
+   3  target-gw/release/concur (needed)
+      target-gw/release/ak-variant/libak_core.so -> variant core h2-batch/global-widths+init-guard+rpc+unknown-fields (sha256 9d9f0b12973cdbef)
+   1  target-pad/release/concur (needed)
+      target-pad/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+pad-widths+rpc+unknown-fields (sha256 e3a52f8c9b0a76d3)
+   3  target/release/concur (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 8
+   1  ./target-ig/release/conformance (needed)
+      target-ig/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  ./target-ig/release/lifecycle (needed)
+      target-ig/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  ./target-noig/release/lifecycle (needed)
+      target-noig/release/ak-variant/libak_core.so -> variant core h2-batch/rpc (sha256 d50eb7e1cde658a7)
+  15  target-ig/release/lifecycle (needed)
+      target-ig/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+  15  target-noig/release/lifecycle (needed)
+      target-noig/release/ak-variant/libak_core.so -> variant core h2-batch/rpc (sha256 d50eb7e1cde658a7)
+
+## step 9
+  11  target/release/rdrepro (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 10
+   1  target/release/stickyerr (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 11
+   5  gen/../target-corpus-nounk/release/corpus (needed)
+      target-corpus-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/corpus+init-guard (sha256 1dd4b46c5cb2d764)
+1034  target-corpus-nounk/release/corpus (needed)
+      target-corpus-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/corpus+init-guard (sha256 1dd4b46c5cb2d764)
+1041  target-corpus/release/corpus (needed)
+      target-corpus/release/ak-variant/libak_core.so -> variant core h2-batch/corpus+init-guard+unknown-fields (sha256 99235c735634bf03)
+
+## step 11b
+   1  target/release/deps/codec_suite-3211c86b37bffe91 (needed)
+      target/release/deps/../ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 11c
+   1  target-count/release/crossings (needed)
+      target-count/release/ak-variant/libak_core.so -> variant core h2-batch/count+init-guard+rpc+unknown-fields (sha256 7a89311a549ef3c1)
+
+## step 11d
+   1  target/release/header_diff (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 11e
+   1  target/release/upload_check (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 11f
+   1  target/release/rpc_semantics (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## step 12
+   1  target-count-nounk/release/crossings (needed)
+      target-count-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/count+init-guard+rpc (sha256 0237bd4be5b23647)
+   1  target-nounk/release/conformance (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  target-nounk/release/deps/codec_suite-99bc45b4604d3141 (needed)
+      target-nounk/release/deps/../ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  target-nounk/release/rpc_semantics (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  target-nounk/release/shapes (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  target-nounk/release/upload_check (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  /tmp/tmp.MKAD44s4YN/h-full-full (needed)
+      /tmp/tmp.MKAD44s4YN/so-full/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.MKAD44s4YN/h-full-nounk (needed)
+      /tmp/tmp.MKAD44s4YN/so-nounk/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.MKAD44s4YN/h-nounk-full (needed)
+      /tmp/tmp.MKAD44s4YN/so-full/libak_core.so -> removed after the run (temporary) (sha256 ?)
+   1  /tmp/tmp.MKAD44s4YN/h-nounk-nounk (needed)
+      /tmp/tmp.MKAD44s4YN/so-nounk/libak_core.so -> removed after the run (temporary) (sha256 ?)
+
+## marker
+   1  target/release/stream_probe (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+## tcp
+   1  target-nounk/release/rpc_semantics (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   1  target-nounk/release/upload_check (needed)
+      target-nounk/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc (sha256 0ff0580daa8d683f)
+   2  target/release/burst_check (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  target/release/header_diff (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  target/release/rpc_semantics (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+   1  target/release/upload_check (needed)
+      target/release/ak-variant/libak_core.so -> variant core h2-batch/init-guard+rpc+unknown-fields (sha256 e8073eecd5479d78)
+
+# static-link check, every executable above
+# columns: executable | DT_RUNPATH | DT_RPATH | ak_* C symbols defined in the executable | h2 compiled into the executable
+gen/../target-corpus-nounk/release/corpus | yes | no | 0 | none
+target-corpus-nounk/release/corpus | yes | no | 0 | none
+target-corpus/release/corpus | yes | no | 0 | none
+target-count-nounk/release/crossings | yes | no | 0 | h2-0.4.19
+target-count/release/concur | yes | no | 0 | none
+target-count/release/counts | yes | no | 0 | none
+target-count/release/crossings | yes | no | 0 | h2-0.4.19
+target-count/release/pullbench | yes | no | 0 | none
+target-gw-pad/release/concur | yes | no | 0 | none
+target-gw/release/concur | yes | no | 0 | none
+target-ig/release/conformance | yes | no | 0 | none
+target-ig/release/lifecycle | yes | no | 0 | none
+target-noig/release/lifecycle | yes | no | 0 | none
+target-nounk/release/conformance | yes | no | 0 | none
+target-nounk/release/deps/codec_suite-99bc45b4604d3141 | yes | no | 0 | none
+target-nounk/release/rpc_semantics | yes | no | 0 | h2-0.4.19
+target-nounk/release/shapes | yes | no | 0 | none
+target-nounk/release/upload_check | yes | no | 0 | h2-0.4.19
+target-pad/release/concur | yes | no | 0 | none
+target/release/burst_check | yes | no | 0 | none
+target/release/concur | yes | no | 0 | none
+target/release/conformance | yes | no | 0 | none
+target/release/contentall | yes | no | 0 | none
+target/release/deps/codec_suite-3211c86b37bffe91 | yes | no | 0 | none
+target/release/header_diff | yes | no | 0 | h2-0.4.19
+target/release/rdrepro | yes | no | 0 | none
+target/release/rpc_semantics | yes | no | 0 | h2-0.4.19
+target/release/shapes | yes | no | 0 | none
+target/release/stickyerr | yes | no | 0 | none
+target/release/stream_probe | yes | no | 0 | h2-0.4.19
+target/release/upload_check | yes | no | 0 | h2-0.4.19
+/tmp/tmp.MKAD44s4YN/h-full-full | (gone)
+/tmp/tmp.MKAD44s4YN/h-full-nounk | (gone)
+/tmp/tmp.MKAD44s4YN/h-nounk-full | (gone)
+/tmp/tmp.MKAD44s4YN/h-nounk-nounk | (gone)
+
+# the cores of this run (h2 compiled in)
+target-wp12-cores/h2-batch/init-guard+rpc+unknown-fields/libak_core.so  sha256 e8073eecd5479d78da6bb3d54c1c818f0cbd88564d4560ddb639f99f4b3f7bc0  h2: h2-batch-src
+target-wp12-cores/h2-batch/corpus+init-guard+unknown-fields/libak_core.so  sha256 99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c  h2: none
+target-wp12-cores/h2-batch/corpus+init-guard/libak_core.so  sha256 1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31  h2: none
+target-wp12-cores/h2-batch/count+init-guard+rpc+unknown-fields/libak_core.so  sha256 7a89311a549ef3c19125aaf422254cfda2d3792ac1412e619019e0ac6e3f0a5e  h2: h2-batch-src
+target-wp12-cores/h2-batch/init-guard+rpc/libak_core.so  sha256 0ff0580daa8d683f3737b1f0805ddcc4b4becb2083177addabce32b372436ea6  h2: h2-batch-src
+target-wp12-cores/h2-batch/count+init-guard+rpc/libak_core.so  sha256 0237bd4be5b23647cadd2af0aec854c2889cdafe1da06c21ec2292925a9192f7  h2: h2-batch-src
+target-wp12-cores/h2-batch/global-widths+init-guard+rpc+unknown-fields/libak_core.so  sha256 9d9f0b12973cdbef2903a9fe329544cb4fb9ec7d6a0cbfaf71bd690ecb5f54b8  h2: h2-batch-src
+target-wp12-cores/h2-batch/init-guard+pad-widths+rpc+unknown-fields/libak_core.so  sha256 e3a52f8c9b0a76d3acd823ebad2a123849dbda214bd35e7d6c9872f9550b45f5  h2: h2-batch-src
+target-wp12-cores/h2-batch/global-widths+init-guard+pad-widths+rpc+unknown-fields/libak_core.so  sha256 bd8f450b4f86772965a98773a319523d8d3582bd789d58371da34f35fcaf9ab9  h2: h2-batch-src
+target-wp12-cores/h2-batch/rpc/libak_core.so  sha256 d50eb7e1cde658a73f959744db41a554951122dc795d5309ba54a243fdcf6265  h2: h2-batch-src
+
+LOADS CHECK PASSED: every process that loaded a core loaded exactly one, a h2-batch core of its own feature set (rpc_server, the host-side server, apart); no executable carries a DT_RPATH or defines an ak_* symbol

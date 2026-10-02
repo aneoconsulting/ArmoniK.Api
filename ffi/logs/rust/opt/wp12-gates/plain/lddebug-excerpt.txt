@@ -1,0 +1,438 @@
+### marker: marker.28197
+     28197:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stream_probe)
+     28197:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     28197:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     28197:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     28197:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     28197:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stream_probe)
+     28197:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stream_probe)
+     28197:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stream_probe)
+     28197:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     28197:	initialize program: target/release/stream_probe
+### s10: s10.19223
+     19223:	initialize program: /usr/bin/env
+     19223:	initialize program: bash
+     19223:	initialize program: cargo
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     19223:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/stickyerr)
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     19223:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/stickyerr)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stickyerr)
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/stickyerr)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/stickyerr)
+     19223:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/stickyerr)
+     19223:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     19223:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     19223:	initialize program: target/release/stickyerr
+### s11: s11.19343
+     19343:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus/release/corpus)
+     19343:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     19343:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     19343:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     19343:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/libak_core.so
+     19343:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus/release/corpus)
+     19343:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus/release/corpus)
+     19343:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/libak_core.so
+     19343:	initialize program: /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus/release/corpus
+### s11b: s11b.26127
+     26127:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91)
+     26127:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     26127:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     26127:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     26127:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26127:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91)
+     26127:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91)
+     26127:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91)
+     26127:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26127:	initialize program: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91
+### s11c: s11c.26186
+     26186:	initialize program: /usr/bin/env
+     26186:	initialize program: bash
+     26186:	initialize program: cargo
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26186:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/crossings)
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     26186:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/crossings)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/crossings)
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/crossings)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/crossings)
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/crossings)
+     26186:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26186:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/crossings)
+     26186:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     26186:	initialize program: target-count/release/crossings
+### s11d: s11d.26442
+     26442:	initialize program: /usr/bin/env
+     26442:	initialize program: bash
+     26442:	initialize program: cargo
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26442:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/header_diff)
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     26442:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/header_diff)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/header_diff)
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/header_diff)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/header_diff)
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/header_diff)
+     26442:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26442:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/header_diff)
+     26442:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26442:	initialize program: target/release/header_diff
+### s11e: s11e.26498
+     26498:	initialize program: /usr/bin/env
+     26498:	initialize program: bash
+     26498:	initialize program: cargo
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26498:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/upload_check)
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     26498:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/upload_check)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/upload_check)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/upload_check)
+     26498:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26498:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     26498:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26498:	initialize program: target/release/upload_check
+### s11f: s11f.26624
+     26624:	initialize program: /usr/bin/env
+     26624:	initialize program: bash
+     26624:	initialize program: cargo
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     26624:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/rpc_semantics)
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     26624:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/rpc_semantics)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/rpc_semantics)
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/rpc_semantics)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/rpc_semantics)
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/rpc_semantics)
+     26624:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     26624:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/rpc_semantics)
+     26624:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     26624:	initialize program: target/release/rpc_semantics
+### s12: s12.27026
+     27026:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-99bc45b4604d3141)
+     27026:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     27026:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     27026:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     27026:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so
+     27026:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-99bc45b4604d3141)
+     27026:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-99bc45b4604d3141)
+     27026:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-99bc45b4604d3141)
+     27026:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so
+     27026:	initialize program: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-99bc45b4604d3141
+### s3: s3.17654
+     17654:	initialize program: /usr/bin/env
+     17654:	initialize program: bash
+     17654:	initialize program: cargo
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17654:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/conformance)
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     17654:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/conformance)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/conformance)
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/conformance)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/conformance)
+     17654:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/conformance)
+     17654:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17654:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     17654:	initialize program: target/release/conformance
+### s4: s4.17804
+     17804:	initialize program: /usr/bin/env
+     17804:	initialize program: bash
+     17804:	initialize program: cargo
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17804:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/shapes)
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     17804:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/shapes)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/shapes)
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/shapes)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/shapes)
+     17804:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/shapes)
+     17804:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17804:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     17804:	initialize program: target/release/shapes
+### s5: s5.17861
+     17861:	initialize program: /usr/bin/env
+     17861:	initialize program: bash
+     17861:	initialize program: cargo
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     17861:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/counts)
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     17861:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/counts)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/counts)
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/counts)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/counts)
+     17861:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/counts)
+     17861:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     17861:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     17861:	initialize program: target-count/release/counts
+### s6: s6.18052
+     18052:	initialize program: /usr/bin/env
+     18052:	initialize program: bash
+     18052:	initialize program: cargo
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18052:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/contentall)
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     18052:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/contentall)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/contentall)
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/contentall)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/contentall)
+     18052:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps		(RUNPATH from file target/release/contentall)
+     18052:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18052:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     18052:	initialize program: target/release/contentall
+### s7: s7.18261
+     18261:	initialize program: /usr/bin/env
+     18261:	initialize program: bash
+     18261:	initialize program: cargo
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/../lib		(RUNPATH from file /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo)
+     18261:	initialize program: /root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/concur)
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v4/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v3/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/glibc-hwcaps/x86-64-v2/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     18261:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/concur)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v4:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v3:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/glibc-hwcaps/x86-64-v2:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/concur)
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/concur)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release		(RUNPATH from file target-count/release/concur)
+     18261:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release:/home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps		(RUNPATH from file target-count/release/concur)
+     18261:	 search path=/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib		(LD_LIBRARY_PATH)
+     18261:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/deps/libak_core.so
+     18261:	initialize program: target-count/release/concur
+### s8: s8.19028
+     19028:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release		(RUNPATH from file ./target-noig/release/lifecycle)
+     19028:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     19028:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     19028:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     19028:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/libak_core.so
+     19028:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release		(RUNPATH from file ./target-noig/release/lifecycle)
+     19028:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release		(RUNPATH from file ./target-noig/release/lifecycle)
+     19028:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target-noig/release/deps/libak_core.so
+     19028:	initialize program: ./target-noig/release/lifecycle
+### s9: s9.19129
+     19129:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rdrepro)
+     19129:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     19129:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     19129:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     19129:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     19129:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rdrepro)
+     19129:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rdrepro)
+     19129:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     19129:	initialize program: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rdrepro
+### tcp: tcp.27772
+     27772:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     27772:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v4/libak_core.so
+     27772:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v3/libak_core.so
+     27772:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/glibc-hwcaps/x86-64-v2/libak_core.so
+     27772:	  trying file=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     27772:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v4:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v3:/home/user/ArmoniK.Api/ffi/poc/rust/target/release/glibc-hwcaps/x86-64-v2:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     27772:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     27772:	 search path=/home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps:/home/user/ArmoniK.Api/ffi/poc/rust/target/release		(RUNPATH from file target/release/upload_check)
+     27772:	calling init: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+     27772:	initialize program: target/release/upload_check

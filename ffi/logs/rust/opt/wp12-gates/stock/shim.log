@@ -1,0 +1,78 @@
+08:29:12 cargo test -q -p ak-core -p ak-rt (cwd /home/user/ArmoniK.Api/ffi/poc/codec, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-codec-test)
+08:29:12 cargo run --release -q -p harness --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:29:28   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:29:28   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/conformance 
+08:29:29 cargo run --release -q -p harness --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:29:30   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:29:30   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/shapes 
+08:29:30 cargo run --release -q -p harness --features count --bin counts (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:29:45   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> stock/count+init-guard+rpc+unknown-fields (sha256 d8169b5d61ba2a55); the target's own core f65cf1bafb07e4eb
+08:29:45   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/counts 
+08:29:45 cargo run --release -q -p harness --features count --bin pullbench (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:29:46   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> stock/count+init-guard+rpc+unknown-fields (sha256 d8169b5d61ba2a55); the target's own core f65cf1bafb07e4eb
+08:29:46   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/pullbench 
+08:29:47 cargo run --release -q -p harness --bin contentall (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:29:49   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:29:49   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/contentall 
+08:29:49 cargo build --release -q -p harness --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target)
+08:29:50   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:29:50 cargo build --release -q -p harness --features global-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw)
+08:29:51   target-gw/release: core features [global-widths,init-guard,rpc,unknown-fields] -> stock/global-widths+init-guard+rpc+unknown-fields (sha256 8be4872aaf115eec); the target's own core b2b2aeeace2c8b57
+08:29:51 cargo build --release -q -p harness --features pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-pad)
+08:29:51   target-pad/release: core features [init-guard,pad-widths,rpc,unknown-fields] -> stock/init-guard+pad-widths+rpc+unknown-fields (sha256 be5689d26301aa2b); the target's own core ea552f11231dc285
+08:29:51 cargo build --release -q -p harness --features global-widths,pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw-pad)
+08:29:51   target-gw-pad/release: core features [global-widths,init-guard,pad-widths,rpc,unknown-fields] -> stock/global-widths+init-guard+pad-widths+rpc+unknown-fields (sha256 d58090095e5226a1); the target's own core 195aea0cd4c1d44f
+08:29:51 cargo run --release -q -p harness --features count --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-count)
+08:29:52   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> stock/count+init-guard+rpc+unknown-fields (sha256 d8169b5d61ba2a55); the target's own core f65cf1bafb07e4eb
+08:29:52   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/concur 
+08:30:09 cargo build --release -q -p harness --no-default-features --features guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-noig)
+08:30:09   target-noig/release: core features [rpc] -> stock/rpc (sha256 6d05db0613b449ab); the target's own core ff1fb44801d84487
+08:30:09 cargo build --release -q -p harness --features init-guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-ig)
+08:30:09   target-ig/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:30:10 cargo build --release -p harness --bin rdrepro (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:30:11   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:30:11 cargo run --release -q -p harness --bin stickyerr (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:30:12   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core ff637c192c6bdac1
+08:30:12   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/stickyerr 
+08:30:12 cargo build --release -q (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus)
+08:30:12   target-corpus/release: core features [corpus,init-guard,unknown-fields] -> stock/corpus+init-guard+unknown-fields (sha256 99235c735634bf03); the target's own core 12e437aec5d67dfa
+08:30:26 cargo build --release -q --no-default-features --features init-guard (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-corpus-nounk)
+08:30:26   target-corpus-nounk/release: core features [corpus,init-guard] -> stock/corpus+init-guard (sha256 1dd4b46c5cb2d764); the target's own core 09e177c3568749dc
+08:30:41 cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:31:17   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:32:40 cargo run --release -q -p campaign --features count --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:33:02   target-count/release: core features [count,init-guard,rpc,unknown-fields] -> stock/count+init-guard+rpc+unknown-fields (sha256 d8169b5d61ba2a55); the target's own core f5422ff723f4f911
+08:33:02   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count/release/crossings 
+08:33:09 cargo run --release -q -p campaign --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:33:10   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:33:10   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/header_diff 
+08:33:10 cargo run --release -q -p campaign --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:33:10   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:33:10   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/upload_check 
+08:33:17 cargo run --release -q -p campaign --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:33:17   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:33:17   run /home/user/ArmoniK.Api/ffi/poc/rust/target/release/rpc_semantics 
+08:33:24 cargo bench -q -p campaign --no-default-features --features init-guard --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:33:36   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core 754a342bfd0b7f5f
+08:34:19 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:34:33   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core dc7eedde344acfca
+08:34:33   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/conformance 
+08:34:33 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:34:34   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core dc7eedde344acfca
+08:34:34   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/shapes 
+08:34:35 cargo run --release -q -p campaign --no-default-features --features count,init-guard --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count-nounk)
+08:34:35   target-count-nounk/release: core features [count,init-guard,rpc] -> stock/count+init-guard+rpc (sha256 aa56a19d374aa548); the target's own core f987d39b014bd544
+08:34:35   run /home/user/ArmoniK.Api/ffi/poc/rust/target-count-nounk/release/crossings 
+08:34:39 cargo run --release -q -p campaign --no-default-features --features init-guard --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:34:59   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core 754a342bfd0b7f5f
+08:34:59   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/upload_check 
+08:35:03 cargo run --release -q -p campaign --no-default-features --features init-guard --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:35:05   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core 754a342bfd0b7f5f
+08:35:05   run /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/rpc_semantics 
+08:35:12 cargo build --release -q -p campaign --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:35:12   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:35:12 cargo build --release -q -p campaign --bin burst_check --bin stream_probe --bin upload_check --bin rpc_semantics --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:35:13   target/release: core features [init-guard,rpc,unknown-fields] -> stock/init-guard+rpc+unknown-fields (sha256 9e4eaa7d7da1393f); the target's own core 577b9b2e83079ce9
+08:35:13 cargo build --release -q -p campaign --no-default-features --features init-guard --bin upload_check --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:35:13   target-nounk/release: core features [init-guard,rpc] -> stock/init-guard+rpc (sha256 00de6be854626403); the target's own core 754a342bfd0b7f5f
+08:35:37 cargo build --release -q -p campaign --bin rpc_server --bin rpc_warm (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-server)

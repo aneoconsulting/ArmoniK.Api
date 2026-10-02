@@ -1,0 +1,48 @@
+08:36:19 cargo test -q -p ak-core -p ak-rt (cwd /home/user/ArmoniK.Api/ffi/poc/codec, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-codec-test)
+08:36:19 cargo run --release -q -p harness --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:36:36   plain run
+08:36:37 cargo run --release -q -p harness --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:36:38   plain run
+08:36:38 cargo run --release -q -p harness --features count --bin counts (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:36:54   plain run
+08:36:54 cargo run --release -q -p harness --features count --bin pullbench (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:36:56   plain run
+08:36:56 cargo run --release -q -p harness --bin contentall (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:36:58   plain run
+08:36:59 cargo build --release -q -p harness --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target)
+08:36:59 cargo build --release -q -p harness --features global-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw)
+08:36:59 cargo build --release -q -p harness --features pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-pad)
+08:37:00 cargo build --release -q -p harness --features global-widths,pad-widths --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-gw-pad)
+08:37:00 cargo run --release -q -p harness --features count --bin concur (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-count)
+08:37:01   plain run
+08:37:18 cargo build --release -q -p harness --no-default-features --features guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-noig)
+08:37:18 cargo build --release -q -p harness --features init-guard --bin lifecycle --bin bench --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR target-ig)
+08:37:19 cargo build --release -p harness --bin rdrepro (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:37:20 cargo run --release -q -p harness --bin stickyerr (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:37:20   plain run
+08:37:21 cargo build --release -q (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus)
+08:37:34 cargo build --release -q --no-default-features --features init-guard (cwd corpus, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/gen/../target-corpus-nounk)
+08:37:48 cargo bench -q -p campaign --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:39:48 cargo run --release -q -p campaign --features count --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count)
+08:40:10   plain run
+08:40:18 cargo run --release -q -p campaign --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:40:18   plain run
+08:40:18 cargo run --release -q -p campaign --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:40:18   plain run
+08:40:25 cargo run --release -q -p campaign --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:40:26   plain run
+08:40:32 cargo bench -q -p campaign --no-default-features --features init-guard --bench codec_suite --no-run --message-format=json (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:41:26 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin conformance (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:41:39   plain run
+08:41:40 cargo run --release -q -p harness --no-default-features --features guard,init-guard --bin shapes (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:41:41   plain run
+08:41:41 cargo run --release -q -p campaign --no-default-features --features count,init-guard --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-count-nounk)
+08:41:41   plain run
+08:41:46 cargo run --release -q -p campaign --no-default-features --features init-guard --bin upload_check (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:42:05   plain run
+08:42:09 cargo run --release -q -p campaign --no-default-features --features init-guard --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:42:11   plain run
+08:42:17 cargo build --release -q -p campaign --bin crossings (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:42:18 cargo build --release -q -p campaign --bin burst_check --bin stream_probe --bin upload_check --bin rpc_semantics --bin header_diff (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target)
+08:42:18 cargo build --release -q -p campaign --no-default-features --features init-guard --bin upload_check --bin rpc_semantics (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk)
+08:42:43 cargo build --release -q -p campaign --bin rpc_server --bin rpc_warm (cwd /home/user/ArmoniK.Api/ffi/poc/rust, CARGO_TARGET_DIR /home/user/ArmoniK.Api/ffi/poc/rust/target-server)

@@ -8,12 +8,58 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned after the TCP worker sweep (section "Owner decisions of 2026-10-01"); the core worker count is the owner's decision. The h2 PR 903 unit (2026-10-01) is measured (section below). The owner's goal 1 / goal 2 unit (2026-09-30) is measured: every core change is a patch experiment in `logs/rust/opt/patches/` (not in `poc/codec`, which is HEAD); the consolidated table is `logs/rust/opt/physical-probe/opt-stack/tables.md`. Last gate on this machine: cb37633f PASSED (`physical-probe/prep/gate.log`); harness changes since then are additive (new bins, probe cells, knobs) and the grid's cells are unchanged, not re-gated |
+| **Next step** | none assigned. WP12 item 1 for this slice (2026-10-02): the full gate passed on BOTH h2 variants of the core in the container (section "WP12 gates" below, `logs/rust/opt/wp12-gates/`); the TCP worker sweep (item 3) is recorded (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## WP12 gates (2026-10-02, container; nothing timed)
+
+FIX-PLAN WP12 item 1 "both slices build and gate both variants", for this slice. `gen/gate.sh` (steps
+unchanged) run three times by `gen/wp12_gate.sh` at e3f6afe8 from a clean tree, rustc 1.94.1:
+**h2-batch PASSED, stock PASSED, plain PASSED** (`logs/rust/opt/wp12-gates/{h2-batch,stock,plain}/gate.log`;
+the plain run at d5e23249, a poc/cpp-only commit after e3f6afe8). Each run covers both builds (full and
+no-unknown: steps 1-11f and 12).
+
+- **How a variant is put in place.** ak-core is a cdylib and only a cdylib in this slice (no rlib, no
+  staticlib linked), so every gate binary links it through the dynamic linker (RUNPATH, no DT_RPATH, no
+  `ak_*` symbol defined in any executable: `loads.txt`, static-link check). `gen/wp12-shim/cargo` reads,
+  after each build, the feature set ak-core was compiled with in that target directory (cargo's own
+  artifact message), has `gen/wp12_core.sh` build the variant's core with exactly that set, and links
+  `<target>/release/ak-variant` to it; `LD_LIBRARY_PATH='$ORIGIN/ak-variant:$ORIGIN/../ak-variant'` makes
+  every binary of that directory load it ahead of its RUNPATH. `cargo run` becomes build + exec (cargo
+  puts its deps directory first in LD_LIBRARY_PATH). 11 feature sets per variant (full, count, gw, pad,
+  gw+pad, noig = `rpc` only, nounk, count-nounk, corpus, corpus-nounk; ig = full): each one's core
+  sha256 and h2 source are in the gate.log footer and `cores/`. build.sh builds the sets it can (rpc and
+  unknown-fields on); the no-unknown sets and the corpus cores are the same cargo command by hand with
+  the same `--config` (build.sh passes `--features` only, so it cannot turn the default `unknown-fields`
+  off; its last line, `strings | grep framed_write.rs`, fails under `set -e` on a core holding no h2, the
+  corpus core). Every cargo build held `/tmp/claude-0/ak-codec-build.lock`.
+- **Proof the variant is in effect.** The dynamic linker's record (LD_DEBUG=libs, one file per process,
+  per gate step): 2,166 processes per run loaded a libak_core.so, each exactly one, each the intended
+  variant core of its own feature set (`loads.txt`, LOADS CHECK PASSED in every run); c_variant.sh's
+  temporary copies are named with their source path and sha256 in the gate log. The h2 compiled into each
+  core: `h2-batch-src` in every h2-batch core with rpc, `h2-0.4.19` in every stock core; the corpus cores
+  hold no h2 and are byte-identical across the two variants (sha256 99235c73..., 1dd4b46c...). The host
+  side (tonic in the harness, the in-process servers, serve.sh's rpc_server, which links no core) keeps
+  crates.io h2 0.4.19 in every run, as in the timed runs. Marker (stream_probe, d/16 MiB, k=1, TCP,
+  write syscalls per call over 3 rounds): Cf 77.8-78.0 on h2-batch against 1,035-1,040 on stock and
+  plain; cell A (host tonic, the control) 1,034-1,040 in all three runs.
+- **RPC checks over TCP 127.0.0.1 (D10)**, after the gate, every run: upload_check, rpc_semantics (72
+  cases) and header_diff with `AK_CHECK_TRANSPORT=tcp` (in-process server on TCP, pinned configuration,
+  TCP_NODELAY on accept; clients pinned) on the full build, upload_check and rpc_semantics on the
+  no-unknown build; burst_check on serve.sh's Unix sockets and on its TCP listener (`AK_RPC_TCP`). All
+  PASSED on all three. The gate's own RPC steps (11c-11f, 12) stay on Unix sockets, as committed.
+- **D16** (data after a local reset on h2-batch): no step failed on h2-batch only, so nothing needed to
+  be traced to it. The cancel cases that pass (rpc_semantics' cancel, burst_check's cancel after 1 and 4
+  of 8 chunks) check the CANCELLED status and a full checked stream afterwards on the same connection,
+  not how many DATA frames the server received before the RST_STREAM, so they do not observe the
+  divergence either way.
+- Not covered: gate step 2 (the core's unit tests, `cargo test -p ak-core -p ak-rt` in poc/codec) builds
+  ak-core without `rpc`, so no h2 is in that build on either variant; h2's own suite (excluded by the
+  task); the 1.88 floor on either variant; the campaign machine.
 
 ## Owner decisions of 2026-10-01 and what was done
 
@@ -661,6 +707,9 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
   set is the campaign's and unchanged. Zero-copy and deferred entries are stream-only (no direction
   c); the send limit is not checked on those experimental paths.
 - **p4 edge cases**: PING or SETTINGS change mid-burst, GOAWAY during a burst.
+- **h2-batch beyond the gate**: the 1.88 floor gate and the campaign machine's gate on the h2-batch core;
+  the gate's step 2 (no h2 in that build); a check that counts the DATA frames a server receives after a
+  local cancel (D16's divergence is not observed by any check).
 - **PR 903 and PR+p4**: the syscall census under timing (strace runs are untimed, whole-process); PR host-too on the combined h2; PR 903's cost with its IoSlice array sized to the work (not built); the edge cases listed for p4; h2's hammer test in debug (30 s timeout on every variant, stock included).
 - **WP11 item 5's added cells** (Df-chan on two runtimes, Ff in the probe, Df with one frame per
   message) and `perf record` / `perf stat`: not built into the physical probe (perf 7.2.8 exists on
@@ -681,6 +730,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/wp12-gates/` | WP12: the full gate on the h2-batch core, on the stock core (both built per feature set by build.sh or the same cargo command) and as committed (plain), each with loads.txt (which core every process loaded), the TCP checks and the write-count marker; NOTE.txt |
 | `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep after the re-pin: low/ (k 1, 8) and high/ (k 16, 32), tables.md; `tcp-sweep-unpinned-irqs/` the same run before the re-pin (machine condition in its NOTES.txt) |
 | `logs/rust/opt/delivery/` | the response-delivery comparison: build.raw, checks/, a/ and cf/ sessions, tables.md |
 | `logs/rust/opt/p1-landed/`, `logs/rust/opt/h2-batch-variant/` | the gate on the landed p1; both h2 variants' builds (sha256), checks and the TCP-default smoke |
