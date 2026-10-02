@@ -3,7 +3,7 @@
 //! from the framed path (`rpc::unary_framed`), over both client transports -- tonic's
 //! Channel in the harness (cells D / Df) and the core's client (cells B / Bf, switched with
 //! `ak_client_set_framed`) -- for both methods (Fetch: empty request; Push: P2.2). An
-//! in-process server on a Unix socket records every request (`server::CAPTURE`). Prints
+//! in-process server on a Unix socket (AK_CHECK_TRANSPORT=tcp: TCP loopback, pinned) records every request (`server::CAPTURE`). Prints
 //! each request's headers and, per (transport, method), the diff reference -> framed.
 //! Exit status 1 if any pair differs.
 //!
@@ -13,18 +13,20 @@ use campaign::grid::{self, Conn};
 use std::collections::BTreeSet;
 
 fn main() {
-    let pinned = std::env::args().any(|a| a == "--pinned");
+    // AK_CHECK_TRANSPORT=tcp: the server on TCP loopback, whose configuration is always the
+    // pinned one, so the clients are pinned too.
+    let tcp = std::env::var("AK_CHECK_TRANSPORT").as_deref() == Ok("tcp");
+    let pinned = tcp || std::env::args().any(|a| a == "--pinned");
     assert!(harness::generated::binding::ak_init_once() >= 0);
     let dir = std::env::temp_dir().join(format!("ak-header-diff-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let sock = dir.join("grid.sock");
-    let _server = campaign::server::spawn_in_process(sock.clone(), pinned);
-    let target = format!("unix:{}", sock.display());
+    let (_server, target, _tcp) = campaign::server::spawn_check_server(sock.clone(), pinned);
     let want_a = campaign::server::p22_response().len() as u64;
     let d_ref = grid::CELLS.iter().copied().find(|c| c.starts_with("D-")).unwrap();
     let d_fr = grid::CELLS.iter().copied().find(|c| c.starts_with("Df-")).unwrap();
     let pairs = [("tonic Channel (harness)", d_ref, d_fr), ("core client", "B", "Bf")];
-    println!("# T1 option 3: request headers as the server receives them (transport {}), reference vs framed send path", if pinned { "pinned" } else { "shipped" });
+    println!("# T1 option 3: request headers as the server receives them (transport {}), reference vs framed send path", if tcp { "tcp, pinned" } else if pinned { "pinned" } else { "shipped" });
     let mut differ = 0;
     for (what, r, f) in pairs {
         for dir in ["a", "b", "d"] {

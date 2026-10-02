@@ -421,3 +421,36 @@ pub fn spawn_in_process(path: std::path::PathBuf, pinned: bool) -> tokio::runtim
     rx.recv().expect("in-process server");
     rt
 }
+
+/// The same service in THIS process on TCP loopback (`serve_tcp`: 127.0.0.1, a port the
+/// kernel picks, the pinned configuration, TCP_NODELAY on accept). Returns the runtime and
+/// the client target `http://127.0.0.1:PORT`.
+pub fn spawn_in_process_tcp() -> (tokio::runtime::Runtime, String) {
+    let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    rt.spawn(serve_tcp(0, p22_response(), move |port| {
+        let _ = tx.send(port);
+    }));
+    let port = rx.recv().expect("in-process TCP server");
+    (rt, format!("http://127.0.0.1:{port}"))
+}
+
+/// The in-process server of a check binary (upload_check, rpc_semantics, header_diff): a Unix
+/// socket `sock` with the given configuration (the default, as the gate runs them), or, with
+/// AK_CHECK_TRANSPORT=tcp, the TCP listener above (D10, 2026-10-01: every timed run is on TCP;
+/// its server configuration is always the pinned one). Returns the runtime, the client target
+/// and whether it is TCP.
+pub fn spawn_check_server(sock: std::path::PathBuf, pinned: bool) -> (tokio::runtime::Runtime, String, bool) {
+    match std::env::var("AK_CHECK_TRANSPORT").as_deref() {
+        Ok("tcp") => {
+            let (rt, target) = spawn_in_process_tcp();
+            println!("# transport tcp: in-process server on {target} (pinned configuration, TCP_NODELAY on accept)");
+            (rt, target, true)
+        }
+        Ok("uds") | Err(_) => {
+            let target = format!("unix:{}", sock.display());
+            (spawn_in_process(sock, pinned), target, false)
+        }
+        Ok(other) => panic!("AK_CHECK_TRANSPORT={other}: tcp or uds"),
+    }
+}

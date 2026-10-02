@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# WP12's cargo wrapper for gen/gate.sh (used by gen/wp12_gate.sh; PATH=<this dir>:$PATH).
+#
+# 1. The lock. Every cargo command that builds (build, bench, test, run, check) holds the shared
+#    core's build lock, /tmp/claude-0/ak-codec-build.lock: the slices build the same poc/codec
+#    sources in parallel, and an h2-batch build rewrites (and restores) poc/codec/Cargo.lock.
+#    Only the build holds it: `run` builds under the lock and then runs the program outside it.
+# 2. The core (AK_WP12_VARIANT=stock|h2-batch; unset = the gate as committed, with only the lock).
+#    After each build, a no-op rebuild with --message-format=json gives the feature set ak-core was
+#    compiled with in that target directory; gen/wp12_core.sh builds the same feature set for the
+#    variant (once, cached in $AK_WP12_CORES/<variant>/<features>), and <target>/release/ak-variant
+#    is made a symlink to it. The gate's environment carries
+#    LD_LIBRARY_PATH='$ORIGIN/ak-variant:$ORIGIN/../ak-variant', which the dynamic linker expands
+#    per executable and searches BEFORE the binary's RUNPATH, so every binary of that target
+#    directory (bins in release/, bench and test executables in release/deps/) loads the variant
+#    core of its own feature set. `cargo run` would put the target's deps directory in front of
+#    LD_LIBRARY_PATH, so in a variant run `run` is a `build` followed by executing the binary.
+#    A target directory whose builds ask for two different feature sets in one run is an error.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vx "$here" | paste -sd: -); export PATH
+LOCK=${AK_WP12_LOCK:-/tmp/claude-0/ak-codec-build.lock}
+RUST=$(cd "$here/../.." && pwd)
+locked() { ( unset LD_DEBUG LD_DEBUG_OUTPUT; exec flock "$LOCK" "$@" ); }
+log() { [ -n "${AK_WP12_SHIMLOG:-}" ] && printf '%s %s\n' "$(date -u +%T)" "$*" >> "$AK_WP12_SHIMLOG"; return 0; }
+
+sub=""; for a in "$@"; do case $a in -*|+*) ;; *) sub=$a; break ;; esac; done
+case $sub in build|bench|test|run|check) ;; *) exec cargo "$@" ;; esac
+log "cargo $* (cwd ${PWD#$RUST/}, CARGO_TARGET_DIR ${CARGO_TARGET_DIR:-unset})"
+
+# split off the program's arguments (run: everything after --)
+pre=(); post=(); seen=0
+for a in "$@"; do if [ $seen = 0 ] && [ "$a" = -- ]; then seen=1; elif [ $seen = 0 ]; then pre+=("$a"); else post+=("$a"); fi; done
+as() {  # print pre with the subcommand replaced by $1, dropping any --message-format
+  local new=$1 done=0 a; local out=()
+  for a in "${pre[@]}"; do
+    if [ $done = 0 ] && [ "$a" = "$sub" ]; then out+=("$new"); done=1; continue; fi
+    case $a in --message-format=*) continue ;; esac
+    out+=("$a")
+  done
+  printf '%s\0' "${out[@]}"
+}
+
+if [ "$sub" = run ]; then
+  mapfile -d '' bargs < <(as build)
+  locked cargo "${bargs[@]}"
+  [ -n "${AK_WP12_VARIANT:-}" ] || { log "  plain run"; exec cargo "$@"; }
+elif [ "$sub" = test ] || [ "$sub" = check ] || [ -z "${AK_WP12_VARIANT:-}" ]; then
+  locked cargo "$@"; exit 0
+else
+  locked cargo "$@"
+fi
+
+# variant mode: what did this build compile the core with, and where
+case $sub in run) qsub=build ;; bench) qsub=bench ;; *) qsub=$sub ;; esac
+mapfile -d '' qargs < <(as "$qsub")
+[ "$qsub" = bench ] && { printf '%s\n' "${qargs[@]}" | grep -qx -- --no-run || qargs+=(--no-run); }
+info=$(locked cargo "${qargs[@]}" --message-format=json 2>/dev/null | python3 -S -c '
+import sys, json
+core = None; exes = []
+for l in sys.stdin:
+    try: m = json.loads(l)
+    except Exception: continue
+    if m.get("reason") != "compiler-artifact": continue
+    t = m["target"]
+    if t["name"] == "ak_core" and "cdylib" in t["kind"]:
+        so = [f for f in m["filenames"] if f.endswith(".so")][0]
+        core = (",".join(sorted(f for f in m["features"] if f != "default")), so)
+    if m.get("executable"): exes.append(t["name"] + "\t" + m["executable"])
+if core: print("core\t%s\t%s" % core)
+for e in exes: print("exe\t" + e)')
+core_line=$(printf '%s\n' "$info" | awk -F'\t' '$1=="core"')
+if [ -z "$core_line" ]; then
+  log "  no ak-core cdylib in this build"
+else
+  key=$(printf '%s' "$core_line" | cut -f2); so=$(printf '%s' "$core_line" | cut -f3)
+  rel=$(realpath -m "$(dirname "$(dirname "$so")")")   # <target>/release
+  cdir="$AK_WP12_CORES/$AK_WP12_VARIANT/${key//,/+}"
+  [ -n "$key" ] || cdir="$AK_WP12_CORES/$AK_WP12_VARIANT/none"
+  if [ ! -f "$cdir/libak_core.so" ]; then
+    log "  building the $AK_WP12_VARIANT core with features [$key] -> $cdir"
+    ( unset LD_DEBUG LD_DEBUG_OUTPUT; "$RUST/gen/wp12_core.sh" "$AK_WP12_VARIANT" "$key" "$cdir" ) >> "${AK_WP12_SHIMLOG:-/dev/null}" 2>&1
+  fi
+  link="$rel/ak-variant"
+  if [ -L "$link" ]; then
+    cur=$(readlink "$link")
+    if [ "$cur" != "$cdir" ]; then
+      echo "wp12-shim: $rel already maps to $cur in this run; this build compiled the core with [$key]" >&2
+      log "  CONFLICT: $rel maps to $cur, this build wants $cdir"; exit 3
+    fi
+  else
+    ln -s "$cdir" "$link"
+    printf '%s\t%s\t%s\n' "$link" "$key" "$cdir" >> "$AK_WP12_LINKS"
+  fi
+  log "  ${rel#$RUST/}: core features [$key] -> ${AK_WP12_VARIANT}/${cdir##*/} (sha256 $(sha256sum "$cdir/libak_core.so" | cut -c1-16)); the target's own core $(sha256sum "$so" | cut -c1-16)"
+fi
+if [ "$sub" = run ]; then
+  bin=""; for ((i=0; i<${#pre[@]}; i++)); do [ "${pre[$i]}" = --bin ] && bin=${pre[$((i+1))]}; done
+  exe=$(printf '%s\n' "$info" | awk -F'\t' -v b="$bin" '$1=="exe" && (b=="" || $2==b) {print $3}' | tail -1)
+  [ -n "$exe" ] || { echo "wp12-shim: no executable for cargo $*" >&2; exit 3; }
+  log "  run $exe ${post[*]:-}"
+  exec "$exe" "${post[@]}"
+fi

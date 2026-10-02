@@ -51,6 +51,7 @@ done
 echo "  both headers compile as C99 and C++11 (-Wall -Werror)"
 cpso() { mkdir -p "$T/so-$1"; cp "$2" "$T/so-$1/libak_core.so"; }
 cpso full "$FULL_SO"; cpso nounk "$NOUNK_SO"
+echo "  cores: full $FULL_SO (sha256 $(sha256sum "$FULL_SO" | cut -c1-16)), nounk $NOUNK_SO (sha256 $(sha256sum "$NOUNK_SO" | cut -c1-16))"
 pair() { # header-variant core-variant
   g++ -std=c++11 -I"$T/$1" "$T/host.cc" -L"$T/so-$2" -lak_core -Wl,-rpath,"$T/so-$2" -o "$T/h-$1-$2"
   "$T/h-$1-$2"; }

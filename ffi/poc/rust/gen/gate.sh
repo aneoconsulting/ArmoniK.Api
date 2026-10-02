@@ -22,7 +22,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$HERE/.."
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PWD/target}"
 export AK_NO_TIMING=1
-step() { echo; echo "===== $* ====="; }
+step() { echo; echo "===== $* ====="
+  # gen/wp12_gate.sh (WP12): which libak_core.so every process of this step loads, recorded by
+  # the dynamic linker (LD_DEBUG=libs, one file per process, prefixed by the step number).
+  if [ -n "${AK_GATE_LDDEBUG:-}" ]; then export LD_DEBUG=libs LD_DEBUG_OUTPUT="$AK_GATE_LDDEBUG/s$(printf '%s' "${1%%.*}" | tr -cd 'a-z0-9')"; fi; }
 
 step "0. configuration"
 rustc --version
@@ -139,7 +142,10 @@ CARGO_TARGET_DIR="$PWD/target-nounk" cargo run --release -q -p campaign --no-def
 
 echo "  the C header's two variants (poc/codec/gen/c_abi.py), each against its core:"
 cargo build --release -q -p campaign --bin crossings 2>/dev/null   # the full core, default target
-gen/c_variant.sh target/release/deps/libak_core.so target-nounk/release/deps/libak_core.so
+# Under gen/wp12_gate.sh a variant run maps each target directory to its own core
+# (<target>/release/ak-variant, gen/wp12-shim/cargo): the headers are checked against those.
+core_of() { if [ -n "${AK_WP12_VARIANT:-}" ]; then echo "$1/release/ak-variant/libak_core.so"; else echo "$1/release/deps/libak_core.so"; fi; }
+gen/c_variant.sh "$(core_of target)" "$(core_of target-nounk)"
 
 if [ "${1:-}" = "--tsan" ]; then
   step "13. ThreadSanitizer over the concurrency suite"

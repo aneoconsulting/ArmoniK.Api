@@ -3,6 +3,7 @@
 //! every call checked on the server's UploadStreamCheck path (byte count and SHA-256 of every
 //! message as received). Run with the patched core loaded (LD_LIBRARY_PATH) and AK_H2_COALESCE=N;
 //! with N = 1 it checks h2 as shipped. Prints one line per check, then BURST CHECK PASSED or FAILED.
+//! AK_RPC_TCP=HOST:PORT (serve.sh's AK_SERVER_TCP listener) runs every check on TCP instead, pinned only.
 //!   1. flow control: 16 MiB streams on the shipped socket (the server's default 65,535-byte stream
 //!      and connection windows, far below N x 16 KiB, so every burst is cut by the window and
 //!      continued after WINDOW_UPDATE frames) and on the pinned one (4 MiB windows);
@@ -68,8 +69,17 @@ fn main() {
         }
         println!("{} {what}", if ok { "ok  " } else { "FAIL" });
     };
-    for (label, var, pinned) in [("shipped", "AK_RPC_SOCKET_SHIPPED", false), ("pinned", "AK_RPC_SOCKET_PINNED", true)] {
-        let target = format!("unix:{}", std::env::var(var).expect(var));
+    // AK_RPC_TCP=HOST:PORT (serve.sh with AK_SERVER_TCP): the server's TCP listener instead of
+    // its two Unix sockets. That listener has the pinned configuration only (4 MiB windows).
+    let tcp = std::env::var("AK_RPC_TCP").ok();
+    let transports: Vec<(&str, String, bool)> = match &tcp {
+        Some(hp) => vec![("tcp", format!("http://{hp}"), true)],
+        None => [("shipped", "AK_RPC_SOCKET_SHIPPED", false), ("pinned", "AK_RPC_SOCKET_PINNED", true)]
+            .into_iter()
+            .map(|(label, var, pinned)| (label, format!("unix:{}", std::env::var(var).expect(var)), pinned))
+            .collect(),
+    };
+    for (label, target, pinned) in transports {
         let cc = grid::CoreClient::new(&target, pinned);
         assert_eq!(unsafe { ak_client_set_framed(cc.raw(), 1) }, AK_OK);
         let sl = grid::slots(8);

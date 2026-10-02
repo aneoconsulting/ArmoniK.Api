@@ -1,6 +1,6 @@
 //! ABI v1 section 9's call semantics, checked against the core (gate step 11f; the owner's
 //! "streaming as built" and "the status number, on unary calls too"): every case on both
-//! send paths (reference, framed). An in-process server on a Unix socket
+//! send paths (reference, framed). An in-process server on a Unix socket (AK_CHECK_TRANSPORT=tcp: TCP loopback)
 //! (`server::TEST_PREFIX` paths). Prints one line per case; exit 1 on any failure.
 //!
 //!   status   a chosen non-OK code comes back as AK_ERR_RPC_STATUS with its number:
@@ -281,8 +281,8 @@ fn main() {
     let dir = std::env::temp_dir().join(format!("ak-rpc-semantics-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let sock = dir.join("grid.sock");
-    let _server = campaign::server::spawn_in_process(sock.clone(), false);
-    let target = format!("unix:{}", sock.display());
+    // AK_CHECK_TRANSPORT=tcp: the server on TCP loopback (pinned configuration).
+    let (_server, target, _tcp) = campaign::server::spawn_check_server(sock.clone(), false);
     let p = |t: &str| format!("{TEST_PREFIX}{t}");
     let mut bad = 0;
     let mut check = |ok: bool, what: String| {
