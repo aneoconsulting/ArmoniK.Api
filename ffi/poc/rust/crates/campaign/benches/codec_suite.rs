@@ -76,6 +76,23 @@ fn main() {
         });
         assert!(ok, "no root {}", inp.root);
     }
+    // Narrowed runs (not the campaign's; every filter empty = every case, as before):
+    // AK_CASE_ARMS, AK_CASE_DIRS, AK_CASE_END (end states), AK_CASE_INPUT (hot | pool), each
+    // a comma-separated list. Applied AFTER the per-input pre-check above, which still
+    // covers every arm on every input; the variant check below covers the cases kept.
+    let flt = |k: &str| -> Vec<String> {
+        std::env::var(k).unwrap_or_default().split(',').filter(|s| !s.is_empty()).map(String::from).collect()
+    };
+    let (f_arm, f_dir, f_end, f_inp) = (flt("AK_CASE_ARMS"), flt("AK_CASE_DIRS"), flt("AK_CASE_END"), flt("AK_CASE_INPUT"));
+    let keep = |v: &[String], x: &str| v.is_empty() || v.iter().any(|s| s == x);
+    let narrowed = !(f_arm.is_empty() && f_dir.is_empty() && f_end.is_empty() && f_inp.is_empty());
+    cases.retain(|c| keep(&f_arm, c.arm) && keep(&f_dir, c.dir)
+        && (c.end_state.is_empty() || (keep(&f_end, c.end_state) && keep(&f_inp, c.input)))
+        && (f_end.is_empty() || !c.end_state.is_empty()));
+    if narrowed {
+        eprintln!("# narrowed: arms [{}] dirs [{}] end states [{}] inputs [{}]: {} cases kept",
+                  f_arm.join(","), f_dir.join(","), f_end.join(","), f_inp.join(","), cases.len());
+    }
     // Requirement 11's variants write the same bytes: every (arm, input, mode) returns the
     // same length from each of its end-state x input variants (the pool built and freed).
     {
@@ -177,6 +194,7 @@ fn main() {
         ("precheck", format!("{checks} checks passed")),
         ("inputs", inputs.len().to_string()),
         ("cases", cases.len().to_string()),
+        ("narrowed", if narrowed { format!("arms [{}] dirs [{}] end states [{}] inputs [{}] (AK_CASE_*; not a campaign run)", f_arm.join(","), f_dir.join(","), f_end.join(","), f_inp.join(",")) } else { "no".to_string() }),
         ("refusals", format!("{} (row, arm) pairs the incumbent's prost refuses and that are therefore not timed; listed below", refused.len())),
     ]) {
         writeln!(f, "{h}").unwrap();

@@ -1,0 +1,27 @@
+# backward-encode measurement, 2026-10-02T15:07:47Z. CONTAINER INSTRUMENTATION, not a campaign result.
+# commit 1c9d8981665e98b9a71225ce1530fa04f756e94a + uncommitted changes in poc/rust or poc/codec
+# worktree /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd: 1c9d8981665e98b9a71225ce1530fa04f756e94a + backward-encode.patch ( 18 files changed, 8361 insertions(+), 5319 deletions(-))
+# rustc 1.94.1 (e408947bf 2026-03-25); nproc 4
+# cpu        Intel(R) Xeon(R) Processor @ 2.10GHz; kernel 6.18.44-fc-v51; smt notsupported (active 0); no_turbo n/a; governor cpu1 n/a; scaling min/max cpu1 n/a/n/a kHz
+# isolation  cmdline: isolated='' nohz_full='n/a'
+# cgroups    cpuset.cpus.effective:; this driver's cgroup /: n/a; root cpuset.cpus.isolated='n/a'; this driver's affinity 0-3
+# irq        default_smp_affinity f; smp_affinity_list of /proc/irq/*: 0-3 x29, 
+# allowed    non-kernel threads whose Cpus_allowed_list includes a benchmark CPU (1-8, 11-18), this session's excluded: environment-man x10, process_api x1, vsock-console x1, idle-reclaim x1, sbx-telemetry-s x1, 6 x1, sh x1, claude x1, mi-scavenger x1, Bun Pool 0 x1, Bun Pool 1 x1, Bun Pool 2 x1, Bun Pool 3 x1, HTTP Client x1, fs.watch x1, JSCWarmUp x1, JITWorker x1, sleep x1
+# running    threads RUNNABLE right now on the client or server CPUs (1-8, 11-18), this session's excluded: ; loadavg 2.18 2.13 2.06 1/103 13919
+# codec processes pinned to CPU 1 (taskset); nothing else of this session runs meanwhile
+# committed: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91 (sha256 c85a94d23aa4828c) loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (sha256 577b9b2e83079ce9)
+# backward:  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/codec_suite-7e804e611118a090 (sha256 5871bc09622312e1) loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/libak_core.so (sha256 5216de8f7a664be7)
+# codec settings: AK_ONLY=P1,P2,P3,P4,P5,P6 AK_CASE_ARMS=core-ffi,core-native AK_CASE_DIRS=encode AK_CASE_END=reused-buffer,transport-ready-tonic AK_CASE_INPUT=hot AK_SAMPLES=10 AK_WARMUP_MS=100 AK_MEASURE_MS=250; launches 3 per variant, alternated
+codec committed launch 1: 75 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+codec backward launch 1: 76 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+codec committed launch 2: 76 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+codec backward launch 2: 75 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+codec committed launch 3: 76 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+codec backward launch 3: 75 s; # precheck: 660 checks, 0 failures, 21 inputs, 168 cases; # narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+# codec benchmark wall: 453 s
+# rpc: serve.sh rpc_server pid 14317 on CPU 3, TCP 127.0.0.1:45155; probes on CPU 1-2
+rpc committed process 1: rc 0, 32 rows; probe loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+rpc backward process 1: rc 0, 32 rows; probe loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/libak_core.so
+rpc committed process 2: rc 0, 32 rows; probe loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so
+rpc backward process 2: rc 0, 32 rows; probe loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/libak_core.so
+# rpc benchmark wall: 7 s

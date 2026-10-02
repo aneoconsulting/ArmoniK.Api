@@ -1,0 +1,62 @@
+--- a/ffi/poc/codec/crates/ak-rt/src/benc.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/benc.rs
+@@ -342,6 +342,22 @@
+         }
+     }
+ 
++    /// v2: a packed run of varints written FORWARD into a hole of exactly its size: one
++    /// pass sums the values' varint lengths, a second stores them in array order (the
++    /// forward encoder's store loop). No walk order to choose; the bytes are the same.
++    #[inline(always)]
++    pub fn varint_run_sized<I: Iterator<Item = u64> + Clone>(&mut self, it: I) {
++        let total: usize = it.clone().map(varint_len).sum();
++        unsafe {
++            let p = self.hole(total);
++            let mut at = 0usize;
++            for v in it {
++                at += put_varint(p.add(at), v);
++            }
++            debug_assert_eq!(at, total);
++        }
++    }
++
+     /// A packed run of doubles: the host's array is contiguous and little-endian, so it is
+     /// one copy into the region below the cursor (the bytes of a forward array placed as one
+     /// block are in forward order; nothing to walk).
+@@ -631,5 +647,12 @@
+         f.varint_run(vals.len(), vals.iter().map(|&v| v as u64));
+         f.end(mk);
+         assert_eq!(e.msg(), &f.buf[..]);
++        // v2: the same run written forward into a sized hole
++        let mut e2 = BEnc::new();
++        e2.reset();
++        let m = e2.open();
++        e2.varint_run_sized(vals.iter().map(|&v| v as u64));
++        e2.close(m, 4);
++        assert_eq!(e2.msg(), &f.buf[..]);
+     }
+ }
+--- a/ffi/poc/codec/gen/rust_abi.py
++++ b/ffi/poc/codec/gen/rust_abi.py
+@@ -829,7 +829,8 @@
+         body.append("    if n == 0 { return AK_OK; }")
+         body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+         body.append("    (*cx).e.count_elem_call(n);")
+-        body.append("    // EXPERIMENT backward-encode: the host's array, walked last to first; then")
++        body.append("    // EXPERIMENT backward-encode (v2): the host's array, written forward into a hole")
++        body.append("    // of its summed size (f64: one copy); then")
+         body.append("    // the run's length and key in front of it (one packed record per call, as")
+         body.append("    // before: a field delivered in several calls is several records).")
+         body.append("    let mk = (*cx).e.open();")
+@@ -841,9 +842,9 @@
+         if ty == "f64":
+             body.append("    (*cx).e.f64_run(src);")
+         elif ty == "i32":
+-            body.append("    (*cx).e.varint_run_rev(n, src.iter().map(|&v| v as i64 as u64));")
++            body.append("    (*cx).e.varint_run_sized(src.iter().map(|&v| v as i64 as u64));")
+         else:
+-            body.append("    (*cx).e.varint_run_rev(n, src.iter().map(|&v| v as u64));")
++            body.append("    (*cx).e.varint_run_sized(src.iter().map(|&v| v as u64));")
+         body.append("    (*cx).e.close(mk, tag);")
+         body.append("    AK_OK")
+         body.append("}")

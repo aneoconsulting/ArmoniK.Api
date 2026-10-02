@@ -1,0 +1,1705 @@
+diff --git a/ffi/poc/codec/crates/ak-core/src/lib.rs b/ffi/poc/codec/crates/ak-core/src/lib.rs
+index 5c9024e3..654b5c32 100644
+--- a/ffi/poc/codec/crates/ak-core/src/lib.rs
++++ b/ffi/poc/codec/crates/ak-core/src/lib.rs
+@@ -40,7 +40,9 @@
+ extern crate alloc;
+ 
+ use ak_abi::*;
+-use ak_rt::Enc;
++// EXPERIMENT backward-encode: the core's encode buffer is written backward (ak_rt::BEnc);
++// ak_rt::Enc, the forward buffer, stays core-native's.
++use ak_rt::BEnc as Enc;
+ use core::ffi::c_void;
+ 
+ /// ABI v1 section 9, behind a feature so the codec arms do not link tonic.
+@@ -351,7 +353,9 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
+     // framed transport writes the prefix in place and sends each message as ONE frame
+     // (owner, 2026-09-28). The codec's output (ak_enc_take, the encode entries' length)
+     // is the message alone, as before.
+-    let mut e = Enc::new(generated::codec::SITES);
++    // EXPERIMENT backward-encode: no learned widths (BEnc has none); the headroom is kept
++    // free at the START of the buffer, below the message, for take_framed's prefix.
++    let mut e = Enc::new();
+     e.head = ak_rt::enc::FRAME_HEAD;
+     let b = Box::new(EncCtxImpl {
+         hdr: CtxHeader { kind: AK_CTX_ENC, err: AK_OK },
+@@ -627,6 +631,31 @@ pub unsafe extern "C" fn ak_enc_count_reverse(ctx: *mut ak_enc_ctx) {
+ #[no_mangle]
+ pub unsafe extern "C" fn ak_enc_counters_reset(ctx: *mut ak_enc_ctx) {
+     (*(ctx as *mut EncCtxImpl)).e.c = Default::default();
++    #[cfg(feature = "count")]
++    {
++        (*(ctx as *mut EncCtxImpl)).e.bc = Default::default();
++    }
++}
++
++/// EXPERIMENT backward-encode, ADDITIVE and count-only (no host of the committed tree calls
++/// it): the backward core's own counters, in this order: element entry calls, elements they
++/// carried, calls with more than one element (walked last to first), transcoder outputs
++/// moved after commit and their bytes, buffer grows and the bytes they copied. Writes at
++/// most `cap` words; returns how many exist (0 in a build without `count`).
++#[no_mangle]
++pub unsafe extern "C" fn ak_enc_bwd_counters(ctx: *const ak_enc_ctx, out: *mut u64, cap: usize) -> usize {
++    #[cfg(feature = "count")]
++    {
++        let b = (*(ctx as *const EncCtxImpl)).e.bc;
++        let v = [b.elem_calls, b.elem_items, b.multi_calls, b.tc_moves, b.tc_move_bytes, b.grows, b.grow_bytes];
++        core::ptr::copy_nonoverlapping(v.as_ptr(), out, v.len().min(cap));
++        return v.len();
++    }
++    #[allow(unreachable_code)]
++    {
++        let _ = (ctx, out, cap);
++        0
++    }
+ }
+ 
+ /// Counting build only: the per-site length-prefix miss counts, so decision 5's figure can
+@@ -634,12 +663,14 @@ pub unsafe extern "C" fn ak_enc_counters_reset(ctx: *mut ak_enc_ctx) {
+ /// exist.
+ #[no_mangle]
+ pub unsafe extern "C" fn ak_enc_site_moves(ctx: *const ak_enc_ctx, out: *mut u32, cap: usize) -> usize {
++    // EXPERIMENT backward-encode: there is no placeholder and no learned width, so no
++    // site can miss: every site reports 0 (decision 5's question is vacuous here).
+     #[cfg(feature = "count")]
+     {
+-        let m = &(*(ctx as *const EncCtxImpl)).e.site_moves;
+-        let n = m.len().min(cap);
+-        core::ptr::copy_nonoverlapping(m.as_ptr(), out, n);
+-        return m.len();
++        let _ = ctx;
++        let n = generated::codec::SITES.min(cap);
++        core::ptr::write_bytes(out, 0, n);
++        return generated::codec::SITES;
+     }
+     #[allow(unreachable_code)]
+     {
+@@ -1024,10 +1055,11 @@ pub(crate) unsafe fn enc_blob_run(cx: *mut EncCtxImpl, tag: u32, site: u32, elem
+             Some(_) => return enc_blob_each(cx, tag, site, elems, n),
+         }
+     }
++    // EXPERIMENT backward-encode: the run's size is summed above, so the run is written
++    // FORWARD, in array order, into a hole of exactly that size just below the cursor:
++    // the bytes of the forward path, one pass, no walk order to choose.
+     let e = &mut (*cx).e;
+-    e.buf.reserve(total);
+-    let len0 = e.buf.len();
+-    let base = e.buf.as_mut_ptr().add(len0);
++    let base = e.hole(total);
+     let mut p = base;
+     for i in 0..n {
+         let s = &*elems.add(i);
+@@ -1043,7 +1075,7 @@ pub(crate) unsafe fn enc_blob_run(cx: *mut EncCtxImpl, tag: u32, site: u32, elem
+             p = p.add(s.len);
+         }
+     }
+-    e.buf.set_len(len0 + p.offset_from(base) as usize);
++    debug_assert_eq!(p.offset_from(base) as usize, total);
+     let _ = site;
+     true
+ }
+@@ -1060,7 +1092,9 @@ unsafe fn put_varint_raw(mut p: *mut u8, mut v: u64) -> *mut u8 {
+ }
+ 
+ unsafe fn enc_blob_each(cx: *mut EncCtxImpl, tag: u32, site: u32, elems: *const ak_str, n: usize) -> bool {
+-    for i in 0..n {
++    // EXPERIMENT backward-encode: the host's array is in forward element order; the codec
++    // walks it LAST TO FIRST (each element below the cursor).
++    for i in (0..n).rev() {
+         if !enc_blob(cx, tag, site, &*elems.add(i)) {
+             return false;
+         }
+@@ -1080,14 +1114,10 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
+     // The direct-argument path: the bytes are an argument of the call rather than a pointer
+     // into staging, so there is no transcoder to invoke and nothing to validate.
+     if s.data == ak_abi::AK_STR_DIRECT {
++        // EXPERIMENT backward-encode: the length is known, so the bytes are placed directly
++        // at cursor - len, then the length and the key in front of them: no move.
+         let (p, n) = ((*cx).direct, (*cx).direct_len);
+-        let e = &mut (*cx).e;
+-        e.key(tag, ak_rt::WIRE_LEN);
+-        e.varint(n as u64);
+-        // R-D9: a zero-length direct argument may be (NULL, 0).
+-        if n != 0 {
+-            e.put(core::slice::from_raw_parts(p, n));
+-        }
++        (*cx).e.blob_known(tag, p, n);
+         let _ = site;
+         return true;
+     }
+@@ -1095,27 +1125,24 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
+         Some(tc) => tc,
+         None => return true,
+     };
+-    // Optimisation E1: the passthrough transcoder (`ak_tc_utf8_trusted`, which is also what
+-    // `ak_tc_bytes` returns) is a memcpy of a length the core already knows, so the field
+-    // is written in one pass -- key, exact varint length, bytes -- with no placeholder, no
+-    // indirect call and no prefix resolution. The bytes are the ones the general path
+-    // writes (`end` always rewrites the prefix to the minimal width). A length the i32 cap
+-    // of ABI v1 section 4 refuses keeps the general path, so it fails as before.
++    // Optimisation E1, backward: the passthrough transcoder's output length is ak_str.len,
++    // so key, length and bytes are placed at cursor - total in one pass.
+     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+         let e = &mut (*cx).e;
+         ak_rt::bump!(e.c, transcode);
+-        e.key(tag, ak_rt::WIRE_LEN);
+-        e.varint(s.len as u64);
+-        // R-D9: an empty host string may arrive as (NULL, 0).
+-        if s.len != 0 {
+-            e.put(core::slice::from_raw_parts(s.data as *const u8, s.len));
+-        }
++        e.blob_known(tag, s.data as *const u8, s.len);
+         let _ = site;
+         return true;
+     }
++    // EXPERIMENT backward-encode: a transcoder writes FORWARD into the region it is handed.
++    // The core's validating UTF-8 passthroughs produce exactly `len` bytes on success, so
++    // they are handed exactly the `len` bytes ending at the cursor (no move); any other
++    // transcoder gets the whole free region from its bottom and its n bytes are moved up
++    // to just below the cursor after commit. Then the length (n) and the key.
+     let e = &mut (*cx).e;
+-    let mk = e.begin(tag, site);
+-    let (dst, cap) = e.space();
++    let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
++        && s.len <= i32::MAX as usize;
++    let (dst, cap) = if known { e.space_known(s.len) } else { e.space() };
+     ak_rt::bump!(e.c, transcode);
+     let n = tc(s.data, s.len, dst, cap, ak_grow, cx as *mut c_void);
+     // R-D6: a transcoder is the host's code when the host supplied it, so it is an upcall
+@@ -1131,7 +1158,8 @@ pub(crate) unsafe fn enc_blob(cx: *mut EncCtxImpl, tag: u32, site: u32, s: &ak_s
+     if !e.commit(n as usize) {
+         return false;
+     }
+-    e.end(mk);
++    e.len_key(n as usize, tag);
++    let _ = site;
+     true
+ }
+ 
+@@ -1328,6 +1356,8 @@ pub(crate) unsafe fn enc_raw(cx: *mut EncCtxImpl, s: &ak_blob) -> bool {
+     if s.len == 0 {
+         return true;
+     }
++    // EXPERIMENT backward-encode: prepended, so the bag is written FIRST in a message's
++    // backward walk and ends up after every known field, where the forward encoder puts it.
+     let e = &mut (*cx).e;
+     e.put(core::slice::from_raw_parts(s.data as *const u8, s.len));
+     true
+diff --git a/ffi/poc/codec/crates/ak-rt/src/benc.rs b/ffi/poc/codec/crates/ak-rt/src/benc.rs
+new file mode 100644
+index 00000000..b9ee9524
+--- /dev/null
++++ b/ffi/poc/codec/crates/ak-rt/src/benc.rs
+@@ -0,0 +1,635 @@
++//! EXPERIMENT `backward-encode` (ffi/logs/rust/opt/patches/backward-encode/): the encode
++//! buffer of the core written BACKWARD, as upb does ("We encode backwards, to avoid
++//! pre-computing lengths (one-pass encode)", upb/wire/encode.c).
++//!
++//! The cursor moves toward the start of the buffer; the encoded message is `[pos, cap)`.
++//! A length-delimited field is written body first, then its length (now known), then its
++//! key, so there is no placeholder, no learned width and no prefix move on a miss: the
++//! widths table, `pad-widths` and `global-widths` have nothing to act on in this buffer.
++//! Every position the generated code records is a DISTANCE FROM THE END (`BMark`), so it
++//! survives a grow, which allocates a larger buffer (geometric: at least twice the old
++//! capacity) and copies the content to the END of the new one.
++//!
++//! `ak_rt::Enc` (the forward buffer) is untouched: core-native, the unchanged reference
++//! arm, keeps using it. Only the core behind the C ABI uses this type.
++
++use crate::counters::Counters;
++use crate::{key, varint_len, WIRE_I32, WIRE_I64, WIRE_LEN, WIRE_VARINT};
++use bytes::Bytes;
++use std::sync::{Arc, Mutex};
++
++pub use crate::enc::{FRAME_HEAD, SPARES};
++
++/// An open length-delimited field: how many bytes had been written when it was opened. A
++/// distance from the end of the buffer, so it is still right after a grow.
++#[derive(Clone, Copy)]
++pub struct BMark(usize);
++
++/// Counting build only: what the backward core did that the forward one did not (or did
++/// differently), per context. Not part of `AkCounters` (an ABI struct): read through the
++/// additive count-only export `ak_enc_bwd_counters`.
++#[derive(Clone, Copy, Default, Debug)]
++pub struct BwdCounters {
++    /// Element entry calls (`ak_elem*`, `ak_elemu*`, `ak_blob_run`, `ak_run_*`): every one
++    /// is now delivered by the host in reverse element order.
++    pub elem_calls: u64,
++    /// Elements those calls carried (a run's values count one each).
++    pub elem_items: u64,
++    /// Calls with more than one element, whose array the codec walked last to first.
++    pub multi_calls: u64,
++    /// Transcoder outputs moved to just below the cursor after `commit` (the length was
++    /// not known before the transcode), and the bytes moved.
++    pub tc_moves: u64,
++    pub tc_move_bytes: u64,
++    /// Grows, and the bytes they copied (content to the end of the new buffer).
++    pub grows: u64,
++    pub grow_bytes: u64,
++}
++
++/// A taken body: its buffer returns to the context's spare ring when the last `Bytes`
++/// clone is dropped (the forward buffer's `Recycle`, with the start of the message).
++struct Recycle {
++    v: Vec<u8>,
++    start: usize,
++    slot: Arc<Mutex<Vec<Vec<u8>>>>,
++}
++impl AsRef<[u8]> for Recycle {
++    fn as_ref(&self) -> &[u8] {
++        // [start, capacity) was written by the encode before the take; `v` is never touched
++        // again until it comes back to the ring.
++        unsafe { core::slice::from_raw_parts(self.v.as_ptr().add(self.start), self.v.capacity() - self.start) }
++    }
++}
++impl Drop for Recycle {
++    fn drop(&mut self) {
++        if let Ok(mut g) = self.slot.lock() {
++            if g.len() < SPARES {
++                g.push(core::mem::take(&mut self.v));
++            }
++        }
++    }
++}
++
++/// Store `v` as a varint at `p` (forward); returns its length.
++#[inline(always)]
++unsafe fn put_varint(p: *mut u8, mut v: u64) -> usize {
++    let mut i = 0usize;
++    while v >= 0x80 {
++        *p.add(i) = (v as u8) | 0x80;
++        v >>= 7;
++        i += 1;
++    }
++    *p.add(i) = v as u8;
++    i + 1
++}
++
++pub struct BEnc {
++    /// The storage: its CAPACITY is the buffer, its length stays 0 (every byte is written
++    /// through raw pointers before it is read, so no initialisation is paid).
++    v: Vec<u8>,
++    cap: usize,
++    /// The cursor: the encoded message is `[pos, cap)`.
++    pos: usize,
++    /// Bytes kept free at the START of the buffer: FRAME_HEAD on a core context, so
++    /// `take_framed` can write the gRPC prefix just below the message.
++    pub head: usize,
++    spare: Arc<Mutex<Vec<Vec<u8>>>>,
++    pub c: Counters,
++    #[cfg(feature = "count")]
++    pub bc: BwdCounters,
++    /// Sticky, first error wins (ABI v1 section 5).
++    pub err: i32,
++    /// The capacity most recently handed to a transcoder (ABI v1 section 4's one check).
++    pub last_cap: i32,
++    /// Where the region handed to the transcoder starts (an offset from the start).
++    tc_at: usize,
++}
++
++impl Default for BEnc {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl BEnc {
++    pub fn new() -> Self {
++        let v: Vec<u8> = Vec::with_capacity(4096);
++        let cap = v.capacity();
++        BEnc {
++            v,
++            cap,
++            pos: cap,
++            head: 0,
++            spare: Arc::new(Mutex::new(Vec::with_capacity(SPARES))),
++            c: Counters::default(),
++            #[cfg(feature = "count")]
++            bc: BwdCounters::default(),
++            err: 0,
++            last_cap: 0,
++            tc_at: 0,
++        }
++    }
++
++    #[inline(always)]
++    fn base(&mut self) -> *mut u8 {
++        self.v.as_mut_ptr()
++    }
++
++    #[inline]
++    pub fn reset(&mut self) {
++        self.pos = self.cap;
++        self.err = 0;
++    }
++
++    /// Bytes written so far.
++    #[inline(always)]
++    pub fn written(&self) -> usize {
++        self.cap - self.pos
++    }
++
++    /// The encoded message.
++    #[inline]
++    pub fn msg(&self) -> &[u8] {
++        unsafe { core::slice::from_raw_parts(self.v.as_ptr().add(self.pos), self.cap - self.pos) }
++    }
++
++    #[inline]
++    pub fn msg_len(&self) -> usize {
++        self.cap - self.pos
++    }
++
++    #[inline]
++    pub fn capacity(&self) -> usize {
++        self.cap
++    }
++
++    #[inline]
++    pub fn fail(&mut self, code: i32) {
++        if self.err == 0 {
++            self.err = code;
++        }
++    }
++
++    /// Make room for `n` more bytes below the cursor (above `head`).
++    #[inline(always)]
++    fn need(&mut self, n: usize) {
++        if self.pos - self.head < n {
++            self.grow_by(n, 0);
++        }
++    }
++
++    /// Geometric grow: a new buffer of at least max(2 x capacity, written + n + head), the
++    /// content copied to its END. `keep` bytes starting at `tc_at` (a transcoder's partial
++    /// output) are copied to the start of the new free region.
++    #[cold]
++    #[inline(never)]
++    fn grow_by(&mut self, n: usize, keep: usize) {
++        let w = self.cap - self.pos;
++        let want = (self.cap.saturating_mul(2)).max(w + n + self.head).max(64);
++        let mut nv: Vec<u8> = Vec::with_capacity(want);
++        let ncap = nv.capacity();
++        unsafe {
++            let src = self.v.as_ptr();
++            let dst = nv.as_mut_ptr();
++            core::ptr::copy_nonoverlapping(src.add(self.pos), dst.add(ncap - w), w);
++            if keep != 0 {
++                core::ptr::copy_nonoverlapping(src.add(self.tc_at), dst.add(self.head), keep);
++            }
++        }
++        #[cfg(feature = "count")]
++        {
++            self.bc.grows += 1;
++            self.bc.grow_bytes += (w + keep) as u64;
++        }
++        self.v = nv;
++        self.cap = ncap;
++        self.pos = ncap - w;
++        self.tc_at = self.head;
++    }
++
++    /// Prepend raw bytes (an unknown-field bag, verbatim).
++    #[inline(always)]
++    pub fn put(&mut self, b: &[u8]) {
++        let n = b.len();
++        self.need(n);
++        self.pos -= n;
++        unsafe { core::ptr::copy_nonoverlapping(b.as_ptr(), self.base().add(self.pos), n) };
++    }
++
++    #[inline(always)]
++    pub fn varint(&mut self, v: u64) {
++        let n = varint_len(v);
++        self.need(n);
++        self.pos -= n;
++        unsafe { put_varint(self.base().add(self.pos), v) };
++    }
++
++    #[inline(always)]
++    pub fn key(&mut self, tag: u32, wire: u32) {
++        self.varint(key(tag, wire));
++    }
++
++    #[inline(always)]
++    pub fn varint_field(&mut self, tag: u32, v: u64) {
++        let k = key(tag, WIRE_VARINT);
++        let kl = varint_len(k);
++        let n = kl + varint_len(v);
++        self.need(n);
++        self.pos -= n;
++        unsafe {
++            let p = self.base().add(self.pos);
++            put_varint(p, k);
++            put_varint(p.add(kl), v);
++        }
++    }
++
++    #[inline(always)]
++    pub fn f64_field(&mut self, tag: u32, v: f64) {
++        let k = key(tag, WIRE_I64);
++        let kl = varint_len(k);
++        self.need(kl + 8);
++        self.pos -= kl + 8;
++        unsafe {
++            let p = self.base().add(self.pos);
++            put_varint(p, k);
++            core::ptr::copy_nonoverlapping(v.to_le_bytes().as_ptr(), p.add(kl), 8);
++        }
++    }
++
++    #[inline(always)]
++    pub fn fixed32_field(&mut self, tag: u32, v: u32) {
++        let k = key(tag, WIRE_I32);
++        let kl = varint_len(k);
++        self.need(kl + 4);
++        self.pos -= kl + 4;
++        unsafe {
++            let p = self.base().add(self.pos);
++            put_varint(p, k);
++            core::ptr::copy_nonoverlapping(v.to_le_bytes().as_ptr(), p.add(kl), 4);
++        }
++    }
++
++    /// A length-delimited field whose length is known: placed directly at cursor - total,
++    /// written forward (key, length, body) in one pass, no move.
++    #[inline(always)]
++    pub unsafe fn blob_known(&mut self, tag: u32, data: *const u8, len: usize) {
++        let k = key(tag, WIRE_LEN);
++        let kl = varint_len(k);
++        let ll = varint_len(len as u64);
++        let total = kl + ll + len;
++        self.need(total);
++        self.pos -= total;
++        let p = self.base().add(self.pos);
++        put_varint(p, k);
++        put_varint(p.add(kl), len as u64);
++        // R-D9: an empty host string may arrive as (NULL, 0).
++        if len != 0 {
++            core::ptr::copy_nonoverlapping(data, p.add(kl + ll), len);
++        }
++    }
++
++    /// Reserve exactly `total` bytes below the cursor and return where they start, for a
++    /// caller that writes them forward itself (a passthrough blob run whose size it summed).
++    #[inline(always)]
++    pub unsafe fn hole(&mut self, total: usize) -> *mut u8 {
++        self.need(total);
++        self.pos -= total;
++        self.base().add(self.pos)
++    }
++
++    /// Open a length-delimited field: its body is written next (backward), then `close`.
++    #[inline(always)]
++    pub fn open(&mut self) -> BMark {
++        BMark(self.cap - self.pos)
++    }
++
++    /// Close it: the body's length is now known, so the length and the key are written in
++    /// front of it. Never a placeholder, never a move.
++    #[inline(always)]
++    pub fn close(&mut self, m: BMark, tag: u32) {
++        let body = (self.cap - self.pos) - m.0;
++        self.len_key(body, tag);
++    }
++
++    /// The length `body` and the key of a length-delimited field, in front of its body.
++    #[inline(always)]
++    pub fn len_key(&mut self, body: usize, tag: u32) {
++        let k = key(tag, WIRE_LEN);
++        let kl = varint_len(k);
++        let n = kl + varint_len(body as u64);
++        self.need(n);
++        self.pos -= n;
++        unsafe {
++            let p = self.base().add(self.pos);
++            put_varint(p, k);
++            put_varint(p.add(kl), body as u64);
++        }
++    }
++
++    /// A packed run of varints, walked LAST TO FIRST (each value below the cursor): one
++    /// reservation for the run (at most 10 bytes a value), then raw stores.
++    #[inline(always)]
++    pub fn varint_run_rev<I: DoubleEndedIterator<Item = u64>>(&mut self, n: usize, it: I) {
++        self.need(n.saturating_mul(10));
++        unsafe {
++            let base = self.base();
++            let mut at = self.pos;
++            for v in it.rev() {
++                at -= varint_len(v);
++                put_varint(base.add(at), v);
++            }
++            self.pos = at;
++        }
++    }
++
++    /// A packed run of doubles: the host's array is contiguous and little-endian, so it is
++    /// one copy into the region below the cursor (the bytes of a forward array placed as one
++    /// block are in forward order; nothing to walk).
++    #[inline(always)]
++    pub fn f64_run(&mut self, v: &[f64]) {
++        let n = v.len() * 8;
++        self.need(n);
++        self.pos -= n;
++        #[cfg(target_endian = "little")]
++        unsafe {
++            core::ptr::copy_nonoverlapping(v.as_ptr() as *const u8, self.base().add(self.pos), n);
++        }
++        #[cfg(not(target_endian = "little"))]
++        unsafe {
++            let p = self.base().add(self.pos);
++            for (i, x) in v.iter().enumerate() {
++                core::ptr::copy_nonoverlapping(x.to_le_bytes().as_ptr(), p.add(8 * i), 8);
++            }
++        }
++    }
++
++    /// What a transcoder of unknown output length is handed: the whole free region below
++    /// the cursor, starting at its bottom (ABI v1 section 4: the whole remaining buffer, not
++    /// a reservation). It writes FORWARD from there; `commit` then moves its n bytes up to
++    /// just below the cursor.
++    #[inline(always)]
++    pub fn space(&mut self) -> (*mut u8, i32) {
++        self.tc_at = self.head;
++        let cap = (self.pos - self.head).min(i32::MAX as usize) as i32;
++        self.last_cap = cap;
++        (unsafe { self.base().add(self.head) }, cap)
++    }
++
++    /// For a transcoder whose output length on success is known before the call (the core's
++    /// validating UTF-8 passthroughs: n == len): the region is exactly `len` bytes ending at
++    /// the cursor, so the output lands in place and `commit` moves nothing.
++    #[inline(always)]
++    pub fn space_known(&mut self, len: usize) -> (*mut u8, i32) {
++        self.need(len);
++        self.tc_at = self.pos - len;
++        self.last_cap = len as i32;
++        let at = self.tc_at;
++        (unsafe { self.base().add(at) }, len as i32)
++    }
++
++    /// The transcoder asked for more. May move the buffer; whatever the transcoder already
++    /// wrote at the start of its region is carried to the start of the new one.
++    #[inline]
++    pub fn grow(&mut self, want: i32) -> (*mut u8, i32) {
++        let want = want.max(0) as usize;
++        let have = self.pos - self.tc_at;
++        if have < want {
++            // A grow from inside a transcode keeps the region handed out so far (`have`
++            // bytes, fewer than `want`), then hands out the new free region from its bottom.
++            self.grow_by(want.max(self.pos - self.head), have);
++        } else if self.tc_at != self.head {
++            // A space_known region asked for more although it had enough: hand out the
++            // whole free region, carrying what was written.
++            unsafe {
++                let b = self.base();
++                core::ptr::copy(b.add(self.tc_at), b.add(self.head), have);
++            }
++            self.tc_at = self.head;
++        }
++        crate::bump!(self.c, grows);
++        self.tc_at = self.head;
++        let cap = (self.pos - self.head).min(i32::MAX as usize) as i32;
++        self.last_cap = cap;
++        (unsafe { self.base().add(self.head) }, cap)
++    }
++
++    /// Accept what a transcoder wrote: refuse a count larger than the capacity it was given
++    /// (AK_ERR_CAPACITY, ABI v1 section 4), else move the n bytes to just below the cursor
++    /// (nothing moves when they are already there).
++    #[inline(always)]
++    pub fn commit(&mut self, n: usize) -> bool {
++        if n > self.last_cap as usize {
++            self.fail(crate::ERR_CAPACITY);
++            return false;
++        }
++        let dst = self.pos - n;
++        if self.tc_at != dst {
++            unsafe {
++                let b = self.base();
++                core::ptr::copy(b.add(self.tc_at), b.add(dst), n);
++            }
++            #[cfg(feature = "count")]
++            {
++                self.bc.tc_moves += 1;
++                self.bc.tc_move_bytes += n as u64;
++            }
++        }
++        self.pos = dst;
++        true
++    }
++
++    /// Counting build: one element entry call carrying `n` elements.
++    #[inline(always)]
++    pub fn count_elem_call(&mut self, n: usize) {
++        #[cfg(feature = "count")]
++        {
++            self.bc.elem_calls += 1;
++            self.bc.elem_items += n as u64;
++            if n > 1 {
++                self.bc.multi_calls += 1;
++            }
++        }
++        let _ = n;
++    }
++
++    /// The encoded message as a `Bytes`, MOVED out (no copy), its buffer returned to the
++    /// spare ring when dropped. The context continues on a spare (or a fresh buffer of the
++    /// same capacity while the spares are out).
++    pub fn take(&mut self) -> Bytes {
++        let at = self.pos;
++        self.take_from(at)
++    }
++
++    /// The message with its 5-byte gRPC prefix (flag 0, big-endian length) written just
++    /// below it, as ONE buffer, moved out like `take`. Requires `head` >= FRAME_HEAD (else
++    /// it is `take`, and the caller frames it itself).
++    pub fn take_framed(&mut self) -> Bytes {
++        if self.head < FRAME_HEAD {
++            return self.take();
++        }
++        let n = (self.cap - self.pos) as u32;
++        let at = self.pos - FRAME_HEAD;
++        unsafe {
++            let p = self.base().add(at);
++            *p = 0;
++            core::ptr::copy_nonoverlapping(n.to_be_bytes().as_ptr(), p.add(1), 4);
++        }
++        self.take_from(at)
++    }
++
++    fn take_from(&mut self, start: usize) -> Bytes {
++        let fresh = match self.spare.lock().ok().and_then(|mut g| g.pop()) {
++            Some(v) => v,
++            None => Vec::with_capacity(self.cap),
++        };
++        let v = core::mem::replace(&mut self.v, fresh);
++        self.cap = self.v.capacity();
++        self.pos = self.cap;
++        Bytes::from_owner(Recycle { v, start, slot: self.spare.clone() })
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// The forward encoder's bytes for a message of `n` varint fields, written backward in
++    /// reverse field order: the same bytes.
++    fn fill_rev(e: &mut BEnc, n: usize) {
++        e.reset();
++        for i in (0..n).rev() {
++            e.varint_field(1, i as u64);
++        }
++    }
++
++    fn fill_fwd(n: usize) -> Vec<u8> {
++        let mut f = crate::Enc::new(1);
++        for i in 0..n {
++            f.varint_field(1, i as u64);
++        }
++        f.buf
++    }
++
++    #[test]
++    fn same_bytes_as_forward_across_grows() {
++        let mut e = BEnc::new();
++        let cap0 = e.capacity();
++        fill_rev(&mut e, 5000);
++        assert!(e.capacity() > cap0, "the test must cross a grow");
++        assert_eq!(e.msg(), &fill_fwd(5000)[..]);
++    }
++
++    #[test]
++    fn grow_is_geometric() {
++        let mut e = BEnc::new();
++        let mut caps = vec![e.capacity()];
++        e.reset();
++        for i in 0..100_000u64 {
++            e.varint_field(1, i);
++            if e.capacity() != *caps.last().unwrap() {
++                caps.push(e.capacity());
++            }
++        }
++        for w in caps.windows(2) {
++            assert!(w[1] >= 2 * w[0], "grow from {} to {} is not geometric", w[0], w[1]);
++        }
++    }
++
++    /// A nested message opened before a grow and closed after it: the mark is a distance
++    /// from the end, so the length is right.
++    #[test]
++    fn grow_inside_a_nested_message() {
++        let mut e = BEnc::new();
++        e.reset();
++        let m = e.open();
++        let big = vec![7u8; 10_000];
++        unsafe { e.blob_known(2, big.as_ptr(), big.len()) };
++        e.varint_field(1, 3);
++        e.close(m, 5);
++        let mut f = crate::Enc::new(1);
++        let mk = f.begin(5, 0);
++        f.varint_field(1, 3);
++        f.blob_field(2, &big);
++        f.end(mk);
++        assert_eq!(e.msg(), &f.buf[..]);
++    }
++
++    #[test]
++    fn transcoder_region_and_commit_move() {
++        let mut e = BEnc::new();
++        e.head = FRAME_HEAD;
++        e.reset();
++        e.varint_field(9, 1);
++        let (dst, cap) = e.space();
++        assert!(cap as usize >= 4000);
++        unsafe { core::ptr::copy_nonoverlapping(b"hello".as_ptr(), dst, 5) };
++        assert!(e.commit(5));
++        e.len_key(5, 2);
++        let mut f = crate::Enc::new(1);
++        f.blob_field(2, b"hello");
++        f.varint_field(9, 1);
++        assert_eq!(e.msg(), &f.buf[..]);
++        // over-capacity commit refused
++        let (_, cap) = e.space();
++        assert!(!e.commit(cap as usize + 1));
++        assert_eq!(e.err, crate::ERR_CAPACITY);
++    }
++
++    #[test]
++    fn transcoder_grow_keeps_partial_output() {
++        let mut e = BEnc::new();
++        e.reset();
++        // fill most of the buffer so the free region is small
++        let fill = vec![1u8; e.capacity() - 40];
++        e.put(&fill);
++        let (dst, cap) = e.space();
++        assert!(cap < 64);
++        unsafe { core::ptr::copy_nonoverlapping(b"abc".as_ptr(), dst, 3) };
++        let (dst2, cap2) = e.grow(1000);
++        assert!(cap2 >= 1000);
++        let got = unsafe { core::slice::from_raw_parts(dst2, 3) };
++        assert_eq!(got, b"abc");
++        unsafe { core::ptr::copy_nonoverlapping(b"def".as_ptr(), dst2.add(3), 3) };
++        assert!(e.commit(6));
++        let m = e.msg();
++        assert_eq!(&m[..6], b"abcdef");
++        assert_eq!(&m[6..], &fill[..]);
++    }
++
++    #[test]
++    fn take_framed_moves_and_recycles() {
++        let mut e = BEnc::new();
++        e.head = FRAME_HEAD;
++        fill_rev(&mut e, 3000);
++        let want = fill_fwd(3000);
++        let b = e.take_framed();
++        assert_eq!(b[0], 0);
++        assert_eq!(u32::from_be_bytes(b[1..5].try_into().unwrap()) as usize, want.len());
++        assert_eq!(&b[5..], &want[..]);
++        let p = b.as_ptr();
++        drop(b);
++        fill_rev(&mut e, 3000);
++        let b2 = e.take();
++        assert_eq!(&b2[..], &want[..]);
++        drop(b2);
++        fill_rev(&mut e, 3000);
++        // two buffers alternate through the ring: the first comes back after two takes
++        let b3 = e.take_framed();
++        assert_eq!(b3.as_ptr(), p, "the dropped body's buffer did not come back");
++    }
++
++    #[test]
++    fn packed_run_reverse_walk() {
++        let vals: Vec<i64> = (0..1000).map(|i| i * 977 - 300).collect();
++        let mut e = BEnc::new();
++        e.reset();
++        let m = e.open();
++        e.varint_run_rev(vals.len(), vals.iter().map(|&v| v as u64));
++        e.close(m, 4);
++        let mut f = crate::Enc::new(1);
++        let mk = f.begin(4, 0);
++        f.varint_run(vals.len(), vals.iter().map(|&v| v as u64));
++        f.end(mk);
++        assert_eq!(e.msg(), &f.buf[..]);
++    }
++}
+diff --git a/ffi/poc/codec/crates/ak-rt/src/lib.rs b/ffi/poc/codec/crates/ak-rt/src/lib.rs
+index 8d41e931..f02063be 100644
+--- a/ffi/poc/codec/crates/ak-rt/src/lib.rs
++++ b/ffi/poc/codec/crates/ak-rt/src/lib.rs
+@@ -7,11 +7,13 @@
+ //! different codec: the buffer, the varints and the learned length widths are the same
+ //! code in both, and the only difference between the arms is where the values come from.
+ 
++pub mod benc;
+ pub mod counters;
+ pub mod enc;
+ 
+ pub use bdr::Bdr;
+ pub use counters::Counters;
++pub use benc::{BEnc, BMark};
+ pub use enc::{Enc, Mark};
+ 
+ /// Bytes a varint needs.
+diff --git a/ffi/poc/codec/gen/rust_abi.py b/ffi/poc/codec/gen/rust_abi.py
+index 4b7ecb1a..3bbfc3fd 100644
+--- a/ffi/poc/codec/gen/rust_abi.py
++++ b/ffi/poc/codec/gen/rust_abi.py
+@@ -449,7 +449,7 @@ def emit_codec(ir):
+     # because "the group carries the whole singular subtree" and because a loop slot living
+     # on an inlined child is reached through the parent's vtable: a standalone encoder for
+     # the child would have no way to name it.
+-    def enc_walk(owner, name, gexpr, prefix, o, fail="false", bag=False):
++    def enc_walk(owner, name, gexpr, prefix, o, fail="false", bag=False, sites_only=False):
+         """Render one message's ENCODE PLAN (`plan.MessagePlan.encode`) over a group.
+ 
+         The list order is the write order and every presence test is the step's; this
+@@ -471,7 +471,30 @@ def emit_codec(ir):
+             o.append("        _ => { (*cx).e.fail(AK_ERR_ABI); return %s; }" % fail)
+             o.append("    }")
+         oneof_sited = set()
++        # EXPERIMENT backward-encode: the core's buffer is written BACKWARD, so the plan's
++        # write order is rendered REVERSED (the last field first) and the forward byte
++        # sequence comes out unchanged. The oneof checks above still run before anything is
++        # written. Length-prefix SITES are still allocated, in the plan's FORWARD order, so
++        # SITES / SITE_NAMES (an ABI export) stay what they are; nothing reads them at run
++        # time any more (no learned width).
+         for st in m.encode:
++            f = st.field
++            if st.op in ("child", "blob", "packed", "repeated_blob", "repeated_message", "map"):
++                kind = {"child": "child", "blob": "blob"}.get(st.op, "loop")
++                _site(sites, (kind, owner, prefix + (f.name,)))
++            elif st.op == "oneof_member":
++                if st.oneof not in oneof_sited:
++                    oneof_sited.add(st.oneof)
++                    if any(g.kind == "message" for g in m.oneofs[st.oneof]):
++                        _site(sites, ("oneofmsg", owner, prefix + (st.oneof,)))
++                if f.is_blob:
++                    _site(sites, ("oneofblob", owner, prefix + (st.oneof, f.name)))
++            if st.op == "child":
++                # the child's own sites, in forward order, before the next field's
++                enc_walk(owner, f.of, "_", prefix + (f.name,), [], fail, bag, sites_only=True)
++        if sites_only:
++            return
++        for st in reversed(m.encode):
+             f = st.field
+             if st.op == "unknown_tail":
+                 if bag:
+@@ -483,11 +506,12 @@ def emit_codec(ir):
+             if st.op == "child":
+                 s = _site(sites, ("child", owner, path))
+                 o.append("    if %s.presence & %s != 0 {" % (gexpr, bit(f.name)))
+-                o.append("        let mk = (*cx).e.begin(%d, %d);" % (f.tag, s))
++                # Backward: the body first, then its length (now known) and its key.
++                o.append("        let mk = (*cx).e.open();")
+                 inner = []
+                 enc_walk(owner, f.of, "%s.%s" % (gexpr, f.name), path, inner, fail, bag)
+                 o.extend("    " + ln for ln in inner)
+-                o.append("        (*cx).e.end(mk);")
++                o.append("        (*cx).e.close(mk, %d);" % f.tag)
+                 o.append("    }")
+             elif st.op == "blob":
+                 s = _site(sites, ("blob", owner, path))
+@@ -545,10 +569,10 @@ def emit_codec(ir):
+                     o.append("        if !enc_blob(cx, %d, %d, &%s) { return %s; }" % (f.tag, s, n, fail))
+                 elif f.kind == "message":
+                     s = _site(sites, ("oneofmsg", owner, prefix + (oname,)))
+-                    o.append("        let mk = (*cx).e.begin(%d, %d);" % (f.tag, s))
++                    o.append("        let mk = (*cx).e.open();")
+                     o.append("        if !enc_%s_%sgroup(&%s, cx) { return %s; }"
+                              % (snake(f.of), "u" if bag else "", n, fail))
+-                    o.append("        (*cx).e.end(mk);")
++                    o.append("        (*cx).e.close(mk, %d);" % f.tag)
+                 else:
+                     o.append("        %s" % _enc_value(f, n))
+                 o.append("    }")
+@@ -614,10 +638,14 @@ def emit_codec(ir):
+             body.append("    ak_rt::bump!((*cx).e.c, forward);")
+             body.extend(SAVE_LINES)
+             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+-            body.append("    for i in 0..n as usize {")
+-            body.append("        let mk = (*cx).e.begin(tag, site);")
++            body.append("    // EXPERIMENT backward-encode: the host delivers a field's elements LAST TO")
++            body.append("    // FIRST across its calls and fills each chunk in forward order; the codec")
++            body.append("    // walks the chunk last to first, each element body -> length -> key.")
++            body.append("    (*cx).e.count_elem_call(n as usize);")
++            body.append("    for i in (0..n as usize).rev() {")
++            body.append("        let mk = (*cx).e.open();")
+             body.append("        if !enc_%s_group(&*elems.add(i), cx) { return crate::enc_status(cx); }" % snake(et))
+-            body.append("        (*cx).e.end(mk);")
++            body.append("        (*cx).e.close(mk, tag);")
+             body.append("    }")
+             body.extend(RESTORE_LINES)
+             body.append("    AK_OK")
+@@ -635,10 +663,14 @@ def emit_codec(ir):
+             body.append("    ak_rt::bump!((*cx).e.c, forward);")
+             body.extend(SAVE_LINES)
+             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+-            body.append("    for i in 0..n as usize {")
+-            body.append("        let mk = (*cx).e.begin(tag, site);")
++            body.append("    // EXPERIMENT backward-encode: the host delivers a field's elements LAST TO")
++            body.append("    // FIRST across its calls and fills each chunk in forward order; the codec")
++            body.append("    // walks the chunk last to first, each element body -> length -> key.")
++            body.append("    (*cx).e.count_elem_call(n as usize);")
++            body.append("    for i in (0..n as usize).rev() {")
++            body.append("        let mk = (*cx).e.open();")
+             body.append("        if !enc_%s_ugroup(&*elems.add(i), cx) { return crate::enc_status(cx); }" % snake(et))
+-            body.append("        (*cx).e.end(mk);")
++            body.append("        (*cx).e.close(mk, tag);")
+             body.append("    }")
+             body.extend(RESTORE_LINES)
+             body.append("    AK_OK")
+@@ -661,13 +693,17 @@ def emit_codec(ir):
+             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+             body.append("    let vt = (*cx).open_vt as *const ak_evt_%s;" % et)
+             body.append("    let obj = (*cx).open_obj;")
+-            body.append("    for i in 0..n as usize {")
+-            body.append("        let mk = (*cx).e.begin(tag, site);")
++            body.append("    // EXPERIMENT backward-encode: the host delivers a field's elements LAST TO")
++            body.append("    // FIRST across its calls and fills each chunk in forward order; the codec")
++            body.append("    // walks the chunk last to first, each element body -> length -> key.")
++            body.append("    (*cx).e.count_elem_call(n as usize);")
++            body.append("    for i in (0..n as usize).rev() {")
++            body.append("        let mk = (*cx).e.open();")
+             body.append("        if !enc_%s_group(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {"
+                         % snake(et))
+             body.append("            return crate::enc_status(cx);")
+             body.append("        }")
+-            body.append("        (*cx).e.end(mk);")
++            body.append("        (*cx).e.close(mk, tag);")
+             body.append("    }")
+             body.extend(RESTORE_LINES)
+             body.append("    AK_OK")
+@@ -688,13 +724,17 @@ def emit_codec(ir):
+             body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+             body.append("    let vt = (*cx).open_vt as *const ak_evt_%s;" % et)
+             body.append("    let obj = (*cx).open_obj;")
+-            body.append("    for i in 0..n as usize {")
+-            body.append("        let mk = (*cx).e.begin(tag, site);")
++            body.append("    // EXPERIMENT backward-encode: the host delivers a field's elements LAST TO")
++            body.append("    // FIRST across its calls and fills each chunk in forward order; the codec")
++            body.append("    // walks the chunk last to first, each element body -> length -> key.")
++            body.append("    (*cx).e.count_elem_call(n as usize);")
++            body.append("    for i in (0..n as usize).rev() {")
++            body.append("        let mk = (*cx).e.open();")
+             body.append("        if !enc_%s_ugroup(&*elems.add(i), cx, vt, obj, tok0 + i as i64) {"
+                         % snake(et))
+             body.append("            return crate::enc_status(cx);")
+             body.append("        }")
+-            body.append("        (*cx).e.end(mk);")
++            body.append("        (*cx).e.close(mk, tag);")
+             body.append("    }")
+             body.extend(RESTORE_LINES)
+             body.append("    AK_OK")
+@@ -773,6 +813,7 @@ def emit_codec(ir):
+     body.append("    ak_rt::bump!((*cx).e.c, forward);")
+     body.append("    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }")
+     body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
++    body.append("    (*cx).e.count_elem_call(n.max(0) as usize);")
+     body.append("    // O-9: the whole run in one pass (size, one reservation, raw stores; lib.rs).")
+     body.append("    if !crate::enc_blob_run(cx, tag, site, elems, n as usize) { return crate::enc_status(cx); }")
+     body.append("    AK_OK")
+@@ -787,7 +828,11 @@ def emit_codec(ir):
+         body.append("    if crate::enc_status(cx) != AK_OK { return crate::enc_status(cx); }")
+         body.append("    if n == 0 { return AK_OK; }")
+         body.append("    let (tag, site) = ((*cx).open_tag, (*cx).open_site);")
+-        body.append("    let mk = (*cx).e.begin(tag, site);")
++        body.append("    (*cx).e.count_elem_call(n);")
++        body.append("    // EXPERIMENT backward-encode: the host's array, walked last to first; then")
++        body.append("    // the run's length and key in front of it (one packed record per call, as")
++        body.append("    // before: a field delivered in several calls is several records).")
++        body.append("    let mk = (*cx).e.open();")
+         body.append("    // The wire encoding comes from the schema and lives in the context,")
+         body.append("    // so bool and enum need no symbols of their own.")
+         # Optimisation E5: one reservation per run, raw stores (ak-rt Enc::varint_run /
+@@ -796,10 +841,10 @@ def emit_codec(ir):
+         if ty == "f64":
+             body.append("    (*cx).e.f64_run(src);")
+         elif ty == "i32":
+-            body.append("    (*cx).e.varint_run(n, src.iter().map(|&v| v as i64 as u64));")
++            body.append("    (*cx).e.varint_run_rev(n, src.iter().map(|&v| v as i64 as u64));")
+         else:
+-            body.append("    (*cx).e.varint_run(n, src.iter().map(|&v| v as u64));")
+-        body.append("    (*cx).e.end(mk);")
++            body.append("    (*cx).e.varint_run_rev(n, src.iter().map(|&v| v as u64));")
++        body.append("    (*cx).e.close(mk, tag);")
+         body.append("    AK_OK")
+         body.append("}")
+         body.append("")
+@@ -822,7 +867,8 @@ def emit_codec(ir):
+          "use ak_rt::dec::Dec;",
+          "use core::ffi::c_void;",
+          ""] + ([NOUNK_PRELUDE] if NOUNK else []) + [
+-         "/// One learned length-prefix slot per site. Per context, never process-global.",
++         "/// Length-prefix sites of the plan (EXPERIMENT backward-encode: nothing reads them at",
++         "/// run time; the backward buffer has no placeholder and no learned width).",
+          "pub const SITES: usize = %d;" % len(sites),
+          ""]
+     o += body
+diff --git a/ffi/poc/codec/gen/rust_binding.py b/ffi/poc/codec/gen/rust_binding.py
+index b9bea80a..005d4c13 100644
+--- a/ffi/poc/codec/gen/rust_binding.py
++++ b/ffi/poc/codec/gen/rust_binding.py
+@@ -1759,16 +1759,17 @@ def _emit_loop_unk_zeroed(ir, o, root, path, f, sn):
+     o.append("        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not")
+     o.append("        // the whole arena (O(elements), not O(arena)).")
+     o.append("        let total = src.len();")
+-    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);")
++    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr().add(CHUNK - total.min(CHUNK)) as *mut u8, 0, total.min(CHUNK) * SZ);")
+     o.append("        let mut i = 0usize;")
+     o.append("        let mut done = 0usize;")
+-    o.append("        for v in src.iter() {")
+-    o.append("            fill_%s_unk_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);" % snake(et))
++    o.extend(REV_NOTE.split("\n"))
++    o.append("        for v in src.iter().rev() {")
+     o.append("            i += 1;")
++    o.append("            fill_%s_unk_sparse(&mut *chunk[CHUNK - i].as_mut_ptr(), v, tc);" % snake(et))
+     o.append("            if i == CHUNK {")
+     o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+     o.append("                done += i;")
+-    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);")
++    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr().add(CHUNK - (total - done).min(CHUNK)) as *mut u8, 0, (total - done).min(CHUNK) * SZ);")
+     o.append("                i = 0;")
+     o.append("            }")
+     o.append("        }")
+@@ -1803,11 +1804,14 @@ def _emit_loop_unk(ir, o, root, path, f, sn):
+     o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_%s>());" % et)
+     o.append("        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_%s>; CHUNK] =" % et)
+     o.append("            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];")
++    o.append("        let total = src.len();")
++    o.append("        let _ = total;")
+     o.append("        let mut i = 0usize;")
+     o.append("        let mut done = 0usize;")
+-    o.append("        for v in src.iter() {")
+-    o.append("            chunk[i].write(make_%s_unk(v, tc));" % snake(et))
++    o.extend(REV_NOTE.split("\n"))
++    o.append("        for v in src.iter().rev() {")
+     o.append("            i += 1;")
++    o.append("            chunk[CHUNK - i].write(make_%s_unk(v, tc));" % snake(et))
+     o.append("            if i == CHUNK {")
+     o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done", bag=True))
+     o.append("                done += i;")
+@@ -1851,17 +1855,18 @@ def _emit_loop_zeroed(ir, o, root, path, f, sn):
+     o.append("        // Decision 9 as corrected: clear the elements you will fill, min(n, CHUNK), not")
+     o.append("        // the whole arena (O(elements), not O(arena)).")
+     o.append("        let total = src.len();")
+-    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, total.min(CHUNK) * SZ);")
++    o.append("        ::core::ptr::write_bytes(chunk.as_mut_ptr().add(CHUNK - total.min(CHUNK)) as *mut u8, 0, total.min(CHUNK) * SZ);")
+     o.append("        let mut i = 0usize;")
+     o.append("        let mut done = 0usize;")
+-    o.append("        for v in src.iter() {")
+-    o.append("            fill_%s_sparse(&mut *chunk[i].as_mut_ptr(), v, tc);" % snake(et))
++    o.extend(REV_NOTE.split("\n"))
++    o.append("        for v in src.iter().rev() {")
+     o.append("            i += 1;")
++    o.append("            fill_%s_sparse(&mut *chunk[CHUNK - i].as_mut_ptr(), v, tc);" % snake(et))
+     o.append("            if i == CHUNK {")
+     o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done"))
+     o.append("                done += i;")
+     o.append("                // Only what the next chunk will fill is put back.")
+-    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr() as *mut u8, 0, (total - done).min(CHUNK) * SZ);")
++    o.append("                ::core::ptr::write_bytes(chunk.as_mut_ptr().add(CHUNK - (total - done).min(CHUNK)) as *mut u8, 0, (total - done).min(CHUNK) * SZ);")
+     o.append("                i = 0;")
+     o.append("            }")
+     o.append("        }")
+@@ -1950,11 +1955,15 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
+     o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<%s>());" % gty)
+     o.append("        let mut chunk: [::core::mem::MaybeUninit<%s>; CHUNK] =" % gty)
+     o.append("            [const { ::core::mem::MaybeUninit::uninit() }; CHUNK];")
++    o.append("        let total = src.len();")
++    o.append("        let _ = total;")
+     o.append("        let mut i = 0usize;")
+     o.append("        let mut done = 0usize;")
++    o.extend(REV_NOTE.split("\n"))
+     if f.card == "map":
+-        o.append("        for (k, v) in src.iter() {")
+-        o.append("            chunk[i].write(ak_efix_%s {" % et)
++        o.append("        for (k, v) in src.iter().rev() {")
++        o.append("            i += 1;")
++        o.append("            chunk[CHUNK - i].write(ak_efix_%s {" % et)
+         o.append("                key: str_arg(k, tc.0),")
+         o.append("                value: str_arg(v, tc.0),")
+         o.append("                presence: 0,")
+@@ -1962,14 +1971,15 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
+     elif f.kind in ("string", "bytes"):
+         acc = "str_arg(v, tc.0)" if f.kind == "string" else \
+               "blob_arg(v, tc.1)"
+-        o.append("        for v in src.iter() {")
+-        o.append("            chunk[i].write(%s);" % acc)
++        o.append("        for v in src.iter().rev() {")
++        o.append("            i += 1;")
++        o.append("            chunk[CHUNK - i].write(%s);" % acc)
+     elif f.kind == "message":
+-        o.append("        for v in src.iter() {")
+-        o.append("            chunk[i].write(make_%s(v, tc));" % snake(et))
++        o.append("        for v in src.iter().rev() {")
++        o.append("            i += 1;")
++        o.append("            chunk[CHUNK - i].write(make_%s(v, tc));" % snake(et))
+     else:
+         raise NotImplementedError("loop for %s %s" % (f.card, f.kind))
+-    o.append("            i += 1;")
+     o.append("            if i == CHUNK {")
+     o.extend("                " + ln for ln in _run_call(ir, f, et, "i", "done"))
+     o.append("                done += i;")
+@@ -1991,7 +2001,11 @@ def _run_call(ir, f, et, n, done, bag=False):
+     unbatched call, and the host may decline to batch at all and lose only what its own
+     crossing costs."""
+     g = "u" if bag else "e"
+-    ptr = "chunk.as_ptr() as *const %s" % (("ak_%sfix_%s" % (g, et)) if et else "ak_str")
++    # EXPERIMENT backward-encode: the chunk is filled from its TOP down (the field is
++    # iterated last to first), so the filled part is the last `n` slots, in forward
++    # element order; its first element is element `total - done - n` of the field.
++    ptr = "chunk.as_ptr().add(CHUNK - %s) as *const %s" % (n, ("ak_%sfix_%s" % (g, et)) if et else "ak_str")
++    done = "(total - %s - %s)" % (done, n)
+     u = "u" if bag else ""
+     if et and not ir.msg(et).leaf:
+         return ["let rc = ak_%selemu_%s(ctx, %s, %s as i32, %s as i64);" % (u, et, ptr, n, done),
+@@ -2006,6 +2020,8 @@ def _run_call(ir, f, et, n, done, bag=False):
+ 
+ NOUNK = False
+ 
++REV_NOTE = "        // EXPERIMENT backward-encode (host contract): a field's elements are delivered LAST\n        // TO FIRST across calls; each chunk is filled from its top down, so it holds its\n        // elements in forward order, and the codec walks it last to first."
++
+ 
+ def _emit_unk_clear(ir, root):
+     """Test support for decision 11's discard control: clear the facade bag of every
+diff --git a/ffi/poc/rust/crates/harness/Cargo.toml b/ffi/poc/rust/crates/harness/Cargo.toml
+index 48871a5d..fa357901 100644
+--- a/ffi/poc/rust/crates/harness/Cargo.toml
++++ b/ffi/poc/rust/crates/harness/Cargo.toml
+@@ -72,6 +72,10 @@ simdutf8.workspace = true
+ 
+ [build-dependencies]
+ 
++[[bin]]
++name = "bwd_check"
++path = "src/bin/bwd_check.rs"
++
+ [[bin]]
+ name = "conformance"
+ path = "src/bin/conformance.rs"
+diff --git a/ffi/poc/rust/crates/harness/src/bin/bwd_check.rs b/ffi/poc/rust/crates/harness/src/bin/bwd_check.rs
+new file mode 100644
+index 00000000..2b28484d
+--- /dev/null
++++ b/ffi/poc/rust/crates/harness/src/bin/bwd_check.rs
+@@ -0,0 +1,69 @@
++//! EXPERIMENT backward-encode: the checks of the reverse-delivery host contract
++//! (`harness::bwd_tests`) and, in a counting build, the backward core's own counters per
++//! payload: element calls (every one now delivered last to first), elements, calls whose
++//! array the codec walked last to first, transcoder moves and buffer grows.
++use ak_abi::*;
++use harness::generated::binding as b;
++
++extern "C" {
++    fn ak_enc_bwd_counters(ctx: *const ak_enc_ctx, out: *mut u64, cap: usize) -> usize;
++}
++
++fn counters_row(name: &str, mode: &str, ctx: *mut ak_enc_ctx, run: &dyn Fn()) {
++    unsafe {
++        run(); // warm (a fresh context grows on its first encode)
++        ak_enc_counters_reset(ctx);
++        run();
++        let mut c = core::mem::zeroed::<AkCounters>();
++        ak_enc_counters(ctx, &mut c);
++        let mut w = [0u64; 8];
++        let n = ak_enc_bwd_counters(ctx, w.as_mut_ptr(), w.len());
++        assert_eq!(n, 7, "not a counting build of the backward core");
++        let ok = w[0] == c.forward - 1;
++        println!("{name:<8} {mode:<7} {:>7} {:>8} {:>8} {:>8} {:>9} {:>6} {:>10}  {:>7} {}",
++                 w[0], w[1], w[2], w[3], w[4], w[5], w[6], c.forward, if ok { "ok" } else { "MISMATCH" });
++        if !ok { std::process::exit(1); }
++    }
++}
++
++fn main() {
++    let r = harness::bwd_tests::run();
++    println!("# bwd_check: {} passed, {} failed", r.pass, r.fail);
++    if r.fail > 0 {
++        println!("BWD CHECK FAILED");
++        std::process::exit(1);
++    }
++    if cfg!(feature = "count") {
++        println!();
++        println!("# per payload, one warm encode (the binding's loops: every field delivered last to first):");
++        println!("# elem_calls = element entry calls (ak_elem*/ak_elemu*/ak_blob_run/ak_run_*), each now in reverse order;");
++        println!("# items = elements they carried; multi = calls with n > 1 (array walked last to first by the codec);");
++        println!("# tc_moves/bytes = transcoder outputs moved after commit; grows/bytes = buffer grows (0 warm);");
++        println!("# core_fwd = the core-counted forward crossings (ak_enc_counters): elem_calls must equal core_fwd - 1 (the ak_encode_* call)");
++        println!("{:<8} {:<7} {:>7} {:>8} {:>8} {:>8} {:>9} {:>6} {:>10}  {:>7}", "payload", "mode", "calls", "items", "multi", "tc_moves", "tc_bytes", "grows", "grow_bytes", "core_fwd");
++        let c = harness::arms::core_ffi_arm::Ctx::new();
++        let t = &c.tcs;
++        let e = c.enc;
++        macro_rules! rows {
++            ($pid:expr, $v:expr, $f:ident, $fu:ident) => {{
++                let v = $v;
++                counters_row($pid, "drop", e, &|| { b::$f(e, &v, t).unwrap(); });
++                #[cfg(feature = "unknown-fields")]
++                counters_row($pid, "retain", e, &|| { b::$fu(e, &v, t).unwrap(); });
++            }};
++        }
++        for pid in ["P1.1", "P1.2", "P1.3"] {
++            rows!(pid, harness::arms::armonik_arm::value(pid), encode_into_list_results_response, encode_into_list_results_response_unk);
++        }
++        for pid in harness::arms_m2::ALL {
++            rows!(pid, harness::arms_m2::armonik_arm::value(pid), encode_into_list_tasks_detailed_response, encode_into_list_tasks_detailed_response_unk);
++        }
++        rows!("P3.1", harness::arms_m3::armonik_arm::value("P3.1"), encode_into_list_probe_response, encode_into_list_probe_response_unk);
++        rows!("P4.1", harness::arms_rest::m4::facade_value("P4.1"), encode_into_list_task_summary_response, encode_into_list_task_summary_response_unk);
++        for pid in ["P5.1", "P5.2", "P5.3", "P5.4"] {
++            rows!(pid, harness::arms_rest::m5::facade_value(pid), encode_into_upload_result_data_message, encode_into_upload_result_data_message_unk);
++        }
++        rows!("P6.1", harness::arms_rest::m6::facade_value("P6.1"), encode_into_list_metrics_response, encode_into_list_metrics_response_unk);
++    }
++    println!("BWD CHECK PASSED");
++}
+diff --git a/ffi/poc/rust/crates/harness/src/bwd_tests.rs b/ffi/poc/rust/crates/harness/src/bwd_tests.rs
+new file mode 100644
+index 00000000..ab5ed01c
+--- /dev/null
++++ b/ffi/poc/rust/crates/harness/src/bwd_tests.rs
+@@ -0,0 +1,428 @@
++//! EXPERIMENT backward-encode (ffi/logs/rust/opt/patches/backward-encode/): the host
++//! contract this core needs, exercised by hand-written hosts that deliver every repeated
++//! field LAST TO FIRST in several forms, against the incumbent's bytes.
++//!
++//! Contract under test: within one repeated field the host delivers elements last to first
++//! across all its calls; each call's array (a chunk of element groups, an ak_str run, a
++//! packed run) holds its elements in FORWARD order and the codec walks it last to first.
++//!
++//! Forms per field: `One` (n = 1 per call), `Chunk(k)` (k per call, the remainder last),
++//! `Mixed` (call sizes cycling 1, 7, 3, 12, 2: forms changing mid-field), `Whole` (one call).
++//! Oracle: the facade's prost impl (`armonik` arm, independent of the core), byte for byte;
++//! for packed runs delivered in several calls (several packed records: legal wire, not
++//! prost's bytes) the oracle is prost's DECODE of the output, compared with the value.
++
++use crate::generated::binding::*;
++use ak_abi::*;
++use core::ffi::c_void;
++use std::cell::Cell;
++
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub enum Form {
++    One,
++    Chunk(usize),
++    Mixed,
++    Whole,
++}
++
++thread_local! {
++    static FORM: Cell<Form> = const { Cell::new(Form::Whole) };
++    /// Strings: also vary the transcoder per element (trusted run / validating utf8 /
++    /// latin1 / utf16), so the transcoder paths (known length, region + move) are crossed.
++    static MIX_TC: Cell<bool> = const { Cell::new(false) };
++    /// Fail the operation (ak_fail, AK_ERR_HOST) on the Nth element call of any field.
++    static FAIL_AT: Cell<i64> = const { Cell::new(-1) };
++    static CALLS: Cell<i64> = const { Cell::new(0) };
++}
++
++fn form() -> Form {
++    FORM.with(|f| f.get())
++}
++
++/// Call sizes for a field of `total` elements, the first delivered call covering the LAST
++/// elements.
++fn sizes(total: usize, f: Form) -> Vec<usize> {
++    let mut out = Vec::new();
++    let mut left = total;
++    let cyc = [1usize, 7, 3, 12, 2];
++    let mut k = 0;
++    while left > 0 {
++        let s = match f {
++            Form::One => 1,
++            Form::Chunk(c) => c,
++            Form::Mixed => {
++                k += 1;
++                cyc[(k - 1) % cyc.len()]
++            }
++            Form::Whole => left,
++        }
++        .min(left);
++        out.push(s);
++        left -= s;
++    }
++    out
++}
++
++/// Deliver [0, total) last to first: `call(start, n)` covers elements start..start+n.
++unsafe fn deliver(ctx: *mut ak_enc_ctx, total: usize, mut call: impl FnMut(usize, usize) -> i32) -> i32 {
++    // The planted control (AK_BWD_PLANT=forward): the committed contract's FORWARD order
++    // against this core. Every multi-element field must then come out wrong.
++    let plant = std::env::var_os("AK_BWD_PLANT").is_some_and(|v| v == "forward");
++    let mut end = total;
++    let mut fwd = 0usize;
++    for s in sizes(total, form()) {
++        let start = if plant { fwd } else { end - s };
++        fwd += s;
++        let c = CALLS.with(|c| {
++            let v = c.get();
++            c.set(v + 1);
++            v
++        });
++        if FAIL_AT.with(|f| f.get()) == c {
++            let m = b"planted host failure mid-field";
++            ak_fail(ctx as *mut c_void, AK_ERR_HOST, m.as_ptr(), m.len() as u32);
++            return AK_ERR_HOST;
++        }
++        let rc = call(start, s);
++        if rc < 0 {
++            return rc;
++        }
++        end = start;
++    }
++    AK_OK
++}
++
++/// The element's strings with the transcoder of position `i` when MIX_TC is on. The
++/// payloads' strings are ASCII, so latin1 and UTF-16 transcode to the same bytes.
++struct StrArgs {
++    v: Vec<ak_str>,
++    _u16: Vec<Vec<u16>>,
++}
++fn str_args(src: &[String]) -> StrArgs {
++    let mix = MIX_TC.with(|m| m.get());
++    let (t, _) = tcs();
++    let mut u16s = Vec::new();
++    let mut v = Vec::with_capacity(src.len());
++    for (i, s) in src.iter().enumerate() {
++        if !mix {
++            v.push(str_arg(s, t));
++            continue;
++        }
++        match i % 4 {
++            0 => v.push(str_arg(s, t)),
++            1 => v.push(str_arg(s, unsafe { ak_tc_utf8() })),
++            2 => v.push(str_arg(s, unsafe { ak_tc_latin1() })),
++            _ => {
++                let w: Vec<u16> = s.encode_utf16().collect();
++                u16s.push(w);
++                let w = u16s.last().unwrap();
++                v.push(ak_str {
++                    data: if w.is_empty() { core::ptr::null() } else { w.as_ptr() as *const c_void },
++                    len: w.len(),
++                    tc: Some(unsafe { ak_tc_utf16() }),
++                });
++            }
++        }
++    }
++    StrArgs { v, _u16: u16s }
++}
++
++// ------------------------------------------------------------------ M1: a leaf element
++
++unsafe extern "C" fn m1_loop(ctx: *mut ak_enc_ctx, obj: *const c_void, _tok: i64) -> i32 {
++    let o = &*(obj as *const facade::ListResultsResponse);
++    let tc = tcs();
++    deliver(ctx, o.results.len(), |start, n| {
++        let g: Vec<ak_efix_ResultRaw> = o.results[start..start + n].iter().map(|r| make_result_raw(r, tc)).collect();
++        ak_elem_ResultRaw(ctx, g.as_ptr(), n as i32)
++    })
++}
++
++pub unsafe fn enc_m1(ctx: *mut ak_enc_ctx, o: &facade::ListResultsResponse) -> Result<Vec<u8>, i32> {
++    let t = Tcs::trusted();
++    TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
++    ak_enc_reset(ctx);
++    let vt = ak_evt_ListResultsResponse { loop_results: Some(m1_loop) };
++    let fix = make_list_results_response(o, (t.utf8, t.bytes));
++    let rc = ak_encode_ListResultsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
++    if rc < 0 {
++        return Err(rc as i32);
++    }
++    Ok(encoded(ctx).to_vec())
++}
++
++// ------------------------------------------------------------------ M2: a non-leaf element
++
++unsafe extern "C" fn m2_tasks(ctx: *mut ak_enc_ctx, obj: *const c_void, _tok: i64) -> i32 {
++    let o = &*(obj as *const facade::ListTasksDetailedResponse);
++    let tc = tcs();
++    deliver(ctx, o.tasks.len(), |start, n| {
++        let g: Vec<ak_efix_TaskDetailed> = o.tasks[start..start + n].iter().map(|t| make_task_detailed(t, tc)).collect();
++        ak_elemu_TaskDetailed(ctx, g.as_ptr(), n as i32, start as i64)
++    })
++}
++
++unsafe fn strs(ctx: *mut ak_enc_ctx, src: &[String]) -> i32 {
++    let a = str_args(src);
++    deliver(ctx, src.len(), |start, n| ak_blob_run(ctx, a.v.as_ptr().add(start), n as i32))
++}
++
++macro_rules! inner_strs {
++    ($name:ident, $field:ident) => {
++        unsafe extern "C" fn $name(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++            let o = &*(obj as *const facade::ListTasksDetailedResponse);
++            strs(ctx, &o.tasks[tok as usize].$field)
++        }
++    };
++}
++inner_strs!(m2_parents, parent_task_ids);
++inner_strs!(m2_deps, data_dependencies);
++inner_strs!(m2_outs, expected_output_ids);
++inner_strs!(m2_retry, retry_of_ids);
++
++unsafe extern "C" fn m2_options(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let o = &*(obj as *const facade::ListTasksDetailedResponse);
++    let Some(opts) = &o.tasks[tok as usize].options else { return AK_OK };
++    let (t, _) = tcs();
++    let kv: Vec<ak_efix_TaskOptionsOptionsEntry> = opts
++        .options
++        .iter()
++        .map(|(k, v)| ak_efix_TaskOptionsOptionsEntry { key: str_arg(k, t), value: str_arg(v, t), presence: 0 })
++        .collect();
++    deliver(ctx, kv.len(), |start, n| ak_elem_TaskOptionsOptionsEntry(ctx, kv.as_ptr().add(start), n as i32))
++}
++
++pub unsafe fn enc_m2(ctx: *mut ak_enc_ctx, o: &facade::ListTasksDetailedResponse) -> Result<Vec<u8>, i32> {
++    let t = Tcs::trusted();
++    TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
++    ak_enc_reset(ctx);
++    let evt = ak_evt_TaskDetailed {
++        loop_parent_task_ids: Some(m2_parents),
++        loop_data_dependencies: Some(m2_deps),
++        loop_expected_output_ids: Some(m2_outs),
++        loop_retry_of_ids: Some(m2_retry),
++        loop_options_options: Some(m2_options),
++    };
++    let vt = ak_evt_ListTasksDetailedResponse { loop_tasks: Some(m2_tasks), elem_tasks: &evt };
++    let fix = make_list_tasks_detailed_response(o, (t.utf8, t.bytes));
++    let rc = ak_encode_ListTasksDetailedResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
++    if rc < 0 {
++        return Err(rc as i32);
++    }
++    Ok(encoded(ctx).to_vec())
++}
++
++// ------------------------------------------------------------------ M6: packed runs
++
++unsafe extern "C" fn m6_batches(ctx: *mut ak_enc_ctx, obj: *const c_void, _tok: i64) -> i32 {
++    let o = &*(obj as *const facade::ListMetricsResponse);
++    let tc = tcs();
++    deliver(ctx, o.batches.len(), |start, n| {
++        let g: Vec<ak_efix_MetricsBatch> = o.batches[start..start + n].iter().map(|b| make_metrics_batch(b, tc)).collect();
++        ak_elemu_MetricsBatch(ctx, g.as_ptr(), n as i32, start as i64)
++    })
++}
++fn batch(obj: *const c_void, tok: i64) -> &'static facade::MetricsBatch {
++    let o: &'static facade::ListMetricsResponse = unsafe { &*(obj as *const facade::ListMetricsResponse) };
++    &o.batches[tok as usize]
++}
++unsafe extern "C" fn m6_ticks(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let s = &batch(obj, tok).ticks;
++    deliver(ctx, s.len(), |a, n| ak_run_i64(ctx, s.as_ptr().add(a), n))
++}
++unsafe extern "C" fn m6_values(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let s = &batch(obj, tok).values;
++    deliver(ctx, s.len(), |a, n| ak_run_f64(ctx, s.as_ptr().add(a), n))
++}
++unsafe extern "C" fn m6_codes(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let s = &batch(obj, tok).codes;
++    deliver(ctx, s.len(), |a, n| ak_run_i32(ctx, s.as_ptr().add(a), n))
++}
++unsafe extern "C" fn m6_flags(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let s = &batch(obj, tok).flags;
++    deliver(ctx, s.len(), |a, n| ak_run_u8(ctx, s.as_ptr().add(a) as *const u8, n))
++}
++unsafe extern "C" fn m6_statuses(ctx: *mut ak_enc_ctx, obj: *const c_void, tok: i64) -> i32 {
++    let s: Vec<i32> = batch(obj, tok).statuses.iter().map(|x| x.to_i32()).collect();
++    deliver(ctx, s.len(), |a, n| ak_run_i32(ctx, s.as_ptr().add(a), n))
++}
++
++pub unsafe fn enc_m6(ctx: *mut ak_enc_ctx, o: &facade::ListMetricsResponse) -> Result<Vec<u8>, i32> {
++    let t = Tcs::trusted();
++    TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
++    ak_enc_reset(ctx);
++    let evt = ak_evt_MetricsBatch {
++        loop_ticks: Some(m6_ticks),
++        loop_values: Some(m6_values),
++        loop_codes: Some(m6_codes),
++        loop_flags: Some(m6_flags),
++        loop_statuses: Some(m6_statuses),
++    };
++    let vt = ak_evt_ListMetricsResponse { loop_batches: Some(m6_batches), elem_batches: &evt };
++    let fix = make_list_metrics_response(o, (t.utf8, t.bytes));
++    let rc = ak_encode_ListMetricsResponse(o as *const _ as *const c_void, ctx, &vt, &fix);
++    if rc < 0 {
++        return Err(rc as i32);
++    }
++    Ok(encoded(ctx).to_vec())
++}
++
++// ------------------------------------------------------------------ the checks
++
++pub struct Report {
++    pub pass: usize,
++    pub fail: usize,
++}
++impl Report {
++    fn check(&mut self, name: &str, ok: bool, detail: String) {
++        if ok {
++            self.pass += 1;
++            println!("PASS {name}: {detail}");
++        } else {
++            self.fail += 1;
++            println!("FAIL {name}: {detail}");
++        }
++    }
++}
++
++fn set(f: Form, mix: bool) {
++    FORM.with(|c| c.set(f));
++    MIX_TC.with(|c| c.set(mix));
++    FAIL_AT.with(|c| c.set(-1));
++    CALLS.with(|c| c.set(0));
++}
++
++const FORMS: [Form; 5] = [Form::Whole, Form::One, Form::Chunk(8), Form::Chunk(32), Form::Mixed];
++
++fn fresh() -> *mut ak_enc_ctx {
++    let rc = ak_init_once();
++    assert!(rc >= 0);
++    unsafe { ak_enc_ctx_new() }
++}
++
++pub fn run() -> Report {
++    let mut r = Report { pass: 0, fail: 0 };
++    let ctx = fresh();
++
++    // ---- M1 (repeated leaf message, nested Timestamps inside every element)
++    for pid in ["P1.1", "P1.2", "P1.3"] {
++        let v = crate::arms::armonik_arm::value(pid);
++        let want = crate::arms::armonik_arm::encode(&v);
++        for f in FORMS {
++            set(f, false);
++            // warm context, and a FRESH one (4 KiB: grows mid-field, mid-element)
++            let got = unsafe { enc_m1(ctx, &v) };
++            let c2 = fresh();
++            let got2 = unsafe { enc_m1(c2, &v) };
++            unsafe { ak_enc_ctx_free(c2) };
++            r.check(&format!("M1 {pid} {f:?}"), got.as_deref() == Ok(&want[..]) && got2.as_deref() == Ok(&want[..]),
++                    format!("{} B, warm and fresh context", want.len()));
++        }
++    }
++
++    // ---- M2 (non-leaf element: tokens, inner string fields, the options map) + transcoders
++    for pid in crate::arms_m2::ALL {
++        let v = crate::arms_m2::armonik_arm::value(pid);
++        let want = crate::arms_m2::armonik_arm::encode(&v);
++        for f in FORMS {
++            for mix in [false, true] {
++                set(f, mix);
++                let got = unsafe { enc_m2(ctx, &v) };
++                let c2 = fresh();
++                let got2 = unsafe { enc_m2(c2, &v) };
++                unsafe { ak_enc_ctx_free(c2) };
++                r.check(&format!("M2 {pid} {f:?}{}", if mix { " mixed-transcoders" } else { "" }),
++                        got.as_deref() == Ok(&want[..]) && got2.as_deref() == Ok(&want[..]),
++                        format!("{} B, warm and fresh context", want.len()));
++            }
++        }
++    }
++
++    // ---- M6 (packed runs in several calls: several packed records, decoded by prost)
++    {
++        let v = crate::arms_rest::m6::facade_value("P6.1");
++        let want = crate::arms_rest::m6::armonik_encode(&v);
++        for f in FORMS {
++            set(f, false);
++            let got = unsafe { enc_m6(ctx, &v) };
++            let ok = match &got {
++                Ok(b) if f == Form::Whole => b == &want,
++                Ok(b) => crate::arms_rest::m6::armonik_decode(b) == v,
++                Err(_) => false,
++            };
++            r.check(&format!("M6 P6.1 {f:?}"), ok,
++                    if f == Form::Whole { format!("{} B byte-identical", want.len()) }
++                    else { format!("{} B, several packed records per field, prost decode == value", got.as_ref().map(|b| b.len()).unwrap_or(0)) });
++        }
++    }
++
++    // ---- M5: the direct argument inside a nested message, fresh context (a grow inside
++    // the nested `upload` message, for the 1 and 4 MiB payloads)
++    for pid in ["P5.1", "P5.2", "P5.3", "P5.4"] {
++        let v = crate::arms_rest::m5::facade_value(pid);
++        let want = crate::arms_rest::m5::armonik_encode(&v);
++        let c = crate::arms::core_ffi_arm::Ctx::new();
++        let got = crate::arms_rest::ffi::enc_m5(&c, &v).to_vec();
++        r.check(&format!("M5 {pid} fresh context"), got == want, format!("{} B", want.len()));
++    }
++
++    // ---- rollback: ak_fail mid-field (after 3 element calls), then the same context
++    // encodes correctly; an element call after the failure gets the sticky code
++    for (pid, at) in [("P1.2", 3i64), ("P2.2", 5), ("P2.2", 40)] {
++        let ok = unsafe {
++            if pid == "P1.2" {
++                let v = crate::arms::armonik_arm::value(pid);
++                let want = crate::arms::armonik_arm::encode(&v);
++                set(Form::Chunk(8), false);
++                FAIL_AT.with(|c| c.set(at));
++                let e = enc_m1(ctx, &v);
++                let sticky = ak_enc_err(ctx);
++                let after = ak_elem_ResultRaw(ctx, [ak_efix_ResultRaw::ZERO].as_ptr(), 1);
++                set(Form::Chunk(8), false);
++                let again = enc_m1(ctx, &v);
++                e == Err(AK_ERR_HOST) && sticky == AK_ERR_HOST && after == AK_ERR_HOST && again.as_deref() == Ok(&want[..])
++            } else {
++                let v = crate::arms_m2::armonik_arm::value(pid);
++                let want = crate::arms_m2::armonik_arm::encode(&v);
++                set(Form::Mixed, true);
++                FAIL_AT.with(|c| c.set(at));
++                let e = enc_m2(ctx, &v);
++                let sticky = ak_enc_err(ctx);
++                set(Form::Mixed, true);
++                let again = enc_m2(ctx, &v);
++                e == Err(AK_ERR_HOST) && sticky == AK_ERR_HOST && again.as_deref() == Ok(&want[..])
++            }
++        };
++        r.check(&format!("rollback {pid} ak_fail at element call {at}"), ok,
++                "encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical".into());
++    }
++
++    // ---- a transcoder that writes past its capacity: AK_ERR_CAPACITY, then a clean encode
++    {
++        unsafe extern "C" fn over(_s: *const c_void, _l: usize, _d: *mut u8, cap: i32, _g: ak_grow_fn, _k: *mut c_void) -> i32 {
++            cap + 1
++        }
++        let v = crate::arms_m2::armonik_arm::value("P2.1");
++        let want = crate::arms_m2::armonik_arm::encode(&v);
++        let ok = unsafe {
++            let t = Tcs::trusted();
++            TCS.with(|c| c.set((Some(over as ak_transcode_fn), Some(t.bytes))));
++            ak_enc_reset(ctx);
++            set(Form::Whole, false);
++            let evt = ak_evt_TaskDetailed {
++                loop_parent_task_ids: Some(m2_parents), loop_data_dependencies: Some(m2_deps),
++                loop_expected_output_ids: Some(m2_outs), loop_retry_of_ids: Some(m2_retry),
++                loop_options_options: Some(m2_options),
++            };
++            let vt = ak_evt_ListTasksDetailedResponse { loop_tasks: Some(m2_tasks), elem_tasks: &evt };
++            let fix = make_list_tasks_detailed_response(&v, (over, t.bytes));
++            let rc = ak_encode_ListTasksDetailedResponse(&v as *const _ as *const c_void, ctx, &vt, &fix);
++            let again = enc_m2(ctx, &v);
++            rc == AK_ERR_CAPACITY as isize && again.as_deref() == Ok(&want[..])
++        };
++        r.check("transcoder over capacity", ok, "AK_ERR_CAPACITY, then a byte-identical encode on the same context".into());
++    }
++
++    unsafe { ak_enc_ctx_free(ctx) };
++    r
++}
+diff --git a/ffi/poc/rust/crates/harness/src/lib.rs b/ffi/poc/rust/crates/harness/src/lib.rs
+index 24fb425f..050a1c91 100644
+--- a/ffi/poc/rust/crates/harness/src/lib.rs
++++ b/ffi/poc/rust/crates/harness/src/lib.rs
+@@ -18,5 +18,7 @@ pub fn abi_version() -> u32 {
+     unsafe { ak_abi::ak_abi_version() }
+ }
+ pub mod manifest;
++/// EXPERIMENT backward-encode: the reverse-delivery host contract, exercised by hand.
++pub mod bwd_tests;
+ /// A layout perturbation used by `gen/stability.sh`; empty in a normal build.
+ pub mod pad;

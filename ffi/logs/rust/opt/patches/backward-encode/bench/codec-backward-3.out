@@ -1,0 +1,390 @@
+codec/00016             time:   [ 52612 ns (process CPU)  52849 ns (process CPU)  53130 ns (process CPU)]
+codec/00068             time:   [230107 ns (process CPU) 232462 ns (process CPU) 235310 ns (process CPU)]
+codec/00096             time:   [362728 ns (process CPU) 366109 ns (process CPU) 369104 ns (process CPU)]
+codec/00093             time:   [257986 ns (process CPU) 259767 ns (process CPU) 261762 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00044             time:   [265.89 ns (process CPU) 271.45 ns (process CPU) 277.72 ns (process CPU)]
+codec/00064             time:   [232412 ns (process CPU) 234368 ns (process CPU) 237025 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00088             time:   [252562 ns (process CPU) 253577 ns (process CPU) 254650 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00117             time:   [3939.5 ns (process CPU) 3951.7 ns (process CPU) 3967.3 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+codec/00085             time:   [146761 ns (process CPU) 148427 ns (process CPU) 150663 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00036             time:   [2421.0 ns (process CPU) 2431.5 ns (process CPU) 2442.8 ns (process CPU)]
+codec/00137             time:   [1914.7 ns (process CPU) 1917.0 ns (process CPU) 1919.2 ns (process CPU)]
+codec/00157             time:   [317120 ns (process CPU) 320424 ns (process CPU) 323028 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) low severe
+codec/00089             time:   [252704 ns (process CPU) 253616 ns (process CPU) 254720 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00008             time:   [ 54414 ns (process CPU)  54952 ns (process CPU)  55867 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00025             time:   [ 57321 ns (process CPU)  57819 ns (process CPU)  58429 ns (process CPU)]
+codec/00112             time:   [4088.8 ns (process CPU) 4098.5 ns (process CPU) 4109.8 ns (process CPU)]
+codec/00072             time:   [ 95380 ns (process CPU)  95583 ns (process CPU)  95817 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00148             time:   [ 39109 ns (process CPU)  39200 ns (process CPU)  39310 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+codec/00077             time:   [100375 ns (process CPU) 100619 ns (process CPU) 100904 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00100             time:   [332606 ns (process CPU) 333917 ns (process CPU) 335403 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00052             time:   [170888 ns (process CPU) 171250 ns (process CPU) 171565 ns (process CPU)]
+codec/00045             time:   [307.73 ns (process CPU) 308.18 ns (process CPU) 308.62 ns (process CPU)]
+codec/00160             time:   [ 56497 ns (process CPU)  56870 ns (process CPU)  57416 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00081             time:   [151146 ns (process CPU) 151336 ns (process CPU) 151520 ns (process CPU)]
+codec/00113             time:   [4133.3 ns (process CPU) 4144.2 ns (process CPU) 4157.1 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00084             time:   [150828 ns (process CPU) 151009 ns (process CPU) 151198 ns (process CPU)]
+codec/00037             time:   [2695.3 ns (process CPU) 2705.7 ns (process CPU) 2714.5 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+codec/00065             time:   [230089 ns (process CPU) 230303 ns (process CPU) 230490 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+codec/00049             time:   [168959 ns (process CPU) 169340 ns (process CPU) 169720 ns (process CPU)]
+codec/00069             time:   [225660 ns (process CPU) 231144 ns (process CPU) 241004 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+codec/00033             time:   [2433.0 ns (process CPU) 2676.0 ns (process CPU) 2951.8 ns (process CPU)]
+codec/00004             time:   [202.98 ns (process CPU) 211.71 ns (process CPU) 225.61 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+codec/00132             time:   [18.594 ns (process CPU) 18.683 ns (process CPU) 18.786 ns (process CPU)]
+codec/00152             time:   [313233 ns (process CPU) 316553 ns (process CPU) 319774 ns (process CPU)]
+codec/00060             time:   [202881 ns (process CPU) 204210 ns (process CPU) 205838 ns (process CPU)]
+codec/00153             time:   [315954 ns (process CPU) 319545 ns (process CPU) 323282 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00032             time:   [2283.4 ns (process CPU) 2312.3 ns (process CPU) 2340.2 ns (process CPU)]
+Found 3 outliers among 10 measurements (30.00%)
+  2 (20.00%) low mild
+  1 (10.00%) high mild
+codec/00056             time:   [206012 ns (process CPU) 214234 ns (process CPU) 222542 ns (process CPU)]
+codec/00128             time:   [18.896 ns (process CPU) 19.164 ns (process CPU) 19.504 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00073             time:   [101971 ns (process CPU) 102803 ns (process CPU) 103803 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00156             time:   [317970 ns (process CPU) 319487 ns (process CPU) 321145 ns (process CPU)]
+codec/00029             time:   [ 60747 ns (process CPU)  61111 ns (process CPU)  61498 ns (process CPU)]
+codec/00061             time:   [205468 ns (process CPU) 207408 ns (process CPU) 209479 ns (process CPU)]
+codec/00140             time:   [1793.0 ns (process CPU) 1851.6 ns (process CPU) 1927.9 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+codec/00129             time:   [102.65 ns (process CPU) 102.82 ns (process CPU) 102.99 ns (process CPU)]
+codec/00097             time:   [339983 ns (process CPU) 341837 ns (process CPU) 343773 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+codec/00021             time:   [ 58342 ns (process CPU)  58817 ns (process CPU)  59339 ns (process CPU)]
+codec/00116             time:   [3990.2 ns (process CPU) 4030.7 ns (process CPU) 4076.7 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00125             time:   [ 23749 ns (process CPU)  24022 ns (process CPU)  24311 ns (process CPU)]
+codec/00028             time:   [ 61211 ns (process CPU)  61657 ns (process CPU)  62095 ns (process CPU)]
+codec/00000             time:   [197.02 ns (process CPU) 198.51 ns (process CPU) 200.09 ns (process CPU)]
+codec/00133             time:   [100.70 ns (process CPU) 101.21 ns (process CPU) 101.63 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low severe
+codec/00005             time:   [254.35 ns (process CPU) 258.54 ns (process CPU) 264.93 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00001             time:   [251.83 ns (process CPU) 253.63 ns (process CPU) 255.26 ns (process CPU)]
+codec/00121             time:   [ 24839 ns (process CPU)  24991 ns (process CPU)  25164 ns (process CPU)]
+codec/00124             time:   [ 23319 ns (process CPU)  23638 ns (process CPU)  24024 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00161             time:   [ 59121 ns (process CPU)  61514 ns (process CPU)  63950 ns (process CPU)]
+codec/00080             time:   [153966 ns (process CPU) 156129 ns (process CPU) 158677 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00144             time:   [ 39489 ns (process CPU)  39823 ns (process CPU)  40351 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00108             time:   [4815.2 ns (process CPU) 4836.5 ns (process CPU) 4861.8 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00040             time:   [256.82 ns (process CPU) 258.37 ns (process CPU) 260.22 ns (process CPU)]
+codec/00057             time:   [201098 ns (process CPU) 202731 ns (process CPU) 204144 ns (process CPU)]
+codec/00024             time:   [ 57292 ns (process CPU)  57506 ns (process CPU)  57730 ns (process CPU)]
+codec/00020             time:   [ 56911 ns (process CPU)  57159 ns (process CPU)  57475 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00053             time:   [174372 ns (process CPU) 176498 ns (process CPU) 178859 ns (process CPU)]
+codec/00041             time:   [301.27 ns (process CPU) 307.32 ns (process CPU) 317.79 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00076             time:   [ 98593 ns (process CPU)  99708 ns (process CPU) 100649 ns (process CPU)]
+codec/00141             time:   [1828.1 ns (process CPU) 1831.8 ns (process CPU) 1836.1 ns (process CPU)]
+codec/00101             time:   [341025 ns (process CPU) 341585 ns (process CPU) 342162 ns (process CPU)]
+codec/00017             time:   [ 52531 ns (process CPU)  53092 ns (process CPU)  54118 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00136             time:   [1759.9 ns (process CPU) 1770.8 ns (process CPU) 1780.9 ns (process CPU)]
+codec/00149             time:   [ 51043 ns (process CPU)  51676 ns (process CPU)  52348 ns (process CPU)]
+codec/00105             time:   [4870.6 ns (process CPU) 4891.6 ns (process CPU) 4913.6 ns (process CPU)]
+codec/00104             time:   [4712.1 ns (process CPU) 4792.9 ns (process CPU) 4898.5 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00012             time:   [ 59244 ns (process CPU)  59595 ns (process CPU)  59986 ns (process CPU)]
+codec/00009             time:   [ 55259 ns (process CPU)  55642 ns (process CPU)  56192 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00165             time:   [ 61543 ns (process CPU)  62181 ns (process CPU)  62831 ns (process CPU)]
+codec/00013             time:   [ 59143 ns (process CPU)  59348 ns (process CPU)  59604 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00048             time:   [168828 ns (process CPU) 169759 ns (process CPU) 171117 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00092             time:   [247135 ns (process CPU) 248582 ns (process CPU) 250725 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00164             time:   [ 61478 ns (process CPU)  62872 ns (process CPU)  64423 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+codec/00109             time:   [4995.4 ns (process CPU) 5106.9 ns (process CPU) 5238.1 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00120             time:   [ 24991 ns (process CPU)  25224 ns (process CPU)  25536 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00145             time:   [ 54046 ns (process CPU)  54613 ns (process CPU)  55228 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00031             time:   [ 90454 ns (process CPU)  91613 ns (process CPU)  92741 ns (process CPU)]
+codec/00098             time:   [386534 ns (process CPU) 389110 ns (process CPU) 392210 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00043             time:   [574.66 ns (process CPU) 577.34 ns (process CPU) 580.25 ns (process CPU)]
+codec/00051             time:   [295027 ns (process CPU) 295565 ns (process CPU) 296116 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00026             time:   [ 87415 ns (process CPU)  87640 ns (process CPU)  87912 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+codec/00003             time:   [422.27 ns (process CPU) 427.63 ns (process CPU) 435.44 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00114             time:   [5876.3 ns (process CPU) 5891.1 ns (process CPU) 5903.7 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high mild
+codec/00010             time:   [ 87628 ns (process CPU)  87978 ns (process CPU)  88360 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00075             time:   [162052 ns (process CPU) 162642 ns (process CPU) 163319 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00062             time:   [303282 ns (process CPU) 304774 ns (process CPU) 307045 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00086             time:   [214666 ns (process CPU) 215169 ns (process CPU) 215852 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00159             time:   [316760 ns (process CPU) 317090 ns (process CPU) 317500 ns (process CPU)]
+codec/00134             time:   [33.743 ns (process CPU) 33.887 ns (process CPU) 34.064 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00090             time:   [297659 ns (process CPU) 298122 ns (process CPU) 298632 ns (process CPU)]
+codec/00078             time:   [160649 ns (process CPU) 162860 ns (process CPU) 165636 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00042             time:   [447.02 ns (process CPU) 448.43 ns (process CPU) 449.88 ns (process CPU)]
+codec/00094             time:   [301535 ns (process CPU) 302221 ns (process CPU) 302945 ns (process CPU)]
+codec/00138             time:   [1756.7 ns (process CPU) 1759.4 ns (process CPU) 1762.0 ns (process CPU)]
+codec/00054             time:   [292804 ns (process CPU) 293677 ns (process CPU) 294505 ns (process CPU)]
+codec/00087             time:   [218459 ns (process CPU) 221223 ns (process CPU) 224460 ns (process CPU)]
+codec/00038             time:   [3552.2 ns (process CPU) 3577.6 ns (process CPU) 3604.6 ns (process CPU)]
+codec/00142             time:   [1761.4 ns (process CPU) 1765.3 ns (process CPU) 1769.1 ns (process CPU)]
+codec/00122             time:   [ 44015 ns (process CPU)  44566 ns (process CPU)  45155 ns (process CPU)]
+codec/00082             time:   [216765 ns (process CPU) 219682 ns (process CPU) 224022 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00034             time:   [3650.5 ns (process CPU) 3655.2 ns (process CPU) 3661.0 ns (process CPU)]
+codec/00158             time:   [322106 ns (process CPU) 324690 ns (process CPU) 328817 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00146             time:   [ 39038 ns (process CPU)  39483 ns (process CPU)  40229 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00110             time:   [8554.8 ns (process CPU) 8568.8 ns (process CPU) 8585.6 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00007             time:   [425.89 ns (process CPU) 432.60 ns (process CPU) 440.06 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00127             time:   [ 44935 ns (process CPU)  45337 ns (process CPU)  45758 ns (process CPU)]
+codec/00135             time:   [151.92 ns (process CPU) 152.53 ns (process CPU) 152.93 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low severe
+codec/00067             time:   [300799 ns (process CPU) 301569 ns (process CPU) 302383 ns (process CPU)]
+codec/00115             time:   [6088.1 ns (process CPU) 6102.5 ns (process CPU) 6116.3 ns (process CPU)]
+codec/00123             time:   [ 43786 ns (process CPU)  44037 ns (process CPU)  44347 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00154             time:   [306615 ns (process CPU) 311806 ns (process CPU) 317105 ns (process CPU)]
+codec/00119             time:   [6579.0 ns (process CPU) 6641.5 ns (process CPU) 6714.4 ns (process CPU)]
+codec/00111             time:   [8814.6 ns (process CPU) 8848.3 ns (process CPU) 8888.0 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+codec/00130             time:   [33.065 ns (process CPU) 33.127 ns (process CPU) 33.189 ns (process CPU)]
+Found 3 outliers among 10 measurements (30.00%)
+  1 (10.00%) low mild
+  2 (20.00%) high severe
+codec/00155             time:   [304897 ns (process CPU) 305967 ns (process CPU) 307141 ns (process CPU)]
+codec/00058             time:   [300576 ns (process CPU) 301810 ns (process CPU) 303705 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00095             time:   [299150 ns (process CPU) 299822 ns (process CPU) 300411 ns (process CPU)]
+codec/00063             time:   [305023 ns (process CPU) 306145 ns (process CPU) 307474 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00070             time:   [312374 ns (process CPU) 314649 ns (process CPU) 316619 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high mild
+codec/00035             time:   [3765.7 ns (process CPU) 3808.8 ns (process CPU) 3882.2 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00162             time:   [ 75061 ns (process CPU)  75759 ns (process CPU)  76858 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00106             time:   [8562.8 ns (process CPU) 8603.6 ns (process CPU) 8647.4 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+codec/00022             time:   [ 87136 ns (process CPU)  88099 ns (process CPU)  89700 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00015             time:   [ 91885 ns (process CPU)  93800 ns (process CPU)  96226 ns (process CPU)]
+codec/00099             time:   [402003 ns (process CPU) 406028 ns (process CPU) 410494 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00103             time:   [398976 ns (process CPU) 401554 ns (process CPU) 404877 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00006             time:   [314.96 ns (process CPU) 318.13 ns (process CPU) 322.96 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00059             time:   [315768 ns (process CPU) 327336 ns (process CPU) 342431 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00091             time:   [300018 ns (process CPU) 305527 ns (process CPU) 312125 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00118             time:   [6259.3 ns (process CPU) 6336.3 ns (process CPU) 6433.7 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+codec/00150             time:   [ 38433 ns (process CPU)  39575 ns (process CPU)  41189 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00047             time:   [621.30 ns (process CPU) 648.28 ns (process CPU) 680.72 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00167             time:   [ 77769 ns (process CPU)  78956 ns (process CPU)  80667 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+codec/00014             time:   [ 93023 ns (process CPU)  94614 ns (process CPU)  96597 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+codec/00071             time:   [359111 ns (process CPU) 372560 ns (process CPU) 385373 ns (process CPU)]
+codec/00046             time:   [467.93 ns (process CPU) 471.29 ns (process CPU) 475.12 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00083             time:   [222121 ns (process CPU) 223436 ns (process CPU) 224760 ns (process CPU)]
+codec/00023             time:   [ 88453 ns (process CPU)  89682 ns (process CPU)  91727 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00079             time:   [168211 ns (process CPU) 169310 ns (process CPU) 170589 ns (process CPU)]
+Found 3 outliers among 10 measurements (30.00%)
+  2 (20.00%) low mild
+  1 (10.00%) high mild
+codec/00066             time:   [308758 ns (process CPU) 313504 ns (process CPU) 319670 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+codec/00107             time:   [8958.4 ns (process CPU) 9023.2 ns (process CPU) 9121.6 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00151             time:   [ 58048 ns (process CPU)  58578 ns (process CPU)  59067 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high mild
+codec/00027             time:   [ 88258 ns (process CPU)  88733 ns (process CPU)  89267 ns (process CPU)]
+codec/00163             time:   [ 76417 ns (process CPU)  76687 ns (process CPU)  76970 ns (process CPU)]
+codec/00018             time:   [ 86440 ns (process CPU)  86871 ns (process CPU)  87357 ns (process CPU)]
+codec/00143             time:   [1935.8 ns (process CPU) 1946.5 ns (process CPU) 1958.1 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+codec/00055             time:   [310527 ns (process CPU) 314332 ns (process CPU) 317777 ns (process CPU)]
+Found 3 outliers among 10 measurements (30.00%)
+  1 (10.00%) low severe
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+codec/00050             time:   [307290 ns (process CPU) 313310 ns (process CPU) 320304 ns (process CPU)]
+codec/00139             time:   [1926.7 ns (process CPU) 1937.7 ns (process CPU) 1952.9 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00147             time:   [ 55188 ns (process CPU)  55637 ns (process CPU)  56090 ns (process CPU)]
+codec/00131             time:   [152.40 ns (process CPU) 152.71 ns (process CPU) 152.95 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+codec/00030             time:   [ 90377 ns (process CPU)  90708 ns (process CPU)  91003 ns (process CPU)]
+codec/00002             time:   [300.49 ns (process CPU) 306.80 ns (process CPU) 314.94 ns (process CPU)]
+Found 3 outliers among 10 measurements (30.00%)
+  1 (10.00%) low mild
+  2 (20.00%) high severe
+codec/00019             time:   [ 89618 ns (process CPU)  90309 ns (process CPU)  91115 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00166             time:   [ 77360 ns (process CPU)  77829 ns (process CPU)  78337 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00102             time:   [387126 ns (process CPU) 393678 ns (process CPU) 402290 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00039             time:   [3690.9 ns (process CPU) 3705.8 ns (process CPU) 3721.0 ns (process CPU)]
+codec/00126             time:   [ 45368 ns (process CPU)  47154 ns (process CPU)  49840 ns (process CPU)]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+codec/00011             time:   [ 93455 ns (process CPU)  95153 ns (process CPU)  97196 ns (process CPU)]
+codec/00074             time:   [159858 ns (process CPU) 161589 ns (process CPU) 164538 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+

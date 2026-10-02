@@ -1,0 +1,21 @@
+# backward-encode narrowed alternation, 2026-10-02T15:19:37Z. CONTAINER INSTRUMENTATION.
+# cpu        Intel(R) Xeon(R) Processor @ 2.10GHz; kernel 6.18.44-fc-v51; smt notsupported (active 0); no_turbo n/a; governor cpu1 n/a; scaling min/max cpu1 n/a/n/a kHz
+# isolation  cmdline: isolated='' nohz_full='n/a'
+# cgroups    cpuset.cpus.effective:; this driver's cgroup /: n/a; root cpuset.cpus.isolated='n/a'; this driver's affinity 0-3
+# irq        default_smp_affinity f; smp_affinity_list of /proc/irq/*: 0-3 x29, 
+# allowed    non-kernel threads whose Cpus_allowed_list includes a benchmark CPU (1-8, 11-18), this session's excluded: environment-man x10, HeapHelper x3, process_api x1, vsock-console x1, idle-reclaim x1, sbx-telemetry-s x1, 6 x1, sh x1, claude x1, mi-scavenger x1, Bun Pool 0 x1, Bun Pool 1 x1, Bun Pool 2 x1, Bun Pool 3 x1, HTTP Client x1, fs.watch x1, JSCWarmUp x1, JITWorker x1, tail x1
+# running    threads RUNNABLE right now on the client or server CPUs (1-8, 11-18), this session's excluded: ; loadavg 0.73 1.19 1.52 1/106 15586
+# AK_ONLY=P6, encode, core-ffi + core-native, reused-buffer + transport-ready-tonic, hot; AK_WARMUP_MS=100 AK_MEASURE_MS=250; 3 launches per variant; CPU 1
+# committed: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-3211c86b37bffe91 (sha256 c85a94d23aa4828c) loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (sha256 577b9b2e83079ce9)
+# v1: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/v1/codec_suite (sha256 5871bc09622312e1) loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/v1/libak_core.so (sha256 5216de8f7a664be7)
+# v2: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/codec_suite-7e804e611118a090 (sha256 5871bc09622312e1) loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/rust/target/release/deps/libak_core.so (sha256 a1d62b1e2e4d4619)
+committed launch 1: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v1 launch 1: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v2 launch 1: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+committed launch 2: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v1 launch 2: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v2 launch 2: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+committed launch 3: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v1 launch 3: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+v2 launch 3: # precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+# benchmark wall: 29 s

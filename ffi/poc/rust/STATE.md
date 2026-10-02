@@ -8,12 +8,42 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. WP12 item 1 for this slice (2026-10-02): the full gate passed on BOTH h2 variants of the core in the container (section "WP12 gates" below, `logs/rust/opt/wp12-gates/`); the TCP worker sweep (item 3) is recorded (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
+| **Next step** | none assigned. Latest unit (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## Backward-encode experiment (2026-10-02, owner; container; patch only, poc/codec unchanged)
+
+The owner's idea (encode backward, as upb does) with the owner's change of design mid-task: no core-side
+reordering of call blocks; instead the HOST delivers every repeated field LAST TO FIRST across its calls,
+each call's array in forward order, walked last to first by the codec. Everything is in
+`logs/rust/opt/patches/backward-encode/` (README: what was built, the contract, the checks, the tables, what is
+not measured): `backward-encode.patch` (sources: ak-rt `BEnc`, ak-core, `rust_abi.py`, `rust_binding.py`, the
+experiment's harness checks), `generated.patch.gz` (the regenerated core and Rust bindings; every other
+generated file of every slice, `abi.rs` and the C headers included, unchanged), `dropped-v2-sized-run.patch`.
+Built and run in a private worktree (scratchpad, removed after the unit).
+
+- **Checks** (`checks/gate/`, `gen/bwd_gate.sh`: gate.sh's steps unchanged, step 7 recorded not fatal): GATE
+  PASSED on the backward core, both builds; crossing counts identical (836 / 435 lines); pre-check 5,740 / 3,257
+  checks 0 failures; corpus 680 / 696 per mode; rpc_semantics, upload_check, header_diff pass. Step 7: shipped
+  and global arms 0 wrong; the planted pad-widths and global+pad arms cannot fail (no learned width): the
+  obligation is vacuous on this core, recorded. `bwd_check` 78/78 (n = 1, chunks, mixed forms and transcoders,
+  grows mid-message and mid-field on fresh contexts, rollback after ak_fail mid-field, CAPACITY); its planted
+  forward-order control fails 47 rows.
+- **Mismatched pair** (`checks/mismatch/`): this branch's forward binding against the backward core links and
+  runs; output lengths equal, bytes permuted on every field delivered in more than one call. Conformance fails
+  on 5 payloads, the pre-check on 69 checks, the corpus on 6 arm rows; shapes passes.
+- **Measured** (`bench/`, 528 s of benchmark in all; absolutes in `tables.md`): mostly inside the control row's
+  build-drift band (core-native, unchanged code, disjoint launch ranges on 26 of 84 rows); the P2.4 family lower
+  on the backward core; **P6.1 (packed runs) higher, 60.7-65.4 us committed against 75.2-79.5 us backward**,
+  confirmed with the same harness binary (`bench-p6-2x2/`); v2 (sized hole) slower still, dropped. RPC c and d
+  work through the backward core; no difference resolved.
+- Tooling added (committed, defaults unchanged): `crates/campaign/benches/codec_suite.rs` case filters
+  `AK_CASE_ARMS`, `AK_CASE_DIRS`, `AK_CASE_END`, `AK_CASE_INPUT` (applied after the full pre-check, recorded in
+  the header); `gen/bwd_gate.sh`, `gen/bwd_bench.sh`, `gen/bwd_ab.sh`, `gen/bwd_mismatch.sh`, `gen/bwd_tables.py`.
 
 ## WP12 gates (2026-10-02, container; nothing timed)
 
@@ -668,6 +698,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 ## What is not measured
 
+- **The backward-encode experiment's gaps**: listed in `logs/rust/opt/patches/backward-encode/README.md` (pool inputs, decode, the 2x2 on order-dependent payloads, the P6.1 attribution, the floor and the campaign machine on the patched tree).
 - **Timings.** None are results in this phase; every timing log is container
   instrumentation, and no figure is quoted in this file.
 - **perf counters** (req 20): perf is not installed here.
@@ -730,6 +761,7 @@ FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --ch
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/patches/backward-encode/` | the backward-encode experiment: the patches (sources, generated, dropped v2), README, the gate and bwd_check on the backward core (checks/gate), the mismatched pair (checks/mismatch), the alternated encode session and RPC probe (bench/, tables.md), P6.1 v1/v2 and harness x core (bench-p6-v2/, bench-p6-2x2/) |
 | `logs/rust/opt/wp12-gates/` | WP12: the full gate on the h2-batch core, on the stock core (both built per feature set by build.sh or the same cargo command) and as committed (plain), each with loads.txt (which core every process loaded), the TCP checks and the write-count marker; NOTE.txt |
 | `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep after the re-pin: low/ (k 1, 8) and high/ (k 16, 32), tables.md; `tcp-sweep-unpinned-irqs/` the same run before the re-pin (machine condition in its NOTES.txt) |
 | `logs/rust/opt/delivery/` | the response-delivery comparison: build.raw, checks/, a/ and cf/ sessions, tables.md |

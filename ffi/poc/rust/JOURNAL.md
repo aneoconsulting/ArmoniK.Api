@@ -4146,3 +4146,47 @@ write-count marker. Container: no timing claims.
   afterwards, not at the DATA frames delivered after the reset, so they neither show nor exclude it.
 - Not covered: gate step 2 builds ak-core without rpc (no h2 in it on either variant); the 1.88 floor
   and the campaign machine on h2-batch.
+
+## 2026-10-02 -- the owner's backward-encode experiment (container; patch only)
+
+Task (coordinator, the owner's idea): encode backward as upb does (body, then length, then key; no learned
+width, no placeholder, no prefix move), keep the ABI and the bytes, measure every encode payload family.
+Mid-task the owner changed the design: drop the core-side reordering of call blocks; the HOST delivers each
+repeated field last to first. Everything in logs/rust/opt/patches/backward-encode/ (README).
+
+- Built in a private worktree of 1c9d8981: ak_rt::BEnc (downward buffer, positions as distances from the end,
+  geometric grow copying the content to the end, head room below the message for take_framed, the ring of 6
+  unchanged); ak-core on BEnc (enc_blob: known lengths placed at cursor - total; the core's validating UTF-8
+  transcoders handed exactly the len bytes below the cursor; other transcoders the whole free region and a
+  move of n bytes after commit; enc_blob_run written forward into a summed hole); rust_abi.py renders each
+  encode plan reversed, nested messages open -> body -> close(tag), element arrays and packed runs walked last
+  to first, SITES still allocated in forward order (abi.rs unchanged); rust_binding.py's four loop renderers
+  iterate in reverse, fill the arena from its top, deliver the tail with tok0 = total - done - i. ak_rt::Enc
+  (core-native) untouched.
+- First build: byte identity held at once (conformance VERDICT pass). bwd_check (new, in the patch) 78/78:
+  n = 1, chunks of 8 / 32, mixed sizes, one call; mixed transcoders (trusted, utf8, latin1, utf16) on the
+  inner string fields; fresh contexts (grows mid-field and inside nested messages, P5.4's direct argument
+  inside `upload`); ak_fail mid-field then a clean encode; CAPACITY. Planted forward order: 47 FAIL (the 31
+  PASS rows are one-call fields or P1.3's identical empty elements), so the check can fail.
+- Gate (gen/bwd_gate.sh, steps unchanged, step 7 non-fatal): GATE PASSED, both builds; crossings identical
+  (836 / 435). Step 7: the pad-widths and global+pad plants cannot fail on a core with no learned width; the
+  shipped and global arms 0 wrong. Recorded as vacuous, tests kept.
+- Mismatched pair (gen/bwd_mismatch.sh: this branch's binaries, forward binding, + the backward core):
+  silent at link and load; same lengths; conformance 5 payloads DIFFER, pre-check 69 failures, corpus 6
+  arm rows; shapes passes. Only fields delivered in more than one call with differing elements expose it.
+- Other slices surveyed (not touched): every element call site is generated (cpp_binding, cs_binding,
+  java_binding, py_capi); containers indexable or staged; no hand-written site.
+- Measured (gen/bwd_bench.sh, 453 s codec + 7 s RPC): 168 encode cases x 3 launches per variant, alternated.
+  The control row core-native (same code both builds) has disjoint launch ranges on 26/84 rows, so cross-build
+  differences of a few percent are drift. P2.4 family lower on the backward core; P6.1 (packed runs) higher,
+  61-65 us -> 75-79 us. Is it the core or the build? P6.1's fields are each one call, so the mixed pairs write
+  correct bytes there: 2x2 harness x core (bench-p6-2x2, 39 s): forward core 60.4-66.4 us, backward core
+  74.2-77.6 us in BOTH harness builds; core-native moves with the harness build only (65-72 vs 56-67 us). The
+  cost is the core's; not attributed (no perf).
+- Tried v2 for packed runs: sum the varint lengths, write the run forward into a hole of that size. Correct
+  (bwd_check, conformance, pre-check). Slower (bench-p6-v2, 29 s): 80.4-86.0 us against v1's 75.3-79.6 us and
+  committed 60.3-63.3 us. Dropped; kept as dropped-v2-sized-run.patch. The worktree was restored to v1 and the
+  two patch files re-derived with identical sha256.
+- RPC (TCP, k = 1): c/P5.4 and d/16MiB work on every cell through the backward core; client CPU per call
+  inside the round spread of the committed core (Cf d/16MiB 11.04 vs 11.63 ms medians, ranges overlapping).
+- Committed tooling: codec_suite AK_CASE_* filters (defaults unchanged), gen/bwd_*.sh, gen/bwd_tables.py.

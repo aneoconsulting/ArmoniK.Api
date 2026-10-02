@@ -1,0 +1,15 @@
+codec/00004             time:   [ 61333 ns (process CPU)  62037 ns (process CPU)  62858 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00005             time:   [ 61817 ns (process CPU)  62419 ns (process CPU)  63008 ns (process CPU)]
+codec/00000             time:   [ 58226 ns (process CPU)  59108 ns (process CPU)  60228 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00001             time:   [ 56164 ns (process CPU)  56479 ns (process CPU)  56899 ns (process CPU)]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+codec/00006             time:   [ 80554 ns (process CPU)  80887 ns (process CPU)  81275 ns (process CPU)]
+codec/00007             time:   [ 80929 ns (process CPU)  82500 ns (process CPU)  84057 ns (process CPU)]
+codec/00003             time:   [ 84408 ns (process CPU)  85720 ns (process CPU)  87098 ns (process CPU)]
+codec/00002             time:   [ 83445 ns (process CPU)  85991 ns (process CPU)  88634 ns (process CPU)]
+

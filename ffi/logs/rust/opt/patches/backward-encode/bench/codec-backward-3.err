@@ -1,0 +1,677 @@
+# narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 168 cases kept
+# precheck: 660 checks, 0 failures, 21 inputs, 168 cases
+
+Warning: It is not recommended to reduce nresamples below 1000.
+Benchmarking codec/00016
+Benchmarking codec/00016: Warming up for 100.00 ms
+Benchmarking codec/00016: Collecting 10 samples in estimated 250.22 ms (4720 iterations)
+Benchmarking codec/00016: Analyzing
+Benchmarking codec/00068
+Benchmarking codec/00068: Warming up for 100.00 ms
+Benchmarking codec/00068: Collecting 10 samples in estimated 252.08 ms (1010 iterations)
+Benchmarking codec/00068: Analyzing
+Benchmarking codec/00096
+Benchmarking codec/00096: Warming up for 100.00 ms
+Benchmarking codec/00096: Collecting 10 samples in estimated 251.67 ms (660 iterations)
+Benchmarking codec/00096: Analyzing
+Benchmarking codec/00093
+Benchmarking codec/00093: Warming up for 100.00 ms
+Benchmarking codec/00093: Collecting 10 samples in estimated 251.88 ms (960 iterations)
+Benchmarking codec/00093: Analyzing
+Benchmarking codec/00044
+Benchmarking codec/00044: Warming up for 100.00 ms
+Benchmarking codec/00044: Collecting 10 samples in estimated 250.00 ms (832k iterations)
+Benchmarking codec/00044: Analyzing
+Benchmarking codec/00064
+Benchmarking codec/00064: Warming up for 100.00 ms
+Benchmarking codec/00064: Collecting 10 samples in estimated 252.42 ms (930 iterations)
+Benchmarking codec/00064: Analyzing
+Benchmarking codec/00088
+Benchmarking codec/00088: Warming up for 100.00 ms
+Benchmarking codec/00088: Collecting 10 samples in estimated 250.76 ms (970 iterations)
+Benchmarking codec/00088: Analyzing
+Benchmarking codec/00117
+Benchmarking codec/00117: Warming up for 100.00 ms
+Benchmarking codec/00117: Collecting 10 samples in estimated 250.02 ms (60k iterations)
+Benchmarking codec/00117: Analyzing
+Benchmarking codec/00085
+Benchmarking codec/00085: Warming up for 100.00 ms
+Benchmarking codec/00085: Collecting 10 samples in estimated 250.85 ms (1600 iterations)
+Benchmarking codec/00085: Analyzing
+Benchmarking codec/00036
+Benchmarking codec/00036: Warming up for 100.00 ms
+Benchmarking codec/00036: Collecting 10 samples in estimated 250.01 ms (101k iterations)
+Benchmarking codec/00036: Analyzing
+Benchmarking codec/00137
+Benchmarking codec/00137: Warming up for 100.00 ms
+Benchmarking codec/00137: Collecting 10 samples in estimated 250.01 ms (131k iterations)
+Benchmarking codec/00137: Analyzing
+Benchmarking codec/00157
+Benchmarking codec/00157: Warming up for 100.00 ms
+Benchmarking codec/00157: Collecting 10 samples in estimated 251.02 ms (760 iterations)
+Benchmarking codec/00157: Analyzing
+Benchmarking codec/00089
+Benchmarking codec/00089: Warming up for 100.00 ms
+Benchmarking codec/00089: Collecting 10 samples in estimated 250.28 ms (980 iterations)
+Benchmarking codec/00089: Analyzing
+Benchmarking codec/00008
+Benchmarking codec/00008: Warming up for 100.00 ms
+Benchmarking codec/00008: Collecting 10 samples in estimated 250.46 ms (4580 iterations)
+Benchmarking codec/00008: Analyzing
+Benchmarking codec/00025
+Benchmarking codec/00025: Warming up for 100.00 ms
+Benchmarking codec/00025: Collecting 10 samples in estimated 250.33 ms (4330 iterations)
+Benchmarking codec/00025: Analyzing
+Benchmarking codec/00112
+Benchmarking codec/00112: Warming up for 100.00 ms
+Benchmarking codec/00112: Collecting 10 samples in estimated 250.04 ms (61k iterations)
+Benchmarking codec/00112: Analyzing
+Benchmarking codec/00072
+Benchmarking codec/00072: Warming up for 100.00 ms
+Benchmarking codec/00072: Collecting 10 samples in estimated 250.71 ms (2620 iterations)
+Benchmarking codec/00072: Analyzing
+Benchmarking codec/00148
+Benchmarking codec/00148: Warming up for 100.00 ms
+Benchmarking codec/00148: Collecting 10 samples in estimated 250.01 ms (6380 iterations)
+Benchmarking codec/00148: Analyzing
+Benchmarking codec/00077
+Benchmarking codec/00077: Warming up for 100.00 ms
+Benchmarking codec/00077: Collecting 10 samples in estimated 250.99 ms (2480 iterations)
+Benchmarking codec/00077: Analyzing
+Benchmarking codec/00100
+Benchmarking codec/00100: Warming up for 100.00 ms
+Benchmarking codec/00100: Collecting 10 samples in estimated 250.95 ms (750 iterations)
+Benchmarking codec/00100: Analyzing
+Benchmarking codec/00052
+Benchmarking codec/00052: Warming up for 100.00 ms
+Benchmarking codec/00052: Collecting 10 samples in estimated 250.10 ms (1440 iterations)
+Benchmarking codec/00052: Analyzing
+Benchmarking codec/00045
+Benchmarking codec/00045: Warming up for 100.00 ms
+Benchmarking codec/00045: Collecting 10 samples in estimated 250.00 ms (812k iterations)
+Benchmarking codec/00045: Analyzing
+Benchmarking codec/00160
+Benchmarking codec/00160: Warming up for 100.00 ms
+Benchmarking codec/00160: Collecting 10 samples in estimated 250.16 ms (4420 iterations)
+Benchmarking codec/00160: Analyzing
+Benchmarking codec/00081
+Benchmarking codec/00081: Warming up for 100.00 ms
+Benchmarking codec/00081: Collecting 10 samples in estimated 250.51 ms (1650 iterations)
+Benchmarking codec/00081: Analyzing
+Benchmarking codec/00113
+Benchmarking codec/00113: Warming up for 100.00 ms
+Benchmarking codec/00113: Collecting 10 samples in estimated 250.04 ms (60k iterations)
+Benchmarking codec/00113: Analyzing
+Benchmarking codec/00084
+Benchmarking codec/00084: Warming up for 100.00 ms
+Benchmarking codec/00084: Collecting 10 samples in estimated 251.19 ms (1660 iterations)
+Benchmarking codec/00084: Analyzing
+Benchmarking codec/00037
+Benchmarking codec/00037: Warming up for 100.00 ms
+Benchmarking codec/00037: Collecting 10 samples in estimated 250.02 ms (92k iterations)
+Benchmarking codec/00037: Analyzing
+Benchmarking codec/00065
+Benchmarking codec/00065: Warming up for 100.00 ms
+Benchmarking codec/00065: Collecting 10 samples in estimated 251.66 ms (1080 iterations)
+Benchmarking codec/00065: Analyzing
+Benchmarking codec/00049
+Benchmarking codec/00049: Warming up for 100.00 ms
+Benchmarking codec/00049: Collecting 10 samples in estimated 251.58 ms (1480 iterations)
+Benchmarking codec/00049: Analyzing
+Benchmarking codec/00069
+Benchmarking codec/00069: Warming up for 100.00 ms
+Benchmarking codec/00069: Collecting 10 samples in estimated 250.82 ms (1010 iterations)
+Benchmarking codec/00069: Analyzing
+Benchmarking codec/00033
+Benchmarking codec/00033: Warming up for 100.00 ms
+Benchmarking codec/00033: Collecting 10 samples in estimated 250.02 ms (75k iterations)
+Benchmarking codec/00033: Analyzing
+Benchmarking codec/00004
+Benchmarking codec/00004: Warming up for 100.00 ms
+Benchmarking codec/00004: Collecting 10 samples in estimated 250.00 ms (1.2M iterations)
+Benchmarking codec/00004: Analyzing
+Benchmarking codec/00132
+Benchmarking codec/00132: Warming up for 100.00 ms
+Benchmarking codec/00132: Collecting 10 samples in estimated 250.00 ms (11M iterations)
+Benchmarking codec/00132: Analyzing
+Benchmarking codec/00152
+Benchmarking codec/00152: Warming up for 100.00 ms
+Benchmarking codec/00152: Collecting 10 samples in estimated 250.15 ms (750 iterations)
+Benchmarking codec/00152: Analyzing
+Benchmarking codec/00060
+Benchmarking codec/00060: Warming up for 100.00 ms
+Benchmarking codec/00060: Collecting 10 samples in estimated 251.66 ms (1240 iterations)
+Benchmarking codec/00060: Analyzing
+Benchmarking codec/00153
+Benchmarking codec/00153: Warming up for 100.00 ms
+Benchmarking codec/00153: Collecting 10 samples in estimated 250.02 ms (710 iterations)
+Benchmarking codec/00153: Analyzing
+Benchmarking codec/00032
+Benchmarking codec/00032: Warming up for 100.00 ms
+Benchmarking codec/00032: Collecting 10 samples in estimated 250.01 ms (99k iterations)
+Benchmarking codec/00032: Analyzing
+Benchmarking codec/00056
+Benchmarking codec/00056: Warming up for 100.00 ms
+Benchmarking codec/00056: Collecting 10 samples in estimated 250.26 ms (960 iterations)
+Benchmarking codec/00056: Analyzing
+Benchmarking codec/00128
+Benchmarking codec/00128: Warming up for 100.00 ms
+Benchmarking codec/00128: Collecting 10 samples in estimated 250.00 ms (12M iterations)
+Benchmarking codec/00128: Analyzing
+Benchmarking codec/00073
+Benchmarking codec/00073: Warming up for 100.00 ms
+Benchmarking codec/00073: Collecting 10 samples in estimated 250.30 ms (2220 iterations)
+Benchmarking codec/00073: Analyzing
+Benchmarking codec/00156
+Benchmarking codec/00156: Warming up for 100.00 ms
+Benchmarking codec/00156: Collecting 10 samples in estimated 251.70 ms (760 iterations)
+Benchmarking codec/00156: Analyzing
+Benchmarking codec/00029
+Benchmarking codec/00029: Warming up for 100.00 ms
+Benchmarking codec/00029: Collecting 10 samples in estimated 250.57 ms (3800 iterations)
+Benchmarking codec/00029: Analyzing
+Benchmarking codec/00061
+Benchmarking codec/00061: Warming up for 100.00 ms
+Benchmarking codec/00061: Collecting 10 samples in estimated 250.81 ms (1130 iterations)
+Benchmarking codec/00061: Analyzing
+Benchmarking codec/00140
+Benchmarking codec/00140: Warming up for 100.00 ms
+Benchmarking codec/00140: Collecting 10 samples in estimated 250.01 ms (136k iterations)
+Benchmarking codec/00140: Analyzing
+Benchmarking codec/00129
+Benchmarking codec/00129: Warming up for 100.00 ms
+Benchmarking codec/00129: Collecting 10 samples in estimated 250.00 ms (2.4M iterations)
+Benchmarking codec/00129: Analyzing
+Benchmarking codec/00097
+Benchmarking codec/00097: Warming up for 100.00 ms
+Benchmarking codec/00097: Collecting 10 samples in estimated 251.45 ms (700 iterations)
+Benchmarking codec/00097: Analyzing
+Benchmarking codec/00021
+Benchmarking codec/00021: Warming up for 100.00 ms
+Benchmarking codec/00021: Collecting 10 samples in estimated 250.22 ms (4230 iterations)
+Benchmarking codec/00021: Analyzing
+Benchmarking codec/00116
+Benchmarking codec/00116: Warming up for 100.00 ms
+Benchmarking codec/00116: Collecting 10 samples in estimated 250.03 ms (61k iterations)
+Benchmarking codec/00116: Analyzing
+Benchmarking codec/00125
+Benchmarking codec/00125: Warming up for 100.00 ms
+Benchmarking codec/00125: Collecting 10 samples in estimated 250.17 ms (10k iterations)
+Benchmarking codec/00125: Analyzing
+Benchmarking codec/00028
+Benchmarking codec/00028: Warming up for 100.00 ms
+Benchmarking codec/00028: Collecting 10 samples in estimated 250.10 ms (3440 iterations)
+Benchmarking codec/00028: Analyzing
+Benchmarking codec/00000
+Benchmarking codec/00000: Warming up for 100.00 ms
+Benchmarking codec/00000: Collecting 10 samples in estimated 250.00 ms (1.2M iterations)
+Benchmarking codec/00000: Analyzing
+Benchmarking codec/00133
+Benchmarking codec/00133: Warming up for 100.00 ms
+Benchmarking codec/00133: Collecting 10 samples in estimated 250.00 ms (2.4M iterations)
+Benchmarking codec/00133: Analyzing
+Benchmarking codec/00005
+Benchmarking codec/00005: Warming up for 100.00 ms
+Benchmarking codec/00005: Collecting 10 samples in estimated 250.00 ms (955k iterations)
+Benchmarking codec/00005: Analyzing
+Benchmarking codec/00001
+Benchmarking codec/00001: Warming up for 100.00 ms
+Benchmarking codec/00001: Collecting 10 samples in estimated 250.00 ms (924k iterations)
+Benchmarking codec/00001: Analyzing
+Benchmarking codec/00121
+Benchmarking codec/00121: Warming up for 100.00 ms
+Benchmarking codec/00121: Collecting 10 samples in estimated 250.10 ms (9910 iterations)
+Benchmarking codec/00121: Analyzing
+Benchmarking codec/00124
+Benchmarking codec/00124: Warming up for 100.00 ms
+Benchmarking codec/00124: Collecting 10 samples in estimated 250.13 ms (9940 iterations)
+Benchmarking codec/00124: Analyzing
+Benchmarking codec/00161
+Benchmarking codec/00161: Warming up for 100.00 ms
+Benchmarking codec/00161: Collecting 10 samples in estimated 250.57 ms (3940 iterations)
+Benchmarking codec/00161: Analyzing
+Benchmarking codec/00080
+Benchmarking codec/00080: Warming up for 100.00 ms
+Benchmarking codec/00080: Collecting 10 samples in estimated 250.95 ms (1500 iterations)
+Benchmarking codec/00080: Analyzing
+Benchmarking codec/00144
+Benchmarking codec/00144: Warming up for 100.00 ms
+Benchmarking codec/00144: Collecting 10 samples in estimated 250.09 ms (5710 iterations)
+Benchmarking codec/00144: Analyzing
+Benchmarking codec/00108
+Benchmarking codec/00108: Warming up for 100.00 ms
+Benchmarking codec/00108: Collecting 10 samples in estimated 250.00 ms (51k iterations)
+Benchmarking codec/00108: Analyzing
+Benchmarking codec/00040
+Benchmarking codec/00040: Warming up for 100.00 ms
+Benchmarking codec/00040: Collecting 10 samples in estimated 250.00 ms (936k iterations)
+Benchmarking codec/00040: Analyzing
+Benchmarking codec/00057
+Benchmarking codec/00057: Warming up for 100.00 ms
+Benchmarking codec/00057: Collecting 10 samples in estimated 251.33 ms (1220 iterations)
+Benchmarking codec/00057: Analyzing
+Benchmarking codec/00024
+Benchmarking codec/00024: Warming up for 100.00 ms
+Benchmarking codec/00024: Collecting 10 samples in estimated 250.37 ms (4070 iterations)
+Benchmarking codec/00024: Analyzing
+Benchmarking codec/00020
+Benchmarking codec/00020: Warming up for 100.00 ms
+Benchmarking codec/00020: Collecting 10 samples in estimated 250.51 ms (4330 iterations)
+Benchmarking codec/00020: Analyzing
+Benchmarking codec/00053
+Benchmarking codec/00053: Warming up for 100.00 ms
+Benchmarking codec/00053: Collecting 10 samples in estimated 252.48 ms (860 iterations)
+Benchmarking codec/00053: Analyzing
+Benchmarking codec/00041
+Benchmarking codec/00041: Warming up for 100.00 ms
+Benchmarking codec/00041: Collecting 10 samples in estimated 250.00 ms (800k iterations)
+Benchmarking codec/00041: Analyzing
+Benchmarking codec/00076
+Benchmarking codec/00076: Warming up for 100.00 ms
+Benchmarking codec/00076: Collecting 10 samples in estimated 250.13 ms (2440 iterations)
+Benchmarking codec/00076: Analyzing
+Benchmarking codec/00141
+Benchmarking codec/00141: Warming up for 100.00 ms
+Benchmarking codec/00141: Collecting 10 samples in estimated 250.01 ms (136k iterations)
+Benchmarking codec/00141: Analyzing
+Benchmarking codec/00101
+Benchmarking codec/00101: Warming up for 100.00 ms
+Benchmarking codec/00101: Collecting 10 samples in estimated 252.07 ms (700 iterations)
+Benchmarking codec/00101: Analyzing
+Benchmarking codec/00017
+Benchmarking codec/00017: Warming up for 100.00 ms
+Benchmarking codec/00017: Collecting 10 samples in estimated 250.28 ms (4730 iterations)
+Benchmarking codec/00017: Analyzing
+Benchmarking codec/00136
+Benchmarking codec/00136: Warming up for 100.00 ms
+Benchmarking codec/00136: Collecting 10 samples in estimated 250.01 ms (105k iterations)
+Benchmarking codec/00136: Analyzing
+Benchmarking codec/00149
+Benchmarking codec/00149: Warming up for 100.00 ms
+Benchmarking codec/00149: Collecting 10 samples in estimated 250.29 ms (4620 iterations)
+Benchmarking codec/00149: Analyzing
+Benchmarking codec/00105
+Benchmarking codec/00105: Warming up for 100.00 ms
+Benchmarking codec/00105: Collecting 10 samples in estimated 250.02 ms (46k iterations)
+Benchmarking codec/00105: Analyzing
+Benchmarking codec/00104
+Benchmarking codec/00104: Warming up for 100.00 ms
+Benchmarking codec/00104: Collecting 10 samples in estimated 250.02 ms (46k iterations)
+Benchmarking codec/00104: Analyzing
+Benchmarking codec/00012
+Benchmarking codec/00012: Warming up for 100.00 ms
+Benchmarking codec/00012: Collecting 10 samples in estimated 250.18 ms (3860 iterations)
+Benchmarking codec/00012: Analyzing
+Benchmarking codec/00009
+Benchmarking codec/00009: Warming up for 100.00 ms
+Benchmarking codec/00009: Collecting 10 samples in estimated 250.37 ms (4410 iterations)
+Benchmarking codec/00009: Analyzing
+Benchmarking codec/00165
+Benchmarking codec/00165: Warming up for 100.00 ms
+Benchmarking codec/00165: Collecting 10 samples in estimated 250.57 ms (3980 iterations)
+Benchmarking codec/00165: Analyzing
+Benchmarking codec/00013
+Benchmarking codec/00013: Warming up for 100.00 ms
+Benchmarking codec/00013: Collecting 10 samples in estimated 250.30 ms (4180 iterations)
+Benchmarking codec/00013: Analyzing
+Benchmarking codec/00048
+Benchmarking codec/00048: Warming up for 100.00 ms
+Benchmarking codec/00048: Collecting 10 samples in estimated 250.48 ms (1480 iterations)
+Benchmarking codec/00048: Analyzing
+Benchmarking codec/00092
+Benchmarking codec/00092: Warming up for 100.00 ms
+Benchmarking codec/00092: Collecting 10 samples in estimated 250.26 ms (960 iterations)
+Benchmarking codec/00092: Analyzing
+Benchmarking codec/00164
+Benchmarking codec/00164: Warming up for 100.00 ms
+Benchmarking codec/00164: Collecting 10 samples in estimated 250.13 ms (4090 iterations)
+Benchmarking codec/00164: Analyzing
+Benchmarking codec/00109
+Benchmarking codec/00109: Warming up for 100.00 ms
+Benchmarking codec/00109: Collecting 10 samples in estimated 250.01 ms (40k iterations)
+Benchmarking codec/00109: Analyzing
+Benchmarking codec/00120
+Benchmarking codec/00120: Warming up for 100.00 ms
+Benchmarking codec/00120: Collecting 10 samples in estimated 250.02 ms (9850 iterations)
+Benchmarking codec/00120: Analyzing
+Benchmarking codec/00145
+Benchmarking codec/00145: Warming up for 100.00 ms
+Benchmarking codec/00145: Collecting 10 samples in estimated 250.45 ms (4180 iterations)
+Benchmarking codec/00145: Analyzing
+Benchmarking codec/00031
+Benchmarking codec/00031: Warming up for 100.00 ms
+Benchmarking codec/00031: Collecting 10 samples in estimated 250.50 ms (2400 iterations)
+Benchmarking codec/00031: Analyzing
+Benchmarking codec/00098
+Benchmarking codec/00098: Warming up for 100.00 ms
+Benchmarking codec/00098: Collecting 10 samples in estimated 250.99 ms (630 iterations)
+Benchmarking codec/00098: Analyzing
+Benchmarking codec/00043
+Benchmarking codec/00043: Warming up for 100.00 ms
+Benchmarking codec/00043: Collecting 10 samples in estimated 250.00 ms (422k iterations)
+Benchmarking codec/00043: Analyzing
+Benchmarking codec/00051
+Benchmarking codec/00051: Warming up for 100.00 ms
+Benchmarking codec/00051: Collecting 10 samples in estimated 253.13 ms (780 iterations)
+Benchmarking codec/00051: Analyzing
+Benchmarking codec/00026
+Benchmarking codec/00026: Warming up for 100.00 ms
+Benchmarking codec/00026: Collecting 10 samples in estimated 250.25 ms (2750 iterations)
+Benchmarking codec/00026: Analyzing
+Benchmarking codec/00003
+Benchmarking codec/00003: Warming up for 100.00 ms
+Benchmarking codec/00003: Collecting 10 samples in estimated 250.00 ms (580k iterations)
+Benchmarking codec/00003: Analyzing
+Benchmarking codec/00114
+Benchmarking codec/00114: Warming up for 100.00 ms
+Benchmarking codec/00114: Collecting 10 samples in estimated 250.04 ms (42k iterations)
+Benchmarking codec/00114: Analyzing
+Benchmarking codec/00010
+Benchmarking codec/00010: Warming up for 100.00 ms
+Benchmarking codec/00010: Collecting 10 samples in estimated 250.09 ms (2840 iterations)
+Benchmarking codec/00010: Analyzing
+Benchmarking codec/00075
+Benchmarking codec/00075: Warming up for 100.00 ms
+Benchmarking codec/00075: Collecting 10 samples in estimated 250.06 ms (1510 iterations)
+Benchmarking codec/00075: Analyzing
+Benchmarking codec/00062
+Benchmarking codec/00062: Warming up for 100.00 ms
+Benchmarking codec/00062: Collecting 10 samples in estimated 250.84 ms (820 iterations)
+Benchmarking codec/00062: Analyzing
+Benchmarking codec/00086
+Benchmarking codec/00086: Warming up for 100.00 ms
+Benchmarking codec/00086: Collecting 10 samples in estimated 252.12 ms (1170 iterations)
+Benchmarking codec/00086: Analyzing
+Benchmarking codec/00159
+Benchmarking codec/00159: Warming up for 100.00 ms
+Benchmarking codec/00159: Collecting 10 samples in estimated 252.23 ms (790 iterations)
+Benchmarking codec/00159: Analyzing
+Benchmarking codec/00134
+Benchmarking codec/00134: Warming up for 100.00 ms
+Benchmarking codec/00134: Collecting 10 samples in estimated 250.00 ms (7.1M iterations)
+Benchmarking codec/00134: Analyzing
+Benchmarking codec/00090
+Benchmarking codec/00090: Warming up for 100.00 ms
+Benchmarking codec/00090: Collecting 10 samples in estimated 250.55 ms (820 iterations)
+Benchmarking codec/00090: Analyzing
+Benchmarking codec/00078
+Benchmarking codec/00078: Warming up for 100.00 ms
+Benchmarking codec/00078: Collecting 10 samples in estimated 251.31 ms (1560 iterations)
+Benchmarking codec/00078: Analyzing
+Benchmarking codec/00042
+Benchmarking codec/00042: Warming up for 100.00 ms
+Benchmarking codec/00042: Collecting 10 samples in estimated 250.00 ms (555k iterations)
+Benchmarking codec/00042: Analyzing
+Benchmarking codec/00094
+Benchmarking codec/00094: Warming up for 100.00 ms
+Benchmarking codec/00094: Collecting 10 samples in estimated 251.72 ms (830 iterations)
+Benchmarking codec/00094: Analyzing
+Benchmarking codec/00138
+Benchmarking codec/00138: Warming up for 100.00 ms
+Benchmarking codec/00138: Collecting 10 samples in estimated 250.01 ms (141k iterations)
+Benchmarking codec/00138: Analyzing
+Benchmarking codec/00054
+Benchmarking codec/00054: Warming up for 100.00 ms
+Benchmarking codec/00054: Collecting 10 samples in estimated 252.15 ms (850 iterations)
+Benchmarking codec/00054: Analyzing
+Benchmarking codec/00087
+Benchmarking codec/00087: Warming up for 100.00 ms
+Benchmarking codec/00087: Collecting 10 samples in estimated 251.89 ms (1020 iterations)
+Benchmarking codec/00087: Analyzing
+Benchmarking codec/00038
+Benchmarking codec/00038: Warming up for 100.00 ms
+Benchmarking codec/00038: Collecting 10 samples in estimated 250.00 ms (68k iterations)
+Benchmarking codec/00038: Analyzing
+Benchmarking codec/00142
+Benchmarking codec/00142: Warming up for 100.00 ms
+Benchmarking codec/00142: Collecting 10 samples in estimated 250.02 ms (125k iterations)
+Benchmarking codec/00142: Analyzing
+Benchmarking codec/00122
+Benchmarking codec/00122: Warming up for 100.00 ms
+Benchmarking codec/00122: Collecting 10 samples in estimated 250.00 ms (5070 iterations)
+Benchmarking codec/00122: Analyzing
+Benchmarking codec/00082
+Benchmarking codec/00082: Warming up for 100.00 ms
+Benchmarking codec/00082: Collecting 10 samples in estimated 251.14 ms (1100 iterations)
+Benchmarking codec/00082: Analyzing
+Benchmarking codec/00034
+Benchmarking codec/00034: Warming up for 100.00 ms
+Benchmarking codec/00034: Collecting 10 samples in estimated 250.00 ms (67k iterations)
+Benchmarking codec/00034: Analyzing
+Benchmarking codec/00158
+Benchmarking codec/00158: Warming up for 100.00 ms
+Benchmarking codec/00158: Collecting 10 samples in estimated 251.88 ms (760 iterations)
+Benchmarking codec/00158: Analyzing
+Benchmarking codec/00146
+Benchmarking codec/00146: Warming up for 100.00 ms
+Benchmarking codec/00146: Collecting 10 samples in estimated 250.22 ms (6260 iterations)
+Benchmarking codec/00146: Analyzing
+Benchmarking codec/00110
+Benchmarking codec/00110: Warming up for 100.00 ms
+Benchmarking codec/00110: Collecting 10 samples in estimated 250.02 ms (28k iterations)
+Benchmarking codec/00110: Analyzing
+Benchmarking codec/00007
+Benchmarking codec/00007: Warming up for 100.00 ms
+Benchmarking codec/00007: Collecting 10 samples in estimated 250.00 ms (581k iterations)
+Benchmarking codec/00007: Analyzing
+Benchmarking codec/00127
+Benchmarking codec/00127: Warming up for 100.00 ms
+Benchmarking codec/00127: Collecting 10 samples in estimated 250.38 ms (5560 iterations)
+Benchmarking codec/00127: Analyzing
+Benchmarking codec/00135
+Benchmarking codec/00135: Warming up for 100.00 ms
+Benchmarking codec/00135: Collecting 10 samples in estimated 250.00 ms (1.7M iterations)
+Benchmarking codec/00135: Analyzing
+Benchmarking codec/00067
+Benchmarking codec/00067: Warming up for 100.00 ms
+Benchmarking codec/00067: Collecting 10 samples in estimated 251.96 ms (820 iterations)
+Benchmarking codec/00067: Analyzing
+Benchmarking codec/00115
+Benchmarking codec/00115: Warming up for 100.00 ms
+Benchmarking codec/00115: Collecting 10 samples in estimated 250.06 ms (41k iterations)
+Benchmarking codec/00115: Analyzing
+Benchmarking codec/00123
+Benchmarking codec/00123: Warming up for 100.00 ms
+Benchmarking codec/00123: Collecting 10 samples in estimated 250.26 ms (5690 iterations)
+Benchmarking codec/00123: Analyzing
+Benchmarking codec/00154
+Benchmarking codec/00154: Warming up for 100.00 ms
+Benchmarking codec/00154: Collecting 10 samples in estimated 251.09 ms (780 iterations)
+Benchmarking codec/00154: Analyzing
+Benchmarking codec/00119
+Benchmarking codec/00119: Warming up for 100.00 ms
+Benchmarking codec/00119: Collecting 10 samples in estimated 250.01 ms (38k iterations)
+Benchmarking codec/00119: Analyzing
+Benchmarking codec/00111
+Benchmarking codec/00111: Warming up for 100.00 ms
+Benchmarking codec/00111: Collecting 10 samples in estimated 250.08 ms (28k iterations)
+Benchmarking codec/00111: Analyzing
+Benchmarking codec/00130
+Benchmarking codec/00130: Warming up for 100.00 ms
+Benchmarking codec/00130: Collecting 10 samples in estimated 250.00 ms (7.6M iterations)
+Benchmarking codec/00130: Analyzing
+Benchmarking codec/00155
+Benchmarking codec/00155: Warming up for 100.00 ms
+Benchmarking codec/00155: Collecting 10 samples in estimated 250.40 ms (790 iterations)
+Benchmarking codec/00155: Analyzing
+Benchmarking codec/00058
+Benchmarking codec/00058: Warming up for 100.00 ms
+Benchmarking codec/00058: Collecting 10 samples in estimated 252.57 ms (800 iterations)
+Benchmarking codec/00058: Analyzing
+Benchmarking codec/00095
+Benchmarking codec/00095: Warming up for 100.00 ms
+Benchmarking codec/00095: Collecting 10 samples in estimated 252.01 ms (820 iterations)
+Benchmarking codec/00095: Analyzing
+Benchmarking codec/00063
+Benchmarking codec/00063: Warming up for 100.00 ms
+Benchmarking codec/00063: Collecting 10 samples in estimated 251.91 ms (820 iterations)
+Benchmarking codec/00063: Analyzing
+Benchmarking codec/00070
+Benchmarking codec/00070: Warming up for 100.00 ms
+Benchmarking codec/00070: Collecting 10 samples in estimated 251.52 ms (800 iterations)
+Benchmarking codec/00070: Analyzing
+Benchmarking codec/00035
+Benchmarking codec/00035: Warming up for 100.00 ms
+Benchmarking codec/00035: Collecting 10 samples in estimated 250.00 ms (66k iterations)
+Benchmarking codec/00035: Analyzing
+Benchmarking codec/00162
+Benchmarking codec/00162: Warming up for 100.00 ms
+Benchmarking codec/00162: Collecting 10 samples in estimated 250.22 ms (3310 iterations)
+Benchmarking codec/00162: Analyzing
+Benchmarking codec/00106
+Benchmarking codec/00106: Warming up for 100.00 ms
+Benchmarking codec/00106: Collecting 10 samples in estimated 250.07 ms (28k iterations)
+Benchmarking codec/00106: Analyzing
+Benchmarking codec/00022
+Benchmarking codec/00022: Warming up for 100.00 ms
+Benchmarking codec/00022: Collecting 10 samples in estimated 250.72 ms (2860 iterations)
+Benchmarking codec/00022: Analyzing
+Benchmarking codec/00015
+Benchmarking codec/00015: Warming up for 100.00 ms
+Benchmarking codec/00015: Collecting 10 samples in estimated 250.14 ms (2670 iterations)
+Benchmarking codec/00015: Analyzing
+Benchmarking codec/00099
+Benchmarking codec/00099: Warming up for 100.00 ms
+Benchmarking codec/00099: Collecting 10 samples in estimated 253.50 ms (540 iterations)
+Benchmarking codec/00099: Analyzing
+Benchmarking codec/00103
+Benchmarking codec/00103: Warming up for 100.00 ms
+Benchmarking codec/00103: Collecting 10 samples in estimated 250.50 ms (590 iterations)
+Benchmarking codec/00103: Analyzing
+Benchmarking codec/00006
+Benchmarking codec/00006: Warming up for 100.00 ms
+Benchmarking codec/00006: Collecting 10 samples in estimated 250.00 ms (769k iterations)
+Benchmarking codec/00006: Analyzing
+Benchmarking codec/00059
+Benchmarking codec/00059: Warming up for 100.00 ms
+Benchmarking codec/00059: Collecting 10 samples in estimated 252.50 ms (800 iterations)
+Benchmarking codec/00059: Analyzing
+Benchmarking codec/00091
+Benchmarking codec/00091: Warming up for 100.00 ms
+Benchmarking codec/00091: Collecting 10 samples in estimated 252.81 ms (800 iterations)
+Benchmarking codec/00091: Analyzing
+Benchmarking codec/00118
+Benchmarking codec/00118: Warming up for 100.00 ms
+Benchmarking codec/00118: Collecting 10 samples in estimated 250.01 ms (40k iterations)
+Benchmarking codec/00118: Analyzing
+Benchmarking codec/00150
+Benchmarking codec/00150: Warming up for 100.00 ms
+Benchmarking codec/00150: Collecting 10 samples in estimated 250.10 ms (6520 iterations)
+Benchmarking codec/00150: Analyzing
+Benchmarking codec/00047
+Benchmarking codec/00047: Warming up for 100.00 ms
+Benchmarking codec/00047: Collecting 10 samples in estimated 250.00 ms (417k iterations)
+Benchmarking codec/00047: Analyzing
+Benchmarking codec/00167
+Benchmarking codec/00167: Warming up for 100.00 ms
+Benchmarking codec/00167: Collecting 10 samples in estimated 250.20 ms (2920 iterations)
+Benchmarking codec/00167: Analyzing
+Benchmarking codec/00014
+Benchmarking codec/00014: Warming up for 100.00 ms
+Benchmarking codec/00014: Collecting 10 samples in estimated 250.62 ms (2680 iterations)
+Benchmarking codec/00014: Analyzing
+Benchmarking codec/00071
+Benchmarking codec/00071: Warming up for 100.00 ms
+Benchmarking codec/00071: Collecting 10 samples in estimated 250.45 ms (680 iterations)
+Benchmarking codec/00071: Analyzing
+Benchmarking codec/00046
+Benchmarking codec/00046: Warming up for 100.00 ms
+Benchmarking codec/00046: Collecting 10 samples in estimated 250.00 ms (473k iterations)
+Benchmarking codec/00046: Analyzing
+Benchmarking codec/00083
+Benchmarking codec/00083: Warming up for 100.00 ms
+Benchmarking codec/00083: Collecting 10 samples in estimated 251.43 ms (1080 iterations)
+Benchmarking codec/00083: Analyzing
+Benchmarking codec/00023
+Benchmarking codec/00023: Warming up for 100.00 ms
+Benchmarking codec/00023: Collecting 10 samples in estimated 250.16 ms (2750 iterations)
+Benchmarking codec/00023: Analyzing
+Benchmarking codec/00079
+Benchmarking codec/00079: Warming up for 100.00 ms
+Benchmarking codec/00079: Collecting 10 samples in estimated 250.93 ms (1210 iterations)
+Benchmarking codec/00079: Analyzing
+Benchmarking codec/00066
+Benchmarking codec/00066: Warming up for 100.00 ms
+Benchmarking codec/00066: Collecting 10 samples in estimated 250.61 ms (760 iterations)
+Benchmarking codec/00066: Analyzing
+Benchmarking codec/00107
+Benchmarking codec/00107: Warming up for 100.00 ms
+Benchmarking codec/00107: Collecting 10 samples in estimated 250.03 ms (25k iterations)
+Benchmarking codec/00107: Analyzing
+Benchmarking codec/00151
+Benchmarking codec/00151: Warming up for 100.00 ms
+Benchmarking codec/00151: Collecting 10 samples in estimated 250.49 ms (4230 iterations)
+Benchmarking codec/00151: Analyzing
+Benchmarking codec/00027
+Benchmarking codec/00027: Warming up for 100.00 ms
+Benchmarking codec/00027: Collecting 10 samples in estimated 250.35 ms (2780 iterations)
+Benchmarking codec/00027: Analyzing
+Benchmarking codec/00163
+Benchmarking codec/00163: Warming up for 100.00 ms
+Benchmarking codec/00163: Collecting 10 samples in estimated 250.26 ms (3190 iterations)
+Benchmarking codec/00163: Analyzing
+Benchmarking codec/00018
+Benchmarking codec/00018: Warming up for 100.00 ms
+Benchmarking codec/00018: Collecting 10 samples in estimated 250.54 ms (2870 iterations)
+Benchmarking codec/00018: Analyzing
+Benchmarking codec/00143
+Benchmarking codec/00143: Warming up for 100.00 ms
+Benchmarking codec/00143: Collecting 10 samples in estimated 250.00 ms (129k iterations)
+Benchmarking codec/00143: Analyzing
+Benchmarking codec/00055
+Benchmarking codec/00055: Warming up for 100.00 ms
+Benchmarking codec/00055: Collecting 10 samples in estimated 252.68 ms (650 iterations)
+Benchmarking codec/00055: Analyzing
+Benchmarking codec/00050
+Benchmarking codec/00050: Warming up for 100.00 ms
+Benchmarking codec/00050: Collecting 10 samples in estimated 252.18 ms (670 iterations)
+Benchmarking codec/00050: Analyzing
+Benchmarking codec/00139
+Benchmarking codec/00139: Warming up for 100.00 ms
+Benchmarking codec/00139: Collecting 10 samples in estimated 250.02 ms (125k iterations)
+Benchmarking codec/00139: Analyzing
+Benchmarking codec/00147
+Benchmarking codec/00147: Warming up for 100.00 ms
+Benchmarking codec/00147: Collecting 10 samples in estimated 250.67 ms (3150 iterations)
+Benchmarking codec/00147: Analyzing
+Benchmarking codec/00131
+Benchmarking codec/00131: Warming up for 100.00 ms
+Benchmarking codec/00131: Collecting 10 samples in estimated 250.00 ms (1.6M iterations)
+Benchmarking codec/00131: Analyzing
+Benchmarking codec/00030
+Benchmarking codec/00030: Warming up for 100.00 ms
+Benchmarking codec/00030: Collecting 10 samples in estimated 250.85 ms (2630 iterations)
+Benchmarking codec/00030: Analyzing
+Benchmarking codec/00002
+Benchmarking codec/00002: Warming up for 100.00 ms
+Benchmarking codec/00002: Collecting 10 samples in estimated 250.00 ms (835k iterations)
+Benchmarking codec/00002: Analyzing
+Benchmarking codec/00019
+Benchmarking codec/00019: Warming up for 100.00 ms
+Benchmarking codec/00019: Collecting 10 samples in estimated 250.08 ms (2550 iterations)
+Benchmarking codec/00019: Analyzing
+Benchmarking codec/00166
+Benchmarking codec/00166: Warming up for 100.00 ms
+Benchmarking codec/00166: Collecting 10 samples in estimated 250.60 ms (3050 iterations)
+Benchmarking codec/00166: Analyzing
+Benchmarking codec/00102
+Benchmarking codec/00102: Warming up for 100.00 ms
+Benchmarking codec/00102: Collecting 10 samples in estimated 254.43 ms (550 iterations)
+Benchmarking codec/00102: Analyzing
+Benchmarking codec/00039
+Benchmarking codec/00039: Warming up for 100.00 ms
+Benchmarking codec/00039: Collecting 10 samples in estimated 250.01 ms (67k iterations)
+Benchmarking codec/00039: Analyzing
+Benchmarking codec/00126
+Benchmarking codec/00126: Warming up for 100.00 ms
+Benchmarking codec/00126: Collecting 10 samples in estimated 250.07 ms (5480 iterations)
+Benchmarking codec/00126: Analyzing
+Benchmarking codec/00011
+Benchmarking codec/00011: Warming up for 100.00 ms
+Benchmarking codec/00011: Collecting 10 samples in estimated 250.95 ms (2460 iterations)
+Benchmarking codec/00011: Analyzing
+Benchmarking codec/00074
+Benchmarking codec/00074: Warming up for 100.00 ms
+Benchmarking codec/00074: Collecting 10 samples in estimated 250.59 ms (1430 iterations)
+Benchmarking codec/00074: Analyzing
+# wrote 1680 sample rows to /home/user/ArmoniK.Api/ffi/logs/rust/opt/patches/backward-encode/bench/codec-backward-3.jsonl

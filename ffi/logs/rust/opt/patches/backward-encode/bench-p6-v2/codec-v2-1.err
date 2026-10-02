@@ -1,0 +1,37 @@
+# narrowed: arms [core-ffi,core-native] dirs [encode] end states [reused-buffer,transport-ready-tonic] inputs [hot]: 8 cases kept
+# precheck: 32 checks, 0 failures, 1 inputs, 8 cases
+
+Warning: It is not recommended to reduce nresamples below 1000.
+Benchmarking codec/00000
+Benchmarking codec/00000: Warming up for 100.00 ms
+Benchmarking codec/00000: Collecting 10 samples in estimated 250.44 ms (3910 iterations)
+Benchmarking codec/00000: Analyzing
+Benchmarking codec/00004
+Benchmarking codec/00004: Warming up for 100.00 ms
+Benchmarking codec/00004: Collecting 10 samples in estimated 250.03 ms (3560 iterations)
+Benchmarking codec/00004: Analyzing
+Benchmarking codec/00005
+Benchmarking codec/00005: Warming up for 100.00 ms
+Benchmarking codec/00005: Collecting 10 samples in estimated 250.54 ms (3890 iterations)
+Benchmarking codec/00005: Analyzing
+Benchmarking codec/00001
+Benchmarking codec/00001: Warming up for 100.00 ms
+Benchmarking codec/00001: Collecting 10 samples in estimated 250.17 ms (3990 iterations)
+Benchmarking codec/00001: Analyzing
+Benchmarking codec/00002
+Benchmarking codec/00002: Warming up for 100.00 ms
+Benchmarking codec/00002: Collecting 10 samples in estimated 250.51 ms (2890 iterations)
+Benchmarking codec/00002: Analyzing
+Benchmarking codec/00007
+Benchmarking codec/00007: Warming up for 100.00 ms
+Benchmarking codec/00007: Collecting 10 samples in estimated 250.73 ms (2780 iterations)
+Benchmarking codec/00007: Analyzing
+Benchmarking codec/00006
+Benchmarking codec/00006: Warming up for 100.00 ms
+Benchmarking codec/00006: Collecting 10 samples in estimated 250.26 ms (2420 iterations)
+Benchmarking codec/00006: Analyzing
+Benchmarking codec/00003
+Benchmarking codec/00003: Warming up for 100.00 ms
+Benchmarking codec/00003: Collecting 10 samples in estimated 250.08 ms (2550 iterations)
+Benchmarking codec/00003: Analyzing
+# wrote 80 sample rows to /home/user/ArmoniK.Api/ffi/logs/rust/opt/patches/backward-encode/bench-p6-v2/codec-v2-1.jsonl

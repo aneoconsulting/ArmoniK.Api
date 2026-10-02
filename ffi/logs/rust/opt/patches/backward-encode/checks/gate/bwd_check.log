@@ -1,0 +1,1921 @@
+# bwd_check (harness::bwd_tests), 2026-10-02T15:02:14Z
+## full build (target/)
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:392:26
+    |
+392 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:395:13
+    |
+395 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:904:11
+    |
+904 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:926:11
+    |
+926 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:949:11
+    |
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:972:11
+    |
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:996:11
+    |
+996 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1017:11
+     |
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1039:11
+     |
+1039 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1059:11
+     |
+1059 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1080:11
+     |
+1080 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1101:11
+     |
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1123:11
+     |
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1141:11
+     |
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1161:11
+     |
+1161 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1190:11
+     |
+1190 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2490:11
+     |
+2490 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2526:11
+     |
+2526 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2572:11
+     |
+2572 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2694:11
+     |
+2694 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2845:11
+     |
+2845 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2893:11
+     |
+2893 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1041:35
+     |
+1041 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1041 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1130:39
+     |
+1130 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1130 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:41
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as *const () as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:81
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                                                                 ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as *const () as usize)
+     |                                                                                 ++++++++++++
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1720:17
+     |
+1720 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1755:13
+     |
+1755 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1878:17
+     |
+1878 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1913:13
+     |
+1913 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2397:17
+     |
+2397 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2433:13
+     |
+2433 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2472:17
+     |
+2472 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2508:13
+     |
+2508 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2547:17
+     |
+2547 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2583:13
+     |
+2583 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2622:17
+     |
+2622 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2658:13
+     |
+2658 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2702:17
+     |
+2702 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2743:13
+     |
+2743 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2845:17
+     |
+2845 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2880:13
+     |
+2880 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3003:17
+     |
+3003 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3038:13
+     |
+3038 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3527:17
+     |
+3527 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3568:13
+     |
+3568 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4189:17
+     |
+4189 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4224:13
+     |
+4224 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4347:17
+     |
+4347 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4382:13
+     |
+4382 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4501:17
+     |
+4501 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4536:13
+     |
+4536 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4659:17
+     |
+4659 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4694:13
+     |
+4694 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1355:15
+     |
+1355 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1385:15
+     |
+1385 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1395:15
+     |
+1395 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1405:15
+     |
+1405 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1413:15
+     |
+1413 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1421:15
+     |
+1421 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1429:15
+     |
+1429 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1438:15
+     |
+1438 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1596:15
+     |
+1596 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1629:15
+     |
+1629 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1640:15
+     |
+1640 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1651:15
+     |
+1651 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1660:15
+     |
+1660 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1669:15
+     |
+1669 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1678:15
+     |
+1678 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1688:15
+     |
+1688 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding.rs:5093:11
+     |
+5093 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding.rs:5103:11
+     |
+5103 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding.rs:5113:11
+     |
+5113 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding.rs:5121:11
+     |
+5121 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding.rs:5129:11
+     |
+5129 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding.rs:5135:11
+     |
+5135 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding.rs:5146:11
+     |
+5146 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2754:8
+     |
+2754 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+2754 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+2754 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3579:8
+     |
+3579 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3579 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+3579 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:4098:8
+     |
+4098 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+4098 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+4098 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+PASS M1 P1.1 Whole: 858 B, warm and fresh context
+PASS M1 P1.1 One: 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(8): 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(32): 858 B, warm and fresh context
+PASS M1 P1.1 Mixed: 858 B, warm and fresh context
+PASS M1 P1.2 Whole: 218121 B, warm and fresh context
+PASS M1 P1.2 One: 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(8): 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(32): 218121 B, warm and fresh context
+PASS M1 P1.2 Mixed: 218121 B, warm and fresh context
+PASS M1 P1.3 Whole: 605 B, warm and fresh context
+PASS M1 P1.3 One: 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(8): 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(32): 605 B, warm and fresh context
+PASS M1 P1.3 Mixed: 605 B, warm and fresh context
+PASS M2 P2.1 Whole: 1037 B, warm and fresh context
+PASS M2 P2.1 Whole mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 One: 1037 B, warm and fresh context
+PASS M2 P2.1 One mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.2 Whole: 540422 B, warm and fresh context
+PASS M2 P2.2 Whole mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 One: 540422 B, warm and fresh context
+PASS M2 P2.2 One mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.3 Whole: 647024 B, warm and fresh context
+PASS M2 P2.3 Whole mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 One: 647024 B, warm and fresh context
+PASS M2 P2.3 One mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.4 Whole: 979465 B, warm and fresh context
+PASS M2 P2.4 Whole mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 One: 979465 B, warm and fresh context
+PASS M2 P2.4 One mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.5 Whole: 19632 B, warm and fresh context
+PASS M2 P2.5 Whole mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 One: 19632 B, warm and fresh context
+PASS M2 P2.5 One mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed mixed-transcoders: 19632 B, warm and fresh context
+PASS M6 P6.1 Whole: 123354 B byte-identical
+PASS M6 P6.1 One: 180954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(8): 128954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(32): 123354 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Mixed: 134954 B, several packed records per field, prost decode == value
+PASS M5 P5.1 fresh context: 116 B
+PASS M5 P5.2 fresh context: 65620 B
+PASS M5 P5.3 fresh context: 1048660 B
+PASS M5 P5.4 fresh context: 4194390 B
+PASS rollback P1.2 ak_fail at element call 3: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 5: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 40: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS transcoder over capacity: AK_ERR_CAPACITY, then a byte-identical encode on the same context
+# bwd_check: 78 passed, 0 failed
+BWD CHECK PASSED
+rc=0
+
+## counting build (target-count/): the per-payload counters
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:392:26
+    |
+392 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:395:13
+    |
+395 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:904:11
+    |
+904 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:926:11
+    |
+926 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:949:11
+    |
+949 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:972:11
+    |
+972 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:996:11
+    |
+996 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1017:11
+     |
+1017 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1039:11
+     |
+1039 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1059:11
+     |
+1059 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1080:11
+     |
+1080 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1101:11
+     |
+1101 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1123:11
+     |
+1123 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1141:11
+     |
+1141 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1161:11
+     |
+1161 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1190:11
+     |
+1190 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2490:11
+     |
+2490 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2526:11
+     |
+2526 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2572:11
+     |
+2572 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2694:11
+     |
+2694 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2845:11
+     |
+2845 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2893:11
+     |
+2893 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1041:35
+     |
+1041 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1041 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1130:39
+     |
+1130 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1130 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:41
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as *const () as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:81
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                                                                 ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as *const () as usize)
+     |                                                                                 ++++++++++++
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1720:17
+     |
+1720 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1755:13
+     |
+1755 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1878:17
+     |
+1878 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1913:13
+     |
+1913 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2397:17
+     |
+2397 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2433:13
+     |
+2433 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2472:17
+     |
+2472 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2508:13
+     |
+2508 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2547:17
+     |
+2547 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2583:13
+     |
+2583 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2622:17
+     |
+2622 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2658:13
+     |
+2658 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2702:17
+     |
+2702 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2743:13
+     |
+2743 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2845:17
+     |
+2845 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2880:13
+     |
+2880 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3003:17
+     |
+3003 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3038:13
+     |
+3038 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3527:17
+     |
+3527 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3568:13
+     |
+3568 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4189:17
+     |
+4189 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4224:13
+     |
+4224 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4347:17
+     |
+4347 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4382:13
+     |
+4382 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4501:17
+     |
+4501 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4536:13
+     |
+4536 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4659:17
+     |
+4659 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4694:13
+     |
+4694 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1355:15
+     |
+1355 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1385:15
+     |
+1385 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1395:15
+     |
+1395 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1405:15
+     |
+1405 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1413:15
+     |
+1413 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1421:15
+     |
+1421 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1429:15
+     |
+1429 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1438:15
+     |
+1438 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1596:15
+     |
+1596 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1629:15
+     |
+1629 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1640:15
+     |
+1640 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1651:15
+     |
+1651 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1660:15
+     |
+1660 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1669:15
+     |
+1669 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1678:15
+     |
+1678 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1688:15
+     |
+1688 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding.rs:5093:11
+     |
+5093 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding.rs:5103:11
+     |
+5103 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding.rs:5113:11
+     |
+5113 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding.rs:5121:11
+     |
+5121 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding.rs:5129:11
+     |
+5129 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding.rs:5135:11
+     |
+5135 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding.rs:5146:11
+     |
+5146 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2754:8
+     |
+2754 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+2754 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+2754 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3579:8
+     |
+3579 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3579 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+3579 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:4098:8
+     |
+4098 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+4098 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+4098 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+PASS M1 P1.1 Whole: 858 B, warm and fresh context
+PASS M1 P1.1 One: 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(8): 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(32): 858 B, warm and fresh context
+PASS M1 P1.1 Mixed: 858 B, warm and fresh context
+PASS M1 P1.2 Whole: 218121 B, warm and fresh context
+PASS M1 P1.2 One: 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(8): 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(32): 218121 B, warm and fresh context
+PASS M1 P1.2 Mixed: 218121 B, warm and fresh context
+PASS M1 P1.3 Whole: 605 B, warm and fresh context
+PASS M1 P1.3 One: 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(8): 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(32): 605 B, warm and fresh context
+PASS M1 P1.3 Mixed: 605 B, warm and fresh context
+PASS M2 P2.1 Whole: 1037 B, warm and fresh context
+PASS M2 P2.1 Whole mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 One: 1037 B, warm and fresh context
+PASS M2 P2.1 One mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.2 Whole: 540422 B, warm and fresh context
+PASS M2 P2.2 Whole mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 One: 540422 B, warm and fresh context
+PASS M2 P2.2 One mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.3 Whole: 647024 B, warm and fresh context
+PASS M2 P2.3 Whole mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 One: 647024 B, warm and fresh context
+PASS M2 P2.3 One mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.4 Whole: 979465 B, warm and fresh context
+PASS M2 P2.4 Whole mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 One: 979465 B, warm and fresh context
+PASS M2 P2.4 One mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.5 Whole: 19632 B, warm and fresh context
+PASS M2 P2.5 Whole mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 One: 19632 B, warm and fresh context
+PASS M2 P2.5 One mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed mixed-transcoders: 19632 B, warm and fresh context
+PASS M6 P6.1 Whole: 123354 B byte-identical
+PASS M6 P6.1 One: 180954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(8): 128954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(32): 123354 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Mixed: 134954 B, several packed records per field, prost decode == value
+PASS M5 P5.1 fresh context: 116 B
+PASS M5 P5.2 fresh context: 65620 B
+PASS M5 P5.3 fresh context: 1048660 B
+PASS M5 P5.4 fresh context: 4194390 B
+PASS rollback P1.2 ak_fail at element call 3: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 5: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 40: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS transcoder over capacity: AK_ERR_CAPACITY, then a byte-identical encode on the same context
+# bwd_check: 78 passed, 0 failed
+
+# per payload, one warm encode (the binding's loops: every field delivered last to first):
+# elem_calls = element entry calls (ak_elem*/ak_elemu*/ak_blob_run/ak_run_*), each now in reverse order;
+# items = elements they carried; multi = calls with n > 1 (array walked last to first by the codec);
+# tc_moves/bytes = transcoder outputs moved after commit; grows/bytes = buffer grows (0 warm);
+# core_fwd = the core-counted forward crossings (ak_enc_counters): elem_calls must equal core_fwd - 1 (the ak_encode_* call)
+payload  mode      calls    items    multi tc_moves  tc_bytes  grows grow_bytes  core_fwd
+P1.1     drop          1        4        1        0         0      0          0        2 ok
+P1.1     retain        1        4        1        0         0      0          0        2 ok
+P1.2     drop          7     1000        7        0         0      0          0        8 ok
+P1.2     retain        9     1000        9        0         0      0          0       10 ok
+P1.3     drop          2      300        2        0         0      0          0        3 ok
+P1.3     retain        3      300        3        0         0      0          0        4 ok
+P2.1     drop          6       17        5        0         0      0          0        7 ok
+P2.1     retain        6       17        5        0         0      0          0        7 ok
+P2.2     drop       2510     8500     2510        0         0      0          0     2511 ok
+P2.2     retain     2516     8500     2516        0         0      0          0     2517 ok
+P2.3     drop        628    15625      628        0         0      0          0      629 ok
+P2.3     retain      629    15625      629        0         0      0          0      630 ok
+P2.4     drop        402    24880      402        0         0      0          0      403 ok
+P2.4     retain      403    24880      403        0         0      0          0      404 ok
+P2.5     drop        101      340      101        0         0      0          0      102 ok
+P2.5     retain      101      340      101        0         0      0          0      102 ok
+P3.1     drop          1      200        1        0         0      0          0        2 ok
+P3.1     retain        2      200        2        0         0      0          0        3 ok
+P4.1     drop        202     1000      202        0         0      0          0      203 ok
+P4.1     retain      203     1000      203        0         0      0          0      204 ok
+P5.1     drop          0        0        0        0         0      0          0        1 ok
+P5.1     retain        0        0        0        0         0      0          0        1 ok
+P5.2     drop          0        0        0        0         0      0          0        1 ok
+P5.2     retain        0        0        0        0         0      0          0        1 ok
+P5.3     drop          0        0        0        0         0      0          0        1 ok
+P5.3     retain        0        0        0        0         0      0          0        1 ok
+P5.4     drop          0        0        0        0         0      0          0        1 ok
+P5.4     retain        0        0        0        0         0      0          0        1 ok
+P6.1     drop       1001    30200     1001        0         0      0          0     1002 ok
+P6.1     retain     1001    30200     1001        0         0      0          0     1002 ok
+BWD CHECK PASSED
+rc=0
+
+## no-unknown build (target-nounk/)
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:392:26
+    |
+392 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:395:13
+    |
+395 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unnecessary `unsafe` block
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:458:11
+    |
+458 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:480:11
+    |
+480 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:503:11
+    |
+503 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:524:11
+    |
+524 | unsafe fn enc_list_probe_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:544:11
+    |
+544 | unsafe fn enc_list_metrics_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:565:11
+    |
+565 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+   --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:583:11
+    |
+583 | unsafe fn enc_dual_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1310:11
+     |
+1310 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1342:11
+     |
+1342 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1384:11
+     |
+1384 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1484:11
+     |
+1484 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1621:11
+     |
+1621 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/generated/../generated_nounk/codec.rs:1665:11
+     |
+1665 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1041:35
+     |
+1041 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1041 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1130:39
+     |
+1130 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1130 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:41
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as *const () as usize || tc as usize == tc_utf8_simd as usize)
+     |                                         ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-bwd/ffi/poc/codec/crates/ak-core/src/lib.rs:1143:81
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as usize)
+     |                                                                                 ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1143 |     let known = (tc as usize == tc_utf8 as usize || tc as usize == tc_utf8_simd as *const () as usize)
+     |                                                                                 ++++++++++++
+
+warning: value assigned to `done` is never read
+   --> crates/harness/src/generated/binding_nounk.rs:909:17
+    |
+909 |                 done += i;
+    |                 ^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+   --> crates/harness/src/generated/binding_nounk.rs:944:13
+    |
+944 |             done += i;
+    |             ^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1252:17
+     |
+1252 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1288:13
+     |
+1288 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1327:17
+     |
+1327 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1363:13
+     |
+1363 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1402:17
+     |
+1402 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1438:13
+     |
+1438 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1477:17
+     |
+1477 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1513:13
+     |
+1513 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1557:17
+     |
+1557 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1598:13
+     |
+1598 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1672:17
+     |
+1672 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:1707:13
+     |
+1707 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2020:17
+     |
+2020 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2061:13
+     |
+2061 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2444:17
+     |
+2444 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2479:13
+     |
+2479 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2602:17
+     |
+2602 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding_nounk.rs:2637:13
+     |
+2637 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:795:15
+    |
+795 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_trans...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:825:15
+    |
+825 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn,...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:835:15
+    |
+835 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, tc...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:845:15
+    |
+845 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak_...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:853:15
+    |
+853 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_tr...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:861:15
+    |
+861 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn,...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:869:15
+    |
+869 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak_...
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+   --> crates/harness/src/generated/binding_nounk.rs:878:15
+    |
+878 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:2992:11
+     |
+2992 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3001:11
+     |
+3001 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3010:11
+     |
+3010 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3017:11
+     |
+3017 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: *mut ak_dec_c...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3024:11
+     |
+3024 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: *mut ak...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3029:11
+     |
+3029 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: *mut ak_dec_ctx) -> UploadRes...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding_nounk.rs:3038:11
+     |
+3038 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: *mut ak_dec_ctx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding_nounk.rs:1609:8
+     |
+1609 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+1609 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+1609 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding_nounk.rs:2072:8
+     |
+2072 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+2072 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+2072 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding_nounk.rs:2381:8
+     |
+2381 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+2381 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+2381 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+PASS M1 P1.1 Whole: 858 B, warm and fresh context
+PASS M1 P1.1 One: 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(8): 858 B, warm and fresh context
+PASS M1 P1.1 Chunk(32): 858 B, warm and fresh context
+PASS M1 P1.1 Mixed: 858 B, warm and fresh context
+PASS M1 P1.2 Whole: 218121 B, warm and fresh context
+PASS M1 P1.2 One: 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(8): 218121 B, warm and fresh context
+PASS M1 P1.2 Chunk(32): 218121 B, warm and fresh context
+PASS M1 P1.2 Mixed: 218121 B, warm and fresh context
+PASS M1 P1.3 Whole: 605 B, warm and fresh context
+PASS M1 P1.3 One: 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(8): 605 B, warm and fresh context
+PASS M1 P1.3 Chunk(32): 605 B, warm and fresh context
+PASS M1 P1.3 Mixed: 605 B, warm and fresh context
+PASS M2 P2.1 Whole: 1037 B, warm and fresh context
+PASS M2 P2.1 Whole mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 One: 1037 B, warm and fresh context
+PASS M2 P2.1 One mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(8) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32): 1037 B, warm and fresh context
+PASS M2 P2.1 Chunk(32) mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed: 1037 B, warm and fresh context
+PASS M2 P2.1 Mixed mixed-transcoders: 1037 B, warm and fresh context
+PASS M2 P2.2 Whole: 540422 B, warm and fresh context
+PASS M2 P2.2 Whole mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 One: 540422 B, warm and fresh context
+PASS M2 P2.2 One mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(8) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32): 540422 B, warm and fresh context
+PASS M2 P2.2 Chunk(32) mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed: 540422 B, warm and fresh context
+PASS M2 P2.2 Mixed mixed-transcoders: 540422 B, warm and fresh context
+PASS M2 P2.3 Whole: 647024 B, warm and fresh context
+PASS M2 P2.3 Whole mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 One: 647024 B, warm and fresh context
+PASS M2 P2.3 One mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(8) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32): 647024 B, warm and fresh context
+PASS M2 P2.3 Chunk(32) mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed: 647024 B, warm and fresh context
+PASS M2 P2.3 Mixed mixed-transcoders: 647024 B, warm and fresh context
+PASS M2 P2.4 Whole: 979465 B, warm and fresh context
+PASS M2 P2.4 Whole mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 One: 979465 B, warm and fresh context
+PASS M2 P2.4 One mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(8) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32): 979465 B, warm and fresh context
+PASS M2 P2.4 Chunk(32) mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed: 979465 B, warm and fresh context
+PASS M2 P2.4 Mixed mixed-transcoders: 979465 B, warm and fresh context
+PASS M2 P2.5 Whole: 19632 B, warm and fresh context
+PASS M2 P2.5 Whole mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 One: 19632 B, warm and fresh context
+PASS M2 P2.5 One mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(8) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32): 19632 B, warm and fresh context
+PASS M2 P2.5 Chunk(32) mixed-transcoders: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed: 19632 B, warm and fresh context
+PASS M2 P2.5 Mixed mixed-transcoders: 19632 B, warm and fresh context
+PASS M6 P6.1 Whole: 123354 B byte-identical
+PASS M6 P6.1 One: 180954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(8): 128954 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Chunk(32): 123354 B, several packed records per field, prost decode == value
+PASS M6 P6.1 Mixed: 134954 B, several packed records per field, prost decode == value
+PASS M5 P5.1 fresh context: 116 B
+PASS M5 P5.2 fresh context: 65620 B
+PASS M5 P5.3 fresh context: 1048660 B
+PASS M5 P5.4 fresh context: 4194390 B
+PASS rollback P1.2 ak_fail at element call 3: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 5: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS rollback P2.2 ak_fail at element call 40: encode returns AK_ERR_HOST, sticky, next encode on the same context byte-identical
+PASS transcoder over capacity: AK_ERR_CAPACITY, then a byte-identical encode on the same context
+# bwd_check: 78 passed, 0 failed
+BWD CHECK PASSED
+rc=0
+
+## planted control: AK_BWD_PLANT=forward (the committed FORWARD delivery order against this core): MUST FAIL
+plant rc=1; 47 FAIL, 31 PASS (the PASS rows are fields delivered in ONE call, or whose elements are all equal: order-invisible)
+PLANT DETECTED
