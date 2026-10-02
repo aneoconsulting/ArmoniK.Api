@@ -144,7 +144,7 @@ jobs:
           tool: sccache
       - name: Install Rust toolchain
         if: ${{ matrix.language.lang == 'Rust' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           toolchain: ${{ matrix.language.toolchain }}
           components: rust-src,rust-docs,rustfmt${{contains(matrix.language.toolchain, 'nightly') && ',miri' || ''}}
