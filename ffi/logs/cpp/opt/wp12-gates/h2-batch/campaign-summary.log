@@ -1,0 +1,4 @@
+[2026-10-02T08:11:28Z] step campaign: bash gen/run_campaign.sh --suite gate --out /tmp/tmp.fAwaTkO2Eg/camp
+gate passed: /tmp/tmp.fAwaTkO2Eg/camp/gate.log
+[2026-10-02T08:22:51Z] step campaign: exit 0
+[2026-10-02T08:22:55Z]   census campaign: ok (census-campaign.txt: 40 lines)

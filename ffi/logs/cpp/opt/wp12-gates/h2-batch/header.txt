@@ -1,0 +1,62 @@
+# cpp slice, WP12 gates, variant h2-batch (2026-10-02T08:10:05Z)
+# commit 1bdbaa07d4911a03f1f784ee1a8c5d59761ecb24
+# checkout /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi (a worktree; its poc/codec/Cargo.lock is its own, not the shared tree's)
+# machine Linux 6.18.44-fc-v51 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz: a CONTAINER; nothing here is timed
+# CPU sets: client 1, server 2,3
+# g++: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; cmake: cmake version 3.28.3; rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# protoc: libprotoc 3.21.12; pkg-config protobuf 3.21.12, grpc++ 1.51.1
+# apt: libgrpc++-dev 1.51.1-4.1build5; libprotobuf-dev 3.21.12-8.2ubuntu0.3; protobuf-compiler 3.21.12-8.2ubuntu0.3; protobuf-compiler-grpc 1.51.1-4.1build5; 
+# Google Benchmark: 1.8.3 (/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/build-campaign/gbench-v1.8.3-release)
+# h2-batch.patch sha256 c64ffd965ba5a39a29ee5f98e1e51850b148af36d677b62bc17dda778ba9116f
+# AK_CORE_SWAP (/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/h2-batch/core-swap.txt):
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-h2batch/release
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-count/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-count-h2batch/release
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count-h2batch/release
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk-h2batch/release
+#   /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count-nounk/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count-nounk-h2batch/release
+# every core of this build:
+  core-build/target-both/release/libak_core.so sha256 dccfa7c4058a322929bb2cfb6aa848d950aa5fc72a891d8d5a56bd3a84b06668 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-camp-count-h2batch/release/libak_core.so sha256 143b043b0f90e049a3f65161b7c12468aa37fbdbf373b1dab912410723908a19 h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-camp-count-nounk-h2batch/release/libak_core.so sha256 d975943071e17fc69957e400bfae3c6077b926ef0f699828417968bc95650dcd h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-camp-count-nounk/release/libak_core.so sha256 aa56a19d374aa5487845eee49aeadcee5b4cc7478afe5122092f734dad9d4301 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target-camp-count/release/libak_core.so sha256 d8169b5d61ba2a5500c500e15222f1066f81633edbb1014180127e9ae96fc040 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target-camp-h2batch/release/libak_core.so sha256 f33775c09041388d3e6aa589ddeca91b1152b4ae745c0275131993abf49765ad h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-camp-nounk-h2batch/release/libak_core.so sha256 b6c27da5047bd1f0c9911f425842c47de69460621518312fde47e30e6b98d49a h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-camp-nounk/release/libak_core.so sha256 00de6be85462640380845306db03bbe0f8d23de3cd83db9490f796aeaf2c67f3 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target-camp/release/libak_core.so sha256 9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target-corpus-nounk/release/libak_core.so sha256 1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-corpus/release/libak_core.so sha256 99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-count-nounk/release/libak_core.so sha256 22fbf314eb94fa1b5ab42a140cae0e7fa17ede30b4490655064adf4e2a6f43d6 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-count/release/libak_core.so sha256 a7815622e3401a32e4f033ff118632dfe16ccc972759622c5303160c5e91f6d5 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-global/release/libak_core.so sha256 6c870f69af9cb51e6c3d171cfd9c359b9347b5d5dcf14cf0cc48c4d90a80d223 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-nounk/release/libak_core.so sha256 f298f0708e325b4bf4c947e0870a61693f07996ea173c0fe6aaed028f60a7d22 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-pad/release/libak_core.so sha256 b321a8cd3e22fd149ec221d29cbbbcd6d0037230f24d9d2bee1e789759aa5e53 h2: none compiled in; AK_H2_COALESCE: absent
+  core-build/target-rpc-count-h2batch/release/libak_core.so sha256 5dda3b2fd4a0aaee3e95aa8ef60b85f335f251a37129c4add28374f9405804ee h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-rpc-count/release/libak_core.so sha256 165327bfd1b59b076cfa5829ebfc56dc60a464886cea1a9069ad16af1e111e61 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target-rpc-h2batch/release/libak_core.so sha256 4a39c734774e7ce65ab28c4aade137ade951ff7292a7c0e6d1417213de1df0a3 h2: h2-batch-src ; AK_H2_COALESCE: absent
+  core-build/target-rpc/release/libak_core.so sha256 b16abd289725a19e18f989dd241387937591eb5e626af57d34ab76f28daa9401 h2: h2-0.4.19 ; AK_H2_COALESCE: absent
+  core-build/target/release/libak_core.so sha256 8645dcea441d714d733aebc17915975ba06ee235991b1911142a5a97d9cf07a1 h2: none compiled in; AK_H2_COALESCE: absent
+# CORRECTION (added after the run, same cores): the AK_H2_COALESCE column above used grep -x, which cannot match inside
+# a binary's concatenated string table; it reads 'absent' for every core. Recomputed with grep (no -x) on the same files:
+  core-build/target-both/release/libak_core.so sha256 dccfa7c4058a322929bb2cfb6aa848d950aa5fc72a891d8d5a56bd3a84b06668 AK_H2_COALESCE: absent
+  core-build/target-camp-count-h2batch/release/libak_core.so sha256 143b043b0f90e049a3f65161b7c12468aa37fbdbf373b1dab912410723908a19 AK_H2_COALESCE: present
+  core-build/target-camp-count-nounk-h2batch/release/libak_core.so sha256 d975943071e17fc69957e400bfae3c6077b926ef0f699828417968bc95650dcd AK_H2_COALESCE: present
+  core-build/target-camp-count-nounk/release/libak_core.so sha256 aa56a19d374aa5487845eee49aeadcee5b4cc7478afe5122092f734dad9d4301 AK_H2_COALESCE: absent
+  core-build/target-camp-count/release/libak_core.so sha256 d8169b5d61ba2a5500c500e15222f1066f81633edbb1014180127e9ae96fc040 AK_H2_COALESCE: absent
+  core-build/target-camp-h2batch/release/libak_core.so sha256 f33775c09041388d3e6aa589ddeca91b1152b4ae745c0275131993abf49765ad AK_H2_COALESCE: present
+  core-build/target-camp-nounk-h2batch/release/libak_core.so sha256 b6c27da5047bd1f0c9911f425842c47de69460621518312fde47e30e6b98d49a AK_H2_COALESCE: present
+  core-build/target-camp-nounk/release/libak_core.so sha256 00de6be85462640380845306db03bbe0f8d23de3cd83db9490f796aeaf2c67f3 AK_H2_COALESCE: absent
+  core-build/target-camp/release/libak_core.so sha256 9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82 AK_H2_COALESCE: absent
+  core-build/target-corpus-nounk/release/libak_core.so sha256 1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31 AK_H2_COALESCE: absent
+  core-build/target-corpus/release/libak_core.so sha256 99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c AK_H2_COALESCE: absent
+  core-build/target-count-nounk/release/libak_core.so sha256 22fbf314eb94fa1b5ab42a140cae0e7fa17ede30b4490655064adf4e2a6f43d6 AK_H2_COALESCE: absent
+  core-build/target-count/release/libak_core.so sha256 a7815622e3401a32e4f033ff118632dfe16ccc972759622c5303160c5e91f6d5 AK_H2_COALESCE: absent
+  core-build/target-global/release/libak_core.so sha256 6c870f69af9cb51e6c3d171cfd9c359b9347b5d5dcf14cf0cc48c4d90a80d223 AK_H2_COALESCE: absent
+  core-build/target-nounk/release/libak_core.so sha256 f298f0708e325b4bf4c947e0870a61693f07996ea173c0fe6aaed028f60a7d22 AK_H2_COALESCE: absent
+  core-build/target-pad/release/libak_core.so sha256 b321a8cd3e22fd149ec221d29cbbbcd6d0037230f24d9d2bee1e789759aa5e53 AK_H2_COALESCE: absent
+  core-build/target-rpc-count-h2batch/release/libak_core.so sha256 5dda3b2fd4a0aaee3e95aa8ef60b85f335f251a37129c4add28374f9405804ee AK_H2_COALESCE: present
+  core-build/target-rpc-count/release/libak_core.so sha256 165327bfd1b59b076cfa5829ebfc56dc60a464886cea1a9069ad16af1e111e61 AK_H2_COALESCE: absent
+  core-build/target-rpc-h2batch/release/libak_core.so sha256 4a39c734774e7ce65ab28c4aade137ade951ff7292a7c0e6d1417213de1df0a3 AK_H2_COALESCE: present
+  core-build/target-rpc/release/libak_core.so sha256 b16abd289725a19e18f989dd241387937591eb5e626af57d34ab76f28daa9401 AK_H2_COALESCE: absent
+  core-build/target/release/libak_core.so sha256 8645dcea441d714d733aebc17915975ba06ee235991b1911142a5a97d9cf07a1 AK_H2_COALESCE: absent

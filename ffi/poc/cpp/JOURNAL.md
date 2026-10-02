@@ -2188,3 +2188,33 @@ changes.
   unchanged.
 - The sweep's Cf-q at d/16 k=8 makes 3.25-3.67 allocations of at least 1 MiB per call on the ring of 6 (stock and
   h2-batch, every W); c/P5.4 k=8 0.16-0.25.
+
+## 2026-10-02, WP12: the full C++ gates on both h2 variants (container)
+
+- Task: WP12's done criterion for the C++ slice. No C++ gate log existed for either variant since p1 (82f3712a) and
+  h2-batch (e4853d55) landed; only checks had run on the physical machine.
+- Setup: a worktree of the branch in the scratchpad (sparse: no ffi/logs/rust, to fit the disk), so the gates write
+  their own ffi/logs/cpp and the build's poc/codec/Cargo.lock is not the shared tree's; every explicit build under
+  flock /tmp/claude-0/ak-codec-build.lock. Container toolchain: g++ 13.3.0, cmake 3.28.3, rustc 1.94.1, apt protobuf
+  3.21.12, grpc++ 1.51.1. The tree builds unchanged against them: no compatibility fix.
+- How h2-batch is loaded: as the timed drivers load it, LD_LIBRARY_PATH on a twin of the core. Six cores of the build
+  have h2 compiled in (target-rpc, -rpc-count, -camp, -camp-count, -camp-nounk, -camp-count-nounk; checked with the
+  panic-location strings of h2's framed_write.rs); each got an h2-batch twin (two through the CMake targets, four
+  through build.sh / h2batch_nounk.sh with the same features). gen/core_swap.sh (AK_CORE_SWAP) maps a binary's
+  RUNPATH core directory to its twin at every call site of an rpc binary in wp5_gate, nounk_gate, run_campaign,
+  q_checks and deferred_checks; inert when unset. deliv_checks.sh took the physical machine's CPU sets as constants;
+  they are now environment defaults (same values).
+- Proof per step: LD_DEBUG=libs into a scratch directory, gen/core_census.py over it (per program: the core each
+  process loaded, sha256; a C++ process on the other variant's core fails the step). 0 such processes anywhere.
+  Marker (gen/wp12_marker.sh): socket writes per d/16MiB call of Cf-retain over TCP, stock 1030.4 / 1028.9 (k = 1 / 8),
+  h2-batch 72.9 / 39.2.
+- Results: stock and h2-batch both pass wp5_gate (0 failed steps), d11_asan (0), the campaign gate, deliv_checks over
+  TCP (semantics 24/24 both builds, check-stream 28 benchmarks incl. Cf-q with count and SHA-256, c grid 12) and
+  q_checks (0). No h2-batch-only failure, so nothing to attribute to D16; no check looks at what follows a cancel on
+  the wire.
+- Mistakes made and kept: stock wp5_gate run 1 pointed at build-campaign to save disk; rd2_guard, boundary and the
+  other gate scripts name build/, so 42 steps failed (wp5-run1-VOID-build-campaign/, VOID). Rerun on ./build passed.
+  ./build then failed to configure without -Dbenchmark_DIR (CMakeLists requires Google Benchmark 1.8.3); the driver
+  now configures it with run_campaign's pinned build. header.txt's AK_H2_COALESCE column used grep -x on strings
+  output and read "absent" for every core; corrected after the run (present in the six twins only), driver fixed.
+- Not run: the Rust slice's gate (the Rust agent runs it); the gates on grpc++ 1.80 / protobuf 34.

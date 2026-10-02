@@ -74,7 +74,7 @@ core_line() {  # core_line DIR: path, sha256, h2 source compiled in, AK_H2_COALE
   local so=$1/libak_core.so h2
   [ -f "$so" ] || { echo "  ${so#$HERE/}: not built"; return; }
   h2=$(strings "$so" | grep -o '[^/ ]*/src/codec/framed_write\.rs' | sort -u | sed 's|/src/codec/framed_write\.rs||' | tr '\n' ' ')
-  echo "  ${so#$HERE/} sha256 $(sha256sum "$so" | cut -c1-64) h2: ${h2:-none compiled in}; AK_H2_COALESCE: $(strings "$so" | grep -qx 'AK_H2_COALESCE' && echo present || echo absent)"
+  echo "  ${so#$HERE/} sha256 $(sha256sum "$so" | cut -c1-64) h2: ${h2:-none compiled in}; AK_H2_COALESCE: $(strings "$so" | grep -q 'AK_H2_COALESCE' && echo present || echo absent)"
 }
 header() {
   echo "# cpp slice, WP12 gates, variant $V ($(date -u +%FT%TZ))"

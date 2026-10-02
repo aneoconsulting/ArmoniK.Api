@@ -1,0 +1,6 @@
+  100 |   F("shapes::TaskSummary.error", (uint32_t)offsetof(shapes::TaskSummary, error)) \
+  100 |   F("shapes::TaskSummary.error", (uint32_t)offsetof(shapes::TaskSummary, error)) \
+exit 0; 61 executables linked
+[100%] Built target bench_a17_gateplant
+[100%] Linking CXX executable contentsets_a17
+[100%] Built target contentsets_a17

@@ -13,6 +13,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 | | |
 |---|---|
 | **Status** | 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
+| **WP12 (2026-10-02, container)** | WP12's done criterion for this slice: the full C++ gates run twice in this container at `1bdbaa07` (= `0f75213f` plus this unit's script commits: the core-swap call sites, inert when AK_CORE_SWAP is unset, deliv_checks' CPU sets from the environment, the WP12 driver; no C++ source, core, generator or CMake change), from a private worktree: **stock** and **h2-batch** each pass wp5_gate (C++17 target and floor, C++14, C++11, static), d11_asan, the campaign gate (Unix sockets), deliv_checks over TCP 127.0.0.1 and q_checks; 0 failures in every step on both. Section "WP12 gates" below; logs `logs/cpp/opt/wp12-gates/`. The Rust slice's gate step of the final-gate driver was not run here (the Rust agent runs it in parallel) |
 | **Physical machine build** | `nix-shell gen/shell.nix` (the system's nixpkgs): g++ 15.3.0, cmake 4.1.6, protobuf 34.1 (C++ version 7.34.1), grpc++ 1.80.0 (the "current" incumbent of CAMPAIGN section 3; ArmoniK's v1.54.0 is not on this machine), abseil 20260107; rustc 1.95.0 (ambient); Google Benchmark v1.8.3 Release (gbench_release, now installed with `CMAKE_INSTALL_LIBDIR=lib`). Changes this build needed: `shapes_pb` at C++17 when protobuf is 22 or later, plus utf8_range and protobuf.pc's abseil libraries; rt.cpp's protobuf UTF-8 ceiling through `utf8_range::IsStructurallyValid` there; `Arena::Create` for `CreateMessage` (removed); every cargo invocation's `CARGO_BUILD_BUILD_DIR` = its `CARGO_TARGET_DIR` (the machine's `~/.cargo/config.toml` sets one shared `build.build-dir`); grpc++ channels set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost" (below). Only the C++17 targets were built here; the C++11 / C++14 floor targets include protobuf headers, which need C++17 from protobuf 22 on, and were not attempted |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
 | **Generator** | one generator (W14). `poc/codec/gen/plan.py` holds the rules. This slice's backend modules in `poc/codec/gen/` are `cpp_binding.py`, `cpp_native.py`, `cpp_facade.py`, `cpp_names.py` and `cpp_layout.py`, plus `c_abi.py`, which renders the C header for every slice. `gen/generate.py` is glue: it renders the targets from plans and imports no IR (the guard in `generate.py --check`) |
@@ -213,8 +214,9 @@ the Rust agent's uncommitted `poc/codec/h2-batch/` as found on disk, not yet bui
 DC_STEP1_CORE=1 makes the conformance and pre-check binaries load the given core. The landed p1 (82f3712a) fixes the
 ring at 6 with the lock and reads no AK_SPARES: Cf-q runs with 6 (the patch-era runs used 24); the sweep records
 minor faults per call for every process and, in untimed allocprobe processes, allocations of at least 1 MiB per call
-for Cf-q at k = 8 on both variants (coordinator). Agreed scope: 3 rounds, no k = 16. Pending: CMake support for the h2-batch core (follows
-the Rust agent's build script), the rebuild against the landed core, gates on both variants, then the sweep.
+for Cf-q at k = 8 on both variants (coordinator). Agreed scope: 3 rounds, no k = 16. Since done: the CMake h2-batch targets were built against the landed core and
+used (tcp-sweep/build/), the sweep ran (tcp-sweep/), and the full gates on both variants ran in the container on
+2026-10-02 (section "WP12 gates" below).
 
 **h2 PR #903 from C++ (2026-10-01)** (`gen/h2_variants_build.sh`, `gen/tcp_attrib.sh OUT h2|h2b` with H2_CTL, H2_H16,
 H2_PR, H2_COMB, H2_ROUNDS, H2_STRACE, TA_NOTE; tables `gen/h2pr_tables.py OUT SESSION...`; logs
@@ -228,6 +230,50 @@ Session 1 (`h2/`, three cores, 1 round, strace of every unit) and session 2 (`h2
 pr903p4 only); the machine was suspended before session 1 and its IRQs re-pinned (headers). Measured: PR #903 alone
 keeps one stream's frames as separate writes (1027 per d/16 call at k = 1) and batches across streams (439-454 at
 k = 8); with p4 combined, 73 (k = 1) and 36-52 (k = 8).
+
+## WP12 gates on both h2 variants (2026-10-02, container)
+
+Driver `gen/wp12_gates.sh stock|h2-batch OUT` (steps build, wp5, asan, campaign, deliv, q, marker), run from a git
+worktree of `1bdbaa07` in the scratchpad (sparse: without `ffi/logs/rust`), CPU sets client 1, server 2,3. Toolchain:
+g++ 13.3.0, cmake 3.28.3, rustc 1.94.1, apt protobuf 3.21.12 / grpc++ 1.51.1 (libprotobuf-dev 3.21.12-8.2ubuntu0.3,
+libgrpc++-dev 1.51.1-4.1build5), Google Benchmark v1.8.3 release. The slice builds against these unchanged (after the
+physical machine's protobuf 34 changes); no build-compatibility fix was needed.
+- **The variants.** The binaries are the same build for both; only the core differs. stock: every binary loads its
+  RUNPATH core. h2-batch: the six rpc-feature cores (target-rpc, -rpc-count, -camp, -camp-count, -camp-nounk,
+  -camp-count-nounk) have h2-batch twins (CMake core_camp_h2batch / core_camp_nounk_h2batch for the two campaign cores,
+  poc/codec/h2-batch/build.sh and gen/h2batch_nounk.sh for the other four; build-h2batch.log: h2 compiled in =
+  h2-batch-src for each, poc/codec/Cargo.lock unmodified after), and every gate loads them through LD_LIBRARY_PATH, as
+  the timed drivers do: `gen/core_swap.sh` (AK_CORE_SWAP, a map stock dir -> twin dir; inert when unset) is sourced by
+  wp5_gate, nounk_gate, run_campaign, q_checks and deferred_checks at each call site of an rpc binary. The codec-only
+  cores have no h2 in their crate graph (`rpc` is an optional feature): header.txt shows "h2: none compiled in" for
+  every one of them, h2-0.4.19 for the six stock rpc cores, so the codec steps run the same core on both variants.
+- **Proof the variant is in effect.** Every step ran with LD_DEBUG=libs; `gen/core_census.py` lists, per program, the
+  libak_core.so each process loaded and its sha256 (census-<step>.txt), and fails when a C++ process loaded a core
+  of the other variant: 0 such processes in every step of both runs. h2-batch: campaign gate 51 processes on
+  target-camp-h2batch (campaign_rpc 48, campaign_codec 2, campaign_calib 1), 31 on target-camp-nounk-h2batch, the two
+  counting clients on their twins; wp5_gate's rpccounts on target-rpc-count-h2batch; deliv 10 + 3; q 6 + 6 and the
+  counting twins. The Rust server's warm-up client (rpc_warm) loads poc/rust's own core: stock by design (README of
+  h2-batch, "tonic in the Rust host keeps crates.io h2"). Positive marker (marker.log, gen/wp12_marker.sh: strace -f
+  of one --profile process, Cf-retain d/16MiB over TCP, gen/strace_threads.py): socket writes per call 1030.4 (k = 1)
+  and 1028.9 (k = 8) stock, 72.9 and 39.2 h2-batch.
+- **Results, both variants, 0 failures:** wp5_gate every step (conformance 608/0 at a17, b17, c14, c11, static; noinit
+  plant 299 failures as required; corpus 680/680/696/696/680/680 at four builds, outcomes identical; decision 11
+  controls; probe; byte audit 0 changed pairs against aba944a; boundary; groupskip, concurrency, ODR, bench gates,
+  content sets; counts 530 rows identical; rpccounts; nounk_gate). d11_asan 0 failures. Campaign gate: every control
+  fires, codec pre-checks pass, counts 530, RPC counts 132 / 78 identical. deliv_checks over TCP (TCP_NODELAY read
+  back): conformance and pre-check on the variant's core, --semantics 1 24/24 both builds (cancel of a pending send
+  and a pending recv included), check-stream 28 benchmarks (A, A-cb, A-q, D, Cf, Cf-q, Cf-cb at d/4 and d/16, k = 1
+  and 8; Cf-q's calls reach UploadStreamCheck since 99c18cd1) with every call's count and SHA-256 matched, c grid 12.
+  q_checks: semantics, 4 plants per build abort with no sample, grid 140 / 84, counts 132 / 78.
+- **D16** (h2-batch: up to 15 more DATA frames before RST_STREAM after a local reset): no step failed on h2-batch only,
+  so nothing was attributed to it. No check asserts what the server received after a cancel, so the gates neither
+  show nor exclude the divergence.
+- **Run history** (runner.log): the stock steps marker, deliv, q, campaign, asan ran at d8601658 (header-d8601658.txt);
+  its first wp5_gate run used build-campaign as BUILD_DIR to save disk and is VOID (wp5-run1-VOID-build-campaign/:
+  rd2_guard, boundary and the other gates name `build/`); wp5_gate was rerun on its own `./build` at 1bdbaa07. Between
+  the two commits only gen/wp12_gates.sh changed. The h2-batch run is entirely at 1bdbaa07. header.txt's
+  AK_H2_COALESCE column of the run was wrong (grep -x on a binary's strings); the appended correction recomputes it:
+  present in the six twins only.
 
 ## What exists
 
@@ -323,6 +369,10 @@ Scripts (`gen/`):
   - The corpus at C++17 and C++11, with every unknown row written in its dropped form.
   - Plants, and counts against `logs/cpp/counts-nounk-baseline.log`.
 - `d11_asan.sh`: both builds' conformance and corpus under ASan+LSan.
+- `wp12_gates.sh stock|h2-batch OUT` (WP12): the gates above plus deliv_checks over TCP, q_checks and the variant
+  marker on one h2 variant, each step under the loader's record; `core_swap.sh` (AK_CORE_SWAP, sourced by the gate
+  drivers, inert when unset), `core_census.py` (cores loaded per program, sha256, variant check), `wp12_marker.sh`
+  (socket writes per d/16MiB call).
 - `run_campaign.sh --suite codec|rpc|calib|gate --out <dir>`: the campaign runner (see the
   checklist).
 - `campaign_summary.py`: requirement 30's summaries, ratios from per-launch medians.
@@ -621,6 +671,9 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
 - **Any timing on the campaign machine.** Every timing in the tree is container
   instrumentation (above). The physical probe's driver is ready and smoke-run only (the smoke's
   samples were not kept); its timed session waits for the coordinator.
+- **The WP12 gates on the physical machine.** They ran in the container only (grpc++ 1.51.1 / protobuf 3.21.12);
+  the campaign gate and q_checks dial Unix sockets (no TCP target in either); the Rust slice's gate step was left to
+  the Rust agent. No check observes D16's extra DATA frames after a cancel.
 - **The physical machine's gates beyond step 0.** On the physical machine only
   `gen/physical_checks.sh` ran: conformance at C++17 (both builds), the codec pre-checks,
   q_checks, every cell's grid smoke, the allocation probe. Not run there: `wp5_gate.sh` (corpus,
@@ -696,6 +749,11 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
   Bazel.
 
 ## Next step
+
+WP12 (2026-10-02): the C++ half of the done criterion holds in this container on both variants
+(`logs/cpp/opt/wp12-gates/`); the Rust slice's gate is the Rust agent's. Open, for the coordinator: the same gates on
+the physical machine's grpc++ 1.80 / protobuf 34 (there the C++11 / C++14 targets that include protobuf headers do not
+build, C42).
 
 Response deliveries (2026-10-01): cells A-q (grpc++ async CompletionQueue), A-cb (grpc++ callback API), Cf-cb (core
 callback delivery) added beside A, Cf, Cf-q (harness only; directions c and d); `gen/tcp_attrib.sh OUT deliv`
@@ -795,6 +853,7 @@ Optimisation unit (`logs/cpp/opt/`):
 
 | Log | What it contains |
 |---|---|
+| `opt/wp12-gates/{stock,h2-batch}/` | WP12 gates in the container at `1bdbaa07` (2026-10-02): `header.txt` (commit, toolchain, every core's path, sha256 and h2 compiled in, the swap map; correction appended), `runner.log`, `steps.txt`, `wp5/` (the wp5_gate logs), `asan.log`, `campaign/` (gate log, counts, RPC counts, gate.ok), `deliv/` (TCP), `q-checks.log`, `marker.log`, `census-<step>.txt`, `build-*.log`; stock also `wp5-run1-VOID-build-campaign/` |
 | `opt/final-gate/` | the final gates' driver log (`runner.log`), the campaign gate (`campaign-gate.log`, `counts.log`, `rpc-counts*.log`), the Rust slice's gate (`rust-gate.log`), wp5_gate run 1's build and refused byte audit |
 | `opt/final/` | the final opt_bench run: raw jsonl and gzip'd Google Benchmark JSON, `runner.log`, `header.txt`, `build.log`, summaries and `tables-codec.md`, `tables-rpc.md` |
 | `opt/baseline/`, `opt/ref/`, `opt/s1/`..`opt/s9/`, `opt/s8b/` | the opt_bench runs before the unit, after step 0, and after each kept step |

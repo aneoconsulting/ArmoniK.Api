@@ -1,0 +1,6 @@
+marker exit=0 census=0
+deliv exit=0 census=0
+q exit=0 census=0
+campaign exit=0 census=0
+asan exit=0 census=0
+wp5 exit=0 census=0

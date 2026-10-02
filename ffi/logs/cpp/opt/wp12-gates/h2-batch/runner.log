@@ -1,0 +1,22 @@
+[2026-10-02T08:05:58Z] wp12_gates.sh h2-batch, steps: build marker deliv q campaign asan wp5
+[2026-10-02T08:05:58Z] build: the h2-batch twins (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T08:10:07Z] header.txt written
+[2026-10-02T08:10:07Z] step marker: bash gen/wp12_marker.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release /tmp/tmp.fAwaTkO2Eg/mk
+[2026-10-02T08:10:12Z] step marker: exit 0
+[2026-10-02T08:10:12Z]   census marker: ok (census-marker.txt: 2 lines)
+[2026-10-02T08:10:12Z] step deliv: env AK_NET=tcp bash gen/deliv_checks.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/h2-batch/deliv h2-batch /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk-h2batch/release 
+[2026-10-02T08:10:55Z] step deliv: exit 0
+[2026-10-02T08:10:55Z]   census deliv: ok (census-deliv.txt: 8 lines)
+[2026-10-02T08:10:55Z] step q: bash gen/q_checks.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/h2-batch/q-checks.log
+[2026-10-02T08:11:28Z] step q: exit 0
+[2026-10-02T08:11:28Z]   census q: ok (census-q.txt: 8 lines)
+[2026-10-02T08:11:28Z] step campaign: bash gen/run_campaign.sh --suite gate --out /tmp/tmp.fAwaTkO2Eg/camp
+[2026-10-02T08:22:51Z] step campaign: exit 0
+[2026-10-02T08:22:55Z]   census campaign: ok (census-campaign.txt: 40 lines)
+[2026-10-02T08:22:55Z] step asan: bash gen/d11_asan.sh
+[2026-10-02T08:25:23Z] step asan: exit 0
+[2026-10-02T08:25:24Z]   census asan: ok (census-asan.txt: 8 lines)
+[2026-10-02T08:25:24Z] step wp5: bash gen/wp5_gate.sh build
+[2026-10-02T08:28:11Z] step wp5: exit 0
+[2026-10-02T08:28:13Z]   census wp5: ok (census-wp5.txt: 47 lines)
+[2026-10-02T08:28:13Z] done: marker exit=0 census=0 deliv exit=0 census=0 q exit=0 census=0 campaign exit=0 census=0 asan exit=0 census=0 wp5 exit=0 census=0 

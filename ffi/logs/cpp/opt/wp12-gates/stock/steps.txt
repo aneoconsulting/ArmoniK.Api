@@ -1,0 +1,7 @@
+marker exit=0 census=0
+deliv exit=0 census=0
+q exit=0 census=0
+campaign exit=0 census=0
+asan exit=0 census=0
+wp5 exit=1 census=0 (run 1: wp5_gate on build-campaign, VOID: its checks name build/; rerun below)
+wp5 exit=0 census=0

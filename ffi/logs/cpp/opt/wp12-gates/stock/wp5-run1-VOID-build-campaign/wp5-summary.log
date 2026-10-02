@@ -1,0 +1,13 @@
+[2026-10-02T07:49:54Z] step wp5: bash gen/wp5_gate.sh build-campaign
+build          0 failure(s)
+generator      5 failure(s)
+conformance    0 failure(s)
+corpus         0 failure(s)
+probe          0 failure(s)
+bytes          0 failure(s)
+boundary       1 failure(s)
+gates          36 failure(s)
+s10-nounk      0 failure(s)
+wp5_gate: 42 step(s) failed
+[2026-10-02T07:52:21Z] step wp5: exit 1
+[2026-10-02T07:52:23Z]   census wp5: ok (census-wp5.txt: 38 lines)

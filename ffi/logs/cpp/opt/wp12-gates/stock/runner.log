@@ -1,0 +1,44 @@
+[2026-10-02T07:20:31Z] wp12_gates.sh stock, steps: build
+[2026-10-02T07:20:31Z] build: Google Benchmark
+[2026-10-02T07:20:49Z] build: configure
+[2026-10-02T07:21:00Z] build: every target (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T07:32:24Z] build: serve.sh build (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T07:34:25Z] header.txt written
+[2026-10-02T07:34:25Z] done: 
+[2026-10-02T07:34:42Z] wp12_gates.sh stock, steps: marker deliv q campaign asan wp5
+[2026-10-02T07:34:42Z] step marker: bash gen/wp12_marker.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release /tmp/tmp.iairpo2MDs/mk
+[2026-10-02T07:34:52Z] step marker: exit 0
+[2026-10-02T07:34:52Z]   census marker: ok (census-marker.txt: 2 lines)
+[2026-10-02T07:34:52Z] step deliv: env AK_NET=tcp bash gen/deliv_checks.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/stock/deliv stock /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk/release 
+[2026-10-02T07:35:37Z] step deliv: exit 0
+[2026-10-02T07:35:38Z]   census deliv: ok (census-deliv.txt: 8 lines)
+[2026-10-02T07:35:38Z] step q: bash gen/q_checks.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/stock/q-checks.log
+[2026-10-02T07:36:11Z] step q: exit 0
+[2026-10-02T07:36:11Z]   census q: ok (census-q.txt: 8 lines)
+[2026-10-02T07:36:11Z] step campaign: bash gen/run_campaign.sh --suite gate --out /tmp/tmp.iairpo2MDs/camp
+[2026-10-02T07:47:43Z] step campaign: exit 0
+[2026-10-02T07:47:45Z]   census campaign: ok (census-campaign.txt: 40 lines)
+[2026-10-02T07:47:45Z] step asan: bash gen/d11_asan.sh
+[2026-10-02T07:49:54Z] step asan: exit 0
+[2026-10-02T07:49:54Z]   census asan: ok (census-asan.txt: 8 lines)
+[2026-10-02T07:49:54Z] step wp5: bash gen/wp5_gate.sh build-campaign
+[2026-10-02T07:52:21Z] step wp5: exit 1
+[2026-10-02T07:52:23Z]   census wp5: ok (census-wp5.txt: 38 lines)
+[2026-10-02T07:52:23Z] done: marker exit=0 census=0 deliv exit=0 census=0 q exit=0 census=0 campaign exit=0 census=0 asan exit=0 census=0 wp5 exit=1 census=0 
+[2026-10-02T07:53:30Z] wp12_gates.sh stock, steps: build wp5
+[2026-10-02T07:53:30Z] build: Google Benchmark
+[2026-10-02T07:53:30Z] build: configure
+[2026-10-02T07:53:30Z] build: every target (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T07:53:33Z] build: the wp5_gate build directory ./build (cmake -DAK_RPC=ON, every target; flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T07:53:46Z] FAILED: the ./build build (build-wp5-errors.log)
+[2026-10-02T07:54:31Z] wp12_gates.sh stock, steps: build wp5
+[2026-10-02T07:54:31Z] build: Google Benchmark
+[2026-10-02T07:54:31Z] build: configure
+[2026-10-02T07:54:31Z] build: every target (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T07:54:51Z] build: the wp5_gate build directory ./build (cmake -DAK_RPC=ON, every target; flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T08:03:04Z] build: serve.sh build (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-02T08:03:06Z] header.txt written
+[2026-10-02T08:03:06Z] step wp5: bash gen/wp5_gate.sh build
+[2026-10-02T08:05:41Z] step wp5: exit 0
+[2026-10-02T08:05:44Z]   census wp5: ok (census-wp5.txt: 47 lines)
+[2026-10-02T08:05:44Z] done: marker exit=0 census=0 deliv exit=0 census=0 q exit=0 census=0 campaign exit=0 census=0 asan exit=0 census=0 wp5 exit=1 census=0 (run 1: wp5_gate on build-campaign, VOID: its checks name build/; rerun below) wp5 exit=0 census=0 

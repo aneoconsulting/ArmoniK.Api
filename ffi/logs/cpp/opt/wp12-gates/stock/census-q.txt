@@ -1,0 +1,13 @@
+# core census of /tmp/tmp.iairpo2MDs/ld-q: 117 loader files, 146 programs started, 4 (program, core) pairs
+  campaign_rpc                 6 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release/libak_core.so
+  campaign_rpc_count           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count/release/libak_core.so
+  campaign_rpc_count_nounk     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count-nounk/release/libak_core.so
+  campaign_rpc_nounk           6 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk/release/libak_core.so
+# sha256 of every core loaded
+  aa56a19d374aa5487845eee49aeadcee5b4cc7478afe5122092f734dad9d4301  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count-nounk/release/libak_core.so
+  d8169b5d61ba2a5500c500e15222f1066f81633edbb1014180127e9ae96fc040  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-count/release/libak_core.so
+  00de6be85462640380845306db03bbe0f8d23de3cd83db9490f796aeaf2c67f3  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk/release/libak_core.so
+  9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release/libak_core.so
+>>> ok: 6 processes loaded a core from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release
+>>> ok: 6 processes loaded a core from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk/release
+>>> ok: no C++ process loaded a core from 6 forbidden directories

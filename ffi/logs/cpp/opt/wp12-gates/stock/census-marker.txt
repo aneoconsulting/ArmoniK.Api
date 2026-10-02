@@ -1,0 +1,6 @@
+# core census of /tmp/tmp.iairpo2MDs/ld-marker: 63 loader files, 69 programs started, 1 (program, core) pairs
+  campaign_rpc     2 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release/libak_core.so
+# sha256 of every core loaded
+  9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release/libak_core.so
+>>> ok: 2 processes loaded a core from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release
+>>> ok: no C++ process loaded a core from 6 forbidden directories

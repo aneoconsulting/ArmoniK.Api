@@ -1,0 +1,3 @@
+[2026-10-02T07:47:45Z] step asan: bash gen/d11_asan.sh
+[2026-10-02T07:49:54Z] step asan: exit 0
+[2026-10-02T07:49:54Z]   census asan: ok (census-asan.txt: 8 lines)

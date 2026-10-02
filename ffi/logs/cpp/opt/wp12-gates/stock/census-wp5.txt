@@ -1,0 +1,51 @@
+# core census of /tmp/tmp.OPw2LPC0Cj/ld-wp5: 13216 loader files, 13215 programs started, 34 (program, core) pairs
+  bench_a17_gateplant        1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  bench_a17_shared           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  bench_b17_shared           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  bench_c11_shared           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  bench_c14_shared           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conc_a17_both              1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+  conc_a17_corepad           1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+  conc_a17_global            1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+  conc_a17_pad               1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+  conc_a17_shared            2 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conc_c11_shared            1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_a17_noinit     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_a17_shared     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_b17_shared     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_c11_shared     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_c14_shared     1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  conformance_nounk_a17      1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-nounk/release/libak_core.so
+  conformance_nounk_c11      1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-nounk/release/libak_core.so
+  contentsets_a17            1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  corpus_a17_shared        213 x /tmp/tmp.3zVAyAQ77W/oldcore/target/release/libak_core.so
+  corpus_all_a17          3040 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus/release/libak_core.so
+  corpus_all_c11          1417 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus/release/libak_core.so
+  corpus_all_c14          1405 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus/release/libak_core.so
+  corpus_all_noinit         97 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus/release/libak_core.so
+  corpus_nounk_a17         994 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus-nounk/release/libak_core.so
+  corpus_nounk_c11         703 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus-nounk/release/libak_core.so
+  corpus_nounk_noinit       97 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus-nounk/release/libak_core.so
+  counts_a17_shared          1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-count/release/libak_core.so
+  counts_nounk               1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-count-nounk/release/libak_core.so
+  h-full-full                1 x /tmp/tmp.ptZowvQIht/so-full/libak_core.so
+  h-full-nounk               1 x /tmp/tmp.ptZowvQIht/so-nounk/libak_core.so
+  h-nounk-full               1 x /tmp/tmp.ptZowvQIht/so-full/libak_core.so
+  h-nounk-nounk              1 x /tmp/tmp.ptZowvQIht/so-nounk/libak_core.so
+  rpccounts                  1 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-count/release/libak_core.so
+# sha256 of every core loaded
+  dccfa7c4058a322929bb2cfb6aa848d950aa5fc72a891d8d5a56bd3a84b06668  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+  1dd4b46c5cb2d764ce4cf6f523c24936c5877da96ad5ba270a94c121ce4f3b31  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus-nounk/release/libak_core.so
+  99235c735634bf03f58feed4f1cee2a66d8d786b583f753c1b37561176e2e95c  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-corpus/release/libak_core.so
+  22fbf314eb94fa1b5ab42a140cae0e7fa17ede30b4490655064adf4e2a6f43d6  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-count-nounk/release/libak_core.so
+  a7815622e3401a32e4f033ff118632dfe16ccc972759622c5303160c5e91f6d5  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-count/release/libak_core.so
+  6c870f69af9cb51e6c3d171cfd9c359b9347b5d5dcf14cf0cc48c4d90a80d223  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+  f298f0708e325b4bf4c947e0870a61693f07996ea173c0fe6aaed028f60a7d22  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-nounk/release/libak_core.so
+  b321a8cd3e22fd149ec221d29cbbbcd6d0037230f24d9d2bee1e789759aa5e53  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+  165327bfd1b59b076cfa5829ebfc56dc60a464886cea1a9069ad16af1e111e61  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-count/release/libak_core.so
+  8645dcea441d714d733aebc17915975ba06ee235991b1911142a5a97d9cf07a1  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target/release/libak_core.so
+  unreadable (No such file or directory)  /tmp/tmp.3zVAyAQ77W/oldcore/target/release/libak_core.so
+  unreadable (No such file or directory)  /tmp/tmp.ptZowvQIht/so-full/libak_core.so
+  unreadable (No such file or directory)  /tmp/tmp.ptZowvQIht/so-nounk/libak_core.so
+>>> ok: 1 processes loaded a core from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-rpc-count/release
+>>> ok: no C++ process loaded a core from 6 forbidden directories

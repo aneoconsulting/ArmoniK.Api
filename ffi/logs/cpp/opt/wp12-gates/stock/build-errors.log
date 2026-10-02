@@ -1,0 +1,8 @@
+warning: unused variable: `sites`
+warning: unused variable: `sites`
+exit 0; 0 executables linked; 0 crate compilations
+[ 91%] Built target corpus_nounk_c11
+[ 93%] Built target corpus_nounk_noinit
+[ 96%] Built target campaign_rpc_nounk
+[ 98%] Built target campaign_rpc_count_nounk
+[100%] Built target campaign_codec_nounk

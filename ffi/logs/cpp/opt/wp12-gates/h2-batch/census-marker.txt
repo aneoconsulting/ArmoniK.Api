@@ -1,0 +1,6 @@
+# core census of /tmp/tmp.fAwaTkO2Eg/ld-marker: 70 loader files, 76 programs started, 1 (program, core) pairs
+  campaign_rpc     2 x /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release/libak_core.so
+# sha256 of every core loaded
+  f33775c09041388d3e6aa589ddeca91b1152b4ae745c0275131993abf49765ad  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release/libak_core.so
+>>> ok: 2 processes loaded a core from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release
+>>> ok: no C++ process loaded a core from 6 forbidden directories

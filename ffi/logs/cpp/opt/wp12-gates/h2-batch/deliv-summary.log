@@ -1,0 +1,20 @@
+[2026-10-02T08:10:12Z] step deliv: env AK_NET=tcp bash gen/deliv_checks.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wp12-out/h2-batch/deliv h2-batch /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-h2batch/release /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp-nounk-h2batch/release 
+# deferred_checks: commit 1bdbaa07, 2026-10-02T08:10:12Z
+>>> ok: conformance_a17_shared
+>>> ok: conformance_nounk_a17
+>>> ok: campaign_codec pre-check
+>>> ok: campaign_codec_nounk pre-check
+>>> ok: semantics full ("checks": 24)
+>>> ok: semantics nounk ("checks": 24)
+>>> ok: HEAD core: semantics pass, deferred skipped ("checks": 24)
+>>> ok: HEAD core refuses Cf-enc-retain: REFUSED: cell Cf-enc-retain needs a core that exports ak_call_send_deferred (patch p5-deferred); this one does not
+>>> ok: HEAD core refuses Cf-zc-retain: REFUSED: cell Cf-zc-retain needs a core that exports ak_enc_set_zc and ak_call_send_enc_zc (patch p6-zero-copy); this one does not
+>>> ok: HEAD core refuses Cf-zcp-retain: REFUSED: cell Cf-zcp-retain needs a core that exports ak_enc_set_zc and ak_call_send_deferred_zc (patch p7-deferred-zc); this one does not
+>>> ok: HEAD core refuses Cf-zcw-retain: REFUSED: cell Cf-zcw-retain needs a core that exports ak_enc_set_zc and ak_call_send_deferred_zc (patch p7-deferred-zc); this one does not
+>>> ok: check-stream grid: 28 benchmarks (7 cells x 2 payloads x k 1, 8), every call's count and SHA-256 matched
+deferred_checks: 0 failure(s)
+>>> ok: c grid h2-batch
+Cf-cb-retain|P5.4|-|c|retain|inflight=8,transport=pinned,send_path=framed,build=full,delivery=callback/repeats:1/process_time/real_time   36353873 ns     25320663 ns            1 items_per_second=220.059/s ru_majflt=0 ru_minflt=3.866k ru_nivcsw=21 ru_nvcsw=50
+c grid: exit 0, 12 benchmarks (3 cells x P5.3 and P5.4 x k 1, 8 = 12 expected)
+[2026-10-02T08:10:55Z] step deliv: exit 0
+[2026-10-02T08:10:55Z]   census deliv: ok (census-deliv.txt: 8 lines)

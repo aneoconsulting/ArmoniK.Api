@@ -1,0 +1,84 @@
+# cpp slice, WP5 step 2: boundary
+#   date       2026-10-02T07:52:02Z
+#   machine    Linux 6.18.44-fc-v51 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.10GHz
+#   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
+#   commit     d8601658
+#   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
+#              for the corpus ABI); no timing is taken by anything in this log
+
+===== boundary.sh =====
+== half one: does the FFI arm cross? ==
+nm: 'build/bench_a17_shared': No such file
+  shared: 0 ak_* symbols are UNDEFINED dynamic imports; the per-message ones are:
+nm: 'build/bench_a17_shared': No such file
+  [FAIL] shared arm: NOT a dynamic import -- every figure from it is about the optimiser
+
+nm: 'build/bench_a17_static': No such file
+  static: 0 ak_* symbols are DEFINED in the image (that is what static linkage is)
+nm: 'build/bench_a17_static': No such file
+objdump: 'build/bench_a17_static': No such file
+    ak_encode_ListResultsResponse               ? B entry point, 0 call sites
+  [FAIL] static arm: ak_encode_ListResultsResponse has no call site -- this arm IS the control
+nm: 'build/bench_a17_static': No such file
+objdump: 'build/bench_a17_static': No such file
+    ak_decode_ListResultsResponse               ? B entry point, 0 call sites
+  [FAIL] static arm: ak_decode_ListResultsResponse has no call site -- this arm IS the control
+nm: 'build/bench_a17_static': No such file
+objdump: 'build/bench_a17_static': No such file
+    ak_elem_ResultRaw                           ? B entry point, 0 call sites
+  [FAIL] static arm: ak_elem_ResultRaw has no call site -- this arm IS the control
+nm: 'build/bench_a17_static': No such file
+objdump: 'build/bench_a17_static': No such file
+    ak_encode_ListTasksDetailedResponse         ? B entry point, 0 call sites
+  [FAIL] static arm: ak_encode_ListTasksDetailedResponse has no call site -- this arm IS the control
+nm: 'build/bench_a17_static': No such file
+objdump: 'build/bench_a17_static': No such file
+    ak_elemu_TaskDetailed                       ? B entry point, 0 call sites
+  [FAIL] static arm: ak_elemu_TaskDetailed has no call site -- this arm IS the control
+
+  static + -flto (R5's named hazard, built on purpose):
+objdump: 'build/counts_a17_static_lto': No such file
+    ak_encode_ListResultsResponse          0 call sites under -flto
+  [FAIL] -flto inlined ak_encode_ListResultsResponse away: the counting build would still count
+objdump: 'build/counts_a17_static_lto': No such file
+    ak_elem_ResultRaw                      0 call sites under -flto
+  [FAIL] -flto inlined ak_elem_ResultRaw away: the counting build would still count
+    Why: gcc's -flto can only inline across GIMPLE it produced, and a Rust staticlib's
+    archive members are native objects. So R5's C++ hazard does not bite a C++ host
+    over THIS core. That is a fact about the toolchain pair, reported rather than
+    assumed, and it would not hold for a core compiled by the same LTO.
+
+== half two: is the no-boundary control fused into the benchmark loop? ==
+
+  C18. This used to ask whether the control function was LARGER than the largest
+  timing closure in the image and take that as evidence it was not copied into one.
+  Size is a proxy for fusion, not a test of it, and its positive control was -flto,
+  which fires only when the optimiser happens to fuse something. After the core moved
+  (W10) the largest closure went from 1433 B to 911 B, the 1155 B control landed on
+  the other side of the line, and the control went quiet without anyone deciding it
+  should. A size-threshold control is fragile by construction.
+
+  Two direct properties instead, and a fixture that proves the checker can report
+  both. The control is reached through a FUNCTION POINTER handed to the case runner,
+  so there is no direct call site to count -- what fusion would destroy is (1) the
+  out-of-line body and (2) the call instruction in the closure.
+
+  the checker's own control (src/fusion_probe.cpp): one function that MUST be called
+  and one that MUST be fused, both by construction rather than by optimisation level
+  [FAIL] fusion_probe is not built, so half two has no control and proves nothing
+
+  The control is reached through a FUNCTION POINTER passed to the case runner, so its
+  address is taken and an out-of-line body must exist. Both properties above are the
+  question itself rather than a proxy for it, and the fixture says the checker can
+  report either answer.
+
+boundary: 0 checks passed, 9 failed
+>>> FAIL: boundary.sh exited 1
+
+===== the corpus core's layout facts against the corpus header =====
+layout: 574 facts compared (corpus ABI), 0 disagree
+>>> ok: corpus layout (exit 0)
+
+layout: 574 facts compared (corpus ABI), 0 disagree
+>>> ok: corpus layout (static) (exit 0)
+

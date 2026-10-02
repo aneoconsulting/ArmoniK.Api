@@ -1,0 +1,11 @@
+[2026-10-02T07:34:42Z] step marker: bash gen/wp12_marker.sh /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release /tmp/tmp.iairpo2MDs/mk
+# endpoint: tcp: grpc++ ipv4:127.0.0.1:46561, core http://127.0.0.1:46561 (tcp_nagle 0; server TCP_NODELAY on accept); TCP_NODELAY read back on every client socket of every process
+# client: build-campaign/campaign_rpc with LD_LIBRARY_PATH=/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt12/ffi/poc/cpp/core-build/target-camp/release (libak_core.so sha256 9e4eaa7d7da1393f7e4c3414ed6b45e8922e9559b3fe5c49bac629e8fe961b82)
+  TCP_NODELAY read back 1 on every client TCP socket
+Cf-retain d/16MiB k=1: 8 calls; strace_threads: {"block_us": 50.0, "calls": 8.0, "per_call": {"epoll_blocked": 24.0, "epoll_wait": 30.25, "futex": 23.5, "futex_blocked": 11.25, "socket_reads": 9.125, "socket_write_over_block_us": 23.5, "socket_writes": 1030.375}, "per_call_us": {"epoll_us": 35504.125, "futex_us": 90831.75, "socket_write_us": 17265.25}, "threads_with_syscalls": 4, "threads_writing_the_socket": 2, "writers_share_of_writes": [0.529, 0.471]}
+  socket writes per call: 1030.4 (threads writing the socket: 2)
+  TCP_NODELAY read back 1 on every client TCP socket
+Cf-retain d/16MiB k=8: 16 calls; strace_threads: {"block_us": 50.0, "calls": 16.0, "per_call": {"epoll_blocked": 32.5625, "epoll_wait": 34.0625, "futex": 19.9375, "futex_blocked": 14.1875, "socket_read_eagain": 0.0625, "socket_reads": 8.375, "socket_write_over_block_us": 265.8125, "socket_writes": 1028.875}, "per_call_us": {"epoll_us": 109057.125, "futex_us": 1040190.875, "socket_write_us": 55666.0}, "threads_with_syscalls": 11, "threads_writing_the_socket": 2, "writers_share_of_writes": [0.969, 0.031]}
+  socket writes per call: 1028.9 (threads writing the socket: 2)
+[2026-10-02T07:34:52Z] step marker: exit 0
+[2026-10-02T07:34:52Z]   census marker: ok (census-marker.txt: 2 lines)

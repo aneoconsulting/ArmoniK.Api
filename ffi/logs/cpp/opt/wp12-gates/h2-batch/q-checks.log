@@ -1,0 +1,178 @@
+# cpp slice: queue-delivery checks (gen/q_checks.sh), commit 1bdbaa07, 2026-10-02T08:10:55Z
+#   machine Intel(R) Xeon(R) Processor @ 2.10GHz; client CPU 1, server CPUs 2,3
+#   server  # rpc_server: shipped on unix:/tmp/aksrv.9d0M53/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 4 workers (shared), receive limit 8388608 B, pid 17363
+===== full client (campaign_rpc) =====
+-- 1. semantics
+   PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+   PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [reference, stream q] cancel a pending send (3 1 MiB sends accepted, then #103 pending): a second send while pending -8; the pending send's completion tag 103 status -1/-1; recv 0, completion -12/1
+   PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+   PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+   PASS [reference, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+   PASS [reference, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [reference, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [reference, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+   PASS [reference] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+   PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+   PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+   PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [framed, stream q] cancel a pending send (3 1 MiB sends accepted, then #103 pending): a second send while pending -8; the pending send's completion tag 103 status -1/-1; recv 0, completion -12/1
+   PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+   PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+   PASS [framed, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+   PASS [framed, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [framed, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [framed, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+   PASS [framed] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+   PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+   SKIP deferred send: this core does not export ak_call_send_deferred
+   SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc
+   # {"campaign_rpc_semantics": {"build": "full", "checks": 24, "failed": 0}}
+>>> ok: semantics (full)
+-- 2. plants on queue cells (each must abort, exit 3, no sample file)
+>>> ok: plant d-sha on C-q-drop (d): aborted, CALL CHECK FAILED: d: the server's SHA-256 differs from the upload's (0) -- the run is aborted, no figure
+>>> ok: plant d-count on E-q-drop (d): aborted, CALL CHECK FAILED: d: the server's byte count (4194304) -- the run is aborted, no figure
+>>> ok: plant c-len on B-q (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+>>> ok: plant c-len on Cf-q-drop (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+-- 3. every queue cell, every direction, k = 1 and 8, one repetition (every call checked)
+>>> ok: grid smoke (full): "benchmarks": 140
+-- 4. crossing counts
+>>> ok: 132 RPC count rows identical to logs/cpp/rpc-counts.log (60 queue rows)
+  B-q        a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  C-q-retain a  P2.2  forward/call    6.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 1.000)
+  C-q-retain b  P2.2  forward/call 2522.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2517.000/2501.000 + host 1.000)
+  C-q-retain c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-retain c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-retain d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  C-q-retain d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  C-q-drop   a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  C-q-drop   b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  C-q-drop   c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-drop   c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-drop   d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  C-q-drop   d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  Cf-q-retain a  P2.2  forward/call    6.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 1.000)
+  Cf-q-retain b  P2.2  forward/call 2522.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2517.000/2501.000 + host 1.000)
+  Cf-q-retain c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-retain c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-retain d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  Cf-q-retain d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  Cf-q-drop  a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  Cf-q-drop  b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  Cf-q-drop  c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-drop  c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-drop  d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  Cf-q-drop  d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  E-q-retain a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-retain b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-retain c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-retain c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-retain d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-retain d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-drop   d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-retain d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-drop  d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+===== nounk client (campaign_rpc_nounk) =====
+-- 1. semantics
+   PASS [reference, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+   PASS [reference, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [reference, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [reference, stream q] cancel a pending send (3 1 MiB sends accepted, then #103 pending): a second send while pending -8; the pending send's completion tag 103 status -1/-1; recv 0, completion -12/1
+   PASS [reference, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+   PASS [reference] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+   PASS [reference, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+   PASS [reference, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [reference, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [reference, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+   PASS [reference] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+   PASS [reference, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+   PASS [framed, stream q] server status 6: send entry 0, completion tag 11 status 0/0; recv entry 0, completion tag 12 status -12/6
+   PASS [framed, stream q] two moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [framed, stream q] cancel a pending recv: completion before the cancel 0; after it tag 41 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [framed, stream q] cancel a pending send (3 1 MiB sends accepted, then #103 pending): a second send while pending -8; the pending send's completion tag 103 status -1/-1; recv 0, completion -12/1
+   PASS [framed, stream q] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a blocking recv after it -8, grpc_status untouched (-99); stray completion 0
+   PASS [framed] ak_call_unary_enc_q: server status 9 -> -12/9; Push -> 0/0, 0 B; a NULL queue -> NULL
+   PASS [framed, stream cb] server status 6: send entry 0, completion tag 71 status 0/0; recv entry 0, completion tag 72 status -12/6
+   PASS [framed, stream cb] moved-encode sends to the checking path: sends ok 1; recv 0, completion 0/0, 40 B, server's count and SHA-256 match 1
+   PASS [framed, stream cb] cancel a pending recv: completion before the cancel 0; after it tag 101 status -12/1 (CANCELLED = 1); a second recv -8, a completion after it 0
+   PASS [framed, stream cb] misuse: a send after last -8 (no completion); recv 0 completion 0/0; a second recv -8; stray completion 0
+   PASS [framed] ak_call_unary_enc_cb: server status 9 -> -12/9; Push -> 0/0, 0 B
+   PASS [framed, stream q] the queue drains to AK_QUEUE_SHUTDOWN (nothing left)
+   SKIP deferred send: this core does not export ak_call_send_deferred
+   SKIP zero-copy send: this core does not export ak_enc_set_zc / ak_call_send_enc_zc
+   # {"campaign_rpc_semantics": {"build": "no-unknown", "checks": 24, "failed": 0}}
+>>> ok: semantics (nounk)
+-- 2. plants on queue cells (each must abort, exit 3, no sample file)
+>>> ok: plant d-sha on C-q-nounk (d): aborted, CALL CHECK FAILED: d: the server's SHA-256 differs from the upload's (0) -- the run is aborted, no figure
+>>> ok: plant d-count on Ef-q-nounk (d): aborted, CALL CHECK FAILED: d: the server's byte count (4194304) -- the run is aborted, no figure
+>>> ok: plant c-len on B-q (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+>>> ok: plant c-len on Cf-q-nounk (c): aborted, CALL CHECK FAILED: core-q request response length (0) -- the run is aborted, no figure
+-- 3. every queue cell, every direction, k = 1 and 8, one repetition (every call checked)
+>>> ok: grid smoke (nounk): "benchmarks": 84
+-- 4. crossing counts
+>>> ok: 78 RPC count rows identical to logs/cpp/rpc-counts-nounk.log (36 queue rows)
+  B-q        a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  B-q        d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Bf-q       d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  C-q-nounk  a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  C-q-nounk  b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  C-q-nounk  c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-nounk  c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  C-q-nounk  d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  C-q-nounk  d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  Cf-q-nounk a  P2.2  forward/call    5.000  reverse/call 3501.000   (rpc 4.000/0.000 + codec 1.000/3501.000 + host 0.000)
+  Cf-q-nounk b  P2.2  forward/call 2516.000  reverse/call 2501.000   (rpc 4.000/0.000 + codec 2511.000/2501.000 + host 1.000)
+  Cf-q-nounk c  P5.3  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-nounk c  P5.4  forward/call    6.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 1.000/0.000 + host 1.000)
+  Cf-q-nounk d  4MiB  forward/call   13.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 2.000/0.000 + host 2.000)
+  Cf-q-nounk d  16MiB forward/call   37.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 8.000/0.000 + host 8.000)
+  E-q-nounk  a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  E-q-nounk  d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk a  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk b  P2.2  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk c  P5.3  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk c  P5.4  forward/call    4.000  reverse/call    0.000   (rpc 4.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk d  4MiB  forward/call    9.000  reverse/call    0.000   (rpc 9.000/0.000 + codec 0.000/0.000 + host 0.000)
+  Ef-q-nounk d  16MiB forward/call   21.000  reverse/call    0.000   (rpc 21.000/0.000 + codec 0.000/0.000 + host 0.000)
+q_checks: 0 failure(s)
