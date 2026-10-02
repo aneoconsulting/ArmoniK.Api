@@ -40,6 +40,30 @@ There is one known difference from stock in h2's own suite, at N > 1:
 is queued, the sub-frames already queued go out before the RST_STREAM. p4 alone at N=16
 fails the same test.
 
+## Known divergences from stock h2 (kept as is, owner 2026-10-02, D16)
+
+The patch is kept unchanged for the rest of the POC. What it changes besides the write
+pattern:
+
+1. **Data after a local reset.** The prioritizer hands the frame writer one element of up
+   to AK_H2_COALESCE max-size DATA frames of one stream (16 x 16 KiB = 256 KiB by default).
+   A reset of the stream after that hand-off (`ak_call_cancel`, a dropped call) drops only
+   what was not handed over, so up to AK_H2_COALESCE - 1 further DATA frames go out before
+   the RST_STREAM, the last one possibly carrying END_STREAM. Stock h2 sends at most the
+   one frame in flight (h2's test `stream_states::send_err_with_buffered_data`). This is
+   legal HTTP/2 (RFC 9113 sections 5.1 and 6.4: DATA may precede RST_STREAM) and stays
+   within flow control (the send window is taken when the element is handed over). Its
+   effect: a cancel racing the end of an upload is more likely to deliver the complete
+   request body, END_STREAM included, before the reset (a window of 256 KiB instead of
+   16 KiB).
+2. **Control frames behind a burst (not tested).** A PING, SETTINGS ack, WINDOW_UPDATE or
+   GOAWAY queued during a burst waits behind up to 256 KiB instead of 16 KiB: microseconds
+   on loopback, about 2 ms at 1 Gbit/s. A SETTINGS, PING or GOAWAY arriving mid-burst is
+   not covered by any check.
+
+Not done: a cancel that stops at the next sub-frame boundary, tests of control frames
+mid-burst, a right-sized IoSlice array (PR 903's write path).
+
 ## Building
 
 ```sh

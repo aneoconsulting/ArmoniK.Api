@@ -213,6 +213,9 @@ or near 15 ms).
 - **The core worker count** is decided after the worker sweep is repeated on TCP, with
   both h2 variants.
 - **Docker stays running** during campaigns; netfilter is recorded as a machine condition.
+- **h2-batch is kept as is (2026-10-02, D16):** its divergences from stock h2 (data after a
+  local reset, control frames behind a burst) are documented in `poc/codec/h2-batch/README.md`
+  and ABI-v1 section 9, not fixed.
 
 ## 7. Contradictions with the container results
 

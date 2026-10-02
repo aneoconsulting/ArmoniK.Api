@@ -770,6 +770,7 @@ Facts that bear on the design constraints and are not in `README.md`:
 | D13 | Other core patches | p1 kept; p2, p3, p5, p8, p9 dropped |
 | D14 | Core worker count | decided after the TCP worker sweep (WP12 item 3) |
 | D15 | Other tenants | Docker's few, mostly idle containers stay running; netfilter is recorded as a machine condition |
+| D16 | h2-batch divergences | the patch is kept as is: data after a local reset (up to 15 more DATA frames before RST_STREAM) and untested control frames mid-burst are documented, not fixed (`poc/codec/h2-batch/README.md`, ABI-v1 section 9) (2026-10-02) |
 
 Still open, and not blocking this plan: README section 15 question 6 (Java
 packaging), question 7 (audience of `REPORT.md`).

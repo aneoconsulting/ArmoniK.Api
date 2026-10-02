@@ -850,6 +850,13 @@ void      ak_call_destroy(ak_call*);
   `ak_call_close` the first build exported did the same thing under a second name and
   is removed (no other slice called it). Half-closing the request stream is
   `ak_call_send(..., last = 1)`, not a separate entry.
+- **What a cancel stops on the wire depends on the core's h2 variant** (owner,
+  2026-10-02, D16). With stock h2, at most the one DATA frame being written goes out
+  before the RST_STREAM. With the opt-in h2-batch variant (`poc/codec/h2-batch/`), up to
+  `AK_H2_COALESCE - 1` (15 by default, 240 KiB) further DATA frames already handed to the
+  writer go out first, the last one possibly with END_STREAM: a cancel racing the end of
+  an upload may still deliver the whole body. Legal HTTP/2; the contract promises no
+  wire-level bound, and a host must not rely on one.
 - **The status number, on streaming calls.** `ak_call_recv` writes the gRPC status
   code (0 to 16) to `*grpc_status` whenever the call has completed, `grpc_status`
   may be NULL. It returns `AK_OK` if and only if the code is 0, and
