@@ -17,9 +17,10 @@
 #
 # Steps (WP12_STEPS, default "build wp5 asan campaign deliv q marker"):
 #   build     stock: Google Benchmark v1.8.3 release (as run_campaign.sh builds it), cmake -DAK_RPC=ON into
-#             build-campaign, every target, serve.sh build; h2-batch: the six twins. Every build under
+#             build-campaign (run_campaign.sh's) and into build (wp5_gate.sh's; its checks name build/), every
+#             target, serve.sh build; h2-batch: the six twins. Every build under
 #             flock $AK_CODEC_LOCK (the Rust agent builds the same core variants in parallel)
-#   wp5       gen/wp5_gate.sh build-campaign (C++17 target and floor, C++14, C++11, static; corpus; plants;
+#   wp5       gen/wp5_gate.sh build (C++17 target and floor, C++14, C++11, static; corpus; plants;
 #             byte audit; boundary; other gates; RPC counts; nounk_gate.sh)
 #   asan      gen/d11_asan.sh (ASan + LSan, both builds)
 #   campaign  gen/run_campaign.sh --suite gate (Unix sockets: the gate has no TCP target)
@@ -121,7 +122,7 @@ gbench() {  # run_campaign.sh's gbench_release, the same pinned commit
     && cmake --build "$B/gbench-build" -j"$(nproc)" > /dev/null && cmake --install "$B/gbench-build" > /dev/null
 }
 
-: > "$OUT/steps.txt"
+touch "$OUT/steps.txt"   # appended to: a later invocation adds its steps
 say "wp12_gates.sh $V, steps: $STEPS"
 for st in $STEPS; do
   case $st in
@@ -137,6 +138,10 @@ for st in $STEPS; do
         echo "exit $rc; $(grep -c 'Linking' "$SCR/build.log") executables linked; $(grep -c 'Compiling' "$SCR/build.log") crate compilations" >> "$OUT/build-errors.log"
         tail -5 "$SCR/build.log" >> "$OUT/build-errors.log"
         [ $rc = 0 ] || { say "FAILED: build (build-errors.log)"; exit 1; }
+        say "build: the wp5_gate build directory ./build (cmake -DAK_RPC=ON, every target; flock $LOCK)"
+        { cmake -S . -B build -DAK_RPC=ON && flock "$LOCK" cmake --build build -j"$(nproc)"; } > "$SCR/build-wp5.log" 2>&1; rc=$?
+        { grep -E 'error|Error [0-9]|FAILED' "$SCR/build-wp5.log" | head -40; echo "exit $rc; $(grep -c 'Linking' "$SCR/build-wp5.log") executables linked"; tail -3 "$SCR/build-wp5.log"; } > "$OUT/build-wp5-errors.log"
+        [ $rc = 0 ] || { say "FAILED: the ./build build (build-wp5-errors.log)"; exit 1; }
         say "build: serve.sh build (flock $LOCK)"
         flock "$LOCK" bash ../rust/serve.sh build > "$OUT/build-server.log" 2>&1 || { say "FAILED: serve.sh build"; exit 1; }
       else
@@ -161,7 +166,7 @@ for st in $STEPS; do
       say "header.txt written" ;;
     wp5)
       REQ=$( [ "$V" = h2-batch ] && echo "$CB/target-rpc-count-h2batch/release" || echo "$CB/target-rpc-count/release")
-      step wp5 bash gen/wp5_gate.sh build-campaign > "$OUT/wp5-summary.log" 2>&1
+      step wp5 bash gen/wp5_gate.sh build > "$OUT/wp5-summary.log" 2>&1
       mkdir -p "$OUT/wp5"; cp "$L"/wp5-{build,generator,conformance,corpus,probe,bytes,boundary,gates}.log "$L/wp5s10-nounk.log" "$OUT/wp5/" ;;
     asan)
       REQ=""
