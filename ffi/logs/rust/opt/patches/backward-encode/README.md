@@ -1,5 +1,8 @@
 # backward-encode: the core's encode written backward (owner's experiment, 2026-10-02)
 
+**Status: dropped by the owner (2026-10-02, D17).** The patch and its logs stay as history;
+nothing of it is in `poc/codec` or in any slice.
+
 CONTAINER INSTRUMENTATION. No figure here is a campaign result. Nothing under `ffi/poc/codec`
 is committed by this experiment: the change lives in the patch files below. The work was
 built and checked in a private worktree (`git worktree add`, branch HEAD 1c9d8981, then the

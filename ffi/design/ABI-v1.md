@@ -486,6 +486,21 @@ descriptor proves which messages can never exceed a one-byte length, and the
 generator emits a form with no branch and no move for those. For the rest the
 encoder reserves its best guess and moves only on a miss.
 
+**Backward encoding was tried and dropped (owner, 2026-10-02, D17).** upb encodes
+backward to avoid precomputing lengths ("We encode backwards, to avoid pre-computing
+lengths (one-pass encode)", protobuf `upb/wire/encode.c`); upb can, because it walks the
+message itself. Here the host drives every repeated field in forward order, so a backward
+core needs either a reordering pass in the core or hosts that deliver each repeated field
+last to first. The second was built (`logs/rust/opt/patches/backward-encode/`): a
+downward, geometrically grown buffer, fields rendered in reverse, no learned width. The
+call signatures did not change and the Rust gate passed on it (byte identity, crossing
+counts identical), but the **contract** did: a forward-delivering host linked against the
+backward core runs without error and permutes every field delivered in more than one call
+(caught by conformance, the pre-check and the corpus, not at load time). Encode timings
+from the Rust host (container instrumentation) were mostly inside the harness-build drift;
+P2.4 came out about 5-10% faster and packed runs (P6.1) about 14 us slower out of 61 us,
+the latter unattributed. Learned widths stay.
+
 **Two refusals live here and they are independent, which the earlier text ran
 together.** A concurrency suite built for obligation 12.5 separated them
 (`logs/cpp/concurrency.log`):
