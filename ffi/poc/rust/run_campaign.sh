@@ -20,7 +20,8 @@
 #                   "full nounk"
 #   Warm-ups and measurement (requirement 24; campaign default / smoke default; criterion's
 #   own warm-up everywhere, FIX-PLAN WP9): codec AK_WARMUP_MS 500 / 5, AK_MEASURE_MS 2000 / 10;
-#   rpc AK_RPC_WARMUP_MS 5000 / 5 (req 24 as amended 8c02e7c58: >= 20 calls per calling thread), AK_RPC_MEASURE_MS 2000 / 20, AK_RPC_SAMPLES 10 (criterion's
+#   rpc AK_RPC_WARMUP_MS 1500 / 5 (directions a, a+read, b) and AK_RPC_WARMUP_LONG_MS 5000 / 5
+#   (directions c, d) (req 24 as amended 8c02e7c58: >= 20 calls per calling thread), AK_RPC_MEASURE_MS 2000 / 20, AK_RPC_SAMPLES 10 (criterion's
 #   floor), AK_RPC_SERVER_WARMUP 64 / 16 checked calls from each client transport
 #   AK_CAMPAIGN_ALLOC  default|pinned (CAMPAIGN req 25 as amended, D9; default `default`).
 #                   default: GLIBC_TUNABLES is unset for every process, the main figures.
@@ -111,12 +112,12 @@ header() {  # header SUITE [VARIANT]
   echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest; set size ${AK_SET_SIZE:-unset} (ffi/campaign.machine ${AK_MACHINE_NAME:-not read})"
   echo "# threads    D14: AK_WORKERS=${AK_WORKERS:-8} sizes every pool unless overridden; codec: 1 measuring thread; rpc client: tokio ${AK_HOST_WORKERS:-${AK_WORKERS:-8}} workers per A/D/F and -cb cell runtime (AK_HOST_WORKERS; ct = current-thread), ak_runtime_new(${AK_CORE_WORKERS:-${AK_WORKERS:-8}}) per B/C/E client (AK_CORE_WORKERS), k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-${AK_WORKERS:-8}} workers (AK_SERVER_THREADS); calib: 1 thread"
   echo "# alloc      AK_CAMPAIGN_ALLOC=$ALLOC ran (modes: default = GLIBC_TUNABLES unset, the main figures; pinned = GLIBC_TUNABLES=$PINNED_TUNABLES on the measured client only, never the server, files labelled alloc-pinned); each measured process re-checks it (16 MiB malloc, mallinfo2) and its own header states the readback; rows carry alloc and minflt"
-  echo "# rpc warm-up requirement 24 as amended (8c02e7c58), >= 20 calls per calling thread at the cell's payload, same process and threads: criterion's warm-up (AK_RPC_WARMUP_MS, campaign default 5000 ms) calls the SAME iter_custom routine on the SAME callers as the measurement: blocking cells (B, C, E and framed twins) k host threads created before the warm-up, each making exactly one call per criterion iteration; async cells (A, D, F, -cb) k tokio tasks per iteration on the cell's runtime, created before the warm-up (AK_HOST_WORKERS workers, the same threads; which worker runs which task is tokio's). Criterion doubles 1, 2, 4, 8, 16 iterations until its WALL time exceeds the warm-up, so >= 31 iterations (>= 31 calls per blocking thread) whenever 15 iterations take < AK_RPC_WARMUP_MS; the slowest cell measured, d/16MiB at k = 8, took 125-227 ms median wall per iteration in the container (worst 461 ms), 15 x 300 ms = 4.5 s. A time rule, not a count: the per-sample minflt (req 25) is the check on the machine; not met under AK_SMOKE"
+  echo "# rpc warm-up requirement 24 as amended (8c02e7c58), >= 20 calls per calling thread at the cell's payload, same process and threads: criterion's warm-up, set per benchmark (BenchmarkGroup::warm_up_time), AK_RPC_WARMUP_MS for directions a, a+read, b (campaign default 1500 ms) and AK_RPC_WARMUP_LONG_MS for c, d (campaign default 5000 ms), calls the SAME iter_custom routine on the SAME callers as the measurement: blocking cells (B, C, E and framed twins) k host threads created before the warm-up, each making exactly one call per criterion iteration; async cells (A, D, F, -cb) k tokio tasks per iteration on the cell's runtime, created before the warm-up (AK_HOST_WORKERS workers, the same threads; which worker runs which task is tokio's). Criterion doubles 1, 2, 4, 8, 16 iterations until its WALL time exceeds the warm-up, so >= 31 iterations (>= 31 calls per blocking thread) whenever 15 iterations take less than the warm-up. Long (c, d): the slowest, d/16MiB at k = 8, took 125-227 ms median wall per iteration in the container (worst 461 ms), 15 x 300 ms = 4.5 s -> 5000 ms. Short (a, a+read, b): at k = 16, 17.6-60.3 ms median wall per iteration (worst 96 ms; k = 8: 10.3-24.3, worst 63), 15 x 96 ms = 1.44 s -> 1500 ms (500 ms failed: 30 of 87 k = 16 benchmarks over 33 ms). Container figures, logs/rust/req24-warmup/. A time rule, not a count: the per-sample minflt (req 25) is the check on the machine; not met under AK_SMOKE"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
   echo "# repeats    launches=$LAUNCHES rounds=$ROUNDS smoke=${AK_SMOKE:-0}"
-  echo "# warm-ups   (requirement 24; campaign default / smoke default; the environment wins; criterion's own warm-up, no hand-written loop beside it) codec: AK_WARMUP_MS 500 / 5 ms; rpc: AK_RPC_WARMUP_MS 5000 / 5 ms per benchmark, AK_RPC_SERVER_WARMUP 64 / 16 checked calls from each client transport before the first benchmark; calib: iters/10 per arm. The values used are in each log's own header"
+  echo "# warm-ups   (requirement 24; campaign default / smoke default; the environment wins; criterion's own warm-up, no hand-written loop beside it) codec: AK_WARMUP_MS 500 / 5 ms; rpc: AK_RPC_WARMUP_MS 1500 / 5 ms per a, a+read, b benchmark and AK_RPC_WARMUP_LONG_MS 5000 / 5 ms per c, d benchmark, AK_RPC_SERVER_WARMUP 64 / 16 checked calls from each client transport before the first benchmark; calib: iters/10 per arm. The values used are in each log's own header"
 }
 cpus_required() {
   for v in "$@"; do
@@ -234,7 +235,7 @@ case "$SUITE" in
     # (benches/rpc_suite.rs). Warm-up and measurement are criterion's; requirement 24's
     # knobs, campaign default / smoke default, the environment winning in both:
     if [ "${AK_SMOKE:-0}" = 1 ]; then
-      RWARM=${AK_RPC_WARMUP_MS:-5}; RMEAS=${AK_RPC_MEASURE_MS:-20}; SWARM=${AK_RPC_SERVER_WARMUP:-16}
+      RWARM=${AK_RPC_WARMUP_MS:-5}; RWARML=${AK_RPC_WARMUP_LONG_MS:-5}; RMEAS=${AK_RPC_MEASURE_MS:-20}; SWARM=${AK_RPC_SERVER_WARMUP:-16}
       # criterion's bootstrap for its console summary only (the samples are raw)
       export AK_NRESAMPLES=${AK_NRESAMPLES:-1000}
     else
@@ -243,8 +244,10 @@ case "$SUITE" in
       # iteration = one call on each of the k calling threads) until its WALL time exceeds
       # the warm-up, so 20 calls need wall(15 iterations) < warm-up. Slowest cell measured
       # (container, 4 CPUs, 2026-10-03, d/16MiB k = 8): 125-227 ms median wall per iteration,
-      # 461 ms the worst single one; 15 x ~300 ms = 4.5 s -> 5000 ms.
-      RWARM=${AK_RPC_WARMUP_MS:-5000}; RMEAS=${AK_RPC_MEASURE_MS:-2000}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
+      # 461 ms the worst single one; 15 x ~300 ms = 4.5 s -> 5000 ms for directions c and d
+      # (AK_RPC_WARMUP_LONG_MS). Directions a, a+read, b (AK_RPC_WARMUP_MS): k = 16 took up to
+      # 60 ms median, 96 ms worst, 15 x 96 ms = 1.44 s -> 1500 ms (500 ms did not meet it).
+      RWARM=${AK_RPC_WARMUP_MS:-1500}; RWARML=${AK_RPC_WARMUP_LONG_MS:-5000}; RMEAS=${AK_RPC_MEASURE_MS:-2000}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
     fi
     RSAMP=${AK_RPC_SAMPLES:-10}
     # D14 (owner, 2026-10-03): every pool is AK_WORKERS workers (campaign.machine via
@@ -272,7 +275,7 @@ case "$SUITE" in
       local exe=$1 out=$2 home=$3 sock; shift 3
       sock=SOCK_$T; sock=${!sock}
       env AK_RPC_SOCKET="$sock" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
-          AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_MEASURE_MS="$RMEAS" "$@" \
+          AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_WARMUP_LONG_MS="$RWARML" AK_MEASURE_MS="$RMEAS" "$@" \
           "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" "$exe"
     }
     TRANSPORTS=${AK_RPC_TRANSPORTS:-shipped pinned}

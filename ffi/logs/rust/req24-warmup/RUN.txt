@@ -1,2 +1,4 @@
 Sizing run for requirement 24 as amended (8c02e7c58): CONTAINER INSTRUMENTATION, not a result; figures kept because the runner's AK_RPC_WARMUP_MS default (5000 ms) is derived from wall_ns/batches of d/16MiB at k = 8.
 Command: rpc_suite, AK_CAMPAIGN_ALLOC=default, shipped, AK_RPC_DIRS=d,c AK_RPC_PAYLOADS=16MiB,P5.4 AK_RPC_INFLIGHT=8, AK_WARMUP_MS=5 AK_MEASURE_MS=20, taskset 0-7 on a 4-CPU container, every cell of the full build, run from the tree at b6e604f25 + the pre-grow revert (50d6f130e's code).
+ab/: the same sizing for directions a, a+read, b at k = 8 and 16 (AK_RPC_DIRS=a,a+read,b AK_RPC_INFLIGHT=8,16, every full-build cell, P2.2), CONTAINER INSTRUMENTATION, figures kept: the short default AK_RPC_WARMUP_MS (1500 ms) is derived from its wall_ns/batches.
+smoke/: one minimal smoke (figures stripped) of the per-direction warm-up: B/a/P2.2/k1 warmed 5 ms (AK_WARMUP_MS), B/c/P5.3/k1 warmed 300 ms (AK_WARMUP_LONG_MS), as criterion's console log shows.

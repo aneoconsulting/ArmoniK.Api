@@ -171,7 +171,10 @@ fn main() {
     let out: String = std::env::var("AK_OUT").expect("AK_OUT");
     let home = std::env::var("CRITERION_HOME").expect("CRITERION_HOME (the runner sets it per launch)");
     let samples: usize = env("AK_SAMPLES", 10).max(10);
-    let warm_ms: u64 = env("AK_WARMUP_MS", 500);
+    // Requirement 24 as amended (8c02e7c58, owner 2026-10-03): two warm-ups, by direction.
+    // Short (AK_WARMUP_MS) for a, a+read, b; long (AK_WARMUP_LONG_MS) for c and d.
+    let warm_ms: u64 = env("AK_WARMUP_MS", 1500);
+    let warm_long_ms: u64 = env("AK_WARMUP_LONG_MS", 5000);
     let meas_ms: u64 = env("AK_MEASURE_MS", 2000);
     let server_warm: usize = env("AK_RPC_SERVER_WARMUP", 64);
     let plant: String = env("AK_RPC_PLANT", String::new());
@@ -257,6 +260,8 @@ fn main() {
             g.throughput(Throughput::Elements(s.k as u64));
             let w = walls[i].clone();
             let id = s.id.clone();
+            // criterion reads the group's config at each bench_function: per-benchmark warm-up
+            g.warm_up_time(Duration::from_millis(if matches!(s.dir, "c" | "d") { warm_long_ms } else { warm_ms }));
             g.bench_function(format!("{i:05}"), |b| b.iter_custom(|iters| {
                 let u0 = rusage();
                 let (c0, t0) = (process_clock_ns(), Instant::now());
@@ -294,8 +299,8 @@ fn main() {
         ("build", if cfg!(feature = "unknown-fields") { "unknown-fields (retain/drop)".into() } else { "NO-UNKNOWN (unknown-field support compiled out; facade without unknown_fields)".to_string() }),
         ("launch", launch.to_string()),
         ("order", format!("benchmarks registered in a seeded random permutation of every (cell, dir, payload, k) (seed = launch); criterion runs them in registration order; first: {}", specs.iter().take(6).map(|s| s.id.as_str()).collect::<Vec<_>>().join(", "))),
-        ("engine", format!("criterion 0.5 (CAMPAIGN req 22a as amended 2026-09-27, WP9): one criterion benchmark per (cell, dir, payload, in-flight k), SamplingMode::Flat, {samples} samples (= rounds, criterion's floor 10), warm-up {warm_ms} ms and measurement {meas_ms} ms per benchmark (AK_WARMUP_MS, AK_MEASURE_MS); ONE ITERATION = ONE BATCH OF k CALLS IN FLIGHT, counted as k operations (Throughput::Elements(k); `iters` in a row = calls = criterion iterations x k, `batches` = criterion iterations); raw samples exported from criterion's sample.json, none dropped")),
-        ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first benchmark (AK_RPC_SERVER_WARMUP); then each benchmark's warm-up is criterion's own ({warm_ms} ms, every call checked); every cell's channel opened once, before the first benchmark, and shared by all its benchmarks (one channel per cell per benchmark process)")),
+        ("engine", format!("criterion 0.5 (CAMPAIGN req 22a as amended 2026-09-27, WP9): one criterion benchmark per (cell, dir, payload, in-flight k), SamplingMode::Flat, {samples} samples (= rounds, criterion's floor 10), warm-up {warm_ms} ms (directions a, a+read, b; AK_WARMUP_MS) or {warm_long_ms} ms (directions c, d; AK_WARMUP_LONG_MS) and measurement {meas_ms} ms per benchmark (AK_MEASURE_MS); ONE ITERATION = ONE BATCH OF k CALLS IN FLIGHT, counted as k operations (Throughput::Elements(k); `iters` in a row = calls = criterion iterations x k, `batches` = criterion iterations); raw samples exported from criterion's sample.json, none dropped")),
+        ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first benchmark (AK_RPC_SERVER_WARMUP); then each benchmark's warm-up is criterion's own ({warm_ms} ms for a, a+read, b; {warm_long_ms} ms for c, d; every call checked); every cell's channel opened once, before the first benchmark, and shared by all its benchmarks (one channel per cell per benchmark process)")),
         ("alloc", campaign::alloc_header(alloc, alloc_read)),
         ("clocks", "cpu_ns = process CPU per sample, CLOCK_PROCESS_CPUTIME_ID (criterion Measurement ProcessCpu, the codec suite's); wall_ns = monotonic, measured around the same iterations by the benchmark's own routine (iter_custom) and matched to criterion's samples: criterion keeps one quantity, so wall is a column beside it".into()),
         ("checks", "every call checked (requirement 18): a failed check PANICS inside the benchmark (criterion has no stop-on-error), which aborts the process before any output is written; the runner then discards the launch's output".into()),

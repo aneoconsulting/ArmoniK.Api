@@ -4309,3 +4309,18 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
 - Cost: about +4.5 s per RPC benchmark for every cell, cheap cells included. A per-benchmark
   warm-up (criterion's group warm_up_time set per spec, by payload and k) would cost only
   the large cells; it is not done (owner: no code beyond the default).
+
+## 2026-10-03 -- req 24: warm-up per direction (owner)
+
+- rpc_suite sets `g.warm_up_time` before each bench_function. Criterion reads the group's
+  config at each bench, as `to_complete` in run_bench shows. Directions c and d use
+  AK_WARMUP_LONG_MS (runner AK_RPC_WARMUP_LONG_MS 5000 / smoke 5). Directions a, a+read and b
+  use AK_WARMUP_MS (runner AK_RPC_WARMUP_MS).
+- Checked whether 500 ms meets the 20-call rule for a, a+read and b. The earlier log lacked
+  them, so I sized them (logs/rust/req24-warmup/ab/, every full-build cell, k = 8 and 16):
+  - k = 8: 10.3-24.3 ms median wall per iteration, worst 63 ms. 15 x 33 ms fits in 500 ms.
+  - k = 16: 17.6-60.3 ms median, worst 96 ms. 30 of 87 benchmarks were over 33 ms, so the
+    rule is NOT met at 500 ms.
+  - 15 x 96 ms = 1.44 s, so the short default is 1500 ms, not 500.
+- Smoke (smoke/, figures stripped): B/a/k1 warmed 5 ms and B/c/P5.3/k1 warmed 300 ms, as
+  criterion's console shows per benchmark. Both values are in the rpc header.
