@@ -809,6 +809,7 @@ Facts that bear on the design constraints and are not in `README.md`:
 | D13 | Other core patches | p1 kept; p2, p3, p5, p8, p9 dropped |
 | D14 | Core worker count | **8 (2026-10-03)**, the number of threads in each set's taskset (D8); every pool the same, `AK_WORKERS` in `campaign.machine` |
 | D15 | Other tenants | Docker's few, mostly idle containers stay running; netfilter is recorded as a machine condition |
+| D18 | Campaign grid | reduced to about 1 h per slice (2026-10-03): CAMPAIGN section 4.0; every other row a labelled extra run on demand; supersedes the multiplicities of D9 (pinned pass on a 4-row subset), D11 (h2-batch on Cf c and d only) and req 17 (one transport configuration, ArmoniK's, Nagle off) |
 | D17 | Backward encoding | tried as a patch with hosts delivering repeated fields last to first, and dropped: mixed timings (P2.4 faster, P6.1 slower) and a silent host-contract change; learned widths stay (`logs/rust/opt/patches/backward-encode/`, ABI-v1 section 6) (2026-10-02) |
 | D16 | h2-batch divergences | the patch is kept as is: data after a local reset (up to 15 more DATA frames before RST_STREAM) and untested control frames mid-burst are documented, not fixed (`poc/codec/h2-batch/README.md`, ABI-v1 section 9) (2026-10-02) |
 

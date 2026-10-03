@@ -76,6 +76,59 @@ in its container shows it executes (section 9).
 
 ## 4. What is measured
 
+### 4.0 The campaign grid (owner, 2026-10-03, D18)
+
+**This section overrides the multiplicities of sections 4.1 and 4.2.** The full grid
+those sections define came to 370 to 410 h for the five slices (each slice's STATE,
+"Campaign duration estimate", 2026-10-03). The owner's budget is **about 1 h per
+slice**. The grid keeps what README section 13's options depend on; every other row
+of 4.1 and 4.2 becomes a **labelled extra**, kept buildable behind a runner switch
+and run on demand, never in the campaign by default.
+
+**Codec suite**
+- Payloads: the 16 shapes of `design/SHAPES.md` (P7.1 decode only); Latin-1 and
+  wide content sets on **P2.2 only**; **7 `U-*` rows**, one per ABI root, the
+  lower-median wire size of that root's accepted non-disputed rows (ties by id):
+  `U-nested-before` (ListResultsResponse), `U-deep-u-repeated`
+  (ListTasksDetailedResponse), `U-oneof-u-repeated` (ListProbeResponse),
+  `U-wire-ListTaskSummaryResponse-tasks-as-wt5`,
+  `U-wire-UploadResultDataMessage-upload-as-wt5`,
+  `U-wire-ListMetricsResponse-batches-as-wt0`, `U-wire-DualResponse-left-as-wt5`.
+  The other 85 `U-*` rows stay in every correctness gate, untimed.
+- Arms: `incumbent-prod`, `core-ffi` (push), `host-gen`.
+- Directions: encode, and decode followed by reading every field (`decode-read`).
+- Encode variant: end state (ii), the form the arm hands its transport; input (i),
+  one hot graph.
+- Unknown-field modes: `retain` in the full build; the **no-unknown build** for
+  `core-ffi` and `host-gen`. The incumbent runs once, in the full build.
+- Java: both string-coder states on the content-set rows only (req 24).
+
+**RPC grid**
+- Cells: **A, Bf, Cf, Ef**, the core cells on the framed path (the default) with the
+  host's idiomatic delivery (req 16); full build, `retain`.
+- Directions: `a+read` and `b`, `c` at P5.4, `d` at 16 MiB, each at **k = 1 and 8**.
+- Transport: **one configuration**, ArmoniK's own client configuration
+  (`packages/<lang>`) with **Nagle off** on every socket (D10); where ArmoniK
+  differs from the library's defaults is listed per language beside it (to be
+  added). Server: the one Rust server, as req 13.
+- h2: **stock h2 0.4.19** in every core cell, plus **Cf on h2-batch for `c` and
+  `d`** (k = 1 and 8), labelled.
+- Allocator (req 25): the main grid on the default allocator; the **pinned
+  diagnostic pass runs A and Cf on `c` and `d` at k = 1** only.
+
+**Unchanged:** 3 launches and 5 rounds (req 23); warm-ups (req 24, including the
+20-calls-per-thread rule); the server, isolation, checks, logs and gates.
+
+**Labelled extras (on demand):** `incumbent-best`; pull decode; Rust's `core-native`
+and `armonik`; bare decode; the other three encode variants; the `drop` mode; content
+sets on P1.2 and P2.4; the other 85 `U-*` rows timed; cells B, C, D, E, F, the
+non-framed reference rows and the extra delivery rows; direction `a`; k = 16; P5.3;
+`d` at 4 MiB; the RPC grid in the no-unknown build; the second transport
+configuration; h2-batch on other rows; the pinned allocator pass beyond its subset;
+C++'s second grpc++ version.
+
+Each slice states its campaign-length estimate for this grid in its STATE.
+
 ### 4.1 Codec benchmarks (one process, pinned to `CLIENT`, no server)
 
 7. **Payloads:** all 16 of `design/SHAPES.md`, the three content sets (ASCII,
