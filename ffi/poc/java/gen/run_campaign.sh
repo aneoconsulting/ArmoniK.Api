@@ -212,14 +212,16 @@ run_gate() {
   # accepted and every cell's streamed uploads received with the right count and SHA-256;
   # then the plant (every upload expects one byte more) must abort.
   for v in "" -nounk; do
-    for so in "$ss:shipped" "$sp:pinned"; do
+    # The address is tcp:127.0.0.1:PORT (D10), so the configuration is passed apart from it.
+    for tr in shipped pinned; do
+      local addr=$ss; [ "$tr" = pinned ] && addr=$sp
       "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$H2S$v/libakjni.so" \
-        -Dak.rpclib="$HERE/build/jnirpc$H2S$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.transport="${so#*:}" \
-        -Dak.camp.socket="${so%%:*}" ak.CampaignRpc > "$OUT/upload-check$v-${so#*:}.txt" 2>&1
-      if grep -q "UPLOAD CHECK PASSED" "$OUT/upload-check$v-${so#*:}.txt"; then
-        echo "## upload check${v:+, no-unknown build}, ${so#*:}: $(grep 'UPLOAD CHECK PASSED' "$OUT/upload-check$v-${so#*:}.txt")" >> "$f"
+        -Dak.rpclib="$HERE/build/jnirpc$H2S$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.transport="$tr" \
+        -Dak.camp.socket="$addr" ak.CampaignRpc > "$OUT/upload-check$v-$tr.txt" 2>&1
+      if grep -q "UPLOAD CHECK PASSED" "$OUT/upload-check$v-$tr.txt"; then
+        echo "## upload check${v:+, no-unknown build}, $tr over $addr: $(grep 'UPLOAD CHECK PASSED' "$OUT/upload-check$v-$tr.txt")" >> "$f"
       else
-        echo "## upload check${v:+, no-unknown build}, ${so#*:} FAILED: see upload-check$v-${so#*:}.txt" >> "$f"; rc=1
+        echo "## upload check${v:+, no-unknown build}, $tr FAILED: see upload-check$v-$tr.txt" >> "$f"; rc=1
       fi
     done
     if "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$H2S$v/libakjni.so" \
