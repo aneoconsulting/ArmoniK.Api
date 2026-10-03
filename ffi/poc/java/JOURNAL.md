@@ -1058,3 +1058,18 @@ The default mode takes 3 rounds because its first block is mmapped: freeing it r
 dynamic mmap threshold, and the trim threshold with it, so after the pre-grow a default-mode
 process serves blocks up to that size from the heap. The probe's own block stays mapped and
 does not do this.
+
+### J41. Heap pre-grow reverted (owner, 2026-10-03)
+
+The owner reverted the heap pre-grow. A pre-grow on one thread cannot reach the other
+threads' malloc arenas: the C++ slice found its first benchmark still faulting through the
+core's worker threads. JMH's warm-up runs the real call path on every thread, and the
+per-sample `minflt` shows whether it was enough.
+
+Removed: `Native.preGrow`, its call in CampaignAlloc, `-Dak.camp.pregrow`, and the rounds and
+last-faults header fields.
+
+Kept: AK_CAMPAIGN_ALLOC, the once-per-process check (block kept mapped, refusal on a
+mismatch), `alloc` and `minflt` over the measured span on every sample, and the CampaignAlloc
+name.
+Smokes at 6bc18a5d5, one per mode: rpc 289 samples, codec 58/58/14 and 40/40/8, readback mmapped / heap, no pre-grow line (logs/java/campaign-d9). The C# agent's `w24` scratch deletion did not touch this slice's files: the runner keeps its server state in /tmp/akj.*, and no rpc_server of this slice is running.
