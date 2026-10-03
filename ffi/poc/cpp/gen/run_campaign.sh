@@ -20,6 +20,8 @@
 #    the defaults above, an explicit value always wins, and the header states what ran)
 #   AK_CAMPAIGN_TRANSPORTS rpc: "shipped pinned" (default) or one of them (a small smoke)
 #   AK_CAMPAIGN_BUILDS   codec and rpc: both (default), full or no-unknown (a small smoke)
+#   AK_CAMPAIGN_ALLOC    default (the main figures: glibc's default allocator) or pinned (the
+#                        labelled diagnostic: GLIBC_TUNABLES trim/mmap thresholds on the clients)
 #   AK_CAMPAIGN_CALIB_ITERS calib: crossings per sample        (default 100000000)
 #   AK_LLC_BYTES         last-level cache size (default 14417920, the i9-7900X's 13.75 MB)
 #   AK_CAMPAIGN_POOL_BYTES codec: encode input pool, encoded bytes (default 2 x AK_LLC_BYTES)
@@ -68,6 +70,21 @@ SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
 # the shared server's tokio runtime (serve.sh's AK_SERVER_THREADS).
 WORKERS=${AK_WORKERS:-8}
 export AK_WORKERS=$WORKERS
+# req. 25 / D9 as amended 2026-10-03: the MAIN figures run with glibc's DEFAULT allocator, as
+# production does. AK_CAMPAIGN_ALLOC=pinned is the labelled diagnostic pass: the measured
+# client processes (codec binaries, RPC clients) run under GLIBC_TUNABLES (trim and mmap
+# thresholds pinned); the shared server is never pinned. Every sample carries "allocator" and
+# its minor faults (RPC: ru_minflt, minflt_per_call; codec: ru_minflt, minflt_per_op), and a
+# pinned pass's files are named alloc-pinned-*.
+ALLOC=${AK_CAMPAIGN_ALLOC:-default}
+unset GLIBC_TUNABLES   # never inherited: only a pinned pass's clients get it, explicitly
+TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432
+case "$ALLOC" in
+  default) ALLOCENV=""; APFX="" ;;
+  pinned) ALLOCENV="GLIBC_TUNABLES=$TUNABLES"; APFX="alloc-pinned-" ;;
+  *) echo "AK_CAMPAIGN_ALLOC: default or pinned" >&2; exit 2 ;;
+esac
+export AK_ALLOC_MODE=$ALLOC
 # The owner's small-test rule (2026-09-27): a smoke may run one transport and one build.
 TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}   # rpc: client configurations run
 BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec and rpc: full | no-unknown | both
@@ -183,7 +200,7 @@ h = {
  "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
              "workers": $WORKERS, "rpc_client": "D14: the core's runtime workers = AK_WORKERS ($WORKERS); caller threads = the in-flight level (1, 8, 16: one blocking call each, req. 15/16, so this is not a worker pool), created before any benchmark; grpc-core (grpc++'s A, D, F) has no public setting for its pollers or EventEngine threads: it sizes itself from sysconf(_SC_NPROCESSORS_CONF) (EventEngine Clamp(n, 4, 16)), recorded with the thread classes in each client header, not set to AK_WORKERS", "rpc_server_threads": "the shared tokio server's runtime: AK_SERVER_THREADS = AK_WORKERS ($WORKERS)",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
- "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
+ "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "malloc": {"mode": "$ALLOC", "main_figures": "default: glibc's default allocator, as production (req. 25, D9 amended 2026-10-03)", "diagnostic": "pinned (AK_CAMPAIGN_ALLOC=pinned): GLIBC_TUNABLES=$TUNABLES on the measured client processes, files alloc-pinned-*", "this_run_glibc_tunables": "$( [ "$ALLOC" = pinned ] && echo "$TUNABLES" || echo none)", "server": "never pinned", "minor_faults": "every sample: ru_minflt per repetition and per call (RPC minflt_per_call) or per operation (codec minflt_per_op)"}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
  "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 0.5, "rpc_server_calls": 200}, "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
  "sample": {"codec_min_time_s_per_repetition": $MINT, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_min_time_s_per_repetition": $RPCMINT, "calib_iters": $CITERS,
             "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "Google Benchmark (the same build, WP9): cpu_time = process CPU per repetition (MeasureProcessCPUTime), real_time = wall (UseRealTime); one iteration = a batch of k calls in flight; repetitions randomly interleaved across the benchmarks of one client process", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
@@ -364,7 +381,7 @@ rpc_launch_file() {
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
   [ "$BUILDS" = full ] && RBS=campaign_rpc; [ "$BUILDS" = no-unknown ] && RBS=campaign_rpc_nounk
   for rb in $RBS; do
-    env $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
+    env $ALLOCENV $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
       --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" $extra \
       --gbench-out "$TMPD/rpc.gbench.json" > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
@@ -447,13 +464,13 @@ case "$SUITE" in
      [ "$BUILDS" = full ] && CBS=campaign_codec; [ "$BUILDS" = no-unknown ] && CBS=campaign_codec_nounk
      for cb in $CBS; do
       tag=${cb#campaign_codec}; tag=${tag#_}; tag=${tag:+$tag-}
-      f=$OUT/codec-${tag}launch$l.jsonl
+      f=$OUT/${APFX}codec-${tag}launch$l.jsonl
       # Google Benchmark (requirement 22a): the binary gates, warms up and runs the
       # benchmarks; its per-repetition JSON is converted to section 7's lines, and the raw
       # Google Benchmark JSON is kept beside them.
-      gb=$OUT/codec-${tag}launch$l.gbench.json
+      gb=$OUT/${APFX}codec-${tag}launch$l.gbench.json
       { header codec "$l"
-        (cd "$FFI/schema/generated" && env $(cs_env "$B/$cb") taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
+        (cd "$FFI/schema/generated" && env $ALLOCENV $(cs_env "$B/$cb") taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
            --rounds "$ROUNDS" --min-time-s "$MINT" --warmup-s "$WARM" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" --pool-bytes "$POOL" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
@@ -468,7 +485,7 @@ case "$SUITE" in
   rpc)
     ensure_gate || exit 1
     for l in $(seq 1 "$LAUNCHES"); do
-      f=$OUT/rpc-launch$l.jsonl
+      f=$OUT/${APFX}rpc-launch$l.jsonl
       header rpc "$l" > "$f"
       # The full client (A B Bf C/Cf/D/E/Ef/F in retain and drop) and the no-unknown client
       # (A B Bf C/Cf/D/E/Ef/F-nounk; A and B its

@@ -2229,3 +2229,13 @@ changes.
   Clamp(n, 4, 16)); not set, recorded in each client header with the thread classes.
 - Minimal smoke: server log "tokio multi-thread 8 workers", client header core_runtime_workers 8,
   one short client run (A, B, C-drop, dir a, k 1 and 8) rc 0. No gated path changed.
+
+## 2026-10-03, D9 amended (default allocator for the main figures)
+
+- The runner never pinned the allocator, so the default was already unpinned. Added: AK_CAMPAIGN_ALLOC=pinned
+  as the labelled diagnostic (GLIBC_TUNABLES on the measured clients only, files alloc-pinned-*), any ambient
+  GLIBC_TUNABLES unset, the header `malloc` object stating both, and on every sample `allocator` plus minor
+  faults (the codec suite now records ru_minflt / ru_majflt around its timed loop too).
+- Minimal smoke, both modes: RPC A/C-drop dirs a and d (default: allocator default, minflt 0 on a; pinned: d
+  256 minor faults per call), codec P1.1 pinned (allocator pinned, minflt_per_op recorded), header renders both.
+  No gated path changed; no gate run.

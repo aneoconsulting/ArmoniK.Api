@@ -52,6 +52,7 @@
 //                  [--corpus DIR --rows TSV] [--payloads DIR] [--gbench-out FILE]
 //                  [--pool-bytes N]
 #include <benchmark/benchmark.h>
+#include <sys/resource.h>
 #ifndef AK_GBENCH_VERSION
 #define AK_GBENCH_VERSION "unknown"
 #endif
@@ -999,10 +1000,17 @@ int main(int argc, char **argv) {
         // H-9 (2026-09-28): the framework's iteration count is handed to the slot in ONE call
         // (KeepRunningBatch), so an iteration costs the arm and at most one std::function call
         // (the encode lambda), not two plus a clobber; the fold keeps every result live.
+        // req. 25 (D9 as amended 2026-10-03): the minor faults of the repetition beside every
+        // sample, from getrusage around the timed loop (outside Google Benchmark's timers).
+        struct rusage r0, r1;
+        getrusage(RUSAGE_SELF, &r0);
         while (st.KeepRunningBatch(st.max_iterations)) {
           uint64_t h = sl->run((long)st.max_iterations);
           benchmark::DoNotOptimize(h);
         }
+        getrusage(RUSAGE_SELF, &r1);
+        st.counters["ru_minflt"] = (double)(r1.ru_minflt - r0.ru_minflt);
+        st.counters["ru_majflt"] = (double)(r1.ru_majflt - r0.ru_majflt);
         benchmark::ClobberMemory();
         if (sl->teardown) sl->teardown();
       })->Repetitions(g_cfg.rounds)->Unit(benchmark::kNanosecond)
