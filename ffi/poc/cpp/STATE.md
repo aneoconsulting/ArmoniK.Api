@@ -465,6 +465,14 @@ timed build.
   per completion and ak_call_destroy: B-q a/b/c 4/0 (blocking 2), C-q c 6 (4), C-q-drop a 5/3501
   (3/3501), B-q d 9 and 21 (6 and 12: one ak_queue_next per send and one for the recv), C-q d 13
   and 37 (10 and 28), E-q 4 (c) and 9/21 (d); framed twins identical to their references.
+- **Core grid (D18), every timed core-ffi row:** `logs/cpp/counts-grid.log` and `counts-grid-nounk.log`, 49 rows each,
+  from `counts_grid(_nounk)` (linked to the rpc,count campaign cores): the transport-ready encode (encode_into_* +
+  ak_enc_take_owned + ak_bytes_free; 1 forward above `encode retain`/`encode`, since take_owned + free replace
+  ak_enc_take) and the contiguous decode, for the 16 shapes in ASCII (P7.1 decode only), P2.2 Latin-1 and wide and the
+  7 U rows. New against every earlier file: the 24 transport encodes, the two P2.2 content-set rows and P7.1's decode;
+  the other decode rows equal counts-baseline's. Both gates (wp5_gate.sh, run_campaign.sh --suite gate) compare them.
+  The core grid's RPC rows (Bf, Cf-retain, Ef-retain on a, b, c P5.4, d 16 MiB) are in rpc-counts.log; Cf on the
+  h2-batch core makes the same exported calls and is not counted with an h2-batch counting core (none is built).
 - **Pre-campaign RPC delivery counts:** `logs/cpp/rd2-rpccounts.log`. Blocking 2/0,
   callback 3/1, queue 4/0 forward/reverse per call, counting `ak_call_destroy`.
 

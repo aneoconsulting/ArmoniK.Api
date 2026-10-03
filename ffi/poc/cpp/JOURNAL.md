@@ -2322,3 +2322,13 @@ changes.
 - RPC smoke (core grid, smoke mode, runner, hand-written gate.ok): 36 samples; client_tcp 4, server_tcp 4 (h2-batch
   run 1 and 1), Nagle on 0. Plant nagle: exit 4 "1 client TCP socket(s) with Nagle on", no output; Unix target with
   --require-tcp: exit 4, no output. Disk 89% (other slices' scratch worktrees); only campaign_rpc and the two cores built.
+
+## 2026-10-03, core-grid counts; the reference-path check
+
+- Counts: counts_grid(_nounk) and logs/cpp/counts-grid(-nounk).log (49 rows each), gated in wp5_gate and the campaign
+  gate. New rows: the transport-ready encode (take_owned + bytes_free) for the 16 shapes, P2.2 Latin-1 and wide and the
+  7 U rows (24), the P2.2 Latin-1/wide decodes, P7.1's decode. The other decode rows equal counts-baseline's.
+- Reference path: every campaign core client goes through core_client, which sets ak_client_set_framed explicitly
+  (0 for B, C, E and their -q forms, 1 for the framed ones) since de2defc9e (2026-09-30). From e8fe14868 (2026-09-28,
+  framed became the core's default) to de2defc9e the reference rows ran framed (physical-probe runs of that window).
+  No fix needed now.
