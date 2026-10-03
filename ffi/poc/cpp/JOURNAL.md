@@ -2272,3 +2272,13 @@ changes.
   the others 0 to 0.17. As far as this run shows: the pre-grow runs on the main thread and grows its arena only,
   while the core's runtime workers (ak_call_send copies each 2 MiB chunk) allocate from their own per-thread
   arenas, which the first benchmark grows. Inference from one run; not fixed (owner: the check only).
+
+## 2026-10-03, heap pre-grow reverted (owner)
+
+- pregrow_or_exit, its calls in campaign_rpc and campaign_codec, the d sizing (e2b51dc00) and the heap_pregrow
+  header line are removed. Reason: this slice's own finding (above): a pre-grow on the main thread cannot reach
+  the worker threads' malloc arenas; Google Benchmark's warm-up runs the real call path on every thread, and the
+  per-sample minor faults show whether it sufficed. Kept: AK_CAMPAIGN_ALLOC, the startup check (once per process,
+  block kept mapped, refusal on mismatch), alloc and the minor faults on every sample.
+- Smoke per mode (RPC A, E-drop, d 16 MiB; codec P1.1): readbacks mmapped / heap, ok true, rc 0, no
+  heap_pregrow line.

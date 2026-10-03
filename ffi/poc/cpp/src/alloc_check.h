@@ -8,7 +8,6 @@
 #pragma once
 
 #include <malloc.h>
-#include <sys/resource.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -45,36 +44,6 @@ inline std::string check_or_exit() {
                 mode.c_str(), tun.c_str(), readback, (size_t)a.hblks, (size_t)b.hblks, why.empty() ? "true" : "false");
   if (!why.empty()) {
     std::fprintf(stderr, "ALLOC CHECK FAILED: %s -- %s; nothing is timed\n", why.c_str(), o);
-    std::fflush(stdout);
-    std::_Exit(4);
-  }
-  return o;
-}
-
-// req. 25 (ii), both modes: pre-grow the heap before any timing. Allocate, touch every page of
-// and free a block of `bytes` (the run's largest payload) until one more round faults nothing
-// (minor faults from getrusage), at most 8 rounds, else refuse (exit 4). Returns the header
-// object: the rounds taken and the last round's faults.
-inline std::string pregrow_or_exit(size_t bytes) {
-  long last = -1;
-  int rounds = 0;
-  for (rounds = 1; rounds <= 8; ++rounds) {
-    struct rusage r0, r1;
-    getrusage(RUSAGE_SELF, &r0);
-    volatile char *p = static_cast<volatile char *>(std::malloc(bytes));
-    if (!p) break;
-    for (size_t i = 0; i < bytes; i += 4096) p[i] = 1;
-    p[bytes - 1] = 1;
-    std::free(const_cast<char *>(p));
-    getrusage(RUSAGE_SELF, &r1);
-    last = r1.ru_minflt - r0.ru_minflt;
-    if (last == 0) break;
-  }
-  char o[256];
-  std::snprintf(o, sizeof o, "{\"heap_pregrow\": {\"bytes\": %zu, \"rounds\": %d, \"last_round_minor_faults\": %ld, \"cap\": 8}}",
-                bytes, rounds > 8 ? 8 : rounds, last);
-  if (last != 0) {
-    std::fprintf(stderr, "ALLOC CHECK FAILED: the heap pre-grow did not reach a fault-free round -- %s; nothing is timed\n", o);
     std::fflush(stdout);
     std::_Exit(4);
   }
