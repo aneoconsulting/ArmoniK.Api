@@ -270,7 +270,7 @@ fi
   step "core-grid crossing counts (D18, CAMPAIGN 4.0): counts_grid and counts_grid_nounk against logs/cpp/counts-grid*.log"
   for v in "" _nounk; do
     want=$L/counts-grid$( [ -n "$v" ] && echo -nounk ).log
-    (cd "$PAY" && must "counts_grid$v" 0 "$OLDPWD/$B/counts_grid$v" --corpus "$OLDPWD/../../corpus/generated") > "$S/counts-grid$v.log"
+    (cd "$PAY" && must "counts_grid$v" 0 env $(cs_env "$OLDPWD/$B/counts_grid$v") "$OLDPWD/$B/counts_grid$v" --corpus "$OLDPWD/../../corpus/generated") > "$S/counts-grid$v.log"
     if diff <(grep -E '^  [PU]' "$want") <(grep -E '^  [PU]' "$S/counts-grid$v.log") > "$S/gdiff"; then
       echo "  $(grep -cE '^  [PU]' "$S/counts-grid$v.log") core-grid count rows identical to $(basename "$want")"
     else head -8 "$S/gdiff"; echo ">>> FAIL: core-grid counts differ from $(basename "$want")"; FAILS=$((FAILS+1)); fi

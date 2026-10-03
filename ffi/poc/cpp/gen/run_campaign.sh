@@ -280,7 +280,7 @@ run_gate() {
     # transport-ready encode and the decode, both builds, against logs/cpp/counts-grid*.log.
     for v in "" _nounk; do
       want=$FFI/logs/cpp/counts-grid$( [ -n "$v" ] && echo -nounk ).log
-      (cd "$FFI/schema/generated" && "$B/counts_grid$v" --corpus "$FFI/corpus/generated" > "$OUT/counts-grid$v.log" 2>&1) \
+      (cd "$FFI/schema/generated" && env $(cs_env "$B/counts_grid$v") "$B/counts_grid$v" --corpus "$FFI/corpus/generated" > "$OUT/counts-grid$v.log" 2>&1) \
         || echo ">>> FAIL: counts_grid$v exit"
       if diff <(grep -E '^  [PU]' "$want") <(grep -E '^  [PU]' "$OUT/counts-grid$v.log") > "$TMPD/gd"; then
         echo "  $(grep -cE '^  [PU]' "$OUT/counts-grid$v.log") core-grid count rows identical to logs/cpp/$(basename "$want")"
