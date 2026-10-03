@@ -4355,3 +4355,17 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   - a planted Nagle-on socket refused the run.
 - Smoke (logs/rust/d18/): see STATE. Core-grid campaign estimate is ~55 min (48-62),
   replacing the full-grid ~57 h.
+
+## 2026-10-03 -- core-grid counts, send-path check, gate (owner)
+
+- Counts: the core grid times decode-read and a+read, which had no counted rows. They are
+  added to the counting build (crossings.rs) and the committed files: 228 + 24 new rows in
+  the full build, 114 + 14 in no-unknown. Existing rows are identical, and each new row
+  equals its decode / a row.
+- No new count for the U-* rows' encode at end state (ii): in Rust, transport-ready-core is
+  the reused-buffer op.
+- Send path: Conn::open sets ak_client_set_framed(client, framed(cell)) on every core cell,
+  the only constructor the timed suites use. It landed together with the framed default, so
+  no reference row ever ran framed. Not a defect here.
+- Gate step 12b: TCP upload check (stock core); the h2-batch core build; upload_check
+  (UDS and TCP) and rpc_semantics on the h2-batch core. Pre-tested in the tree: all pass.

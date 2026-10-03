@@ -149,6 +149,28 @@ cargo build --release -q -p campaign --bin crossings 2>/dev/null   # the full co
 core_of() { if [ -n "${AK_WP12_VARIANT:-}" ]; then echo "$1/release/ak-variant/libak_core.so"; else echo "$1/release/deps/libak_core.so"; fi; }
 gen/c_variant.sh "$(core_of target)" "$(core_of target-nounk)"
 
+step "12b. the core grid's transport and its h2-batch core (CAMPAIGN 4.0, D18): uploads over TCP loopback, and the h2-batch core on the same checks"
+AK_CHECK_TRANSPORT=tcp cargo run --release -q -p campaign --bin upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \
+  && echo "  stock core, TCP loopback: the upload byte check passes" \
+  || { echo "  stock core, TCP loopback: the upload byte check FAILED"; exit 1; }
+gen/h2batch_core.sh "$PWD/target-h2batch" > "${TMPDIR:-/tmp}/ak-h2batch-build.$$" 2>&1 \
+  || { cat "${TMPDIR:-/tmp}/ak-h2batch-build.$$"; echo "  the h2-batch core did not build"; exit 1; }
+sed -n '2,3p' "${TMPDIR:-/tmp}/ak-h2batch-build.$$" | sed 's/^/  /'
+grep -q 'h2 compiled in: h2-batch-src/' "${TMPDIR:-/tmp}/ak-h2batch-build.$$" || { echo "  the h2-batch core does not carry the patched h2"; exit 1; }
+rm -f "${TMPDIR:-/tmp}/ak-h2batch-build.$$"
+H2B="$PWD/target-h2batch/release/deps"
+for b in upload_check rpc_semantics; do
+  LD_LIBRARY_PATH="$H2B" ldd "target/release/$b" | grep -q "$H2B/libak_core.so" || { echo "  $b does not load the h2-batch core"; exit 1; }
+done
+for tr in uds tcp; do
+  LD_LIBRARY_PATH="$H2B" AK_CHECK_TRANSPORT=$tr target/release/upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \
+    && echo "  h2-batch core, $tr: the upload byte check passes" \
+    || { echo "  h2-batch core, $tr: the upload byte check FAILED"; exit 1; }
+done
+LD_LIBRARY_PATH="$H2B" target/release/rpc_semantics 2>/dev/null | tail -1 | grep -q "RPC SEMANTICS PASSED" \
+  && echo "  h2-batch core: the RPC semantics cases pass" \
+  || { echo "  h2-batch core: the RPC semantics cases FAILED"; exit 1; }
+
 if [ "${1:-}" = "--tsan" ]; then
   step "13. ThreadSanitizer over the concurrency suite"
   gen/tsan.sh 2>/dev/null

@@ -66,6 +66,13 @@ impl Visit for Count<'_> {
             host_calls_take();
             R::f_decode(c, w, retain).expect("decode");
             self.out.push(row(&self.inp.id, "decode", m, dec(R::dec_ctx(c)), host_calls_take()));
+            // decode-read (the core grid's decode direction, CAMPAIGN 4.0): the same decode, then
+            // every field read on the host's value, counted over both.
+            unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
+            host_calls_take();
+            let v = R::f_decode(c, w, retain).expect("decode");
+            std::hint::black_box(R::touch_f(&v));
+            self.out.push(row(&self.inp.id, "decode-read", m, dec(R::dec_ctx(c)), host_calls_take()));
             let mut toks = Vec::new();
             R::f_pull(c, w, retain, &mut toks).expect("pull");
             unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
@@ -96,7 +103,7 @@ fn rpc_rows(out: &mut Vec<String>) {
     for cell in grid::CELLS.iter().filter(|c| matches!(grid::base(c), 'B' | 'C' | 'D' | 'E')) {
         let conn = Conn::open(cell, &target, false);
         let mode = grid::mode_of(cell).unwrap_or("default");
-        for d in ["a", "b"] {
+        for d in ["a", "a+read", "b"] {
             let sl = grid::slots(1);
             let call = grid::call_of(cell, &conn, d, sl, want_a);
             call.once(0).expect("warm call");
@@ -160,10 +167,14 @@ fn main() {
     println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each");
     println!("# encode + one ak_dec_reset_<Root> before each retain decode or pull (the context stays armed, U1). Retain: no pre-placed buffer,");
     println!("# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).");
-    println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, b = encode + Push), core RPC counters included;");
+    println!("# decode-read: the decode, then every field of the host's value read (the core grid's decode direction, CAMPAIGN 4.0).");
+    println!("# encode: the core-ffi encode, which is ALSO the op of end states reused-buffer and transport-ready-core (cell C's form: the context's");
+    println!("# buffer is moved inside ak_call_unary_enc, counted in the rpc:C rows); core-native and incumbent-prod call no ak_* entry point.");
+    println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, a+read = a + every field read, b = encode + Push), core RPC counters included;");
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
     println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");
+    println!("# The counts do not depend on the h2 variant (stock or h2-batch): h2 is inside the core, below every counted entry point.");
     println!("# B-cb, C-cb, E-cb (and Bf-cb, Cf-cb, Ef-cb): the callback cells (CAMPAIGN req 16 as amended, Rust's reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb + ak_call_destroy + ak_bytes_free, one reverse (the completion); d: ak_call_send_cb / _enc_cb per chunk and ak_call_recv_cb, one reverse per completion.");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {

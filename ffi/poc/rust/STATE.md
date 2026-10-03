@@ -743,6 +743,24 @@ The grid switch is `AK_CAMPAIGN_GRID=core|full` (default `core`) in run_campaign
   - Plants: every req 18 plant aborted, and the Nagle plant refused.
   - It ran through a copy of the runner with the gate and crossing checks stubbed out (no gate for this unit).
 
+**Counts and send path for the core grid (2026-10-03, owner):**
+
+- Every timed core-grid row has gated crossing counts.
+- The counting build now also writes `decode-read` rows (every input, every mode; the decode plus every field read) and `rpc:<cell> a+read` rows (cells B-E).
+  - gen/crossings.txt grows from 836 to 1,092 lines; gen/crossings-nounk.txt from 435 to 567.
+  - Every existing row is unchanged, and every new row equals its decode / a row (the reads cross nothing).
+- Rows with no new count of their own:
+  - The core-ffi encode at end state (ii) `transport-ready-core` is the `encode` row's op: the move happens inside ak_call_unary_enc, counted in rpc:C.
+  - core-native and incumbent-prod call no ak_* entry point.
+  - h2 is below every counted entry point, so h2-batch rows need no count of their own.
+- Send path:
+  - Every timed core cell sets its path explicitly at `Conn::open`: `ak_client_set_framed(client, framed(cell))`, so B, C, E and their -cb variants run reference and Bf, Cf, Ef and their -cb variants run framed, under core and full alike.
+  - That code (cd47d9cf5) landed in the same push as the core's framed default (e8fe14868, both 2026-09-28 19:47:35), so no reference row ever ran framed.
+- Gate step 12b (new) runs:
+  - upload_check over TCP loopback on the stock core;
+  - gen/h2batch_core.sh;
+  - upload_check (UDS and TCP) and rpc_semantics on the h2-batch core, loaded through LD_LIBRARY_PATH and verified with ldd.
+
 ## Campaign duration estimate, core grid (2026-10-03, computed; container-sized per-benchmark times)
 
 Defaults: 3 launches; codec warm-up 500 ms + measurement 2 s; RPC warm-up 1500 ms (a+read, b) or 5000 ms (c, d) + 2 s; 100,000 resamples.
