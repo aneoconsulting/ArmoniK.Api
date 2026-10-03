@@ -4200,3 +4200,15 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   in serve.sh; the runner header, the RPC header and the server log state the values.
   SERVER.md's default updated (the interface is otherwise unchanged). Minimal smoke
   (logs/rust/d14/): server 8 workers, client mt8, ak_runtime_new(8).
+
+## 2026-10-03 -- core fix: a fresh encode context needs no reset (owner-approved)
+
+- Python found that since the framed default (e8fe14868) `ak_enc_ctx_new` set head = 5
+  without laying the headroom down. New control `bin/fresh_enc`: new context, encode
+  ListResultsResponse (page 7, total 3) with no reset, `ak_enc_take`, compare with prost.
+  Before (logs/rust/fresh-enc/before.log): 0 bytes where prost writes 4 -- FAIL. Fix in
+  ak-core lib.rs: `ak_enc_ctx_new` calls `Enc::reset()` after setting head, the state
+  `ak_enc_reset` leaves. After: PASS on the full and the no-unknown build (after.log). The h2
+  variants differ only in the transport, not in context creation. Added to gate.sh after
+  stickyerr. The gate was NOT run (owner). No committed count changes: `ak_enc_ctx_new` is
+  setup, outside every counted loop, and hosts' resets remain host calls.

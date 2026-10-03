@@ -143,6 +143,11 @@ name = "rdrepro"
 path = "src/bin/rdrepro.rs"
 
 [[bin]]
+# Owner-approved core fix (2026-10-03): a fresh encode context needs no reset.
+name = "fresh_enc"
+path = "src/bin/fresh_enc.rs"
+
+[[bin]]
 # FIX-PLAN WP4 item 7 / R-D6: the sticky error slot, checked after every upcall.
 name = "stickyerr"
 path = "src/bin/stickyerr.rs"

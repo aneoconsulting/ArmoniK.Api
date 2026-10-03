@@ -1,0 +1,7 @@
+# after the fix (lib.rs: ak_enc_ctx_new resets its Enc after setting head), core at 9d1ea6cbc + the uncommitted fix, stable 1.94.1
+## full build
+fresh context, no reset: rc 4, 4 B [10, 07, 18, 03]; prost 4 B [10, 07, 18, 03]; after a reset: rc 4, 4 B  PASS
+exit 0
+## no-unknown build
+fresh context, no reset: rc 4, 4 B [10, 07, 18, 03]; prost 4 B [10, 07, 18, 03]; after a reset: rc 4, 4 B  PASS
+exit 0

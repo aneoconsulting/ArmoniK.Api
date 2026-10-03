@@ -72,6 +72,8 @@ gen/rd1_repro.sh gate
 
 step "10. R-D6 sticky error slot"
 cargo run --release -q -p harness --bin stickyerr 2>/dev/null
+# Owner-approved core fix (2026-10-03): a fresh encode context encodes with no reset.
+cargo run --release -q -p harness --bin fresh_enc 2>/dev/null
 
 if [ -x gen/corpus.sh ]; then
   step "11. the conformance corpus, C ABI and core-native, drop and retain"
