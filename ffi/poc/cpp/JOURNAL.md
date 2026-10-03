@@ -2301,3 +2301,14 @@ changes.
   benchmark's MinWarmUpTime only with its own MinTime, so c/d benchmarks set both. Checked: two c benchmarks
   at 1.5 s added 5.3 s of wall to a run, a unchanged; the header renders 1.5 / 2.5 (campaign) and 0.01 (smoke).
 - Campaign wall-time estimate in STATE (computed, not run): 37 to 57 h per (grpc++ version, allocator pass).
+
+## 2026-10-03, D18 (CAMPAIGN 4.0): the core grid
+
+- AK_CAMPAIGN_GRID=core|full (d257d152e): codec filter in campaign_codec (--grid), RPC selections in the runner,
+  Cf on the h2-batch core for c and d, the pinned pass subset; extras kept under full, labelled grid=extra.
+- Transport armonik (72e797306): cell A with packages/cpp's channel arguments (replicated with MessageToJsonString
+  and ControlPlane defaults), core cells ak_client_new defaults, Nagle read back on live sockets.
+- 9765e3812: decode_read from the contiguous buffer is the core row; from=bytebuffer an extra (first smoke showed
+  43 core-ffi decode_read rows, 18 of them from=bytebuffer).
+- Smoke (smoke mode, full build, runner with a hand-written gate.ok): codec 147, rpc 36 (+4 h2-batch inside),
+  pinned 4, codec pinned declined; client sockets all Unix. Estimate in STATE: suites 60 to 87 min, plus the gate.

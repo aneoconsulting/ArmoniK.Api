@@ -584,30 +584,41 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
 | 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
 
-## Campaign wall-time estimate (2026-10-03, computed, not run)
+## Campaign grid (D18, CAMPAIGN section 4.0) and its wall-time estimate (2026-10-03, computed, not run)
 
-Campaign defaults: 3 launches x 5 rounds; codec min time 0.5 s and warm-up 0.5 s; RPC min time 1.0 s, warm-up
-1.5 s (a, a+read, b) and 2.5 s (c, d). Benchmark counts from the binaries at this commit: codec full 4436, no-unknown
-2724 (each binary's gate); RPC full client 29 cells (4 pull cells: a and a+read only) = 449 benchmarks (249 a/b, 200
-c/d), no-unknown 17 cells = 267 (147, 120). Per benchmark: Google Benchmark's warm-up overshoots its minimum (1.0 to
-1.8x; measured 1.77x on c), the first repetition re-estimates iterations (up to one extra min time); input=pool
-codec rows (about 31%) rebuild the 2 x LLC pool per call of the benchmark function (0.5 to 3 s, not measured).
+`AK_CAMPAIGN_GRID=core` (default) runs section 4.0; `full` runs every row of 4.1 and 4.2, each sample labelled
+`grid=core|extra`. The header's `grid` object states both grids and every extra left out.
+- Codec core grid: incumbent-prod (full build only), core-ffi (push), host-gen; encode end=transport input=hot
+  and decode_read (from the core transport's contiguous buffer); retain (full) / no-unknown (no-unknown build);
+  16 shapes ascii, P2.2 Latin-1 and wide, the 7 named U rows. 147 benchmarks (full), 98 (no-unknown).
+- RPC core grid, transport `armonik`: cell A with packages/cpp's channel arguments at its package defaults
+  (replicated: keep-alive 30 s, max idle 5 min, local subchannel pool, the retry service config of
+  ControlPlane.cpp's defaults), the core cells with `ak_client_new`'s defaults; Nagle read back on the live
+  sockets after one call per cell (a TCP socket with Nagle on refuses the run; Unix sockets have none); the
+  shared server's `shipped` socket. Cells A, Bf, Cf-retain, Ef-retain (the core cells blocking, framed path),
+  a+read and b (P2.2), c (P5.4), d (16 MiB), k = 1 and 8, full build: 32 benchmarks; plus Cf-retain on the
+  h2-batch core for c and d at k = 1 and 8 (4, `h2=h2-batch`). Pinned allocator pass: A and Cf-retain, c and d,
+  k = 1 (4); the codec and calib suites decline the core grid's pinned pass.
+- Smoke of the core grid (2026-10-03, smoke mode, 1 launch, 1 round, full build; the runner driven with a
+  hand-written gate.ok, no gated path changed): codec 147 samples, every one grid=core; rpc 36 (32 stock + 4
+  h2-batch), header client_sockets unix 5, tcp 0; pinned rpc 4; codec pinned declined. Raw output not
+  committed (logs/PURGED.md).
 
-| Item | Per unit | Units per (grpc++ version, allocator pass) | Hours |
+Estimate at the campaign defaults (3 launches x 5 rounds; codec min time 0.5 s, warm-up 0.5 s; RPC min time
+1.0 s, warm-up 1.5 s a/b and 2.5 s c/d; Google Benchmark's warm-up overshoots its minimum 1.0 to 1.8x, the first
+repetition may add one min time):
+
+| Item | Per benchmark | Benchmarks per launch | Minutes (3 launches) |
 |---|---|---|---|
-| codec, full binary | 3.0 to 4.4 s per benchmark, + pool rebuild, + gate about 8 min | 4436 benchmarks x 3 launches | 12 to 20 |
-| codec, no-unknown binary | the same | 2724 x 3 | 7.5 to 12.5 |
-| RPC, full client | a/b 6.5 to 8.7 s, c/d 7.5 to 10.5 s | 449 x 2 transports x 2 h2 variants x 3 launches | 10.4 to 14.2 |
-| RPC, no-unknown client | the same | 267 x 2 x 2 x 3 | 6.2 to 8.5 |
-| gate (wp5 + campaign gate) | about 1.2 h (container figure) | once per build (the pinned pass reuses gate.ok) | 1.2 (default pass only) |
-| calib + Rust crossing bench | about 5 min per launch | 3 | 0.25 |
-| **per (grpc++ version, allocator pass)** | | | **37 to 57** |
+| codec, full + no-unknown | 3.0 to 3.9 s | 147 + 98 = 245 | 37 to 48 |
+| RPC main grid (incl. h2-batch Cf), + startup and server warm-up about 40 s | a/b 6.5 to 8.7 s, c/d 7.5 to 10.5 s | 16 + 20 = 36 | 15 to 20 |
+| RPC pinned pass, + startup about 30 s | 7.5 to 10.5 s | 4 | 3 to 4 |
+| calib + the Rust crossing bench | | | 5 to 15 |
+| **suites total** | | | **60 to 87** |
+| campaign gate (once: build, conformance, corpus, plants, counts) | | | about 70 in this container, less on the campaign machine |
 
-Totals: x 2 allocator passes (default, pinned diagnostic) = 74 to 113 h (3.1 to 4.7 days) with one grpc++ version
-(the campaign machine has 1.80 only); x 2 grpc++ versions (CAMPAIGN section 3: v1.54.0 and current) = 148 to 226 h.
-The h2 variant multiplies the RPC grid only (it changes the core's transport). Largest contributors: (1) the codec
-suite's 7160 benchmarks x 5 repetitions (about 55% of the time); (2) the RPC grid's multiplicity, 46 cells x 17
-groups x 2 transports x 2 h2 variants (about 40%); (3) the pinned allocator pass, which doubles everything.
+Largest contributors: (1) the codec suite, about 60% of the suites; (2) the RPC main grid, about 25%; (3) the
+one-off gate. One grpc++ version (the machine's); the second is an extra.
 
 ## Custom code around the framework (WP9, req. 22a amended)
 
