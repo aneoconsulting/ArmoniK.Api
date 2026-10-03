@@ -56,7 +56,7 @@ def base_key(suite, r):
     or 16MiB, so without the payload two uploads would share one baseline median). The launch
     is added by the caller."""
     if suite == "codec":
-        return (build_of(r), r.get("payload"), r.get("content"), r.get("dir"))
+        return (build_of(r), r.get("payload"), r.get("content"), r.get("dir"), r.get("allocator"))
     # WP13: the h2 variant too (each variant is its own pyperf invocation with its own cell A)
     return (build_of(r), r.get("transport"), r.get("dir"), r.get("payload"), r.get("inflight"), r.get("h2"),
             r.get("allocator"))

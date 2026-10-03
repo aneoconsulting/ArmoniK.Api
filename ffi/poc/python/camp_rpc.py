@@ -59,7 +59,7 @@ import camp_lib as L  # noqa: E402
 AFFINITY = L.pin("AK_CPU_CLIENT")
 
 # D9 as amended (owner, 2026-10-03): the RPC grid's main figures use glibc's DEFAULT allocator,
-# as production does, so no mallopt here (J26's M_TOP_PAD stays in the codec suite only); the
+# as production does, so no mallopt here (J26's M_TOP_PAD is removed from every suite, 2026-10-03); the
 # pinned pass is the labelled diagnostic, GLIBC_TUNABLES set by the runner (camp_rpc_pyperf.py
 # checks the environment matches the label).
 _WARM = None

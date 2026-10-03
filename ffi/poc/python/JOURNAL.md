@@ -1640,3 +1640,25 @@ work, so this is now aligned.
   (16MiB) to 5 / 1 and 23 / 7, in D-retain, D-drop (full) and D-nounk. No gate run (owner).
 - A defect of my own, fixed before commit: the codec exporter's header carried `allocator`
   twice (SyntaxError at export), caught by the smoke.
+
+### J59. M_TOP_PAD removed, the probe block kept, pre-grow before timing (owner, 2026-10-03)
+
+- The codec suite no longer calls `allocator.warm_up()`. No campaign path calls `allocator.py`
+  now; it stays as a historical tool. The older harnesses that import it are not timed by the
+  campaign.
+- The readback's 16 MiB block is kept mapped. This follows the Java slice's 2892e207b, where
+  freeing it raised the dynamic mmap threshold.
+- **Pre-grow:** allocate, memset and free the run's largest payload until a round takes zero
+  minor faults, capped at 8 rounds, in both modes and in RPC and codec workers. The RPC run's
+  largest payload is 16 MiB; the codec run's is P5.4.
+  - In a bare process: default 3 rounds (mmap, then heap growth after the free raises the
+    threshold, then 0); pinned 2 rounds.
+  - Smoke: RPC default 3 rounds and pinned 2; codec workers 1-2 rounds; the last round 0 faults
+    everywhere.
+  - Planted: 64 MiB, which is above glibc's 32 MiB mmap ceiling, always mmaps, so 8 rounds
+    still fault and the worker refuses.
+- One value per cell in the RPC smoke. Minor faults per call on d/16MiB at k = 1: default A 6,
+  Cf-drop 11; pinned A 2, Cf-drop 526. The default figure moved from J58's 514 to 11 once the
+  pre-grow ran. One value is instrumentation, not a comparison.
+- The codec header's allocator string described the pinned run as "glibc's default allocator".
+  It was caught on the smoke and fixed before commit.

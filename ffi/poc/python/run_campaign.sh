@@ -189,18 +189,21 @@ case "$SUITE" in
     # benchmark in its own worker process, so no arm shares a process with its baseline: the
     # incumbent is a same-launch control, not an in-process one (R-H19).
     codec_run() {  # codec_run <launch> <full|nounk>
-      local l=$1 v=$2 fam O1 ONLY sfx=""
+      local l=$1 v=$2 fam O1 ONLY sfx="" AE
       [ "$v" = nounk ] && sfx="-nounk"
+      # D9 as amended: the allocator mode of this run (AK_CAMPAIGN_ALLOC), as for the RPC grid
+      if [ "$AK_CAMPAIGN_ALLOC" = pinned ]; then sfx="$sfx-allocpinned"; AE=(env GLIBC_TUNABLES="$D9_TUNABLES" AK_CAMPAIGN_ALLOC=pinned)
+      else AE=(env -u GLIBC_TUNABLES AK_CAMPAIGN_ALLOC=default); fi
       # shapes; unknown = the 92 rows at the shapes core's roots (req 7); unknown-corpus = the
       # corpus-schema core, a labelled extra
       for fam in shapes unknown unknown-corpus; do
         O1="$OUT/codec-$fam$sfx-launch$l"
         rm -rf "$O1.side" "$O1.pyperf.json"
         ONLY=""; [ $fam != shapes ] && ONLY="$ONLY_UNKNOWN"
-        PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" --variant "$v" $ONLY --side "$O1.side" \
+        "${AE[@]}" PYTHONPATH="$HERE/build/pyperf" "$PY" camp_pyperf.py --family $fam --launch "$l" --variant "$v" $ONLY --side "$O1.side" \
           -o "$O1.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$O1.pyperf.out" 2>&1 \
           || { tail -20 "$O1.pyperf.out"; echo "   pyperf failed: codec $fam ($v) launch $l"; exit 1; }
-        "$PY" camp_pyperf_export.py --json "$O1.pyperf.json" --side "$O1.side" --launch "$l" --variant "$v" \
+        "${AE[@]}" "$PY" camp_pyperf_export.py --json "$O1.pyperf.json" --side "$O1.side" --launch "$l" --variant "$v" \
           --pyperf-args "$PP --affinity $AFF --copy-env --variant $v $ONLY" --out "$O1.jsonl" $SMOKE $DIRTY
         rm -rf "$O1.side"
         echo "   codec $fam ($v) launch $l (pyperf): $(grep -c '"phase": "value"' "$O1.jsonl" || true) values, $(grep -c '^{' "$O1.jsonl" || true) raw measurements"

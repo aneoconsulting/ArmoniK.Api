@@ -148,7 +148,12 @@ def alloc_readback():
     with mallinfo2's count of mmapped blocks (hblks) read before and after. Under glibc's
     defaults a 16 MiB block is mmapped (mmap_threshold 128 KiB, at most 32 MiB once raised by a
     free, so the check runs before any timing); under D9's tunables (mmap_threshold 32 MiB) it
-    comes from the heap. Returns "mmapped" or "heap"."""
+    comes from the heap. Returns "mmapped" or "heap".
+    Once per process, and the block is KEPT, never freed (owner, 2026-10-03; the Java slice found,
+    2892e207b, that freeing it raises glibc's dynamic mmap threshold, so the check changed the mode
+    it verifies)."""
+    if _PROBE:
+        return _PROBE[1]
     class MI2(ctypes.Structure):
         _fields_ = [(n, ctypes.c_size_t) for n in ("arena", "ordblks", "smblks", "hblks", "hblkhd", "usmblks",
                                                    "fsmblks", "uordblks", "fordblks", "keepcost")]
@@ -158,8 +163,36 @@ def alloc_readback():
     h0 = _libc.mallinfo2().hblks
     p = _libc.malloc(16 << 20)
     h1 = _libc.mallinfo2().hblks
-    _libc.free(p)
-    return "mmapped" if h1 > h0 else "heap"
+    rb = "mmapped" if h1 > h0 else "heap"
+    _PROBE.extend([p, rb])             # kept mapped for the life of the process
+    return rb
+
+
+_PROBE = []
+
+
+def pre_grow(size, cap=8):
+    """D9 (owner, 2026-10-03), after the readback and before any timing, in both modes: allocate
+    through glibc a block of `size` (the largest payload the run uses), touch every page, free it;
+    repeat until one further round causes zero minor faults (getrusage RUSAGE_SELF), at most `cap`
+    rounds. Returns (rounds, faults of the last round); refuses (SystemExit, no sample) at the cap."""
+    import resource
+    _libc.malloc.restype = ctypes.c_void_p
+    _libc.free.argtypes = [ctypes.c_void_p]
+    _libc.memset.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_size_t]
+    last = None
+    for r in range(1, cap + 1):
+        f0 = resource.getrusage(resource.RUSAGE_SELF).ru_minflt
+        p = _libc.malloc(size)
+        if not p:
+            raise SystemExit("pre-grow: malloc(%d) failed" % size)
+        _libc.memset(p, 1, size)
+        _libc.free(p)
+        last = resource.getrusage(resource.RUSAGE_SELF).ru_minflt - f0
+        if last == 0:
+            return r, last
+    raise SystemExit("pre-grow: %d rounds of %d bytes and the last still took %d minor faults; refusing to run"
+                     % (cap, size, last))
 
 
 def alloc_check(mode):

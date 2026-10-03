@@ -31,6 +31,7 @@ def opt(n, d=None):
 
 
 RBS = set()
+GROW = set()
 
 
 def main():
@@ -41,6 +42,7 @@ def main():
             r = json.loads(ln)
             side.setdefault((r["name"], r["loops"], r["cpu_s"] / r["loops"]), []).append(r["wall_s"])
             RBS.add(str(r.get("alloc_readback")))
+            GROW.add(json.dumps(r.get("pre_grow"), sort_keys=True))
     suite = pyperf.BenchmarkSuite.load(opt("--json"))
     log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in A, smoke="--smoke" in A,
                 build="nounk" if opt("--variant") == "nounk" else "full")
@@ -64,17 +66,21 @@ def main():
                     if phase == "value":
                         rnd += 1
                     inp, end = ENC.get(d, (None, None))
-                    log.sample(arm=arm, h2="none", payload=pid, content=content, dir=d, unknown_mode=mode,
+                    log.sample(arm=arm, h2="none", allocator=os.environ.get("AK_CAMPAIGN_ALLOC", "default"), payload=pid, content=content, dir=d, unknown_mode=mode,
                                input=inp, end_state=end,
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(v * loops * 1e9)),
                                wall_ns=int(round(wall * 1e9)) if wall is not None else None,
                                iters=loops)
     log.header(engine="pyperf %s (CAMPAIGN.md 22a)" % pyperf.__version__, family=fam, launch=launch,
-               allocator="AK_CAMPAIGN_ALLOC=%s (D9 as amended): glibc's defaults plus mallopt(M_TOP_PAD, 8 MiB) at "
-                         "camp_codec's import (J26; owner undecided); the readback in every worker before that "
-                         "mallopt (one 16 MiB malloc, mallinfo2 hblks): %s" % (
-                             os.environ.get("AK_CAMPAIGN_ALLOC", "default"), ", ".join(sorted(RBS))),
+               allocator="AK_CAMPAIGN_ALLOC=%s (D9 as amended, owner 2026-10-03; `default` = glibc's defaults, the main "
+                         "figures; `pinned` = D9's GLIBC_TUNABLES, the labelled diagnostic); no mallopt (M_TOP_PAD, J26, "
+                         "removed); GLIBC_TUNABLES=%s. Readback in every worker at import (one 16 MiB "
+                         "malloc kept mapped, mallinfo2 hblks): %s. Pre-grow before the first timed call (allocate, touch, "
+                         "free the run's largest payload until one round takes zero minor faults, cap 8), per worker "
+                         "{size, [rounds, last round's faults]}: %s" % (
+                             os.environ.get("AK_CAMPAIGN_ALLOC", "default"), os.environ.get("GLIBC_TUNABLES") or "unset",
+                             ", ".join(sorted(RBS)), "; ".join(sorted(GROW))),
                h2="none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels "
                   "the RPC samples)",
                pyperf_args=opt("--pyperf-args", "?"),
