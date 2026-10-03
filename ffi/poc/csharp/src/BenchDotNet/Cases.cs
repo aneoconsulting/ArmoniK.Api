@@ -39,6 +39,26 @@ public static class Cases
     private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
 #endif
 
+    /// CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core runs the campaign
+    /// grid: arms incumbent-prod (full build only), core-ffi and host-gen (retain in the full
+    /// build, no-unknown in its build); encode at end state (ii) with a hot input
+    /// (encode-transport-hot) and decode-read; the 16 shapes (P7.1 decode only), Latin-1 and
+    /// wide on P2.2 only; 7 U-* rows. Unset or `full`: today's grid (every extra).
+    public static readonly bool CoreGrid = Environment.GetEnvironmentVariable("AK_CAMPAIGN_GRID") == "core";
+#if AK_NO_UNKNOWN_FIELDS
+    private static readonly string[] CoreArms = { "host-gen:no-unknown", "core-ffi:no-unknown" };
+#else
+    private static readonly string[] CoreArms = { "incumbent-prod:default", "host-gen:retain", "core-ffi:retain" };
+#endif
+    public static readonly string[] CoreURows = { "U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+        "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
+        "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5" };
+    private static string[] G(string[] arms) => CoreGrid ? arms.Where(a => CoreArms.Contains(a)).ToArray() : arms;
+    private static readonly string[] EncDirsG = CoreGrid ? new[] { "encode-transport-hot" } : null;
+    private static readonly string[] DecDirsG = CoreGrid ? new[] { "decode-read" } : new[] { "decode", "decode-read" };
+    private static readonly string[] UnkDirsG = CoreGrid ? new[] { "encode-transport-hot", "decode-read" } : null;
+    private static int[] SetsOfG(string pid) => CoreGrid ? (pid == "P2.2" ? new[] { 0, 1, 2 } : new[] { 0 }) : SetsOf(pid);
+
     /// CAMPAIGN req 7 (R-H26): the payloads that carry the Latin-1 and wide content sets.
     public static readonly string[] ContentPayloads = { "P1.2", "P2.2", "P2.4" };
     public static int[] SetsOf(string pid) => Array.IndexOf(ContentPayloads, pid) >= 0 ? new[] { 0, 1, 2 } : new[] { 0 };
@@ -86,7 +106,7 @@ public static class Cases
     public static int UnitSeed(int launch) => launch * 7919;
     public static List<string> Units(int launch)
     {
-        var all = EncArms.Concat(DecArms).Concat(UnkArms).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var all = G(EncArms).Concat(G(DecArms)).Concat(G(UnkArms)).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
         var rng = new Random(UnitSeed(launch));
         return all.OrderBy(_ => rng.Next()).ToList();
     }
@@ -149,29 +169,35 @@ public static class Cases
         foreach (var pid in OpsTable.Payloads)
         {
             if (keep != null && !keep.Contains(pid)) continue;
-            foreach (var cs in SetsOf(pid))
+            foreach (var cs in SetsOfG(pid))
             {
-                foreach (var dir in EncDirs)
-                    foreach (var am in EncArms.Where(InUnit))
+                foreach (var dir in (CoreGrid && pid == "P7.1") ? Array.Empty<string>() : (EncDirsG ?? EncDirs))   // section 4.0: P7.1 decode only
+                    foreach (var am in G(EncArms).Where(InUnit))
                     {
                         var f = am.Split(':');
                         if (IsTransport(dir) && !HasTransport(f[0])) continue;
                         yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]);
                     }
-                foreach (var dir in new[] { "decode", "decode-read" })
-                    foreach (var am in DecArms.Where(InUnit)) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]); }
+                foreach (var dir in DecDirsG)
+                    foreach (var am in G(DecArms).Where(InUnit)) { var f = am.Split(':'); yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]); }
             }
         }
         if (Environment.GetEnvironmentVariable("AK_BDN_NO_UNKNOWN") == "1") yield break;
         var ul = Environment.GetEnvironmentVariable("AK_BDN_UROWS");   // smoke: keep this many rows, spread evenly
         var rows = UnknownRows();
-        if (!string.IsNullOrEmpty(ul) && int.TryParse(ul, out int lim) && lim > 0 && lim < rows.Count)
+        if (CoreGrid)
+        {
+            var missing = CoreURows.Where(r => !rows.Contains(r)).ToList();
+            if (missing.Count > 0) throw new InvalidOperationException("core grid U-* rows not in the accepted, non-disputed list: " + string.Join(", ", missing));
+            rows = CoreURows.ToList();
+        }
+        else if (!string.IsNullOrEmpty(ul) && int.TryParse(ul, out int lim) && lim > 0 && lim < rows.Count)
             rows = Enumerable.Range(0, lim).Select(k => rows[k * rows.Count / lim]).ToList();
         foreach (var id in rows)
         {
             if (keep != null && !keep.Contains(id)) continue;
-            foreach (var dir in UnkDirs)
-                foreach (var am in UnkArms.Where(InUnit))
+            foreach (var dir in UnkDirsG ?? UnkDirs)
+                foreach (var am in G(UnkArms).Where(InUnit))
                 {
                     var f = am.Split(':');
                     if (dir == "decode-reencode" && f[0] == "incumbent-best") continue;
@@ -259,7 +285,11 @@ public static class Cases
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecFfi(b, b.Length, false, true);
             Same(ops.RtFfi(b, b.Length, false), ops.RtHost(b, b.Length, false), id + " core-ffi no-unknown vs host-gen no-unknown (decode-reencode, dropped form)");
             Same(ops.FromWire(b, 3).EncFfiBytes(false), HostEnc(ops.FromWire(b, 1), false), id + " core-ffi no-unknown vs host-gen no-unknown (encode, dropped form)");
-            n += 6;
+            // Section 4.0 (D18): the U-* rows' encode at end state (ii), the transport form.
+            var dropped = HostEnc(ops.FromWire(b, 1), false);
+            ops.FromWire(b, 3).EncFfiTransport(false, fr); SameFrame(id + " core-ffi no-unknown", dropped);
+            ops.FromWire(b, 1).EncHostTransport(false, fr); SameFrame(id + " host-gen no-unknown", dropped);
+            n += 8;
 #else
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecHost(b, b.Length, true, true);
             ops.DecFfi(b, b.Length, false, true); ops.DecFfi(b, b.Length, true, true);
@@ -275,7 +305,11 @@ public static class Cases
             Same(ops.FromWire(b, 4).EncFfiBytes(true), inc, id + " core-ffi retain encode vs incumbent");
             Same(HostEnc(ops.FromWire(b, 2), true), inc, id + " host-gen retain encode vs incumbent");
             Same(ops.FromWire(b, 3).EncFfiBytes(false), HostEnc(ops.FromWire(b, 1), false), id + " core-ffi drop vs host-gen drop (encode, dropped form)");
-            n += 5;
+            // Section 4.0 (D18): the U-* rows' encode at end state (ii), the transport form.
+            ops.FromWire(b, 0).EncIncTransport(fr); SameFrame(id + " incumbent-prod", inc);
+            ops.FromWire(b, 4).EncFfiTransport(true, fr); SameFrame(id + " core-ffi retain", inc);
+            ops.FromWire(b, 2).EncHostTransport(true, fr); SameFrame(id + " host-gen retain", inc);
+            n += 8;
 #endif
         }
         return n;

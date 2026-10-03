@@ -99,7 +99,28 @@ internal static class RpcCtx
 
     /// The unit's cases, in declaration order (the orderer shuffles them).
     public static IEnumerable<string> Keys(int k) =>
-        Cells().Where(c => Levels.Contains(k) && (!c.Upload || k == 1 || k == 8)).Select(c => string.Join("|", c.Name, c.Dir, c.Payload, k));
+        Cells().Where(c => Levels.Contains(k) && (!c.Upload || k == 1 || k == 8) && GridKeep(c, k)).Select(c => string.Join("|", c.Name, c.Dir, c.Payload, k));
+
+    /// CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core runs cells A, Bf,
+    /// Cf-retain, Ef-retain (full build), directions a+read and b, c at P5.4, d at 16 MiB, k = 1
+    /// and 8. The framed cells have no a+read of their own (a has an empty request, so the send
+    /// path is the same on either): their unit runs the reference cell's a+read (B, C-retain,
+    /// E-retain) beside them, under its own name. AK_RPC_ONLY_DIRS / AK_RPC_ONLY_K narrow a unit
+    /// further (the runner's h2-batch rows and pinned allocator pass). Unset or `full`: today's grid.
+    public static readonly bool CoreGrid = Environment.GetEnvironmentVariable("AK_CAMPAIGN_GRID") == "core";
+    public static readonly string[] CoreUnits = { "A", "Bf", "Cf-retain", "Ef-retain" };
+    public static string Partner(string unit) => unit switch { "Bf" => "B", "Cf-retain" => "C-retain", "Ef-retain" => "E-retain", _ => null };
+    private static bool GridKeep(CampaignMain.Cell c, int k)
+    {
+        var only = Environment.GetEnvironmentVariable("AK_RPC_ONLY_DIRS");
+        var onlyK = Environment.GetEnvironmentVariable("AK_RPC_ONLY_K");
+        if (only != null && !only.Split(',').Contains(c.Dir)) return false;
+        if (onlyK != null && !onlyK.Split(',').Contains(k.ToString(CultureInfo.InvariantCulture))) return false;
+        if (!CoreGrid) return true;
+        if (k != 1 && k != 8) return false;
+        if (c.Name != Unit) return c.Dir == "a+read";   // the partner cell: its a+read only
+        return c.Dir switch { "a+read" => true, "b" => true, "c" => c.Payload == "P5.4", "d" => c.Payload == "stream-16MiB", _ => false };
+    }
 
     public static List<CampaignMain.Cell> Cells()
     {
@@ -115,7 +136,7 @@ internal static class RpcCtx
         AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
         _rt = AkRpc.ak_runtime_new((uint)Workers);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
-        _cells = CampaignMain.BuildCells(Sock, Transport == "pinned", _rt, Want, _owned, Chans, extras: true, keep: n => n == Unit);
+        _cells = CampaignMain.BuildCells(Sock, Transport == "pinned", _rt, Want, _owned, Chans, extras: true, keep: n => n == Unit || (CoreGrid && n == Partner(Unit)));
         if (_cells.Count == 0) throw new InvalidOperationException("no cell named " + Unit + " in this build");
         Pool = new CallerPool(Levels.Max());
         return _cells;
@@ -356,6 +377,14 @@ public static class RpcBenchMain
         foreach (var m in new[] { "-retain", "-drop" }) u.AddRange(new[] { "C" + m, "Cf" + m, "Cc" + m, "D" + m, "E" + m, "Ef" + m, "F" + m });
         u.AddRange(new[] { "B.callback", "B.queue", "C.callback", "C.queue" });
 #endif
+        if (RpcCtx.CoreGrid)
+        {
+#if AK_NO_UNKNOWN_FIELDS
+            u = new List<string>();   // section 4.0: the RPC grid in the no-unknown build is an extra
+#else
+            u = RpcCtx.CoreUnits.ToList();
+#endif
+        }
         var rng = new Random(launch * 7907);
         return u.OrderBy(x => x, StringComparer.Ordinal).OrderBy(_ => rng.Next()).ToList();
     }
@@ -428,6 +457,7 @@ public static class RpcBenchMain
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# job:            {0} actual iterations (rounds) per case, {1} warm-up iterations (the same for every case) after BDN's jitting stage and pilot, iteration time {2} ms (the pilot picks the invocation count, unroll factor 1), strategy Throughput, EvaluateOverhead=false", rounds, warm, itMs));
         hdr.Add("# clocks:         per iteration, read by the job's clock (CpuClock) at the same iteration boundaries: wall (Stopwatch); cpu_ns = perf task-clock of the WHOLE client process (req 21 as amended 2026-10-01: a counter per thread this process opens itself with perf_event_open, PERF_COUNT_SW_TASK_CLOCK, new threads picked up at the next read; softirq-inclusive while the process runs); proc_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it (misses softirq time with IRQ_TIME_ACCOUNTING); per case, client_softirq_ticks / client_irq_ticks = /proc/stat on the CLIENT CPUs (" + (Environment.GetEnvironmentVariable("AK_CPU_CLIENT") ?? "unset") + ") across the actual stage, USER_HZ ticks; the server is another process");
         hdr.Add("# network:        " + (CampaignMain.IsTcp(RpcCtx.Sock) ? "TCP 127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock) + " (D10, req 17 as amended): Nagle off on every client socket (Grpc.Net: Socket.NoDelay in the connect callback; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets of the measuring process in each case's setup after one untimed call (getsockopt TCP_NODELAY on every socket to the server; one without it fails the case); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the client side only (shipped: Grpc.Net DisableDynamicWindowSizing and no window, the core's windows at 0; pinned: 4 MiB windows on both client transports)" : "Unix socket " + RpcCtx.Sock + " (not the campaign's transport since D10)"));
+        hdr.Add("# grid:           " + (RpcCtx.CoreGrid ? "core (CAMPAIGN section 4.0, D18; AK_CAMPAIGN_GRID=core): cells A, Bf, Cf-retain, Ef-retain, full build, the host's idiomatic delivery; a+read and b (P2.2), c at P5.4, d at 16 MiB, k = 1 and 8; the framed cells' a+read is the reference cell's (B, C-retain, E-retain: a has an empty request, so the send path is the same), run in the framed cell's process under its own name" + (Environment.GetEnvironmentVariable("AK_RPC_ONLY_DIRS") is string od ? "; this process narrowed to directions " + od + (Environment.GetEnvironmentVariable("AK_RPC_ONLY_K") is string ok ? " at k = " + ok : "") : "") + ". Extras left out (AK_CAMPAIGN_GRID=full runs them): cells B, C, D, E, F as cells of their own, Cc, the drop mode, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the second transport configuration, h2-batch beyond Cf on c and d, the pinned allocator pass beyond A and Cf on c and d at k = 1" : "full (AK_CAMPAIGN_GRID=full or unset): today's grid, section 4.0's extras included"));
         hdr.Add("# allocator:      " + Alloc.Label + " (readback at process start: a 16 MiB malloc came from the " + Alloc.Probe() + " (mallinfo2; the block kept, never freed); no heap pre-grow (owner, 2026-10-03): BDN's warm-up runs the real call path on every thread, and minflt per row shows whether it sufficed; under the default toolchain each child probes once, on its case's first row as alloc_probe; GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; the core's buffers and transport allocate through glibc malloc in this process; every row carries `alloc` and `minflt`, the client process's minor page faults over the iteration, so faults per call = minflt / iters)");
         hdr.Add("# h2:             the loaded core's h2 = " + RpcCtx.H2 + " (D11 as amended: read from the core library; the runner's AK_H2 = " + (wantH2 ?? "unset") + "); every row carries it");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# pools:          D8 / D14: AK_WORKERS = {0}; the core runtime {1} worker thread(s) (ak_runtime_new, shared by every core channel of the process); the .NET thread pool's worker minimum and maximum set to {0} (ThreadPool.SetMin/MaxThreads); the caller pool is the in-flight level (k dedicated caller threads for the blocking cells, not a worker pool); grpc-core is not used by this slice (Grpc.Net is managed)", Environment.GetEnvironmentVariable("AK_WORKERS") ?? "8 (default)", RpcCtx.Workers));

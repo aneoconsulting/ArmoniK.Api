@@ -17,6 +17,8 @@
 #   rpc subset  AK_RPC_TRANSPORTS "shipped pinned", AK_RPC_BUILDS "full nounk" (small runs only)
 #   h2          AK_H2_VARIANTS "stock h2-batch" (D11 as amended): the rpc suite runs once per
 #               h2 variant of the core, each with its own gate; every row carries `h2`
+#   grid        AK_CAMPAIGN_GRID core / full (CAMPAIGN section 4.0, D18): core = the campaign grid
+#               (default); full = every row of sections 4.1 and 4.2, section 4.0's labelled extras
 #   allocator   AK_CAMPAIGN_ALLOC default / pinned (req 25, D9 as amended 2026-10-03): default = the main
 #               figures (GLIBC_TUNABLES unset); pinned = the labelled diagnostic pass
 #   pools       AK_WORKERS (campaign.machine; default 8): the core runtime, the .NET thread pool
@@ -91,6 +93,14 @@ fi
 export AK_WORKERS="${AK_WORKERS:-8}" AK_CPU_CLIENT
 export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}"
 H2_VARIANTS="${AK_H2_VARIANTS:-stock h2-batch}"
+# CAMPAIGN section 4.0 (D18, owner 2026-10-03): the campaign grid by default; `full` runs every
+# extra. Under `core` the rpc suite runs its own pinned-allocator subset (A and Cf-retain on c
+# and d at k = 1), so AK_CAMPAIGN_ALLOC=pinned is for the full grid only.
+export AK_CAMPAIGN_GRID="${AK_CAMPAIGN_GRID:-core}"
+case "$AK_CAMPAIGN_GRID" in core|full) ;; *) echo "AK_CAMPAIGN_GRID must be core or full" >&2; exit 2 ;; esac
+if [ "$AK_CAMPAIGN_GRID" = core ] && [ "${AK_CAMPAIGN_ALLOC:-default}" = pinned ]; then
+  echo "AK_CAMPAIGN_GRID=core runs its pinned-allocator subset itself (section 4.0); AK_CAMPAIGN_ALLOC=pinned is for AK_CAMPAIGN_GRID=full" >&2; exit 2
+fi
 # CAMPAIGN req 25 / D9 as amended 2026-10-03: the main figures on glibc's default allocator;
 # AK_CAMPAIGN_ALLOC=pinned runs the labelled diagnostic pass with the trim and mmap thresholds pinned.
 PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
@@ -130,6 +140,11 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a} ($(ncpus "$AK_CPU_CLIENT") and $([ -n "${AK_CPU_SERVER:-}" ] && ncpus "$AK_CPU_SERVER" || echo 0) CPUs; set size fixed at ${AK_SET_SIZE:-unset}); from $CPUSRC; pinning by taskset"
   echo "# toolchain:     BenchmarkDotNet $([ "$GROUPED" = 1 ] && echo "GROUPED (InProcessEmit, one process per unit: the small-run switch AK_BDN_GROUPED=1, req 22a as amended e6c909630)" || echo "default toolchain, one child process per case (the campaign's isolation, req 22a as amended e6c909630)")"
   echo "# pools:         AK_WORKERS=$AK_WORKERS (D8, D14): the core runtime's workers, the .NET thread pool's worker minimum and maximum (rpc), the server's tokio workers AK_SERVER_THREADS=$AK_SERVER_THREADS"
+  if [ "$AK_CAMPAIGN_GRID" = core ]; then
+    echo "# grid:          core (AK_CAMPAIGN_GRID=core; CAMPAIGN section 4.0, D18). codec: incumbent-prod (full build only), core-ffi and host-gen (retain; no-unknown in its build), encode at end state (ii) with a hot input and decode-read, the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, 7 U-* rows. rpc: cells A, Bf, Cf-retain, Ef-retain, full build, transport configuration shipped only, a+read and b, c at P5.4, d at 16 MiB, k = 1 and 8, stock h2; plus Cf-retain on h2-batch for c and d at k = 1 and 8; plus the pinned-allocator pass: A and Cf-retain on c and d at k = 1. Extras left out (AK_CAMPAIGN_GRID=full): incumbent-best, core-ffi-pull, bare decode, the other three encode variants, decode-reencode, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, cells B, C, D, E, F of their own, Cc, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the pinned client configuration, h2-batch on other rows, the pinned allocator pass beyond its subset"
+  else
+    echo "# grid:          full (AK_CAMPAIGN_GRID=full): every row of CAMPAIGN sections 4.1 and 4.2, section 4.0's labelled extras included"
+  fi
   echo "# allocator:     $AK_CAMPAIGN_ALLOC (AK_CAMPAIGN_ALLOC; GLIBC_TUNABLES=${GLIBC_TUNABLES:-unset} for every client process). CAMPAIGN req 25 / D9 as amended 2026-10-03: the MAIN figures run glibc's default allocator, as production does (AK_CAMPAIGN_ALLOC=default, GLIBC_TUNABLES unset); AK_CAMPAIGN_ALLOC=pinned is the labelled diagnostic pass (GLIBC_TUNABLES=$PINNED_TUNABLES), its files suffixed .alloc-pinned. The core's buffers and transport allocate through glibc malloc in this slice's process (no shim of its own); managed objects are on the .NET GC heap. Every row carries alloc and minflt (minor page faults of the process over the iteration; per call = minflt / iters), each process refuses to run if its GLIBC_TUNABLES does not match AK_CAMPAIGN_ALLOC. The RPC server runs the default allocator in both passes (started with GLIBC_TUNABLES unset)"
   echo "# llc:           AK_LLC_BYTES=$AK_LLC_BYTES; pool input >= ${AK_POOL_BYTES:-$((2 * AK_LLC_BYTES))} bytes of retained graphs (req 11)"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
@@ -165,7 +180,7 @@ gate_first() {  # requirement 26; per h2 variant (AK_H2, gen/gate.sh), gate.log 
   # overwritten (a failed gate at 253f487 was lost when the next run, the --plant control's,
   # re-ran the gate into the same file). gate.log is only ever a copy of a PASSED run.
   local lg; lg="$OUT/gate-$COMMIT-$(date -u +%Y%m%dT%H%M%SZ)-$SUITE-${AK_H2:-stock}$([ $PLANT = 1 ] && echo -PLANT).log"
-  "$SLICE/gen/gate.sh" > "$lg" 2>&1
+  env -u AK_CAMPAIGN_GRID "$SLICE/gen/gate.sh" > "$lg" 2>&1   # the gate checks the full grid
   if ! grep -q "^GATE PASSED" "$lg"; then echo "the correctness gate FAILED ($lg): no figure is produced" >&2; exit 1; fi
   cp "$lg" "$gl"
   echo "# gate:          h2 ${AK_H2:-stock}: passed at $COMMIT ($lg, copied to $gl)"
@@ -173,7 +188,7 @@ gate_first() {  # requirement 26; per h2 variant (AK_H2, gen/gate.sh), gate.log 
 
 case "$SUITE" in
   gate)
-    "$SLICE/gen/gate.sh" > "$OUT/gate.log" 2>&1; rc=$?
+    env -u AK_CAMPAIGN_GRID "$SLICE/gen/gate.sh" > "$OUT/gate.log" 2>&1; rc=$?
     tail -1 "$OUT/gate.log"; exit $rc ;;
   codec)
     # The codec suite runs under BenchmarkDotNet (CAMPAIGN.md 22a): src/BenchDotNet, InProcessEmit
@@ -278,8 +293,23 @@ case "$SUITE" in
       # smoke or exploration run to one transport or one build; the campaign runs all.
       [ -n "${AK_RPC_TRANSPORTS:-}" ] && TS="$AK_RPC_TRANSPORTS"
       sock="tcp:$TL"
-      if [ $(( l % 2 )) = 1 ]; then HS="$H2_VARIANTS"; else HS="$(echo $H2_VARIANTS | tr ' ' '\n' | tac | tr '\n' ' ')"; fi
-      for h2 in $HS; do
+      VARS="$H2_VARIANTS"
+      # Section 4.0 (core grid): one transport configuration (shipped), the full build, and three
+      # runs per launch: stock (A, Bf, Cf-retain, Ef-retain), h2-batch (Cf-retain on c and d), and
+      # the pinned-allocator subset (A and Cf-retain on c and d at k = 1, stock h2).
+      if [ "$AK_CAMPAIGN_GRID" = core ]; then TS="shipped"; VARS="stock h2-batch"; [ $PLANT = 0 ] && VARS="stock h2-batch stock-pinned"; fi
+      if [ $(( l % 2 )) = 1 ]; then HS="$VARS"; else HS="$(echo $VARS | tr ' ' '\n' | tac | tr '\n' ' ')"; fi
+      for h2v in $HS; do
+      h2="$h2v"; UNITS=""; UENV=(); INF=(); asfx="$ASFX"
+      if [ "$AK_CAMPAIGN_GRID" = core ]; then
+        INF=(--inflight 1,8)
+        case "$h2v" in
+          h2-batch) UNITS="Cf-retain"; UENV=(AK_RPC_ONLY_DIRS=c,d) ;;
+          stock-pinned) h2=stock; UNITS="A Cf-retain"; asfx=".alloc-pinned"
+            UENV=(AK_RPC_ONLY_DIRS=c,d AK_RPC_ONLY_K=1 GLIBC_TUNABLES="$PINNED_TUNABLES" AK_CAMPAIGN_ALLOC=pinned) ;;
+        esac
+      fi
+      [ $PLANT = 1 ] && UENV=(AK_CAMPAIGN_GRID=full)   # the req-18 controls run on their own cells
       # The variant's cores into both client builds (gen/build_core.sh: target-core*-h2b);
       # every client process checks the loaded core's h2 equals AK_H2 (RpcBench) and labels its rows.
       hs=""; [ "$h2" = h2-batch ] && hs="-h2b"
@@ -287,12 +317,13 @@ case "$SUITE" in
       cp "$SLICE/target-core-nounk$hs/release/libak_core.so" "$RN8/"
       export AK_H2="$h2"
       for t in $TS; do
-        for bld in ${AK_RPC_BUILDS:-$(builds_of "$l")}; do
+        BLDS="${AK_RPC_BUILDS:-$(builds_of "$l")}"; [ "$AK_CAMPAIGN_GRID" = core ] && BLDS=full
+        for bld in $BLDS; do
           if [ "$bld" = full ]; then RX="$R8"; sfx=""; else RX="$RN8"; sfx=".nounk"; fi
-          f="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.jsonl"
-          [ $PLANT = 1 ] && f="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.PLANT.jsonl"
-          { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')$([ "$h2" = h2-batch ] && echo ', h2 patched to h2-batch (poc/codec/h2-batch)')"; echo "${GATES[$h2]}";
-            echo "# client build: $bld (WP5 step 10); h2 $h2 (D11 as amended); this launch's order: h2 $HS, transports $TS, builds $(builds_of "$l")";
+          f="$OUT/rpc-$t-$h2-launch$l$sfx$asfx.jsonl"
+          [ $PLANT = 1 ] && f="$OUT/rpc-$t-$h2-launch$l$sfx$asfx.PLANT.jsonl"
+          { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')$([ "$h2" = h2-batch ] && echo ', h2 patched to h2-batch (poc/codec/h2-batch)')"; echo "${GATES[$h2]}"; [ "$h2v" = stock-pinned ] && echo "# allocator pass: PINNED (GLIBC_TUNABLES=$PINNED_TUNABLES), the labelled diagnostic subset of section 4.0: A and Cf-retain on c and d at k = 1";
+            echo "# client build: $bld (WP5 step 10); h2 $h2 (D11 as amended); this launch's order: runs $HS, transports $TS, builds $BLDS";
             echo "# network:       TCP 127.0.0.1 ($TL), the server's TCP listener (D10, FIX-PLAN WP13): it runs the PINNED server configuration only (4 MiB windows, adaptive off, TCP_NODELAY on accept), so shipped and pinned differ on the CLIENT side only; Nagle off on every client socket, read back in each process (see the '# network' line of each unit)";
             echo "# server:        the Rust slice's tonic rpc_server (FIX-PLAN WP10, poc/rust/SERVER.md), one process for this launch (pid $SPID, $slog, pinned to ${AK_CPU_SERVER:-unpinned} by serve.sh, workers AK_SERVER_THREADS=$AK_SERVER_THREADS), every h2 variant, build and client transport against its TCP listener; warmed first by serve.sh warm $WARM ($OUT/rpc-launch$l.server-warm.log: $WARM checked calls per direction a, b, c and $(( (WARM + 3) / 4 )) on d, from a tonic and a core client, on its two Unix sockets and its TCP listener)"; } > "$f"
           if [ $PLANT = 1 ]; then
@@ -307,7 +338,7 @@ case "$SUITE" in
               set -- $pc
               for cell in A B Bf $CC $DC; do
                 [ "$2" = a ] && [ "$cell" = Bf ] && continue   # direction a has no framed twin
-                AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
+                env "${UENV[@]}" AK_CAMPAIGN_PLANT=$1 AK_CAMPAIGN_PLANT_DIR=$2 taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
                   --unit "$cell" --launch "$l" --inflight 1 --out "$f.$1-$2-$cell" "${BDNARGS[@]}" > "$f.$1-$2-$cell.bdn.log" 2>&1; rc=$?
                 if [ $rc -eq 0 ]; then echo "CONTROL PASSED: plant $1 on $2 did not abort on $cell ($f.$1-$2-$cell)" >&2; "$SERVE" stop; exit 1; fi
                 echo "control ($t, h2 $h2, launch $l, $bld, plant $1, direction $2, cell $cell): aborted as required, $(grep -c '^{' "$f.$1-$2-$cell") samples: $(grep -m1 ABORT "$f.$1-$2-$cell" | cut -c1-160)" | tee -a "$f"
@@ -317,7 +348,7 @@ case "$SUITE" in
             # D10 (WP13): Nagle left on in both client transports; the TCP_NODELAY readback in
             # each case's setup must fail A (Grpc.Net) and B (the core) with no sample.
             for cell in A B; do
-              AK_CAMPAIGN_PLANT=nagle taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
+              env "${UENV[@]}" AK_CAMPAIGN_PLANT=nagle taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" \
                 --unit "$cell" --launch "$l" --inflight 1 --out "$f.nagle-$cell" "${BDNARGS[@]}" > "$f.nagle-$cell.bdn.log" 2>&1; rc=$?
               if [ $rc -eq 0 ]; then echo "CONTROL PASSED: Nagle on did not abort $cell ($f.nagle-$cell)" >&2; "$SERVE" stop; exit 1; fi
               echo "control ($t, h2 $h2, launch $l, $bld, plant nagle, cell $cell): aborted as required, $(grep -c '^{' "$f.nagle-$cell") samples: $(grep -m1 'TCP_NODELAY read back' "$f.nagle-$cell.bdn.log" | cut -c1-160)" | tee -a "$f"
@@ -325,10 +356,10 @@ case "$SUITE" in
             done
             continue
           fi
-          for u in $(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units); do
-            ul="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.$u.bdn.log"
+          for u in ${UNITS:-$(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units)}; do
+            ul="$OUT/rpc-$t-$h2-launch$l$sfx$asfx.$u.bdn.log"
             { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
-            taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" --unit "$u" --launch "$l" --out "$f" "${BDNARGS[@]}" >> "$ul" 2>&1; rc=$?
+            env "${UENV[@]}" taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" --unit "$u" --launch "$l" --out "$f" "${BDNARGS[@]}" "${INF[@]}" >> "$ul" 2>&1; rc=$?
             if [ $rc -ne 0 ]; then
               # Req 18 / 22a: one failed benchmark discards the launch's output: no figure.
               for x in "$OUT"/rpc-*-launch$l*.jsonl; do [ -f "$x" ] && mv "$x" "$x.DISCARDED"; done
