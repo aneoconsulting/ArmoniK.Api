@@ -222,6 +222,19 @@ mkdir -p build/cls17
        src/generated_corpus/shared -name '*.java' ! -name 'Pin.java') \
   $(find build/pbjava -name '*.java')
 
+# ---- 5c. CAMPAIGN 4.0 as amended (b58543f7b): ArmoniK's own Java channel builder, called
+# directly by cell A: packages/java's GrpcChannelBuilder (and the two classes it references),
+# compiled unchanged from the committed tree at $REV into build/armonik-client. Read, never
+# edited (nothing under packages/ changes).
+say "packages/java GrpcChannelBuilder (cell A's channel, CAMPAIGN 4.0)"
+AC=build/armonik-src; rm -rf "$AC" build/armonik-client && mkdir -p "$AC" build/armonik-client
+( cd "$(git rev-parse --show-toplevel)" && git archive "$REV" packages/java/armonik-client-api/src/main/java/fr/aneo/armonik/client/GrpcChannelBuilder.java \
+    packages/java/armonik-client-api/src/main/java/fr/aneo/armonik/client/RetryPolicy.java \
+    packages/java/armonik-client-api/src/main/java/fr/aneo/armonik/client/GrpcClientCertificate.java ) | tar -x -C "$AC"
+"$J17/bin/javac" -nowarn -encoding UTF-8 -d build/armonik-client -cp "$CP" \
+  $(find "$AC" -name '*.java')
+echo "   packages/java GrpcChannelBuilder at $(git rev-parse --short "$REV"): $(sha256sum "$AC"/packages/java/armonik-client-api/src/main/java/fr/aneo/armonik/client/GrpcChannelBuilder.java | cut -c1-16)" | tee -a build/core-rev.txt
+
 # ---- 5a. the no-unknown build's classes (WP5 step 10): the same hand-written sources over
 # the tree generated from the plan relowered with unknown="drop", minus the two retain-only
 # controls. Same package names as the full tree, so a class tree of its own.

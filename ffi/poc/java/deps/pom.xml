@@ -32,6 +32,10 @@
     <dependency><groupId>io.grpc</groupId><artifactId>grpc-netty-shaded</artifactId></dependency>
     <dependency><groupId>io.grpc</groupId><artifactId>grpc-protobuf</artifactId></dependency>
     <dependency><groupId>io.grpc</groupId><artifactId>grpc-stub</artifactId></dependency>
+    <!-- CAMPAIGN 4.0 as amended (b58543f7b): cell A builds its channel with packages/java's
+         GrpcChannelBuilder, which logs through slf4j-api (packages/java pins 2.0.12; no
+         provider here, so its few build-time log lines are dropped). -->
+    <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><version>2.0.12</version></dependency>
     <dependency>
       <groupId>javax.annotation</groupId><artifactId>javax.annotation-api</artifactId>
       <version>1.3.2</version>

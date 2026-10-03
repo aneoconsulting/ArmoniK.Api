@@ -247,7 +247,27 @@ public final class CampaignRpc {
     return on + "/" + n;
   }
 
+  /** CAMPAIGN 4.0 as amended: the `armonik` transport configuration (cell A through ArmoniK's
+   *  builder; the core cells keep the core's current client configuration, ak_client_new with
+   *  no options: tonic's defaults, nodelay on). */
+  static final boolean ARMONIK = "armonik".equals(System.getProperty("ak.camp.transport"));
+  static ManagedChannel armonikChannel(String endpoint) {
+    try {
+      Class<?> b = Class.forName("fr.aneo.armonik.client.GrpcChannelBuilder");
+      Object x = b.getMethod("forEndpoint", String.class).invoke(null, endpoint);
+      x = b.getMethod("withUnsecureConnection").invoke(x);
+      return (ManagedChannel) b.getMethod("build").invoke(x);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("packages/java GrpcChannelBuilder (build/armonik-client on the classpath)", e);
+    }
+  }
+
   static String threadsJson() {
+    if (ARMONIK)   // cell A on ArmoniK's builder: grpc-java's default shared group and executor
+      return "{\"ak_workers\":" + WORKERS + ",\"netty_event_loops\":\"grpc-java default shared group, "
+          + System.getProperty("io.grpc.netty.shaded.io.netty.eventLoopThreads", "2 x CPUs") + " threads\",\"core_runtime_workers\":"
+          + CORE_WORKERS + ",\"grpc_executor\":\"grpc-java default (shared cached pool)\""
+          + ",\"cpus_seen_by_jvm\":" + Runtime.getRuntime().availableProcessors() + "}";
     return "{\"ak_workers\":" + WORKERS + ",\"netty_event_loops\":" + EVENT_LOOPS + ",\"core_runtime_workers\":"
         + CORE_WORKERS + ",\"grpc_executor\":\"fixed pool of " + GRPC_EXECUTOR + "\""
         + ",\"cpus_seen_by_jvm\":" + Runtime.getRuntime().availableProcessors() + "}";
@@ -377,6 +397,14 @@ public final class CampaignRpc {
       // option and read back on the live socket (checkNodelay); `shipped` is grpc-java's
       // defaults otherwise, `pinned` sets the window. A Unix socket path is still accepted.
       int port = tcpPort(sock);
+      if (ARMONIK && port >= 0) {
+        // CAMPAIGN 4.0 as amended (b58543f7b): ArmoniK's own channel, packages/java's
+        // GrpcChannelBuilder called directly with its package defaults (NettyChannelBuilder
+        // forAddress(host, port), maxInboundMessageSize 8 MiB, maxInboundMetadataSize 1 MiB, no
+        // keepalive, idle timeout or retry, plaintext): grpc-java's default event loop group
+        // and call executor, TCP_NODELAY as grpc-java's Netty sets it (read back, checkNodelay).
+        ch = armonikChannel("http://127.0.0.1:" + port);
+      } else {
       NettyChannelBuilder cb = port >= 0
           ? NettyChannelBuilder.forAddress(new java.net.InetSocketAddress("127.0.0.1", port))
               .channelType(io.grpc.netty.shaded.io.netty.channel.epoll.EpollSocketChannel.class)
@@ -389,6 +417,7 @@ public final class CampaignRpc {
       cb.eventLoopGroup(elg).usePlaintext().executor(grpcExecutor());
       if (pinned) cb.flowControlWindow(WIN).maxInboundMessageSize(MAXMSG);
       ch = cb.build();
+      }
       final MethodDescriptor.Marshaller<Message> pm = io.grpc.protobuf.lite.ProtoLiteUtils.marshaller(
           PbArms.build(PAYLOAD, Values.ASCII).getDefaultInstanceForType());
       MethodDescriptor.Marshaller<Object> resp = new MethodDescriptor.Marshaller<Object>() {

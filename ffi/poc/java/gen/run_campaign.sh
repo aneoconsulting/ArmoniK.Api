@@ -107,7 +107,7 @@ AK_WORKERS=${AK_WORKERS:-8}
 AK_CAMPAIGN_GRID=${AK_CAMPAIGN_GRID:-core}
 case "$AK_CAMPAIGN_GRID" in core|full) ;; *) echo "AK_CAMPAIGN_GRID must be core or full"; exit 2 ;; esac
 GRID_NOTE_CODEC="grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID; core = the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 named U-* rows through the shapes core, arms incumbent-prod (full build only), core-ffi push and host-gen in retain (full build) and no-unknown (no-unknown build), encode end state (ii) with one hot graph (encode-transport-hot) and decode-read, compact strings on every row and -XX:-CompactStrings on the content-set rows (P2.2 Latin-1 and wide) only; extras left out under core: incumbent-best, pull decode, bare decode, the other three encode variants, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, the corpus-core U-* invocation, utf16 on ASCII rows"
-GRID_NOTE_RPC="grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID; core = cells A, Bf, Cf-retain, Ef-retain (full build, framed core cells, idiomatic delivery), a+read and b, c at P5.4, d at 16 MiB, each at k = 1 and 8, transport shipped only, stock h2 everywhere plus Cf-retain on h2-batch for c and d at k = 1 and 8 (labelled h2), the default allocator, plus the pinned allocator pass on A and Cf-retain for c and d at k = 1 (labelled alloc); one fork per (cell, combination) even under smoke; extras left out under core: cells B, C, D, E, F, Cc, the drop mode, the non-framed reference rows, direction a, k = 16, P5.3, d at 4 MiB, the no-unknown build, the pinned transport configuration, h2-batch on other rows, the pinned allocator beyond its subset"
+GRID_NOTE_RPC="grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID; core = cells A, Bf, Cf-retain, Ef-retain (full build, framed core cells, idiomatic delivery), a+read and b, c at P5.4, d at 16 MiB, each at k = 1 and 8, transport ONE configuration, `armonik` (4.0 as amended b58543f7b): cell A through packages/java's GrpcChannelBuilder called directly with its package defaults (NettyChannelBuilder.forAddress(host, port), maxInboundMessageSize 8 MiB, maxInboundMetadataSize 1 MiB, no keepalive, idle timeout or retry, plaintext; grpc-java's default event loop group, sized to AK_WORKERS through io.grpc.netty.shaded.io.netty.eventLoopThreads, and its default cached call executor), the core cells Bf, Cf, Ef the core's current client configuration (ak_client_new with no options: tonic's defaults, nodelay on), the server's TCP listener (pinned server configuration, TCP_NODELAY on accept); Nagle read back off on every live client socket before timing (a socket with Nagle on refuses the fork), stock h2 everywhere plus Cf-retain on h2-batch for c and d at k = 1 and 8 (labelled h2), the default allocator, plus the pinned allocator pass on A and Cf-retain for c and d at k = 1 (labelled alloc); one fork per (cell, combination) even under smoke; extras left out under core: cells B, C, D, E, F, Cc, the drop mode, the non-framed reference rows, direction a, k = 16, P5.3, d at 4 MiB, the no-unknown build, the shipped and pinned transport configurations (kept under full), h2-batch on other rows, the pinned allocator beyond its subset"
 AK_CAMPAIGN_ALLOC=${AK_CAMPAIGN_ALLOC:-default}
 case "$AK_CAMPAIGN_ALLOC" in
   default) ALLOC_TUNABLES= ;;
@@ -151,7 +151,7 @@ HEAP=4g; [ "$SMOKE" = 1 ] && HEAP=${AK_SMOKE_HEAP:-2g}
 JVM_FLAGS="-Xms$HEAP -Xmx$HEAP -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=$AK_WORKERS"
 # The RPC client JVMs: the task-clock agent (req 21 as amended), the pools (D14), the CLIENT
 # CPUs for the softirq record, the h2 variant label.
-RPC_FLAGS="-agentpath:$HERE/build/taskclock/libaktc.so -Dak.taskclock.lib=$HERE/build/taskclock/libaktc.so -Dak.workers=$AK_WORKERS -Dak.camp.clientcpus=${AK_CPU_CLIENT:-} -Dak.camp.h2=$AK_H2"
+RPC_FLAGS="-agentpath:$HERE/build/taskclock/libaktc.so -Dak.taskclock.lib=$HERE/build/taskclock/libaktc.so -Dak.workers=$AK_WORKERS -Dio.grpc.netty.shaded.io.netty.eventLoopThreads=$AK_WORKERS -Dak.camp.clientcpus=${AK_CPU_CLIENT:-} -Dak.camp.h2=$AK_H2"
 
 sysf() { cat "$1" 2>/dev/null | head -1 || echo "n/a"; }
 header() {  # $1 = file, $2 = suite description
@@ -462,7 +462,7 @@ rpc)
       esac
       [ -n "$combos" ] || continue
       echo "# invocation $part: -p combo=$combos -wi $WI -w $wt -i $MI -r $RTIME" >> "$f"
-      GLIBC_TUNABLES=$RTUN $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+      GLIBC_TUNABLES=$RTUN $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:build/armonik-client:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
         -f 1 -foe true -wi "$WI" -w "$wt" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$combos" \
         -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$RH2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$RH2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$RAL -Dak.camp.h2=$RH2 ${AK_RPC_PROPS:-}" \
         -rf json -rff "$pb.jmh.json" > "$pb.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V, $part), -foe true"
@@ -474,12 +474,12 @@ rpc)
   for l in $(seq 1 "$LAUNCHES"); do
     server_up "$l"
     if [ "$AK_CAMPAIGN_GRID" = core ]; then
-      # CAMPAIGN section 4.0: shipped, full build, retain; the main grid on stock h2 and the
+      # CAMPAIGN section 4.0 (as amended b58543f7b): the `armonik` configuration, full build, retain; the main grid on stock h2 and the
       # default allocator, then Cf on h2-batch for c and d, then the pinned allocator pass.
-      rpc_run "$l" shipped full stock default "A,Bf,Cf-retain,Ef-retain" \
+      rpc_run "$l" armonik full stock default "A,Bf,Cf-retain,Ef-retain" \
         "a+read/1,a+read/8,b/1,b/8,c:1/1,c:1/8,d:1/1,d:1/8" ""
-      rpc_run "$l" shipped full h2-batch default "Cf-retain" "c:1/1,c:1/8,d:1/1,d:1/8" ""
-      rpc_run "$l" shipped full stock pinned "A,Cf-retain" "c:1/1,d:1/1" "-allocpinned"
+      rpc_run "$l" armonik full h2-batch default "Cf-retain" "c:1/1,c:1/8,d:1/1,d:1/8" ""
+      rpc_run "$l" armonik full stock pinned "A,Cf-retain" "c:1/1,d:1/1" "-allocpinned"
       serve_stop
       continue
     fi
