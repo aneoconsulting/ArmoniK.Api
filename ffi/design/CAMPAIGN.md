@@ -301,6 +301,12 @@ in its container shows it executes (section 9).
     `GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432`,
     stated in the header, and each comparison adds one default-allocator pass with
     the minor faults per call recorded beside every gap.
+    **Amended by the owner 2026-10-03:** the roles are flipped and the rule covers
+    **every slice whose process allocates through glibc** (the managed hosts load the
+    core, whose buffers and transport use glibc malloc; CPython's large buffers too).
+    The **main figures use the default allocator**, as production does; the pinned
+    `GLIBC_TUNABLES` pass is the labelled diagnostic, with the minor faults per call
+    recorded beside every gap, and the report shows where the two disagree.
 
 ## 6. Correctness before timing
 

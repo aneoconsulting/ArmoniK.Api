@@ -802,7 +802,7 @@ Facts that bear on the design constraints and are not in `README.md`:
 | # | Question | Decision |
 |---|---|---|
 | D8 | CPU sets and SMT | CLIENT 1-4,11-14, SERVER 5-8,15-18 (both SMT threads of 4 cores each), OS 0,9,10,19; every pool sized to 8 workers (2026-09-29) |
-| D9 | Rust A's allocator mode | main figures with the glibc trim and mmap thresholds pinned for every cell, plus one default-allocator pass per comparison (2026-09-30) |
+| D9 | Rust A's allocator mode | main figures with the glibc trim and mmap thresholds pinned for every cell, plus one default-allocator pass per comparison (2026-09-30). **Amended 2026-10-03:** every slice using glibc; roles flipped: default allocator for the main figures (as in production), the pinned pass a labelled diagnostic |
 | D10 | Transport | TCP 127.0.0.1 only, Nagle off, from 2026-10-01; Unix-socket results are history |
 | D11 | h2 | two core variants for the rest of the POC: stock h2 0.4.19 and h2-batch (#903 port + p4); nothing reported upstream for now. **Amended 2026-10-03: every slice** builds, gates and times both variants |
 | D12 | Zero copy | not pursued: does not fit the ABI and the managed hosts, complex tradeoffs |
