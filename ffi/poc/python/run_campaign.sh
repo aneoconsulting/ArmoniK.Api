@@ -52,7 +52,7 @@ export AK_CODECGEN="$AK_SNAPSHOT_DIR/ffi/poc/codec/gen"
 # the snapshot), not on HEAD, so another slice's commit does not force a re-gate and a change
 # to anything the build reads does.
 # poc/rust too since WP10: the RPC server is the Rust slice's rpc_server, built from the snapshot.
-STAMP="$(for d in ffi/poc/python ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus; do git rev-parse "$SHA:$d"; done | sha256sum | cut -c1-16)"
+STAMP="$(for d in ffi/poc/python ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus packages/rust; do git rev-parse "$SHA:$d"; done | sha256sum | cut -c1-16)"
 TAG=$("$PY" -c 'import sys;print("py%d.%d"%sys.version_info[:2])')
 if [ -n "$SMOKE" ]; then
   LAUNCHES=1; ROUNDS=1; TARGET_MS=2; CALLS=16; CITERS=200000

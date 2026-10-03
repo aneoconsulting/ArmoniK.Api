@@ -29,10 +29,11 @@ cd "$HERE"
 if [ -n "${AK_SNAPSHOT:-}" ]; then
   SHA=$(git -C "$HERE" rev-parse --short "$AK_SNAPSHOT")
   SNAP="$HERE/build/snap/$SHA"
-  if [ ! -d "$SNAP/ffi/poc/codec" ] || [ ! -d "$SNAP/ffi/poc/rust" ]; then
-    # poc/rust too: the calib suite builds the rust slice's crossing benchmark from it.
+  if [ ! -d "$SNAP/ffi/poc/codec" ] || [ ! -d "$SNAP/ffi/poc/rust" ] || [ ! -d "$SNAP/packages/rust" ]; then
+    # poc/rust too: the calib suite builds the rust slice's crossing benchmark from it, and the
+    # shared RPC server; packages/rust since the rust slice's campaign crate depends on it by path.
     mkdir -p "$SNAP"
-    (cd "$(git -C "$HERE" rev-parse --show-toplevel)" && git archive "$SHA" ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus) | tar -x -C "$SNAP"
+    (cd "$(git -C "$HERE" rev-parse --show-toplevel)" && git archive "$SHA" ffi/poc/codec ffi/poc/rust ffi/schema ffi/corpus packages/rust) | tar -x -C "$SNAP"
   fi
   CORE="$SNAP/ffi/poc/codec"
   export AK_CODECGEN="$CORE/gen"
