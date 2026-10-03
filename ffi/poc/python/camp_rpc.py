@@ -58,8 +58,11 @@ import camp_lib as L  # noqa: E402
 
 AFFINITY = L.pin("AK_CPU_CLIENT")
 
-import allocator  # noqa: E402
-_WARM = allocator.warm_up()
+# D9 as amended (owner, 2026-10-03): the RPC grid's main figures use glibc's DEFAULT allocator,
+# as production does, so no mallopt here (J26's M_TOP_PAD stays in the codec suite only); the
+# pinned pass is the labelled diagnostic, GLIBC_TUNABLES set by the runner (camp_rpc_pyperf.py
+# checks the environment matches the label).
+_WARM = None
 VARIANT = sys.argv[sys.argv.index("--variant") + 1] if "--variant" in sys.argv else "full"
 NOUNK = VARIANT == "nounk"
 if NOUNK:

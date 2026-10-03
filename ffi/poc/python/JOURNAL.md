@@ -1602,3 +1602,19 @@ work, so this is now aligned.
   sample, 4,026 of 4,026 socket reads with TCP_NODELAY set, `event_engine` 8 and
   `tokio-rt-worker` 8 in every worker. Per-sample JSON lines are no longer committed
   (PURGED.md); the headers are.
+
+### J57. D9 as amended (owner, 2026-10-03): default allocator for the main figures
+
+- The RPC grid now runs on glibc's defaults: the runner unsets GLIBC_TUNABLES, and
+  `camp_rpc.py` drops J26's M_TOP_PAD mallopt. `AK_CAMPAIGN_ALLOC_PINNED=1` adds a labelled
+  diagnostic pass under D9's tunables (files `-allocpinned`).
+- Every RPC sample carries `allocator` and `minflt`. A worker whose environment does not
+  match its label fails; the control was run and failed as required. The summary keys on
+  `allocator`.
+- Minimal smoke (d/16MiB, k = 1, pinned, stock, one value each): minor faults per call were
+  A 3 and Cf-drop 514 under the default allocator, against A 5 and Cf-drop 3 pinned. So the
+  tunables are in force in the pinned pass and absent in the default one. No gate run (owner:
+  not needed).
+- The codec suite keeps M_TOP_PAD (req 25's warming rule); stated.
+- If the core's context fix lands and the shim's extra reset is dropped, only D's (d) rows
+  change (-1 call, -1 reset per call: 4 full rows, 2 no-unknown rows).

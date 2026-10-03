@@ -1,0 +1,28 @@
+benchmark rpc|full|pinned|d|4MiB|A|1: allocator pass default but GLIBC_TUNABLES='glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432' in the worker
+Traceback (most recent call last):
+  File "/home/user/ArmoniK.Api/ffi/poc/python/camp_rpc_pyperf.py", line 333, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/camp_rpc_pyperf.py", line 325, in main
+    runner.bench_time_func(name, time_func, name, args.side, inner_loops=k)
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 502, in bench_time_func
+    result = self._main(task)
+             ^^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 468, in _main
+    bench = self._manager()
+            ^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 681, in _manager
+    bench = Manager(self).create_bench()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 243, in create_bench
+    worker_bench, run = self.create_worker_bench()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 142, in create_worker_bench
+    suite = self.create_suite()
+            ^^^^^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 136, in create_suite
+    suite = self.spawn_worker(0, 0)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/ArmoniK.Api/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 118, in spawn_worker
+    raise RuntimeError("%s failed with exit code %s"
+RuntimeError: /usr/bin/python3.12 failed with exit code 1

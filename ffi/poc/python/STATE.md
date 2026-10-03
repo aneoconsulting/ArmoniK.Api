@@ -10,7 +10,7 @@ labelled.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP13 done (on WP9 and WP10): every timed RPC cell over TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock as the RPC CPU figure, every pool at AK_WORKERS (8; grpc-core through a sysconf shim), both h2 variants of the rpc core built, gated and labelled, rebuilt on the current core (p1). The rebuild found a shim defect in the first encode on a new context (fixed, 8b87eea10). Gated once from a clean worktree at 86c141a1c (both builds, 3.12 and 3.7, both h2 variants: `gate exit 0`, `GATE PASSED`), then a minimal smoke. D9 is open for the aggregating session |
+| **Status** | FIX-PLAN WP13 done (on WP9 and WP10): every timed RPC cell over TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock as the RPC CPU figure, every pool at AK_WORKERS (8; grpc-core through a sysconf shim), both h2 variants of the rpc core built, gated and labelled, rebuilt on the current core (p1). The rebuild found a shim defect in the first encode on a new context (fixed, 8b87eea10). Gated once from a clean worktree at 86c141a1c (both builds, 3.12 and 3.7, both h2 variants: `gate exit 0`, `GATE PASSED`), then a minimal smoke. D9 as amended applies: default allocator for the main figures, a pinned diagnostic pass behind a switch |
 | **Target** (owner D1) | CPython 3.12.3; grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Floor** (owner D1) | CPython 3.7.5 (Ubuntu 18.04's packages, `fetch_py37.sh`, sha256-pinned); protobuf 4.24.4 (upb) as the incumbent there. The floor runs the correctness gate only |
 | **Incumbent** (R14) | protobuf on upb through gRPC's generated marshaller path (`SerializeToString` / `FromString`); derived from `Protos/V1` by `verify_r14.py` (log 52) |
@@ -297,15 +297,23 @@ grid and the codec suite); it is stated here, not changed.
    - Fix: `py_capi.py` now resets a new context as well (8b87eea10).
    - Open for the aggregating session: whether `ak_enc_ctx_new` should lay down its own
      headroom. Any host that encodes before a first reset would hit the same thing.
-7. **D9 (glibc trim, req 25).** It applies to this process.
-   - The C extension allocates nothing large of its own beyond small fixed structures.
-   - Its large buffers come from the core (Rust's global allocator, which is glibc malloc in
-     this process) and from CPython (bytes objects go through glibc malloc above 512 B). Both
-     land in glibc's arena, which is the mechanism D9 names.
-   - The runner does NOT set `GLIBC_TUNABLES`. Every RPC header records its value
-     (`allocator`). `allocator.py`'s mallopt(M_TOP_PAD, 8 MiB) is unchanged.
-   - Open for the aggregating session: whether this slice's main figures run under D9's
-     tunables.
+7. **D9 (glibc trim, req 25), as amended by the owner on 2026-10-03.** D9 applies to this slice:
+   the core's and CPython's large buffers both come from glibc's arena.
+   - **Main figures (RPC grid):** glibc's DEFAULT allocator, as in production. No
+     GLIBC_TUNABLES (the runner unsets it), and no mallopt: `camp_rpc.py` no longer applies
+     J26's M_TOP_PAD.
+   - **Diagnostic:** `AK_CAMPAIGN_ALLOC_PINNED=1` adds a pinned pass under D9's
+     `GLIBC_TUNABLES`. Its files are suffixed `-allocpinned`.
+   - **Labels:** every RPC sample carries `allocator` (default or pinned) and `minflt`
+     (getrusage ru_minflt of the worker around the same batches). The header states both
+     modes.
+   - **Check:** a worker whose environment does not match its label fails. The control is in
+     `logs/python/d9-alloc-smoke/mislabelled-pass-control.out`.
+   - **Minimal smoke** (`logs/python/d9-alloc-smoke/`, d/16MiB at k = 1, pinned client
+     configuration, stock h2): minor faults per call were A 3 and Cf-drop 514 under the
+     default allocator, against A 5 and Cf-drop 3 pinned. So the pass is running.
+   - The codec suite still applies M_TOP_PAD (J26, req 25's warming rule). This is stated, not
+     changed.
 8. **Unchanged, and stated:** each benchmark worker builds every cell of its direction key.
    So idle grpcio channels and a core runtime exist in every worker beside the timed cell.
    WP11 item 4 measured this for C++; it is not measured here.
@@ -439,7 +447,7 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 22a | met | pyperf 2.10.0 for both codec and rpc. codec: `--processes 1 --values ROUNDS --warmups 3 --min-time 0.1 --affinity`. rpc (WP9): one invocation per build and group (ab, c, d), `--processes 1 --values ROUNDS --warmups 3 --loops 25 / 8 / 3 --affinity --copy-env`, one batch of k calls in flight per loop (`inner_loops = k`); the hand-written sampler and the codec by-hand loop are removed. Every raw value and warm-up exported by the two exporters, the raw pyperf JSON beside it (the committed smoke has its figures stripped and omits that JSON). What pyperf forces that differs from before: section "The RPC grid on pyperf" |
 | 23 | met | defaults 5 rounds x 3 launches; every sample written (smoke: 1 x 1) |
 | 24 | met | every warm-up a runner parameter, in every header: codec, pyperf's warm-up values and loop calibration (`AK_CAMPAIGN_PYPERF_WARMUPS`, `AK_CAMPAIGN_PYPERF_MIN_TIME`); rpc, pyperf's warm-up values per worker (`AK_CAMPAIGN_RPC_WARMUPS`, 3; smoke 1) and the server warm-up (`AK_CAMPAIGN_SERVER_WARMUP`, 64; smoke 8) |
-| 25 | met, D9 open | M_TOP_PAD before any allocation; GC on, `gc.collect()` before every sample. D9: the process's large buffers are glibc's (the core's and CPython's), so the trim mode applies; GLIBC_TUNABLES is not set by the runner and is recorded in every RPC header; open for the aggregating session ("The WP12 contract" item 7) |
+| 25 | met | M_TOP_PAD before any allocation in the codec suite; GC on, `gc.collect()` before every sample. RPC grid (D9 as amended 2026-10-03): default allocator for the main figures, the pinned GLIBC_TUNABLES pass behind AK_CAMPAIGN_ALLOC_PINNED=1, `allocator` and `minflt` on every sample, the environment checked against the label |
 | 26 | met | codec, rpc and calib each call `need_gate` and refuse to time without a `gate.ok` for the trees they read (calib added, R-H19); the gate covers every codec arm in both unknown-field modes and the no-unknown build (101) |
 | 27 | met | header: commit (a dirty tree refused unless `--allow-dirty`, smoke only), machine, CPU sets, versions, build, transport, warm-up, repeats |
 | 28 | met | one JSON object per raw measurement with the listed fields; rpc rows carry cell, payload, dir, transport, inflight, build, unknown_mode, send_path (move, copy, framed, grpcio, reference), launch, round, phase (warmup or value), cpu_ns, wall_ns, iters = loops x k |
@@ -544,8 +552,10 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 
 ## Next step
 
-1. For the aggregating session: D9 for this slice (WP13 item 7), and whether `ak_enc_ctx_new`
-   should lay down its own headroom (item 6).
+1. When the core's `ak_enc_ctx_new` returns a ready context (the owner's decision; the Rust agent):
+   the shim's extra reset on a NEW context stays for now. Dropping it would take one call and
+   one reset per call off D's (d) rows (full 4 rows, no-unknown 2), back to the counts before
+   86c141a1c; no other row would change.
 2. The owner's campaign run: `./run_campaign.sh --suite gate|calib|codec|rpc --out
    ffi/logs/python/campaign` without `--smoke`, with the CPU sets exported.
 3. Re-render (`gen/generate.py`) and re-gate (`./gate.sh python3.12 build/py37/python3.7`)

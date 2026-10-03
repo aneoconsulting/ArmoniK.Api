@@ -1,0 +1,45 @@
+# the header of a minimal D9 smoke log (dev tree, uncommitted harness at the time; per-sample JSON lines not committed, ffi/logs/PURGED.md)
+# slice:           python
+# suite:           rpc
+# commit:          08b30ba25 DIRTY (smoke only)
+# date:            2026-10-03T08:28:59Z
+# snapshot:        none (working tree)
+# cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
+# cpus_online:     4
+# smt:             0
+# governor:        unknown
+# turbo:           unknown (no intel_pstate/boost knob)
+# kernel:          6.18.44-fc-v64
+# isolation:       none detected (isolated=)
+# cpu_client:      unset
+# cpu_server:      unset
+# cpu_os:          unset (everything not in CLIENT or SERVER)
+# python:          3.12.3
+# implementation:  CPython
+# protobuf:        7.36.2 (upb)
+# grpcio:          1.84.0
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/home/user/ArmoniK.Api/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "none (working tree)"}
+# engine:          pyperf 2.10.0 (CAMPAIGN req 22a as amended: the RPC grid on the codec suite's framework)
+# launch:          1
+# group:           d
+# pyperf_args:     x
+# server:          the Rust slice's tonic rpc_server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa; poc/rust/SERVER.md), one process per launch started by poc/rust/serve.sh of the snapshot, pinned to AK_CPU_SERVER=unset, tokio workers AK_SERVER_THREADS=8; sockets shipped=unix:/tmp/aksrv.KVf3ZC/shipped.sock,pinned=unix:/tmp/aksrv.KVf3ZC/pinned.sock,tcp=127.0.0.1:39167; shipped = tonic's server defaults, pinned = stream and connection windows 4 MiB, adaptive window off; receive limit 8 MiB; the client's shipped / pinned configuration dials the socket of the same name
+# server_log:      # rpc_server: shipped on unix:/tmp/aksrv.KVf3ZC/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 3338 | # rpc_server: pinned on unix:/tmp/aksrv.KVf3ZC/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 3338 | # rpc_server: pinned configuration on tcp 127.0.0.1:39167 (TCP_NODELAY set on every accepted socket), P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 3338
+# methods:         /armonik.ffi.campaign.v1.Grid/ Fetch (a), Push (b), Upload (c), UploadStream (d, timed: the server's byte count checked on every call), UploadStreamCheck (d, untimed: count and SHA-256, once per cell in the precheck and in each worker's setup)
+# grpcio_channel:  A: the generated GridStub (grpc_tools, proto/campaign_grid.proto; registered methods); D and F: unary_unary / stream_unary with _registered_method=True, as the stub makes; both configurations set grpc.default_authority=localhost (the server's h2 refuses grpcio's percent-encoded unix-socket authority)
+# framework_forces: a worker PROCESS per benchmark (one cell, direction, payload, in-flight level): each opens its own channel and its own pool of k threads in its setup, where the hand-written sampler used one process per build and launch; one loop is one batch of k calls in flight (inner_loops = k), --loops fixed per group (no calibration worker); warm-ups are pyperf's per-worker warm-up values (--warmups), replacing the per-cell warm-up; the order is pyperf's sequential order, rotated per launch
+# clock:           the time_func returns perf task-clock of the worker process per value (req 21 as amended, WP13); the process clock and wall (perf_counter) of the same batches from the side file
+# worker_threads:  per benchmark worker: a client pool of k threads; one core runtime of 8 workers where the cell uses the core; grpc-core's threads where it uses grpcio (a D or F stream adds one per call); the server's tokio runtime, AK_SERVER_THREADS=8 workers
+# order:           blocks of (transport, direction, payload, k) in list order, the cells rotated by one per launch inside a block, the whole list rotated by a third per launch (pyperf cannot interleave)
+# checks:          every call checked (req 18); a failed check fails the worker and the run, and the runner then discards the whole launch's output (every build and group of that launch)
+# raw_json:        x-pinned.json
+# h2:              stock (D11 as amended; every sample carries `h2`); the core each worker mapped: ["[{\"path\": \"/home/user/ArmoniK.Api/ffi/poc/python/build/cargo/rpc/release/libak_core.so\", \"sha256\": \"9e4eaa7d7da1393f\"}]"]
+# transport_net:   TCP 127.0.0.1 for every cell (WP13, D10, req 17 as amended): every client configuration dials the shared server's TCP listener, which runs the PINNED server configuration only, so `shipped` and `pinned` differ on the client side only (grpcio channel options; core client ak_client_new against ak_client_opts with tcp_nagle 0). TCP_NODELAY read back with getsockopt on every live socket to the server after the setup and after every value: 66 of 66 set
+# cpu_figure:      cpu_ns = perf task-clock of the whole worker process (perf_event_open PERF_COUNT_SW_TASK_CLOCK, opened by the process before its first thread, inherited by every thread), pyperf's value; process_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it; client_softirq_ticks / client_irq_ticks (/proc/stat, USER_HZ) and client_net_rx / client_net_tx (/proc/softirqs) over the worker's affinity set (the CLIENT CPUs), around the same batches (req 21 as amended)
+# pools:           AK_WORKERS=8 (D14). Core runtime: ak_runtime_new(8) where the cell uses the core. grpc-core: sized from sysconf(_SC_NPROCESSORS_CONF), not the affinity mask; the runner preloads build/ncpus_shim.so with AK_SHIM_NCPUS=AK_WORKERS so it reads 8 (its EventEngine reserves Clamp(n, 4, 16) threads). grpcio's Python client has no executor of its own (a ThreadPoolExecutor exists only on servers). The k client threads are the benchmark's pool. Per worker, the CPU facts and threads by name: ["{\"cpu\": {\"affinity\": \"0,1,2,3\", \"affinity_count\": 4, \"ak_shim_ncpus\": \"8\", \"ld_preload\": \"/home/user/ArmoniK.Api/ffi/poc/python/build/ncpus_shim.so\", \"sysconf_nprocessors_conf\": 8, \"sysconf_nprocessors_onln\": 8}, \"threads\": {\"event_engine\": 8, \"grpc_global_tim\": 1, \"lifeguard\": 1, \"pythonN.N\": 2, \"tokio-rt-worker\": 8}}"]
+# allocator:       pass pinned (D9 as amended, owner 2026-10-03): `default` = glibc's default allocator, no mallopt and no GLIBC_TUNABLES, as production runs (the MAIN figures); `pinned` = GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic (AK_CAMPAIGN_ALLOC_PINNED=1). This invocation: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432. Every sample carries `allocator` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker process around the same batches; per call = minflt / iters)
+# INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
+# samples: 4
+# per value, figures stripped: allocator, cell, minor faults (getrusage ru_minflt of the worker around the batch, 1 call):
+#   pinned A minflt 5
+#   pinned Cf-drop minflt 3

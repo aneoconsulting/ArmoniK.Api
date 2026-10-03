@@ -53,6 +53,7 @@ def main():
     bad = []
     facts = {}
     h2 = opt("--h2", "stock")
+    alloc = opt("--alloc", "default")
     nd_tot = [0, 0]
     for b in suite.get_benchmarks():
         name = b.get_name()
@@ -76,11 +77,14 @@ def main():
                         facts[name] = r["facts"]
                         if r["facts"].get("h2") != h2:
                             bad.append(name + " (h2 %s, not %s)" % (r["facts"].get("h2"), h2))
+                        if r["facts"].get("allocator") != alloc:
+                            bad.append(name + " (allocator %s, not %s)" % (r["facts"].get("allocator"), alloc))
                     nd_tot[0] += r["nodelay"]["nodelay_on"]
                     nd_tot[1] += r["nodelay"]["to_server"]
                     q = r["client_cpus_irq"]
                     log.sample(cell=cell, payload=pid, dir=d, transport=transport, inflight=int(k),
-                               unknown_mode=unknown_mode(cell), send_path=send_path(cell), h2=h2,
+                               unknown_mode=unknown_mode(cell), send_path=send_path(cell), h2=h2, allocator=alloc,
+                               minflt=r["minflt"],
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(r["task_clock_s"] * 1e9)),
                                process_cpu_ns=int(round(r["cpu_s"] * 1e9)), wall_ns=int(round(r["wall_s"] * 1e9)),
@@ -147,8 +151,13 @@ def main():
                          os.environ.get("AK_SHIM_NCPUS", "unset"),
                          json.dumps(sorted({json.dumps({"cpu": f.get("cpu"), "threads": f.get("threads")}, sort_keys=True)
                                             for f in facts.values()})[:6])),
-               allocator="mallopt(M_TOP_PAD, 8 MiB) at import (allocator.py, req 25); GLIBC_TUNABLES=%s (D9: see STATE)"
-                         % (os.environ.get("GLIBC_TUNABLES") or "unset"))
+               allocator="pass %s (D9 as amended, owner 2026-10-03): `default` = glibc's default allocator, no "
+                         "mallopt and no GLIBC_TUNABLES, as production runs (the MAIN figures); `pinned` = GLIBC_TUNABLES=%s, "
+                         "the labelled diagnostic (AK_CAMPAIGN_ALLOC_PINNED=1). This invocation: GLIBC_TUNABLES=%s. Every "
+                         "sample carries `allocator` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker "
+                         "process around the same batches; per call = minflt / iters)"
+                         % (alloc, "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432",
+                            os.environ.get("GLIBC_TUNABLES") or "unset"))
     if nd_tot[1] == 0 or nd_tot[0] != nd_tot[1]:
         bad.append("TCP_NODELAY %d of %d" % tuple(nd_tot))
     if bad:

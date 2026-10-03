@@ -47,6 +47,9 @@ import pyperf  # noqa: E402
 import camp_meas as M  # noqa: E402
 
 A = sys.argv
+# D9 as amended: the allocator mode a pass runs in. `default`: glibc's defaults (the main
+# figures); `pinned`: the labelled diagnostic, D9's tunables in the environment.
+D9_TUNABLES = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
 # Req 21 as amended (WP13): the RPC client's CPU figure is perf task-clock of the whole process.
 # The counter is opened here, at import, before this process starts any thread, so it inherits
 # into every thread the worker creates (pool, core runtime, grpc-core).
@@ -124,6 +127,11 @@ def setup(name):
         return _W
     if arg("--h2"):
         os.environ["AK_H2"] = arg("--h2")       # the h2 variant's shims (arms.py), before camp_rpc
+    alloc = arg("--alloc", "default")
+    want = D9_TUNABLES if alloc == "pinned" else None
+    if os.environ.get("GLIBC_TUNABLES") != want:
+        raise SystemExit("benchmark %s: allocator pass %s but GLIBC_TUNABLES=%r in the worker"
+                         % (name, alloc, os.environ.get("GLIBC_TUNABLES")))
     if M.task_clock() is None:
         raise SystemExit("benchmark %s: perf_event_open refused the task-clock counter (%s); req 21 as "
                          "amended needs it" % (name, M.task_clock_refusal()))
@@ -161,7 +169,7 @@ def setup(name):
         raise SystemExit("benchmark %s: TCP_NODELAY read back on %d of %d live socket(s) to the server (req 17)"
                          % (name, nd["nodelay_on"], nd["to_server"]))
     pool = C.Pool(int(k))
-    facts = {"h2": C.arms.H2, "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
+    facts = {"h2": C.arms.H2, "allocator": alloc, "glibc_tunables": os.environ.get("GLIBC_TUNABLES"), "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
              "workers": C.WORKERS, "cpu": M.cpu_facts(), "nodelay_setup": nd}
     _W.update(C=C, fn=fn, k=int(k), keep=keep, pool=pool, u0=C.arms._ffi.unk_totals(),
               t0=C.arms._ffi.tls_created(), port=port, cpus=set(os.sched_getaffinity(0)), facts=facts, first=True)
@@ -182,6 +190,7 @@ def time_func(loops, name, side):
     failed = []
     stop = __import__("threading").Event()
     gc.collect()
+    f0 = __import__("resource").getrusage(0).ru_minflt      # RUSAGE_SELF: every thread
     q0 = M.irq_snap(w["cpus"])
     c0, t0, w0 = M.task_clock(), time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     for _ in range(loops):
@@ -190,6 +199,7 @@ def time_func(loops, name, side):
             break
     t1, w1, c1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter(), M.task_clock()
     q1 = M.irq_snap(w["cpus"])
+    f1 = __import__("resource").getrusage(0).ru_minflt
     if failed:
         e = failed[0]
         raise SystemExit("benchmark %s: a call failed: %s: %s" % (name, type(e).__name__, str(e)[:200]))
@@ -203,7 +213,7 @@ def time_func(loops, name, side):
         raise SystemExit("benchmark %s: TCP_NODELAY read back on %d of %d live socket(s) to the server (req 17)"
                          % (name, nd["nodelay_on"], nd["to_server"]))
     rec = {"name": name, "loops": loops, "task_clock_s": (c1 - c0) / 1e9, "cpu_s": t1 - t0, "wall_s": w1 - w0,
-           "client_cpus_irq": M.irq_delta(q0, q1), "nodelay": nd}
+           "client_cpus_irq": M.irq_delta(q0, q1), "nodelay": nd, "minflt": f1 - f0}
     if w["first"]:
         w["first"] = False
         rec["facts"] = dict(w["facts"], threads=M.thread_classes())
@@ -219,7 +229,7 @@ def add_args(cmd, args):
         cmd.extend(["--only", args.only])
     if os.environ.get("AK_CAMP_PLANT"):
         cmd.extend(["--plant", os.environ["AK_CAMP_PLANT"]])
-    cmd.extend(["--h2", os.environ.get("AK_H2", "stock")])
+    cmd.extend(["--h2", os.environ.get("AK_H2", "stock"), "--alloc", os.environ.get("AK_ALLOC", "default")])
 
 
 def precheck_main():
@@ -302,6 +312,7 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--plant", default="")
     ap.add_argument("--h2", default="stock", choices=["stock", "h2-batch"])
+    ap.add_argument("--alloc", default="default", choices=["default", "pinned"])
     args = runner.parse_args()
     os.makedirs(args.side, exist_ok=True)
     names = names_of(args.group, args.transports.split(","), args.launch)

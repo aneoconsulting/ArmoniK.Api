@@ -87,6 +87,12 @@ if [ -z "${AK_WORKERS:-}" ] && [ -f "$HERE/../../campaign.machine" ]; then AK_WO
 export AK_WORKERS="${AK_WORKERS:-8}"
 export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}" AK_SERVER_TCP=0
 H2S="${AK_CAMPAIGN_H2:-stock h2-batch}"
+# D9 as amended (owner, 2026-10-03): the RPC grid's main figures run with glibc's DEFAULT
+# allocator (no GLIBC_TUNABLES, no mallopt), as production does; AK_CAMPAIGN_ALLOC_PINNED=1 adds
+# the labelled diagnostic pass under D9's tunables, files suffixed -allocpinned, samples
+# `allocator: pinned`, with the minor faults per call beside every sample.
+ALLOCS="default"; [ "${AK_CAMPAIGN_ALLOC_PINNED:-0}" = 1 ] && ALLOCS="default pinned"
+D9_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
 
 need_gate() {
   if [ "$(cat "$OUT/gate.ok" 2>/dev/null)" != "$STAMP" ]; then
@@ -236,9 +242,11 @@ case "$SUITE" in
       echo "# ABORTED, NO FIGURE: $2" > "$OUT/rpc-launch$1.ABORTED"
       echo "   launch $1 DISCARDED: $2"
     }
-    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets> <server log> <h2>; nonzero on any failure
-      local l=$1 v=$2 S=$3 SLOG=$4 h=$5 g L hs=""
+    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets> <server log> <h2> <default|pinned>; nonzero on any failure
+      local l=$1 v=$2 S=$3 SLOG=$4 h=$5 al=$6 g L hs="" AE
       [ "$h" = h2-batch ] && hs="-h2batch"
+      [ "$al" = pinned ] && hs="$hs-allocpinned"
+      if [ "$al" = pinned ]; then AE=(env GLIBC_TUNABLES="$D9_TUNABLES" AK_ALLOC=pinned); else AE=(env -u GLIBC_TUNABLES AK_ALLOC=default); fi
       "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$S" --transports "$TR" > "$OUT/rpc-$v$hs-precheck-launch$l.out" 2>&1 \
         || { tail -3 "$OUT/rpc-$v$hs-precheck-launch$l.out"; return 1; }
       for g in ab c d; do
@@ -248,14 +256,14 @@ case "$SUITE" in
         rm -rf "$F.side" "$F.pyperf.json"
         # grpc-core sized to AK_WORKERS through the sysconf shim (D14), preloaded into the pyperf
         # processes (--copy-env carries it into every worker)
-        AK_H2="$h" AK_SHIM_NCPUS="$AK_WORKERS" LD_PRELOAD="$HERE/build/ncpus_shim.so" \
+        "${AE[@]}" AK_H2="$h" AK_SHIM_NCPUS="$AK_WORKERS" LD_PRELOAD="$HERE/build/ncpus_shim.so" \
         PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py --variant "$v" --group $g --launch "$l" --server "$S" \
           --transports "$TR" --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
           || { tail -5 "$F.pyperf.out"; return 1; }
-        AK_SHIM_NCPUS="$AK_WORKERS" "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g --h2 "$h" \
+        "${AE[@]}" AK_SHIM_NCPUS="$AK_WORKERS" "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g --h2 "$h" --alloc "$al" \
           --server "$S" --server-log "$SLOG" --pyperf-args "$PP --affinity $AFF --copy-env --transports $TR" --out "$F.jsonl" $SMOKE $DIRTY || return 1
         rm -rf "$F.side"
-        echo "   rpc ($v, $h, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
+        echo "   rpc ($v, $h, $al, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
       done
     }
     for l in $(seq 1 "$LAUNCHES"); do
@@ -271,7 +279,9 @@ case "$SUITE" in
         # AK_CAMPAIGN_RPC_BUILDS: the builds timed (campaign: both; a minimal smoke may name one)
         [ -n "${AK_CAMPAIGN_RPC_BUILDS:-}" ] && ORD="$AK_CAMPAIGN_RPC_BUILDS"
         for v in $ORD; do
-          for h in $H2S; do rpc_run "$l" "$v" "$SOCKS" "$SL/rpc-server.log" "$h" || { OK=0; break 2; }; done
+          for al in $ALLOCS; do
+            for h in $H2S; do rpc_run "$l" "$v" "$SOCKS" "$SL/rpc-server.log" "$h" "$al" || { OK=0; break 3; }; done
+          done
         done
       fi
       bash "$AK_SERVE_SH" stop > /dev/null
