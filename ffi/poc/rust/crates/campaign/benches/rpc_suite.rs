@@ -162,6 +162,8 @@ struct Spec {
 }
 
 fn main() {
+    // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
+    let (alloc, alloc_read) = campaign::alloc_check();
     let socket: String = std::env::var("AK_RPC_SOCKET").expect("AK_RPC_SOCKET");
     let transport: String = env("AK_RPC_TRANSPORT", "shipped".to_string());
     let pinned = transport == "pinned";
@@ -294,6 +296,7 @@ fn main() {
         ("order", format!("benchmarks registered in a seeded random permutation of every (cell, dir, payload, k) (seed = launch); criterion runs them in registration order; first: {}", specs.iter().take(6).map(|s| s.id.as_str()).collect::<Vec<_>>().join(", "))),
         ("engine", format!("criterion 0.5 (CAMPAIGN req 22a as amended 2026-09-27, WP9): one criterion benchmark per (cell, dir, payload, in-flight k), SamplingMode::Flat, {samples} samples (= rounds, criterion's floor 10), warm-up {warm_ms} ms and measurement {meas_ms} ms per benchmark (AK_WARMUP_MS, AK_MEASURE_MS); ONE ITERATION = ONE BATCH OF k CALLS IN FLIGHT, counted as k operations (Throughput::Elements(k); `iters` in a row = calls = criterion iterations x k, `batches` = criterion iterations); raw samples exported from criterion's sample.json, none dropped")),
         ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first benchmark (AK_RPC_SERVER_WARMUP); then each benchmark's warm-up is criterion's own ({warm_ms} ms, every call checked); every cell's channel opened once, before the first benchmark, and shared by all its benchmarks (one channel per cell per benchmark process)")),
+        ("alloc", campaign::alloc_header(alloc, alloc_read)),
         ("clocks", "cpu_ns = process CPU per sample, CLOCK_PROCESS_CPUTIME_ID (criterion Measurement ProcessCpu, the codec suite's); wall_ns = monotonic, measured around the same iterations by the benchmark's own routine (iter_custom) and matched to criterion's samples: criterion keeps one quantity, so wall is a column beside it".into()),
         ("checks", "every call checked (requirement 18): a failed check PANICS inside the benchmark (criterion has no stop-on-error), which aborts the process before any output is written; the runner then discards the launch's output".into()),
         ("worker threads", format!("client: tokio {} per A/D/F and -cb cell runtime (AK_HOST_WORKERS; mtN = multi-thread N workers, ct = current-thread; default AK_WORKERS = mt{}); ak_runtime_new({}) per B/C/E core client (AK_CORE_WORKERS; default AK_WORKERS = {}); k = 1/8/16 caller threads (B/C/E) or tasks (A/D/F); server: tokio multi-thread {server_threads} workers (AK_SERVER_THREADS; default AK_WORKERS). D14 (owner, 2026-10-03): every pool is AK_WORKERS workers, default 8", grid::host_rt_label(), grid::workers_default(), grid::core_workers(), grid::workers_default())),
@@ -322,7 +325,7 @@ fn main() {
                 "transport": transport, "inflight": s.k, "launch": launch, "round": r + 1,
                 "cpu_ns": t, "wall_ns": ww, "iters": it * s.k as u64, "batches": it,
                 "build": build, "send_path": if grid::framed(s.cell) { "framed" } else { "reference" },
-                "ru_nvcsw": ru[0], "ru_nivcsw": ru[1], "ru_minflt": ru[2],
+                "ru_nvcsw": ru[0], "ru_nivcsw": ru[1], "ru_minflt": ru[2], "minflt": ru[2], "alloc": alloc,
             });
             o["delivery"] = grid::delivery(s.cell).into();
             if let Some(m) = grid::mode_of(s.cell) {

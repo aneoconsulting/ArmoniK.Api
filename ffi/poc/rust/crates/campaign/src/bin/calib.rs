@@ -51,6 +51,8 @@ fn main() {
         std::hint::black_box(r);
         return;
     }
+    // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
+    let (alloc, alloc_read) = campaign::alloc_check();
     let launch: usize = arg("--launch").map(|v| v.parse().unwrap()).unwrap_or(1);
     let rounds: usize = arg("--rounds").map(|v| v.parse().unwrap()).unwrap_or(5);
     let out = arg("--out").expect("--out");
@@ -63,17 +65,20 @@ fn main() {
     let mut lines = Vec::new();
     for r in 1..=rounds {
         for &i in &order {
+            let f0 = campaign::minflt();
             let t0 = process_clock_ns();
             std::hint::black_box((arms[i].1)(iters));
             let cpu = process_clock_ns() - t0;
+            let fl = campaign::minflt() - f0;
             lines.push(serde_json::json!({
                 "slice": "rust", "suite": "calib", "arm": arms[i].0, "launch": launch,
-                "round": r, "cpu_ns": cpu, "iters": iters,
+                "round": r, "cpu_ns": cpu, "iters": iters, "minflt": fl, "alloc": alloc,
             }).to_string());
         }
     }
     let mut f = std::fs::File::create(&out).unwrap();
     for h in campaign::header("calib", &[
+        ("alloc", campaign::alloc_header(alloc, alloc_read)),
         ("arms", "forward = ak_noop; forward-reverse = ak_noop_reverse (reverse = the difference)".into()),
         ("launch", launch.to_string()),
         ("order", order.iter().map(|&i| arms[i].0).collect::<Vec<_>>().join(",")),

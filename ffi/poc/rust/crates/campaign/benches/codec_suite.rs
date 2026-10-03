@@ -54,6 +54,8 @@ impl Visit for Collect<'_> {
 }
 
 fn main() {
+    // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
+    let (alloc, alloc_read) = alloc_check();
     let launch: usize = env("AK_LAUNCH", 1);
     let out_path: String = env("AK_OUT", "codec.jsonl".to_string());
     let only: Vec<String> = std::env::var("AK_ONLY").unwrap_or_default()
@@ -150,6 +152,8 @@ fn main() {
             idx_of.push(i);
         }
     }
+    let faults: Vec<std::rc::Rc<std::cell::RefCell<Vec<(u64, u64, u64)>>>> =
+        cases.iter().map(|_| Default::default()).collect();
     {
         let mut g = c.benchmark_group("codec");
         g.sampling_mode(SamplingMode::Flat);
@@ -160,7 +164,19 @@ fn main() {
             if let Some(p) = cs.prep.as_mut() {
                 p();
             }
-            g.bench_function(format!("{i:05}"), |b| b.iter(|| (cs.op)()));
+            // The routine reads the minor faults around its iterations, outside criterion's
+            // clock (req 25, D9), and the export matches them to criterion's samples.
+            let fl = faults[i].clone();
+            g.bench_function(format!("{i:05}"), |b| b.iter_custom(|iters| {
+                let f0 = minflt();
+                let c0 = process_clock_ns();
+                for _ in 0..iters {
+                    criterion::black_box((cs.op)());
+                }
+                let cpu = process_clock_ns() - c0;
+                fl.borrow_mut().push((iters, cpu, minflt() - f0));
+                cpu
+            }));
             if let Some(d) = cs.done.as_mut() {
                 d();
             }
@@ -174,6 +190,7 @@ fn main() {
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
+        ("alloc", alloc_header(alloc, alloc_read)),
         ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
         ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
         ("encode variants", format!("every encode arm x mode in 4 rows, core-native and core-ffi in 6 (requirement 11): end_state reused-buffer | transport-ready-tonic | transport-ready-core (core arms only) ({}) x input hot (one graph) | pool (distinct graphs cloned until the heap they hold, measured with glibc mallinfo2, reaches AK_POOL_BYTES; at least 2, at most 2^20; built before the case's warm-up and freed after; each pool row records pool_graphs and pool_heap_bytes; AK_POOL_BYTES = {}, AK_LLC_BYTES = {})", TRANSPORT_FORMS, pool_bytes(), llc_bytes())),
@@ -209,11 +226,18 @@ fn main() {
             .unwrap_or_else(|e| panic!("criterion sample file {}: {e}", p.display()))).unwrap();
         let iters = s["iters"].as_array().unwrap();
         let times = s["times"].as_array().unwrap();
-        for (r, (it, t)) in iters.iter().zip(times).enumerate() {
+        // The measured samples are the routine's LAST n calls; each must match criterion's.
+        let fl = faults[i].borrow();
+        let n = iters.len();
+        assert!(fl.len() >= n, "case {i}: {} routine calls for {n} samples", fl.len());
+        let tail = &fl[fl.len() - n..];
+        for (r, ((it, t), &(fi, fc, fm))) in iters.iter().zip(times).zip(tail).enumerate() {
+            let (it, t) = (it.as_f64().unwrap() as u64, t.as_f64().unwrap() as u64);
+            assert!(it == fi && t == fc, "case {i}: sample {r} (iters {it}, cpu {t}) does not match the routine's ({fi}, {fc})");
             let mut o = serde_json::json!({
                 "slice": "rust", "suite": "codec", "arm": cs.arm, "payload": cs.payload,
                 "content": cs.content, "dir": cs.dir, "launch": launch, "round": r + 1,
-                "cpu_ns": t.as_f64().unwrap() as u64, "iters": it.as_f64().unwrap() as u64,
+                "cpu_ns": t, "iters": it, "minflt": fm, "alloc": alloc,
             });
             if cs.unknown_mode != "default" {
                 o["unknown_mode"] = cs.unknown_mode.into();

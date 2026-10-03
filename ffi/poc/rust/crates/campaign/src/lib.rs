@@ -89,6 +89,62 @@ pub fn process_clock_ns() -> u64 {
     ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
 }
 
+/// CAMPAIGN req 25 as amended 2026-10-03 (D9): the allocator mode of a measured process.
+/// `AK_CAMPAIGN_ALLOC=default` (the main figures: glibc's default allocator, no
+/// GLIBC_TUNABLES) or `pinned` (the labelled diagnostic: PINNED_TUNABLES).
+pub const PINNED_TUNABLES: &str = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432";
+
+/// The minor page faults of this process so far (getrusage), read OUTSIDE every timer.
+pub fn minflt() -> u64 {
+    let mut ru: libc::rusage = unsafe { std::mem::zeroed() };
+    unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut ru) };
+    ru.ru_minflt as u64
+}
+
+/// D9's startup check, before any timing: the mode asked for, the environment that should
+/// produce it, and what glibc actually does with one 16 MiB malloc (mallinfo2's mmapped-block
+/// count before and after: `mmapped` under the default 128 KiB..32 MiB dynamic threshold,
+/// `heap` under the pinned 32 MiB threshold). Any disagreement REFUSES the run: exit 4, no
+/// sample. Returns the mode and the readback for the header.
+pub fn alloc_check() -> (&'static str, &'static str) {
+    let mode: &'static str = match std::env::var("AK_CAMPAIGN_ALLOC").ok().as_deref() {
+        None | Some("") | Some("default") => "default",
+        Some("pinned") => "pinned",
+        Some(o) => refuse(format!("AK_CAMPAIGN_ALLOC={o} (want default or pinned)")),
+    };
+    let tun = std::env::var("GLIBC_TUNABLES").unwrap_or_default();
+    match mode {
+        "default" if !tun.is_empty() => refuse(format!("AK_CAMPAIGN_ALLOC=default but GLIBC_TUNABLES={tun}")),
+        "pinned" if tun != PINNED_TUNABLES => refuse(format!("AK_CAMPAIGN_ALLOC=pinned but GLIBC_TUNABLES={tun:?}, want {PINNED_TUNABLES}")),
+        _ => {}
+    }
+    let read: &'static str = unsafe {
+        let before = libc::mallinfo2().hblks;
+        let p = libc::malloc(16 << 20);
+        assert!(!p.is_null(), "16 MiB malloc");
+        std::ptr::write_volatile(p as *mut u8, 1);
+        let after = libc::mallinfo2().hblks;
+        libc::free(p);
+        if after > before { "mmapped" } else { "heap" }
+    };
+    let want = if mode == "default" { "mmapped" } else { "heap" };
+    if read != want {
+        refuse(format!("AK_CAMPAIGN_ALLOC={mode}: a 16 MiB malloc was {read}, want {want}"));
+    }
+    eprintln!("# alloc: {mode} (16 MiB malloc {read})");
+    (mode, read)
+}
+
+fn refuse(why: String) -> ! {
+    eprintln!("REFUSED (CAMPAIGN req 25, D9): {why}; no sample is taken");
+    std::process::exit(4);
+}
+
+/// The header line of requirement 25 (D9), the same in every suite.
+pub fn alloc_header(mode: &str, read: &str) -> String {
+    format!("this process ran {mode} (a 16 MiB malloc read back {read}); modes: default = glibc's default allocator, GLIBC_TUNABLES unset (the main figures); pinned = GLIBC_TUNABLES={PINNED_TUNABLES} on the measured client only (the labelled diagnostic, files labelled alloc-pinned); every sample carries alloc and minflt (minor faults over its measured span, read outside the timers)")
+}
+
 /// criterion's measurement, replaced by process CPU time (requirement 21: criterion's
 /// default is wall time). One value per criterion sample (= round), in ns.
 pub struct ProcessCpu;

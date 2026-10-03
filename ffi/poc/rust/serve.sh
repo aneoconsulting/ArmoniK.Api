@@ -48,7 +48,8 @@ case "$cmd" in
     S1="$D/shipped.sock"; S2="$D/pinned.sock"; RF="$D/ready"
     PIN=(); [ -n "${AK_CPU_SERVER:-}" ] && PIN=(taskset -c "$AK_CPU_SERVER")
     TCP=(); [ -n "${AK_SERVER_TCP:-}" ] && TCP=(--tcp "$AK_SERVER_TCP")
-    AK_SERVER_THREADS=${AK_SERVER_THREADS:-${AK_WORKERS:-8}} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" "${TCP[@]}" \
+    # CAMPAIGN req 25 (D9): the shared server never runs under GLIBC_TUNABLES, in either mode
+    env -u GLIBC_TUNABLES AK_SERVER_THREADS=${AK_SERVER_THREADS:-${AK_WORKERS:-8}} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" "${TCP[@]}" \
       --ready-file "$RF" > /dev/null 2> "$OUT/rpc-server.log" < /dev/null &
     SP=$!
     for _ in $(seq 200); do [ -s "$RF" ] && break; kill -0 $SP 2>/dev/null || break; sleep 0.05; done

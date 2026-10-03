@@ -4212,3 +4212,29 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   variants differ only in the transport, not in context creation. Added to gate.sh after
   stickyerr. The gate was NOT run (owner). No committed count changes: `ak_enc_ctx_new` is
   setup, outside every counted loop, and hosts' resets remain host calls.
+
+## 2026-10-03 -- D9 allocator switch in the campaign runner (CAMPAIGN req 25 as amended)
+
+- `AK_CAMPAIGN_ALLOC=default|pinned` (default `default`) in run_campaign.sh. The runner unsets
+  GLIBC_TUNABLES. It then prefixes only the measured clients (codec bench, rpc_bench, calib
+  and calib under perf) with `env -u GLIBC_TUNABLES` or `env GLIBC_TUNABLES=<pinned>`.
+  Pinned output files get the label `-alloc-pinned`. serve.sh launches the server under
+  `env -u GLIBC_TUNABLES`. The exploration scripts are unchanged.
+- campaign::alloc_check runs at the start of codec_suite, rpc_suite and calib (calib's
+  `--only` perf path is excluded). It checks the mode against GLIBC_TUNABLES, then one 16 MiB
+  malloc against mallinfo2 hblks. On any disagreement it exits 4 and takes no sample. Rows
+  gain `alloc` and `minflt`. The codec suite now uses iter_custom so it can read minflt
+  outside the timer. Its rows are matched to sample.json by (iters, cpu), as rpc_suite does.
+- Smoke (logs/rust/d9/, figures stripped): codec P1.1, rpc B/a/k1 against serve.sh, and
+  calib at 1e5 iterations, each per mode. Default read back mmapped and pinned read back
+  heap; every row carries alloc and minflt.
+- Plants:
+  - pinned without tunables, default with tunables, unset mode with tunables, and mode
+    `jemalloc` (codec), plus pinned without tunables (calib): each exited 4 and wrote no
+    output file;
+  - the runner refuses a misspelt mode (exit 2).
+- The readback branch (env agreeing, malloc disagreeing) was not planted. No environment
+  produces it without a test hook.
+- Not a defect, noted: in default mode glibc's dynamic mmap threshold rises after the first
+  large free. The startup readback therefore describes the process start, not the
+  steady state.

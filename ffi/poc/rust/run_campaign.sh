@@ -22,6 +22,13 @@
 #   own warm-up everywhere, FIX-PLAN WP9): codec AK_WARMUP_MS 500 / 5, AK_MEASURE_MS 2000 / 10;
 #   rpc AK_RPC_WARMUP_MS 500 / 5, AK_RPC_MEASURE_MS 2000 / 20, AK_RPC_SAMPLES 10 (criterion's
 #   floor), AK_RPC_SERVER_WARMUP 64 / 16 checked calls from each client transport
+#   AK_CAMPAIGN_ALLOC  default|pinned (CAMPAIGN req 25 as amended, D9; default `default`).
+#                   default: GLIBC_TUNABLES is unset for every process, the main figures.
+#                   pinned: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:
+#                   glibc.malloc.mmap_threshold=33554432 on the MEASURED CLIENT processes only
+#                   (codec, rpc criterion clients, calib), never on the shared server; output
+#                   files are labelled alloc-pinned. Each measured process checks the mode at
+#                   start (16 MiB malloc, mallinfo2) and refuses to run on a mismatch.
 #   AK_ALLOW_DIRTY=1  run on a dirty tree (recorded in every header; requirement 27 refuses
 #                   a dirty tree, so the campaign never sets it)
 #
@@ -66,6 +73,18 @@ LAUNCHES=${AK_LAUNCHES:-3}; ROUNDS=${AK_ROUNDS:-5}
 if [ "${AK_SMOKE:-0}" = 1 ]; then LAUNCHES=1; ROUNDS=1; fi
 SCRATCH=${AK_SCRATCH:-$(mktemp -d)}
 
+# ---- requirement 25 as amended (D9): the allocator mode ------------------------------
+ALLOC=${AK_CAMPAIGN_ALLOC:-default}
+PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
+case "$ALLOC" in
+  default) ALLOCENV=(env -u GLIBC_TUNABLES); ATAG="" ;;
+  pinned) ALLOCENV=(env GLIBC_TUNABLES="$PINNED_TUNABLES"); ATAG="-alloc-pinned" ;;
+  *) echo "refused: AK_CAMPAIGN_ALLOC=$ALLOC (default|pinned)" >&2; exit 2 ;;
+esac
+# nothing but the measured clients ever sees the tunables (the server, builds, warm-ups do not)
+unset GLIBC_TUNABLES
+export AK_CAMPAIGN_ALLOC=$ALLOC
+
 # ---- requirement 27: the header, and the dirty-tree refusal ---------------------------
 REV=$(git rev-parse --short HEAD)
 DIRTY=""
@@ -91,6 +110,7 @@ header() {  # header SUITE [VARIANT]
   echo "# isolation  cmdline: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full|rcu_nocbs)=' | tr '\n' ' ' || true)cgroup: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
   echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest; set size ${AK_SET_SIZE:-unset} (ffi/campaign.machine ${AK_MACHINE_NAME:-not read})"
   echo "# threads    D14: AK_WORKERS=${AK_WORKERS:-8} sizes every pool unless overridden; codec: 1 measuring thread; rpc client: tokio ${AK_HOST_WORKERS:-${AK_WORKERS:-8}} workers per A/D/F and -cb cell runtime (AK_HOST_WORKERS; ct = current-thread), ak_runtime_new(${AK_CORE_WORKERS:-${AK_WORKERS:-8}}) per B/C/E client (AK_CORE_WORKERS), k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-${AK_WORKERS:-8}} workers (AK_SERVER_THREADS); calib: 1 thread"
+  echo "# alloc      AK_CAMPAIGN_ALLOC=$ALLOC ran (modes: default = GLIBC_TUNABLES unset, the main figures; pinned = GLIBC_TUNABLES=$PINNED_TUNABLES on the measured client only, never the server, files labelled alloc-pinned); each measured process re-checks it (16 MiB malloc, mallinfo2) and its own header states the readback; rows carry alloc and minflt"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
@@ -189,11 +209,11 @@ case "$SUITE" in
       export AK_POOL_BYTES=${AK_POOL_BYTES:-1048576}
     fi
     codec_run() {  # codec_run L VARIANT EXE
-      local L=$1 v=$2 exe=$3 tag="codec"; [ "$v" = nounk ] && tag="codec-nounk"
+      local L=$1 v=$2 exe=$3 tag="codec$ATAG"; [ "$v" = nounk ] && tag="codec-nounk$ATAG"
       local F="$OUT/$tag-launch$L.jsonl" C="$OUT/$tag-launch$L.criterion.log"
       header codec "$v" > "$F.head"
       CRITERION_HOME="$SCRATCH/criterion-$v-launch$L" AK_LAUNCH=$L AK_OUT="$F.body" \
-        taskset -c "$AK_CPU_CLIENT" "$exe" > "$C" 2>&1 \
+        "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" "$exe" > "$C" 2>&1 \
         || { echo "codec launch $L ($v) FAILED: $C" >&2; exit 1; }
       { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"
       mv "$C.tmp" "$C"
@@ -246,7 +266,7 @@ case "$SUITE" in
       sock=SOCK_$T; sock=${!sock}
       env AK_RPC_SOCKET="$sock" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
           AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_MEASURE_MS="$RMEAS" "$@" \
-          taskset -c "$AK_CPU_CLIENT" "$exe"
+          "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" "$exe"
     }
     TRANSPORTS=${AK_RPC_TRANSPORTS:-shipped pinned}
     BUILDS=${AK_RPC_BUILDS:-full nounk}
@@ -276,8 +296,8 @@ case "$SUITE" in
     done
     serve_stop plant
     rpc_run() {  # rpc_run L VARIANT
-      local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T-launch$1.jsonl"
-      [ "$v" = nounk ] && { EXE=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk-launch$L.jsonl"; }
+      local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T$ATAG-launch$1.jsonl"
+      [ "$v" = nounk ] && { EXE=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk$ATAG-launch$L.jsonl"; }
       local C="${F%.jsonl}.criterion.log"
       header rpc "$v" > "$F.head"
       # The runner warmed the server (serve.sh warm); any failure discards the launch's
@@ -308,18 +328,18 @@ case "$SUITE" in
     ITERS=${AK_CALIB_ITERS:-20000000}
     [ "${AK_SMOKE:-0}" = 1 ] && ITERS=1000000
     for L in $(seq 1 "$LAUNCHES"); do
-      F="$OUT/calib-launch$L.jsonl"
+      F="$OUT/calib$ATAG-launch$L.jsonl"
       header calib > "$F.head"
-      taskset -c "$AK_CPU_CLIENT" target/release/calib --launch "$L" --rounds "$ROUNDS" --iters "$ITERS" --out "$F.body"
+      "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" target/release/calib --launch "$L" --rounds "$ROUNDS" --iters "$ITERS" --out "$F.body"
       cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
       if command -v perf >/dev/null 2>&1; then
         for A in forward forward-reverse; do
           { echo "# perf stat, arm $A, $ITERS iterations (cycles and instructions per iteration = count / $ITERS)"
-            perf stat -x, -e cycles,instructions taskset -c "$AK_CPU_CLIENT" target/release/calib --only "$A" --iters "$ITERS" 2>&1; } \
-            >> "$OUT/calib-perf-launch$L.txt"
+            perf stat -x, -e cycles,instructions "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" target/release/calib --only "$A" --iters "$ITERS" 2>&1; } \
+            >> "$OUT/calib-perf$ATAG-launch$L.txt"
         done
       else
-        echo "# perf is not installed on this machine: no cycles/instructions (requirement 20)" > "$OUT/calib-perf-launch$L.txt"
+        echo "# perf is not installed on this machine: no cycles/instructions (requirement 20)" > "$OUT/calib-perf$ATAG-launch$L.txt"
       fi
       echo "calib launch $L: $(grep -vc '^#' "$F") rows -> $F"
     done ;;

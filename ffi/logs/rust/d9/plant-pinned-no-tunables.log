@@ -1,0 +1,1 @@
+REFUSED (CAMPAIGN req 25, D9): AK_CAMPAIGN_ALLOC=pinned but GLIBC_TUNABLES="", want glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; no sample is taken
