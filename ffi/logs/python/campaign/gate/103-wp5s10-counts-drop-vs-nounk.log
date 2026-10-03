@@ -1,6 +1,6 @@
 # python slice: crossing counts per call, full build (drop) and no-unknown build (WP5 step 10, requirement 19)
-# date:      2026-10-03T02:25:54Z
-# commit:    86c141a1c
+# date:      2026-10-03T14:59:24Z
+# commit:    9a5b189ab
 # phase:     correctness only; nothing here is a timing
 
    py3.12 abi full: 560 rows, IDENTICAL to counts/abi-full.txt

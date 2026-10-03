@@ -1,6 +1,6 @@
 # python slice: the RPC arm under injected failure, py3.7
-# date:      2026-10-03T02:24:57Z
-# commit:    86c141a1c
+# date:      2026-10-03T14:58:31Z
+# commit:    9a5b189ab
 # phase:     correctness only; nothing here is a timing
 
 # python slice: the RPC arm's gate under injected failure (FIX-PLAN R-D3)
@@ -84,13 +84,13 @@
    B  upb codec / core transport, callback    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
    B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: completion status -12)
    C  core codec / core transport, blocking   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
-   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
+   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
    C  core codec / core transport, queue      x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
-   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: completion status -12)
+   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: completion status -12)
    C  core codec / core transport, callback   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
-   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: completion status -12)
+   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: completion status -12)
    -- floor: core transport, no decode        x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
-   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
+   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
 
 ## injection: empty
    cell                                           one call
@@ -112,19 +112,19 @@
    A -- floor: no decode, the bytes as they arrive x1  ABORTED, no figure (_InactiveRpcError: INTERNAL Exception deserializing response!)
    A -- floor: no decode, the bytes as they arrive x4  ABORTED, no figure (_InactiveRpcError: INTERNAL Exception deserializing response!)
    B  upb codec / core transport, blocking    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    B  upb codec / core transport, queue       x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    B  upb codec / core transport, callback    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    C  core codec / core transport, blocking   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    C  core codec / core transport, queue      x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    C  core codec / core transport, callback   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
    -- floor: core transport, no decode        x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
-   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
+   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 0 bytes, the payload is 540422)
 
 ## injection: short
    cell                                           one call
@@ -146,23 +146,23 @@
    A -- floor: no decode, the bytes as they arrive x1  ABORTED, no figure (_InactiveRpcError: INTERNAL Exception deserializing response!)
    A -- floor: no decode, the bytes as they arrive x4  ABORTED, no figure (_InactiveRpcError: INTERNAL Exception deserializing response!)
    B  upb codec / core transport, blocking    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    B  upb codec / core transport, queue       x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    B  upb codec / core transport, callback    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    C  core codec / core transport, blocking   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    C  core codec / core transport, queue      x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    C  core codec / core transport, callback   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
    -- floor: core transport, no decode        x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
-   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
+   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 4 of 4 threads failed; first: RpcFailed: response is 268800 bytes, the payload is 540422)
 
 ## injection: closed
    cell                                           one call
-   A upb (incumbent)                              RAISED _InactiveRpcError: UNAVAILABLE Broken pipe
+   A upb (incumbent)                              RAISED _InactiveRpcError: UNAVAILABLE failed to connect to all addresses; last error: UNKNOWN: unix:/tmp/akg
    A core-ffi / C ext type                        RAISED _InactiveRpcError: UNAVAILABLE failed to connect to all addresses; last error: UNKNOWN: unix:/tmp/akg
    A -- floor: no decode, the bytes as they arrive RAISED _InactiveRpcError: UNAVAILABLE failed to connect to all addresses; last error: UNKNOWN: unix:/tmp/akg
    B  upb codec / core transport, blocking        RAISED RuntimeError: ak_call_unary -> -12 (grpc status 14)
@@ -182,16 +182,16 @@
    A -- floor: no decode, the bytes as they arrive x1  ABORTED, no figure (_InactiveRpcError: UNAVAILABLE failed to connect to all addresses; last error: UNKNOWN: unix:/tmp/akg)
    A -- floor: no decode, the bytes as they arrive x4  ABORTED, no figure (_InactiveRpcError: UNAVAILABLE failed to connect to all addresses; last error: UNKNOWN: unix:/tmp/akg)
    B  upb codec / core transport, blocking    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
-   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
+   B  upb codec / core transport, blocking    x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
    B  upb codec / core transport, queue       x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
-   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: completion status -12)
+   B  upb codec / core transport, queue       x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: completion status -12)
    B  upb codec / core transport, callback    x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
-   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: completion status -12)
+   B  upb codec / core transport, callback    x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: completion status -12)
    C  core codec / core transport, blocking   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
-   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
+   C  core codec / core transport, blocking   x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
    C  core codec / core transport, queue      x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
-   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RpcFailed: completion status -12)
+   C  core codec / core transport, queue      x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RpcFailed: completion status -12)
    C  core codec / core transport, callback   x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RpcFailed: completion status -12)
    C  core codec / core transport, callback   x4  ABORTED, no figure (MeasurementAborted: 1 of 4 threads failed; first: RpcFailed: completion status -12)
    -- floor: core transport, no decode        x1  ABORTED, no figure (MeasurementAborted: 1 of 1 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
-   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 2 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))
+   -- floor: core transport, no decode        x4  ABORTED, no figure (MeasurementAborted: 3 of 4 threads failed; first: RuntimeError: ak_call_unary -> -12 (grpc status 14))

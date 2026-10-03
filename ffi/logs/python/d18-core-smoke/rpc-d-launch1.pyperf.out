@@ -1,0 +1,9 @@
+# FIGURES STRIPPED; the raw pyperf JSON is not committed
+rpc|full|armonik|d|16MiB|A|1: [stripped]
+rpc|full|armonik|d|16MiB|Bf|1: [stripped]
+rpc|full|armonik|d|16MiB|Cf-retain|1: [stripped]
+rpc|full|armonik|d|16MiB|Ef-retain|1: [stripped]
+rpc|full|armonik|d|16MiB|A|8: [stripped]
+rpc|full|armonik|d|16MiB|Bf|8: [stripped]
+rpc|full|armonik|d|16MiB|Cf-retain|8: [stripped]
+rpc|full|armonik|d|16MiB|Ef-retain|8: [stripped]

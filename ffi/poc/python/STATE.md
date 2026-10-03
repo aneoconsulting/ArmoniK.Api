@@ -340,32 +340,112 @@ grid and the codec suite); it is stated here, not changed.
    So idle grpcio channels and a core runtime exist in every worker beside the timed cell.
    WP11 item 4 measured this for C++; it is not measured here.
 
-## Campaign length, estimated (2026-10-03; no benchmark run, container figures for sizing)
+## The campaign grid (D18, CAMPAIGN section 4.0, owner 2026-10-03)
 
-These are campaign defaults: 3 launches, 5 values, 3 warm-ups (RPC d: 7), codec `--min-time 0.1`,
-both builds, both transports, both h2 variants. Each pyperf benchmark gets its own worker.
+`AK_CAMPAIGN_GRID=core|full` selects the grid; the default is `core`. `core` runs exactly
+section 4.0. `full` runs every row of 4.1 and 4.2. Every extra, unknown-corpus included, stays
+buildable and runnable under `full` and is labelled. Each log header states its grid and every
+extra left out (`grid`).
 
-**Per-benchmark cost assumed.**
-- Codec benchmark: about 1.2 s fixed (a calibration worker plus a value worker, each with its
-  imports). The smokes measured 1.04-1.34 s per benchmark over 38 benchmarks. On top of that,
-  about 1.5 s of timing: calibration about 0.3 s, then 8 values of about 0.15 s each. The
-  shapes pool directions add an assumed 2 x 2 s to build the 13.75 MiB pool (not measured).
-- RPC benchmark: 1.2-1.4 s fixed per worker (the smokes measured 0.5-0.8 s of worker duration
-  plus the spawn), then `(warm-ups + values) x loops` batches. Assumed per-call wall at k = 1:
-  P2.2 3 ms, P5.3 4 ms, P5.4 12 ms, 4MiB 7 ms, 16MiB 25 ms. A batch of k calls costs
-  k x w / min(k, 4).
+**Codec, core grid:** 245 benchmarks per launch.
 
-| part | benchmarks per pass | per pass | both passes |
+| build | family | rows | benchmarks |
 |---|---|---|---|
-| codec unknown-corpus (labelled extra) | 22,392 | 16.8 h | 33.6 h |
-| codec unknown | 7,452 | 5.6 h | 11.2 h |
-| codec shapes | 3,696 | 4.1 h | 8.2 h |
-| RPC grid | 4,860 | 3.4 h | 6.8 h |
-| gate, calib (once) | | 0.9 h | 0.9 h |
-| total | | 30.7 h | 60.7 h |
+| full | shapes | the 16 shapes ASCII (P7.1 decode only), Latin-1 and wide on P2.2 | 105 |
+| full | unknown | the 7 named U-* rows | 42 |
+| no-unknown | shapes | as above | 70 |
+| no-unknown | unknown | as above | 28 |
 
-The script is `scratchpad/python-est/est.py` (not committed); its per-cell breakdown is in
-JOURNAL J64.
+- Arms: incumbent-prod (full build only), core-ffi push, host-gen. Modes: retain in the full
+  build, no-unknown in the no-unknown build.
+- Directions: encode (hot input, transport-ready end state) and decode+read.
+- Bare decode is an extra. The header says it is the row comparable to upb's lazy FromString
+  (req 9).
+
+**RPC, core grid:** 40 benchmarks per launch.
+
+| pass | rows | benchmarks |
+|---|---|---|
+| main | A, Bf, Cf-retain, Ef-retain on a+read, b, c/P5.4, d/16MiB at k = 1 and 8 | 32 |
+| main, h2-batch | Cf-retain on c and d at k = 1 and 8 | 4 |
+| pinned allocator | A and Cf-retain on c and d at k = 1 | 4 |
+
+- All in the full build (retain, blocking delivery), stock h2 unless stated.
+- The codec suite runs the default allocator only.
+
+**Transport (4.0 as amended, b58543f7b):** the core grid has ONE client configuration,
+`armonik`.
+- Cell A's channels come from packages/python's own `create_channel`
+  (`src/armonik/common/channel.py`, loaded by path, read only). For `http://127.0.0.1:PORT` it
+  passes no option.
+- No authority override: over TCP the default `127.0.0.1:PORT` authority is accepted. The
+  override was only ever needed for `unix:`.
+- The core cells keep the core's own client configuration: `ak_client_new`, no options, tonic's
+  Endpoint defaults, tcp_nodelay true.
+- Nagle off, read back on the live sockets before timing, on both sides:
+  - client: getsockopt on every socket to the server;
+  - server: `pidfd_getfd` on the server's accepted sockets (`camp_meas.server_nodelay`).
+
+  A socket with Nagle on refuses the run. The header records both.
+- `shipped` and `pinned` stay under `full`.
+
+**A defect found and fixed (in scope: two cells did the same work).** Since the core's framed
+default (e8fe14868), an unset core client is framed. So B, C, Cc and E, labelled as the
+reference send path, ran framed: the same work as Bf, Cf and Ef. `camp_rpc.cells` now sets each
+core client's send path from its label. a+read gained framed twins Bf, Cf-* and Ef-*.
+`counts/rpc-*.txt` gained those rows (full 84 to 89, no-unknown 48 to 51); every existing row is
+identical.
+
+**Other fixes on the way:**
+- The RPC must-fail controls run on the full grid. Under `core` their benchmark (direction a)
+  is not in the grid, so the `short` control ran nothing and "passed". An `--only` that names no
+  benchmark of the grid now refuses, in both drivers.
+- The smoke's U-* subset is not applied to the core grid (it emptied the unknown family).
+- The runner's snapshot now carries `packages/rust`: the rust slice's campaign crate, and with
+  it the shared server, depends on it by path, so serve.sh could not build without it.
+
+**Gate:** clean worktree at 9a5b189ab, `gate exit 0`, `GATE PASSED`, all 30 logs at that
+commit. The RPC TCP prechecks cover all three client configurations, both builds and both h2
+variants: client and server TCP_NODELAY on every socket; write counts stock 1,035-1,039 and
+h2-batch 76-79.
+
+**Core-grid smoke** (`logs/python/d18-core-smoke/`, smoke settings, figures stripped):
+- codec: 245 benchmarks in 215 s, about 0.88 s each. This is the codec smoke at 9a5b189ab plus
+  this unit's runner and empty-run fixes, `--allow-dirty`.
+- RPC: 40 benchmarks in 55 s, with server start, warm-up and three prechecks.
+
+## Campaign length, estimated for the core grid (2026-10-03; no campaign run)
+
+Sized from the core-grid smoke above and the container per-call walls. These are container
+figures, for sizing only.
+
+**Codec benchmark, about 2.4 s each:**
+- 0.88 s fixed: two worker spawns, imports, case build. Measured in the smoke, where timing is
+  negligible.
+- About 1.5 s of timing: calibration to `--min-time 0.1` about 0.3 s, then 3 warm-ups and
+  5 values of about 0.15 s.
+- **Worker spawn share: 0.88 / 2.4, about 37% of the codec time.**
+
+**RPC benchmark, about 1.0 s fixed plus its batches:**
+
+| group | batches | assumed per-call wall at k = 1 |
+|---|---|---|
+| a+read, b | 200 | P2.2 3 ms |
+| c | 64 | P5.4 12 ms |
+| d | 36 | 16MiB 25 ms |
+
+At k = 8 a batch is assumed to cost 2x. Each launch also has about 20 s of server, warm-up,
+prechecks and counts.
+
+| part | benchmarks (3 launches) | wall |
+|---|---|---|
+| codec | 735 | 29 min (of which spawn 11 min) |
+| RPC | 120 | 5 min |
+| calib (rust bench build, counts, crossing loops) | | about 10-15 min (not re-measured) |
+| campaign total | | **about 45-50 min** |
+| gate, before it (once) | | 18 min in this container under load from other slices, up to 35 min |
+
+The full grid (`AK_CAMPAIGN_GRID=full`) stays at about 31 h per allocator pass (J64).
 
 ## What was checked, and the log that carries it
 

@@ -1,0 +1,41 @@
+# the header of codec-unknown-launch1.jsonl, the D18 core-grid smoke (per-sample JSON lines not committed: ffi/logs/PURGED.md)
+# slice:           python
+# suite:           codec
+# commit:          9a5b189ab DIRTY (smoke only)
+# date:            2026-10-03T15:07:39Z
+# snapshot:        9a5b189ab (HEAD)
+# cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
+# cpus_online:     4
+# smt:             0
+# governor:        unknown
+# turbo:           unknown (no intel_pstate/boost knob)
+# kernel:          6.18.44-fc-v64
+# isolation:       none detected (isolated=)
+# cpu_client:      unset
+# cpu_server:      unset
+# cpu_os:          unset (everything not in CLIENT or SERVER)
+# python:          3.12.3
+# implementation:  CPython
+# protobuf:        7.36.2 (upb)
+# grpcio:          1.84.0
+# build:           {"cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "cflags": "-O2 -fPIC -Wall -Wextra -Werror -Wno-unused-parameter -fvisibility=hidden", "core_features": {"_akffi": "init-guard", "_akffi_corpus": "corpus,init-guard", "_akffi_corpus_nounk": "--no-default-features corpus,init-guard", "_akffi_count": "count,init-guard", "_akffi_count_nounk": "--no-default-features count,init-guard", "_akffi_nounk": "--no-default-features init-guard", "_akffi_rpc": "rpc,init-guard", "_akffi_rpc_nounk": "--no-default-features rpc,init-guard"}, "core_linkage": "shared (libak_core.so through the dynamic linker)", "core_profile_release": "lto = false", "core_source": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/snap/9a5b189ab/ffi/poc/codec", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)", "snapshot": "HEAD"}
+# engine:          pyperf 2.10.0 (CAMPAIGN.md 22a)
+# family:          unknown
+# launch:          1
+# allocator:       AK_CAMPAIGN_ALLOC=default (D9 as amended, owner 2026-10-03; `default` = glibc's defaults, the main figures; `pinned` = D9's GLIBC_TUNABLES, the labelled diagnostic); no mallopt (M_TOP_PAD, J26, removed); GLIBC_TUNABLES=unset. Readback in every worker at import (one 16 MiB malloc kept mapped, mallinfo2 hblks): mmapped. No pre-grow (removed, owner): pyperf's own warm-up runs the real call path; every sample carries `alloc` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker around the value's loops)
+# grid:            AK_CAMPAIGN_GRID=core. CAMPAIGN section 4.0 (D18): the 16 shapes ASCII, Latin-1 and wide on P2.2 only, the 7 named U-* rows; arms incumbent-prod (full build only), core-ffi push and host-gen, retain in the full build and no-unknown in the no-unknown build; encode (hot input, transport-ready end state) and decode+read. Left out (labelled extras, AK_CAMPAIGN_GRID=full): incumbent-best; bare decode, which is the row comparable to upb's lazy FromString (req 9); the encode-pool, encode-reused and encode-pool-reused variants; drop mode; core-ffi-attr and host-gen-plain; Latin-1 and wide on P1.2 and P2.4; the other 85 U-* rows timed; the incumbent in the no-unknown build; the unknown-corpus family
+# h2:              none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels the RPC samples)
+# pyperf_args:     --processes 1 --values 1 --warmups 1 --min-time 0.002 --affinity 0,1,2,3 --copy-env --variant full 
+# clock:           pyperf values are CLOCK_PROCESS_CPUTIME_ID per loop (process CPU, req 21 as amended) (the time_func's return); wall (perf_counter) of the same call from the side file
+# warmup_calibration: pyperf's: warm-up values and the loop-calibration run are exported with phase warmup / calibration
+# gc:              ON (bench_time_func leaves it); gc.collect() before every timed call, untimed
+# variant_build:   full build (unknown-fields on)
+# core_ffi_unknown: drop and retain (decision 11: every position armed; ak_uencode_* on encode)
+# raw_json:        codec-unknown-launch1.pyperf.json
+# encode_variants: req 11: encode = hot graph, transport-ready bytes (grpcio's form); encode-pool = a pool of distinct graphs of >= AK_POOL_BYTES wire bytes (1048576, cap AK_POOL_MAX 65536), built and checked outside the window; encode-reused / encode-pool-reused = the bytes copied into a bytearray sized once (core-ffi only: upb-python has no serialise-into entry point, host-gen appends to a bytearray CPython reallocates)
+# content_sets:    latin1 and wide on P1.2, P2.2, P2.4 (req 7 as amended)
+# unknown_rows:    family unknown: the 92 accepted U-* rows at the shapes core's 7 roots, through the timed shapes core (req 7 as amended); family unknown-corpus: the corpus-schema core, a labelled extra
+# order:           pyperf runs benchmarks one after another (no interleaving): blocks of (payload, content, direction), the arms rotated by one per launch inside a block, the list rotated by a third per launch (req 22)
+# worker_threads:  1: a pyperf worker runs one benchmark in its main thread and starts no other thread; the codec suite uses no gRPC stack and no core runtime (req 4)
+# INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
+# samples: 587

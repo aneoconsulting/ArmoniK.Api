@@ -186,6 +186,8 @@ case "$SUITE" in
     if [ -n "$SMOKE" ]; then
       PP="--processes 1 --values 1 --warmups ${AK_CAMPAIGN_PYPERF_WARMUPS:-1} --min-time ${AK_CAMPAIGN_PYPERF_MIN_TIME:-0.002}"
       ONLY_UNKNOWN="--only U-root-all,U-nested-all,U-oneof-all,U-deep-all,U-enum-value-999"
+      # the core grid already times only its 7 named U-* rows; the smoke subset applies to `full`
+      [ "$AK_CAMPAIGN_GRID" = core ] && ONLY_UNKNOWN=""
       # A smoke builds each beyond-cache pool at 1 MiB of wire bytes (stated in the header);
       # the campaign uses the default, 13.75 MiB (req 11).
       export AK_POOL_BYTES="${AK_POOL_BYTES:-1048576}"

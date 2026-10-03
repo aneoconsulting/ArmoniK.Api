@@ -1,0 +1,5 @@
+   precheck full, h2 stock, core [{"path": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/cargo-9a5b189ab/rpc/release/libak_core.so", "sha256": "8932d20505b6d5f0"}]
+   precheck full stock armonik: retain control: P2.2 + field 1000 re-emitted by retain (540425 bytes), dropped by drop; 0 leaked
+   precheck full stock armonik: TCP_NODELAY read back on 17 of 17 live sockets to 127.0.0.1:41625
+   precheck full stock armonik: server side, TCP_NODELAY read back on 17 of 17 accepted sockets
+   precheck full stock armonik: write syscalls per d/16MiB call on Cf-drop at k = 1: 1038 (ok, want > 400)

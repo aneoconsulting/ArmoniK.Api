@@ -1767,3 +1767,31 @@ about half of every codec benchmark.
 
 Not measured: the pool build time in campaign mode, the per-call walls at k = 8 and 16 on the
 campaign machine, and the precheck length (assumed 60 s per build and h2 variant per launch).
+
+### J65. D18: the core campaign grid, ArmoniK's client configuration (owner, 2026-10-03)
+
+- `AK_CAMPAIGN_GRID=core|full`, default `core`.
+  - Codec core: 245 benchmarks per launch, filtered in `camp_pyperf.core_filter`.
+  - RPC core: 40 per launch, filtered in `camp_rpc_pyperf.core_keep`: the main grid, Cf on
+    h2-batch for c and d, and the pinned allocator subset.
+  - Extras stay under `full`, and the headers list them.
+- **Transport:** `armonik`. A uses packages/python's `create_channel`, loaded by path, which
+  passes no options; no authority override is needed over TCP. The core cells use the core's
+  defaults. The server's TCP_NODELAY is read back through `pidfd_getfd`.
+- **Defect (in scope):** since the core's framed default, the "reference" core cells B, C, Cc
+  and E ran framed. Their send path now follows the label. a+read gained Bf, Cf-* and Ef-*.
+  The counts gained those rows; the existing rows are identical.
+- **Three harness defects, caught on the way:**
+  - The `short` control ran no benchmark under `core` and "passed". The controls now pin
+    `full`, and an empty `--only` refuses.
+  - The smoke's U-* subset emptied the core unknown family.
+  - The snapshot lacked `packages/rust`, now needed by the shared server's build.
+- One gate was killed by the tool's time limit and one run was restarted. The final clean gate
+  at 9a5b189ab passed.
+- Core smoke: codec 245 in 215 s, RPC 40 in 55 s.
+- Estimate: about 45-50 min for the campaign, plus the gate. The codec worker spawn is about
+  37% of the codec time.
+- **A slip to report.** While stopping my dev server, I first ran `serve.sh stop` once without
+  my private `AK_SERVE_STATE`, so on the default state path. If another agent's server had used
+  that default path at that moment, it was stopped. Nothing afterwards showed a default-path
+  server running, and I cannot tell whether one was.

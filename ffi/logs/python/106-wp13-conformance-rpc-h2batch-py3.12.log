@@ -1,17 +1,17 @@
 # python slice: conformance on _akffi_rpc, h2-batch core (WP13), py3.12
-# date:      2026-10-03T02:24:13Z
-# commit:    86c141a1c
+# date:      2026-10-03T14:57:48Z
+# commit:    9a5b189ab
 # phase:     correctness only; nothing here is a timing
 
-# h2-batch module: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc.cpython-312-x86_64-linux-gnu.so
-# mapped: ['/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/cargo-86c141a1c/rpc-h2batch/release/libak_core.so']
+# h2-batch module: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc.cpython-312-x86_64-linux-gnu.so
+# mapped: ['/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/cargo-9a5b189ab/rpc-h2batch/release/libak_core.so']
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
 # interpreter: 3.12.3
 # baseline:    gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi_rpc (_akffi_rpc.cpython-312-x86_64-linux-gnu.so)
 # section 9:   present (call_unary, call_unary_q, call_unary_cb)
-# core loaded: poc/python/build/cargo-86c141a1c/rpc-h2batch/release/libak_core.so
+# core loaded: poc/python/build/cargo-9a5b189ab/rpc-h2batch/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -376,7 +376,7 @@ generated tree is current with the plans (18 files)
    core-ffi / plain           undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count; core loaded: poc/python/build/cargo-86c141a1c/count/release/libak_core.so
+#  shim: _akffi_count; core loaded: poc/python/build/cargo-9a5b189ab/count/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute

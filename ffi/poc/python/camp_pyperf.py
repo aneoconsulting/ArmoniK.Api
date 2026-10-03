@@ -205,6 +205,9 @@ def main():
                     names.append((pid, content, d, arm, mode))
     if GRID == "core":
         names = core_filter(args.family, names)
+    if not names:    # no benchmark in this grid (e.g. an --only outside it) must not pass as an empty run
+        raise SystemExit("no codec benchmark for family %s in AK_CAMPAIGN_GRID=%s%s"
+                         % (args.family, GRID, " with --only " + args.only if args.only else ""))
     # The order rotated between launches: launch l starts (l-1)/3 of the way through the list.
     k = ((args.launch - 1) * max(1, len(names) // 3)) % len(names) if names else 0
     names = names[k:] + names[:k]

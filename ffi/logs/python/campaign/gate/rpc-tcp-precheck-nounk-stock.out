@@ -1,7 +1,13 @@
-   precheck nounk, h2 stock, core [{"path": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/cargo-86c141a1c/rpc-nounk/release/libak_core.so", "sha256": "00de6be854626403"}]
+   precheck nounk, h2 stock, core [{"path": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/cargo-9a5b189ab/rpc-nounk/release/libak_core.so", "sha256": "837687368933381f"}]
    precheck nounk stock shipped: no-unknown control: _akffi_rpc_nounk; P2.2 + field 1000 decodes to P2.2 (540422 bytes); a retain decode is refused
-   precheck nounk stock shipped: TCP_NODELAY read back on 8 of 8 live sockets to 127.0.0.1:39985
-   precheck nounk stock shipped: write syscalls per d/16MiB call on Cf-nounk at k = 1: 1035 (ok, want > 400)
+   precheck nounk stock shipped: TCP_NODELAY read back on 8 of 8 live sockets to 127.0.0.1:37163
+   precheck nounk stock shipped: server side, TCP_NODELAY read back on 8 of 8 accepted sockets
+   precheck nounk stock shipped: write syscalls per d/16MiB call on Cf-nounk at k = 1: 1038 (ok, want > 400)
    precheck nounk stock pinned: no-unknown control: _akffi_rpc_nounk; P2.2 + field 1000 decodes to P2.2 (540422 bytes); a retain decode is refused
-   precheck nounk stock pinned: TCP_NODELAY read back on 9 of 9 live sockets to 127.0.0.1:39985
-   precheck nounk stock pinned: write syscalls per d/16MiB call on Cf-nounk at k = 1: 1036 (ok, want > 400)
+   precheck nounk stock pinned: TCP_NODELAY read back on 9 of 9 live sockets to 127.0.0.1:37163
+   precheck nounk stock pinned: server side, TCP_NODELAY read back on 9 of 9 accepted sockets
+   precheck nounk stock pinned: write syscalls per d/16MiB call on Cf-nounk at k = 1: 1037 (ok, want > 400)
+   precheck nounk stock armonik: no-unknown control: _akffi_rpc_nounk; P2.2 + field 1000 decodes to P2.2 (540422 bytes); a retain decode is refused
+   precheck nounk stock armonik: TCP_NODELAY read back on 9 of 9 live sockets to 127.0.0.1:37163
+   precheck nounk stock armonik: server side, TCP_NODELAY read back on 9 of 9 accepted sockets
+   precheck nounk stock armonik: write syscalls per d/16MiB call on Cf-nounk at k = 1: 1037 (ok, want > 400)
