@@ -77,6 +77,9 @@ public final class Native {
   public static native int hostCounting();
   /** CLOCK_PROCESS_CPUTIME_ID in ns (tax.c, linked into every shim; CAMPAIGN req 21). */
   public static native long processCpuNs();
+  /** (TCP sockets of this process connected to 127.0.0.1:port) << 32 | (those with
+   *  TCP_NODELAY set); native/tax.c (CAMPAIGN req 17 as amended, D10). */
+  public static native long tcpNodelay(int port);
   public static native void decCtxFree(long ctx);
   public static native int decErr(long ctx);
   public static native void decErrReset(long ctx);

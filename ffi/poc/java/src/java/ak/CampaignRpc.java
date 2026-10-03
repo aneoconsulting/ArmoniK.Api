@@ -211,12 +211,45 @@ public final class CampaignRpc {
    *  grpc-java: 2 x the CPUs the JVM sees; fixed here from `ak.rpc.eventLoops` so the header
    *  can state it), the core's runtime workers (`ak.rpc.workers`); grpc-java's call executor
    *  is its default shared cached pool (grows per concurrent call), stated. */
-  static final int EVENT_LOOPS = Integer.getInteger("ak.rpc.eventLoops", 2 * Runtime.getRuntime().availableProcessors());
-  static final int CORE_WORKERS = Integer.getInteger("ak.rpc.workers", 2);
+  /** D8 / D14 (owner 2026-10-03): every pool is sized to AK_WORKERS (8, the threads of the
+   *  CLIENT set), passed as -Dak.workers: the core runtime (ak_runtime_new), the Netty event
+   *  loop group, grpc-java's call executor (a fixed pool in place of its default cached one). */
+  static final int WORKERS = Integer.getInteger("ak.workers", 8);
+  static final int EVENT_LOOPS = Integer.getInteger("ak.rpc.eventLoops", WORKERS);
+  static final int CORE_WORKERS = Integer.getInteger("ak.rpc.workers", WORKERS);
+  static final int GRPC_EXECUTOR = Integer.getInteger("ak.rpc.executor", WORKERS);
+  static java.util.concurrent.ExecutorService executor;
+  static synchronized java.util.concurrent.Executor grpcExecutor() {
+    if (executor == null) {
+      executor = java.util.concurrent.Executors.newFixedThreadPool(GRPC_EXECUTOR, r -> {
+        Thread t = new Thread(r, "grpc-exec");
+        t.setDaemon(true);
+        return t;
+      });
+    }
+    return executor;
+  }
+
+  /** The server address (D10): "tcp:127.0.0.1:PORT" (every timed run) or a Unix socket path. */
+  static int tcpPort(String addr) {
+    return addr.startsWith("tcp:") ? Integer.parseInt(addr.substring(addr.lastIndexOf(':') + 1)) : -1;
+  }
+
+  /** Req 17 as amended (D10): TCP_NODELAY read back on the live sockets to the server's port;
+   *  fails when none is found or one has Nagle on. Returns "n/n". */
+  static String checkNodelay(String addr) {
+    int port = tcpPort(addr);
+    if (port < 0) return "uds";
+    long r = Native.tcpNodelay(port);
+    long n = r >>> 32, on = r & 0xffffffffL;
+    if (r < 0 || n == 0) fail("TCP_NODELAY read-back: no live socket to 127.0.0.1:" + port);
+    if (on != n) fail("TCP_NODELAY read-back: " + (n - on) + " of " + n + " sockets to 127.0.0.1:" + port + " have Nagle on");
+    return on + "/" + n;
+  }
 
   static String threadsJson() {
-    return "{\"netty_event_loops\":" + EVENT_LOOPS + ",\"core_runtime_workers\":"
-        + CORE_WORKERS + ",\"grpc_executor\":\"grpc-java default (shared cached thread pool)\""
+    return "{\"ak_workers\":" + WORKERS + ",\"netty_event_loops\":" + EVENT_LOOPS + ",\"core_runtime_workers\":"
+        + CORE_WORKERS + ",\"grpc_executor\":\"fixed pool of " + GRPC_EXECUTOR + "\""
         + ",\"cpus_seen_by_jvm\":" + Runtime.getRuntime().availableProcessors() + "}";
   }
 
@@ -340,13 +373,20 @@ public final class CampaignRpc {
 
     GrpcCell(String name, int codec, boolean retain, String sock, EpollEventLoopGroup elg, boolean pinned) {
       super(name, codec, retain);
-      // Req 17 (R-H28): a Unix domain socket over Netty epoll. `shipped` is grpc-java's
-      // defaults (packages/java configures no UDS channel); `pinned` sets the window.
-      NettyChannelBuilder cb = NettyChannelBuilder.forAddress(new DomainSocketAddress(sock))
-          .channelType(EpollDomainSocketChannel.class).eventLoopGroup(elg).usePlaintext()
-          // grpc-java derives :authority from the socket path, which the Rust server's HTTP/2
-          // stack refuses (RST_STREAM PROTOCOL_ERROR): a host name, as over TCP.
-          .overrideAuthority("localhost");
+      // Req 17 as amended (D10): TCP 127.0.0.1 over Netty epoll, TCP_NODELAY set as a channel
+      // option and read back on the live socket (checkNodelay); `shipped` is grpc-java's
+      // defaults otherwise, `pinned` sets the window. A Unix socket path is still accepted.
+      int port = tcpPort(sock);
+      NettyChannelBuilder cb = port >= 0
+          ? NettyChannelBuilder.forAddress(new java.net.InetSocketAddress("127.0.0.1", port))
+              .channelType(io.grpc.netty.shaded.io.netty.channel.epoll.EpollSocketChannel.class)
+              .withOption(io.grpc.netty.shaded.io.netty.channel.ChannelOption.TCP_NODELAY, true)
+          : NettyChannelBuilder.forAddress(new DomainSocketAddress(sock))
+              .channelType(EpollDomainSocketChannel.class)
+              // grpc-java derives :authority from the socket path, which the Rust server's
+              // HTTP/2 stack refuses (RST_STREAM PROTOCOL_ERROR): a host name, as over TCP.
+              .overrideAuthority("localhost");
+      cb.eventLoopGroup(elg).usePlaintext().executor(grpcExecutor());
       if (pinned) cb.flowControlWindow(WIN).maxInboundMessageSize(MAXMSG);
       ch = cb.build();
       final MethodDescriptor.Marshaller<Message> pm = io.grpc.protobuf.lite.ProtoLiteUtils.marshaller(
@@ -476,7 +516,10 @@ public final class CampaignRpc {
       this.framed = framed;
       rt = NativeRpc.runtimeNew(CORE_WORKERS);
       if (rt == 0) fail("ak_runtime_new");
-      byte[] uri = ("unix:" + sock).getBytes(StandardCharsets.UTF_8);
+      // D10: http://127.0.0.1:PORT; tonic's Endpoint sets TCP_NODELAY by default (shipped,
+      // no options) and pinned passes tcp_nagle = 0; both read back (checkNodelay).
+      int port = tcpPort(sock);
+      byte[] uri = (port >= 0 ? "http://127.0.0.1:" + port : "unix:" + sock).getBytes(StandardCharsets.UTF_8);
       client = pinned
           ? NativeRpc.clientNewOpts(rt, uri, uri.length, WIN, WIN, 0, MAXMSG, MAXMSG, 0)
           : NativeRpc.clientNew(rt, uri, uri.length);
@@ -796,7 +839,7 @@ public final class CampaignRpc {
         for (int k = 0; k < D_CHUNKS.length; k++) c.callD(k, true);
         System.out.println("  upload check " + c.name + ": (c) P5.3, P5.4 accepted; (d) 4 MiB, 16 MiB: count and SHA-256 identical");
       }
-      System.out.println("UPLOAD CHECK PASSED (" + cells.size() + " cells)");
+      System.out.println("UPLOAD CHECK PASSED (" + cells.size() + " cells; TCP_NODELAY read back on " + checkNodelay(sock) + " live sockets)");
       for (Cell c : cells) c.close();
       releaseThread();
       System.exit(0);

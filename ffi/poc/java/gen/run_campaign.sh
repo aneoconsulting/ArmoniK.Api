@@ -88,17 +88,27 @@ fi
 # the Rust slice's tonic rpc_server, built, started, warmed and stopped through its serve.sh
 # (interface: poc/rust/SERVER.md). Its state file lives in this run's own directory, so
 # another slice's server in the same machine is never touched.
+# D11 as amended (owner 2026-10-03): the RPC core's h2 variant, stock (default) or h2-batch
+# (poc/codec/h2-batch/); every RPC shim of this run is the variant's, every sample carries it,
+# and the gate runs (and stamps) per variant. Codec cores carry no rpc feature, hence no h2.
+AK_H2=${AK_H2:-stock}
+case "$AK_H2" in stock) H2S= ;; h2-batch) H2S=-h2b ;; *) echo "AK_H2 must be stock or h2-batch"; exit 2 ;; esac
+# D8 / D14: every pool sized to AK_WORKERS (campaign.machine; 8).
+AK_WORKERS=${AK_WORKERS:-8}
 SERVE="$TOP/ffi/poc/rust/serve.sh"
 export AK_SERVE_STATE="$SOCKDIR/serve.state"
 if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ] || [ ! -x "$TOP/ffi/poc/rust/target-server/release/rpc_server" ]; then
   bash "$SERVE" build >> "$OUT/build-$COMMIT.log" 2>&1 || { echo "SERVER BUILD FAILED: $OUT/build-$COMMIT.log"; exit 1; }
 fi
-SS=""; SP=""
+SS=""; SP=""; ST=""
 serve_start() {  # $1 = DIR for its log, $2 = the server's cpu list (empty: unpinned); sets SS, SP
   local o
-  o=$(AK_CPU_SERVER="${2:-}" bash "$SERVE" start --out "$1") || return 1
+  # D10: the server's TCP listener too (AK_SERVER_TCP=0: any free port on 127.0.0.1, the
+  # pinned server configuration, TCP_NODELAY on accept); every cell dials it: ST.
+  o=$(AK_SERVER_TCP=0 AK_SERVER_THREADS="$AK_WORKERS" AK_CPU_SERVER="${2:-}" bash "$SERVE" start --out "$1") || return 1
   SS=$(echo "$o" | sed -n 's/^shipped //p'); SP=$(echo "$o" | sed -n 's/^pinned //p')
-  [ -S "$SS" ] && [ -S "$SP" ]
+  ST=tcp:$(echo "$o" | sed -n 's/^tcp //p')
+  [ -S "$SS" ] && [ -S "$SP" ] && [ "$ST" != tcp: ]
 }
 serve_stop() { bash "$SERVE" stop > /dev/null 2>&1 || true; }
 trap 'serve_stop; rm -rf "$SOCKDIR"' EXIT
@@ -111,7 +121,10 @@ export AK_CODECGEN=${AK_CODECGEN:-$HERE/build/snap/ffi/poc/codec/gen}
 # (AK_SMOKE_HEAP, default 2g: a client and a server JVM of 4 GB each were killed by the
 # container's memory limit while other slices ran), and the header says which it used.
 HEAP=4g; [ "$SMOKE" = 1 ] && HEAP=${AK_SMOKE_HEAP:-2g}
-JVM_FLAGS="-Xms$HEAP -Xmx$HEAP -XX:+UseG1GC -Xss8m"
+JVM_FLAGS="-Xms$HEAP -Xmx$HEAP -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=$AK_WORKERS"
+# The RPC client JVMs: the task-clock agent (req 21 as amended), the pools (D14), the CLIENT
+# CPUs for the softirq record, the h2 variant label.
+RPC_FLAGS="-agentpath:$HERE/build/taskclock/libaktc.so -Dak.taskclock.lib=$HERE/build/taskclock/libaktc.so -Dak.workers=$AK_WORKERS -Dak.camp.clientcpus=${AK_CPU_CLIENT:-} -Dak.camp.h2=$AK_H2"
 
 sysf() { cat "$1" 2>/dev/null | head -1 || echo "n/a"; }
 header() {  # $1 = file, $2 = suite description
@@ -124,6 +137,7 @@ header() {  # $1 = file, $2 = suite description
     echo "#   governor=$(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost) kernel=$(uname -r)"
     echo "#   isolation=\"${AK_ISOLATION:-not stated}\" isolated_cpus=$(sysf /sys/devices/system/cpu/isolated) numa_nodes=$(ls -d /sys/devices/system/node/node* 2>/dev/null | wc -l)"
     echo "#   AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset} AK_CPU_SERVER=${AK_CPU_SERVER:-unset} (taskset; OS = the rest)"
+    echo "# h2 variant of the RPC cores (D11): $AK_H2; pools AK_WORKERS=$AK_WORKERS (D14)"
     echo "# runtime: target $("$J17/bin/java" -version 2>&1 | head -1)   floor (gated only) $("$J8/bin/java" -version 2>&1 | head -1)"
     echo "# incumbent: $(echo "$CP" | tr ':' '\n' | grep -oE 'protobuf-java-[0-9.]+\.jar|grpc-(api|netty-shaded|protobuf)-[0-9.]+\.jar' | sort -u | tr '\n' ' ')"
     echo "# build: $(cat build/core-rev.txt 2>/dev/null | sed 's/^ *//')"
@@ -141,7 +155,7 @@ header() {  # $1 = file, $2 = suite description
 # on the same branch, and a commit elsewhere must not force a re-gate, while any change to
 # these four trees must.
 GKEY=$(cd "$TOP" && for d in ffi/poc/java ffi/poc/codec ffi/schema ffi/corpus; do git rev-parse "HEAD:$d"; done \
-       | sha256sum | cut -c1-16)${DIRTY:+-dirty}
+       | sha256sum | cut -c1-16)${DIRTY:+-dirty}${H2S}
 gate_ok() { [ -f "$OUT/gate-$GKEY.ok" ]; }
 
 run_gate() {
@@ -178,10 +192,15 @@ run_gate() {
   else
     echo "## rpc counts: the server did not start (gate-rpc-server/rpc-server.log)" >> "$f"; rc=1
   fi
-  local ss=$SS sp=$SP
+  local ss=$ST sp=$ST     # D10: shipped and pinned are the client's configuration, one TCP port
+  { echo "## h2 variant: $AK_H2; the RPC cores of this run compiled:"; grep -E "^target-rpc(-count)?${H2S}(-nounk)? " build/h2-compiled.txt | sed 's/^/   /'; } >> "$f"
+  local want=h2-0.4.19; [ "$AK_H2" = h2-batch ] && want=h2-batch-src
+  if grep -E "^target-rpc(-count)?${H2S}(-nounk)? " build/h2-compiled.txt | grep -qv "$want/src/codec/framed_write"; then
+    echo "## h2 variant check FAILED: an RPC core of variant $AK_H2 does not compile $want" >> "$f"; rc=1
+  fi
   for v in "" -nounk; do
-    "$J17/bin/java" -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpccnt$v/libakjni.so" \
-      -Dak.rpclib="$HERE/build/jnirpccnt$v/libakjni.so" -Dak.camp.count=1 -Dak.camp.transport=pinned \
+    "$J17/bin/java" -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpccnt$H2S$v/libakjni.so" \
+      -Dak.rpclib="$HERE/build/jnirpccnt$H2S$v/libakjni.so" -Dak.camp.count=1 -Dak.camp.transport=pinned \
       -Dak.camp.socket="$sp" ak.CampaignRpc 2>/dev/null | grep -E '^RPC ' > "$OUT/rpc-counts$v-$COMMIT.txt" || true
     if diff -u gen/campaign/rpc-counts$v.ref "$OUT/rpc-counts$v-$COMMIT.txt" > "$OUT/rpc-counts$v-$COMMIT.diff"; then
       echo "## rpc crossing counts per call${v:+, no-unknown build}: identical to gen/campaign/rpc-counts$v.ref ($(wc -l < gen/campaign/rpc-counts$v.ref) rows)" >> "$f"
@@ -194,8 +213,8 @@ run_gate() {
   # then the plant (every upload expects one byte more) must abort.
   for v in "" -nounk; do
     for so in "$ss:shipped" "$sp:pinned"; do
-      "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$v/libakjni.so" \
-        -Dak.rpclib="$HERE/build/jnirpc$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.transport="${so#*:}" \
+      "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$H2S$v/libakjni.so" \
+        -Dak.rpclib="$HERE/build/jnirpc$H2S$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.transport="${so#*:}" \
         -Dak.camp.socket="${so%%:*}" ak.CampaignRpc > "$OUT/upload-check$v-${so#*:}.txt" 2>&1
       if grep -q "UPLOAD CHECK PASSED" "$OUT/upload-check$v-${so#*:}.txt"; then
         echo "## upload check${v:+, no-unknown build}, ${so#*:}: $(grep 'UPLOAD CHECK PASSED' "$OUT/upload-check$v-${so#*:}.txt")" >> "$f"
@@ -203,8 +222,8 @@ run_gate() {
         echo "## upload check${v:+, no-unknown build}, ${so#*:} FAILED: see upload-check$v-${so#*:}.txt" >> "$f"; rc=1
       fi
     done
-    if "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$v/libakjni.so" \
-        -Dak.rpclib="$HERE/build/jnirpc$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.plant=1 \
+    if "$J17/bin/java" -Xmx2g -cp "build/cls17$v:$CP" -Dak.lib="$HERE/build/jnirpc$H2S$v/libakjni.so" \
+        -Dak.rpclib="$HERE/build/jnirpc$H2S$v/libakjni.so" -Dak.camp.uploadcheck=1 -Dak.camp.plant=1 \
         -Dak.camp.transport=pinned -Dak.camp.socket="$sp" ak.CampaignRpc > "$OUT/upload-plant$v.txt" 2>&1; then
       echo "## upload plant${v:+, no-unknown build}: PASSED -- the upload checks are blind" >> "$f"; rc=1
     else
@@ -217,7 +236,7 @@ run_gate() {
   local prc=0
   "$J17/bin/java" -Xmx512m -cp "build/jmh17:build/cls17:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
     -f 1 -foe true -wi 0 -i 17 -r 10ms -p cell=C-retain \
-    -jvmArgs "-Xmx2g -Dak.lib=$HERE/build/jnirpc/libakjni.so -Dak.rpclib=$HERE/build/jnirpc/libakjni.so -Dak.camp.socket=$sp -Dak.camp.transport=pinned -Dak.camp.plant=1" \
+    -jvmArgs "-Xmx2g $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S/libakjni.so -Dak.camp.socket=$sp -Dak.camp.transport=pinned -Dak.camp.plant=1" \
     -rf json -rff "$OUT/rpc-jmh-plant.json" > "$OUT/rpc-jmh-plant.txt" 2>&1 || prc=$?
   if [ $prc != 0 ] && ! grep -q '"rawData"' "$OUT/rpc-jmh-plant.json" 2>/dev/null; then
     echo "## rpc JMH plant: aborted as required (JMH exit $prc, no measurement): $(grep -m1 -o 'req 18: .*' "$OUT/rpc-jmh-plant.txt" | cut -c1-160)" >> "$f"
@@ -338,11 +357,17 @@ rpc)
     bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
       || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
+  # D9 / req 25 as amended: the core cells' transport (tonic, h2, their buffers) and the core
+  # allocate through glibc malloc inside the client JVM, as in a native slice, so the RPC forks
+  # run with glibc's trim and mmap thresholds pinned (inherited by JMH's forks from the
+  # environment); AK_D9_DEFAULT_ALLOC=1 is the default-allocator pass. Netty's pooled direct
+  # buffers and the Java heap are not glibc malloc.
+  D9_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432
+  [ "${AK_D9_DEFAULT_ALLOC:-0}" = 1 ] && D9_TUNABLES=
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
     local l=$1 tr=$2 V=$3 SX= TAG=
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; }
-    local f="$OUT/rpc-$tr$TAG-launch-$l.jsonl" base="$OUT/rpc-$tr$TAG-launch-$l" sock=$SS
-    [ "$tr" = pinned ] && sock=$SP
+    local f="$OUT/rpc-$tr$TAG$H2S-launch-$l.jsonl" base="$OUT/rpc-$tr$TAG$H2S-launch-$l" sock=$ST
     local CELLS
     CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ak.CampaignRpc --list)
     local PCOMBO=cycle WI=$((WARM * NCOMBO)) MI=$((ROUNDS * NCOMBO)) GNOTE
@@ -355,14 +380,18 @@ rpc)
     echo "# $WARM_NOTE" >> "$f"
     echo "# $GNOTE" >> "$f"
     echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $WI -w $WTIME -i $MI -r $RTIME -p cell=<cells> -p combo=<combos|cycle> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
-    echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read around every invocation, summed per iteration (an @AuxCounters counter JMH exports); JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
+    echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns (req 21 as amended 2026-10-01): perf task-clock of the WHOLE client process, softirq included, from one inherited counter the JVM agent build/taskclock/libaktc.so opens on the JVM's main thread before the JVM creates its other threads, read around every invocation and summed per iteration; process_cpu_ns: CLOCK_PROCESS_CPUTIME_ID read the same way, beside it; softirq_ticks_client: /proc/stat softirq time on the CLIENT CPUs (AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset: every CPU}) over each iteration, USER_HZ ticks; all JMH @AuxCounters counters; JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
+    echo "# transport (req 17 as amended, D10): TCP 127.0.0.1 ($ST) for every cell, Nagle off on every client socket (grpc-java: Netty ChannelOption.TCP_NODELAY=true; the core: tonic's default nodelay with no options (shipped), tcp_nagle=0 (pinned)), read back with getsockopt(TCP_NODELAY) on every live socket to the port in each fork before timing (RPCJMH-CELL: sockets with NODELAY / sockets, a fork with fewer refuses to run); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the CLIENT side only: shipped = grpc-java's / tonic's client defaults, pinned = 4 MiB windows, BDP / adaptive window off, 8 MiB messages" >> "$f"
+    echo "# pools (D8, D14): AK_WORKERS=$AK_WORKERS: the core runtime (ak_runtime_new($AK_WORKERS)), the Netty event loop group ($AK_WORKERS), grpc-java's call executor (a fixed pool of $AK_WORKERS), G1's ParallelGCThreads=$AK_WORKERS; ConcGCThreads and CICompilerCount are the JVM's own (header line 'worker threads'); the server's tokio runtime AK_SERVER_THREADS=$AK_WORKERS; no grpc-core in this slice" >> "$f"
+    echo "# h2 (D11 as amended): the RPC cores of this run are the $AK_H2 variant ($(grep -E "^target-rpc${H2S}${SX} " build/h2-compiled.txt | cut -d' ' -f2-)); every sample carries h2" >> "$f"
     echo "# order (req 22): JMH runs the (cell, combination) cross product in its own order, cells rotated one step per launch, and cannot randomise across forks; when grouped, inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
-    echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
+    echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10; TCP listener 127.0.0.1, pinned configuration, AK_SERVER_TCP=0): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
-    $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+    echo "# allocator (D9, req 25 as amended): GLIBC_TUNABLES=${D9_TUNABLES:-unset (the default-allocator pass, AK_D9_DEFAULT_ALLOC=1)} for every client fork" >> "$f"
+    GLIBC_TUNABLES=$D9_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
       -f 1 -foe true -wi "$WI" -w "$WTIME" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$PCOMBO" \
-      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnirpc$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
+      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
     python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
       || discard "$l" "conversion ($tr, $V)"

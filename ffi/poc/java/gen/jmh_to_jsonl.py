@@ -72,6 +72,7 @@ def main():
                     extra["end"] = "transport" if d.startswith("encode-transport") else "buf"
                     extra["input"] = "hot" if d.endswith("-hot") else ("pool" if cont != "corpus" else "row")
                 extra["row_class"] = row_class(payload, content)
+                extra["h2"] = "n/a"     # D11: codec cores carry no rpc feature, so no h2
                 rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
                     "content": cont, "dir": dd, "unknown_mode": mode, "build": build, "coder": coder,
                     "engine": "jmh", "launch": launch, "round": i + 1, "cpu_ns": c,

@@ -150,6 +150,50 @@ for v in "" -nounk; do
       -L"$CB/target-rpc-count$v/release" -lak_core -Wl,-rpath,"$HERE/$CB/target-rpc-count$v/release"
 done
 
+# ---- 3c. D11 as amended (owner 2026-10-03): the h2-batch variant of every RPC core (h2
+# 0.4.19 + poc/codec/h2-batch/h2-batch.patch, AK_H2_COALESCE 16), beside the stock ones
+# above. The patched h2 source is materialised by the shared script
+# (poc/codec/h2-batch/build.sh, from the snapshot), once, with the full rpc core; the other
+# feature sets (no-unknown, counting) reuse that source through the same cargo
+# `--config patch.crates-io.h2.path=...` (the script passes --features only, and the
+# no-unknown core needs --no-default-features). The snapshot's Cargo.lock, which cargo rewrites
+# for a path patch, is restored after. Shims: jnirpc-h2b, jnirpc-h2b-nounk, jnirpccnt-h2b,
+# jnirpccnt-h2b-nounk. Codec cores carry no rpc feature, hence no h2: one variant only.
+say "core (rpc feature), h2-batch variant, and its shims"
+bash "$CODEC/h2-batch/build.sh" h2-batch "$HERE/$CB/target-rpc-h2b" rpc,init-guard > build/h2b-core.txt
+H2B=(--config "patch.crates-io.h2.path=\"$HERE/$CB/target-rpc-h2b/h2-batch-src\"")
+cp "$CODEC/Cargo.lock" "$HERE/$CB/Cargo.lock.saved"
+for spec in "rpc-h2b-nounk:${NOUNK[*]} --features rpc,init-guard" "rpc-count-h2b:--features rpc,count,init-guard" \
+            "rpc-count-h2b-nounk:${NOUNK[*]} --features rpc,count,init-guard"; do
+  # shellcheck disable=SC2086
+  CARGO_TARGET_DIR=$HERE/$CB/target-${spec%%:*} cargo build --release ${spec#*:} "${H2B[@]}" \
+    --manifest-path $CORE >/dev/null
+done
+cp "$HERE/$CB/Cargo.lock.saved" "$CODEC/Cargo.lock"
+for v in "" -nounk; do
+  G=native/generated; [ "$v" = -nounk ] && G=native/generated_nounk
+  for kind in jnirpc jnirpccnt; do
+    T=target-rpc-h2b$v; DEF=; [ $kind = jnirpccnt ] && { T=target-rpc-count-h2b$v; DEF=-DAK_HOST_COUNT; }
+    mkdir -p build/$kind-h2b$v
+    gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -Wno-unused-parameter $DEF \
+        -I"$J17/include" -I"$J17/include/linux" -I$G \
+        -o build/$kind-h2b$v/libakjni.so $G/shim.c native/tax.c native/rpc.c \
+        -L"$CB/$T/release" -lak_core -Wl,-rpath,"$HERE/$CB/$T/release"
+  done
+done
+# Which h2 each RPC core compiled (the panic-location path of h2's framed_write.rs): stock
+# reads h2-0.4.19, h2-batch reads h2-batch-src. The gate requires it per variant.
+for t in target-rpc target-rpc-nounk target-rpc-count target-rpc-count-nounk \
+         target-rpc-h2b target-rpc-h2b-nounk target-rpc-count-h2b target-rpc-count-h2b-nounk; do
+  echo "$t $(strings "$CB/$t/release/libak_core.so" | grep -o '[^/ ]*/src/codec/framed_write\.rs' | sort -u | tr '\n' ' ')"
+done | tee build/h2-compiled.txt
+
+# CAMPAIGN req 21 as amended (2026-10-01): the JVM agent opening the process's perf
+# task-clock counter (native/taskclock.c); links no core.
+mkdir -p build/taskclock
+gcc -O2 -fPIC -shared -std=c11 -Wall -Wextra -I"$J17/include" -I"$J17/include/linux" \
+    -o build/taskclock/libaktc.so native/taskclock.c
+
 # ---- 4. the incumbent's generated Java
 say "protoc"
 # Fetched if absent, so a clean tree builds. `build/` is gitignored and deleting it is the

@@ -11,7 +11,8 @@
  * processor cannot overlap it with the call. `AK_TAX_N` sets the length; the harness
  * calibrates it to nanoseconds once and prints the mapping.
  */
-#define _POSIX_C_SOURCE 200809L   /* clock_gettime under -std=c11 */
+#define _DEFAULT_SOURCE           /* clock_gettime, dirfd, sockets under -std=c11 */
+#define _POSIX_C_SOURCE 200809L
 #include <jni.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -39,4 +40,39 @@ JNIEXPORT jlong JNICALL Java_ak_Native_processCpuNs(JNIEnv *e, jclass c) {
   struct timespec ts;
   if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) return -1;
   return (jlong) ts.tv_sec * 1000000000LL + (jlong) ts.tv_nsec;
+}
+
+/* CAMPAIGN req 17 as amended 2026-10-01 (D10): Nagle off on every client socket, READ BACK on
+ * the live sockets. Every open fd of this process that is a TCP socket connected to
+ * 127.0.0.1:port is checked with getsockopt(TCP_NODELAY); grpc-java's (Netty) and the core's
+ * (tonic) sockets alike, since both live in this process. Returns (sockets << 32) | (sockets
+ * with TCP_NODELAY set), or -1 when /proc/self/fd cannot be read. */
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+JNIEXPORT jlong JNICALL Java_ak_Native_tcpNodelay(JNIEnv *e, jclass c, jint port) {
+  (void) e; (void) c;
+  DIR *d = opendir("/proc/self/fd");
+  if (!d) return -1;
+  long long n = 0, on = 0;
+  struct dirent *de;
+  while ((de = readdir(d)) != NULL) {
+    int fd = atoi(de->d_name);
+    if (de->d_name[0] < '0' || de->d_name[0] > '9' || fd == dirfd(d)) continue;
+    struct sockaddr_in pa;
+    socklen_t pl = sizeof pa;
+    int type = 0;
+    socklen_t tl = sizeof type;
+    if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &tl) != 0 || type != SOCK_STREAM) continue;
+    if (getpeername(fd, (struct sockaddr *) &pa, &pl) != 0 || pa.sin_family != AF_INET) continue;
+    if (ntohs(pa.sin_port) != port || pa.sin_addr.s_addr != htonl(INADDR_LOOPBACK)) continue;
+    int v = 0;
+    socklen_t vl = sizeof v;
+    n++;
+    if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &v, &vl) == 0 && v) on++;
+  }
+  closedir(d);
+  return (jlong) ((n << 32) | on);
 }

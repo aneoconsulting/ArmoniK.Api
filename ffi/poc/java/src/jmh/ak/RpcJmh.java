@@ -104,9 +104,41 @@ public class RpcJmh {
   @AuxCounters(AuxCounters.Type.EVENTS)
   @State(Scope.Thread)
   public static class Totals {
-    public long rpcCpuNs, callsMade;
+    public long rpcCpuNs, callsMade, rpcTaskClockNs, softirqTicks;
+    private long irq0;
     @Setup(Level.Iteration)
-    public void reset() { rpcCpuNs = 0; callsMade = 0; }
+    public void reset() { rpcCpuNs = 0; callsMade = 0; rpcTaskClockNs = 0; irq0 = softirq(); }
+    /** Req 21 as amended: softirq time on the CLIENT CPUs over the iteration (/proc/stat, in
+     *  USER_HZ ticks), read outside the timed invocations. */
+    @TearDown(Level.Iteration)
+    public void irq() { softirqTicks = softirq() - irq0; }
+  }
+
+  /** The CLIENT CPUs (-Dak.camp.clientcpus, a cpu list like "1-4,11-14"; unset: every CPU). */
+  static final java.util.BitSet CLIENT = cpuList(System.getProperty("ak.camp.clientcpus", ""));
+  static java.util.BitSet cpuList(String l) {
+    java.util.BitSet b = new java.util.BitSet();
+    for (String p : l.split(",")) {
+      if (p.isEmpty()) continue;
+      String[] r = p.split("-");
+      for (int i = Integer.parseInt(r[0]); i <= Integer.parseInt(r[r.length - 1]); i++) b.set(i);
+    }
+    return b;
+  }
+  /** The summed softirq column of /proc/stat's cpuN lines for the CLIENT CPUs. */
+  static long softirq() {
+    long t = 0;
+    try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/proc/stat"))) {
+      for (String l; (l = r.readLine()) != null; ) {
+        if (!l.startsWith("cpu") || l.startsWith("cpu ")) continue;
+        String[] f = l.trim().split("\\s+");
+        int cpu = Integer.parseInt(f[0].substring(3));
+        if (CLIENT.isEmpty() || CLIENT.get(cpu)) t += Long.parseLong(f[7]);
+      }
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException(e);
+    }
+    return t;
   }
 
   /** The calls as JMH operations (k per invocation): JMH reports the time per call. */
@@ -132,11 +164,14 @@ public class RpcJmh {
     elg = new EpollEventLoopGroup(CampaignRpc.EVENT_LOOPS);
     c = CampaignRpc.cell(cell, sock, elg, transport.equals("pinned"));
     CampaignRpc.precheck(c);
+    TaskClock.ensureOpen();                          // req 21 as amended: refuse without it
+    String nodelay = CampaignRpc.checkNodelay(sock); // req 17 as amended: on the live sockets
     combos = CampaignRpc.combos();
     System.out.println("RPCJMH-CELL\t" + cell + "\t" + c.mode() + "\t"
         + (c.codec == CampaignRpc.INC ? "incumbent" : c.codec == CampaignRpc.FFI ? "core-ffi" : "host-gen")
         + "\t" + CampaignRpc.sendPath(c) + "\t" + (c instanceof CampaignRpc.CoreCell ? "core" : "grpc")
-        + "\t" + transport + "\t" + ak.Variant.NAME + "\t" + CampaignRpc.threadsJson());
+        + "\t" + transport + "\t" + ak.Variant.NAME + "\t" + CampaignRpc.threadsJson()
+        + "\t" + System.getProperty("ak.camp.h2", "unknown") + "\t" + nodelay);
     workers = new Thread[15];
     for (int t = 0; t < 15; t++) {
       final int w = t + 1;
@@ -186,7 +221,7 @@ public class RpcJmh {
 
   @Benchmark
   public void batch(Totals tot, Calls ops, Blackhole bh) throws Throwable {
-    long c0 = Campaign.processCpuNs();
+    long c0 = Campaign.processCpuNs(), k0 = TaskClock.ns();
     if (k == 1) {
       CampaignRpc.call(c, key, reqs[0]);
     } else {
@@ -199,6 +234,7 @@ public class RpcJmh {
       }
       if (err != null) throw err;
     }
+    tot.rpcTaskClockNs += TaskClock.ns() - k0;
     tot.rpcCpuNs += Campaign.processCpuNs() - c0;
     tot.callsMade += k;
     ops.calls += k;
