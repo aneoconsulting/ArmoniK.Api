@@ -293,6 +293,16 @@ in its container shows it executes (section 9).
     under `--smoke` and for small exploration runs. GC and JIT state between
     blocks follow each framework's defaults, stated per slice (owner, 2026-09-26,
     R-H32).
+    **Amended by the owner 2026-10-03:** the RPC grid's campaign warm-up gives
+    **every calling thread at least 20 calls at the cell's payload** before the first
+    measured value, in the same process and on the same threads that are then
+    measured. The core's encode context, its spare ring and the thread's glibc arena
+    are per calling thread, and a new thread pays a one-off burst of first-touch
+    faults within its first ten calls (Python J62: about 512 faults, 2 MiB, at call 2
+    to 10). Each slice states in the header how its warm-up meets this (calls per
+    thread, or the framework's warm-up time against the slowest cell's call time);
+    the per-sample minor faults (req 25) are the check on the machine. The rule does
+    not apply under `--smoke`.
 25. **Allocator state** is warmed identically for every arm before timing (the
     Python J26 lesson); GC settings are stated, and managed GC is on.
     **Amended by the owner 2026-09-30 (D9):** glibc's trim of the arena put the same
