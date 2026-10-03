@@ -313,12 +313,13 @@ in its container shows it executes (section 9).
     against `GLIBC_TUNABLES` and reads it back once with one 16 MiB malloc against
     mallinfo2's mmapped-block count (default reads mmapped, pinned reads heap), keeping
     that block mapped so the probe does not move glibc's dynamic mmap threshold, and
-    refuses to run on any disagreement; (ii) pre-grows the heap in both modes:
-    allocate, touch and free a block of the run's largest payload (for direction d
-    the whole upload, not one chunk) until one more round faults nothing, at most 8 rounds, else refuse. The readback, the rounds and
-    the last round's faults go in the header; `alloc` and the minor faults over the
-    measured span go on every sample. No suite sets mallopt of its own (Python's
-    M_TOP_PAD is removed).
+    refuses to run on any disagreement. The readback goes in the header; `alloc` and
+    the minor faults over the measured span go on every sample. No suite sets mallopt
+    of its own (Python's M_TOP_PAD is removed). No slice pre-grows the heap: the
+    allocator reaches its steady state through the framework's own warm-up (req 24),
+    which runs the real call path on every thread, and the per-sample minor faults
+    show whether it did. (A pre-grow was tried and reverted by the owner the same
+    day: run on one thread, it cannot reach the other threads' malloc arenas.)
 
 ## 6. Correctness before timing
 
