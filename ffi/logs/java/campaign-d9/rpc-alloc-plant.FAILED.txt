@@ -1,0 +1,7 @@
+rpc launch 1 FAILED: JMH (pinned, full), -foe true
+the launch's samples were discarded (req 18, 22a); error lines from JMH:
+# Warmup Iteration   1: <failure>
+java.lang.IllegalStateException: alloc check: AK_CAMPAIGN_ALLOC=pinned disagrees with GLIBC_TUNABLES=''
+ERROR: org.openjdk.jmh.runner.RunnerException: Benchmark caught the exception
+Caused by: org.openjdk.jmh.runner.BenchmarkException: Benchmark error during the run
+	Suppressed: java.lang.IllegalStateException: alloc check: AK_CAMPAIGN_ALLOC=pinned disagrees with GLIBC_TUNABLES=''

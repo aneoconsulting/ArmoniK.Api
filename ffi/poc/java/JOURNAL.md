@@ -1010,3 +1010,27 @@ sample now carries `alloc` and `minflt`, the process's minor faults over the ite
 (pinned transport, full build, stock h2) each gave 289 samples, labelled default and pinned
 respectively. The smoke runner ran its gate first (PASSED); the pinned pass reused that
 stamp, at the same commit.
+
+### J39. AK_CAMPAIGN_ALLOC and the startup allocator check (owner, 2026-10-03)
+
+`AK_D9_PINNED_ALLOC=1` became `AK_CAMPAIGN_ALLOC=default|pinned`, default `default`. It now
+covers both suites; before this, the codec suite did not follow the switch and always ran the
+default allocator. Every measured JVM runs `ak.AllocCheck` in its trial setup.
+AK_CAMPAIGN_ALLOC must agree with GLIBC_TUNABLES, and one 16 MiB malloc through the shim
+(`Native.allocProbe`) must read mallinfo2 "mmapped" in default and "heap" in pinned. On any
+disagreement it throws, and JMH stops with no sample. The header records a readback taken in
+the forks' environment.
+
+The first default codec smoke failed the check, and the failure was real. JMH ran
+CodecJmh's trial setup twice in one fork (a second instance, created for the counter state's
+fixture dependency), and the first probe's free of its mmapped 16 MiB block had raised
+glibc's dynamic mmap threshold, so the second probe read "heap". The probe therefore changed
+the allocator mode it checks, for the rest of the process. Fixed in 2892e207b: the probe runs
+once per process (cached), and an mmapped block stays mapped (16 MiB of address space, one
+touched page).
+
+Smokes at 2892e207b:
+- default: rpc 289 samples, codec 58/58/14 and 40/40/8, readback "mmapped";
+- pinned: the same counts, readback "heap";
+- plant (`AK_ALLOC_PLANT=1` under pinned): every fork refused, the launch discarded, no
+  sample.

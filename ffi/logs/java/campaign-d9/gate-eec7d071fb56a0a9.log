@@ -1,14 +1,14 @@
-# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=rpc  gate key 8bcd845996ee75e6; correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference
-# commit 08b30ba25   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=rpc  gate key eec7d071fb56a0a9; correctness gate: payload set on arms a/b/c, full corpus on 8 and 17 with controls, crossing counts against the committed reference
+# commit 2892e207b   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
 # SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
 # machine: cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 smt=0
 #   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v64
 #   isolation="not stated" isolated_cpus= numa_nodes=1
 #   AK_CPU_CLIENT=unset AK_CPU_SERVER=unset (taskset; OS = the rest)
-# h2 variant of the RPC cores (D11): stock; pools AK_WORKERS=8 (D14)
+# h2 variant of the RPC cores (D11): stock; pools AK_WORKERS=8 (D14); allocator AK_CAMPAIGN_ALLOC=default
 # runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
 # incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
-# build: core snapshot: ffi/poc/codec at 08b30ba25, tree key tree-0908599302193e70
+# build: core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8
 #   core cargo profile release, features ["default", "init-guard", "unknown-fields"]  (shared library, cdylib); shim gcc -O2 -std=c11
 #   JVM: -Xms2g -Xmx2g -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=8 (tiered JIT on, default thresholds)
 # worker threads (req 4, R-H34), as the pinned JVM sizes them: CICompilerCount=3 ConcGCThreads=2 ParallelGCThreads=8 (JVM); codec: 1 benchmark thread (JMH); rpc: Netty event loops, core runtime workers and grpc-java's executor in each rpc log's meta line and the server's THREADS line
@@ -17,15 +17,15 @@
 # repeats: 1 launch(es) x 1 round(s) per process (req 23)
 ## gen/gate.sh
 == java slice correctness gate (full build), three arms (README 5.2), no timing ==
-tree commit: 08b30ba25
-   core snapshot: ffi/poc/codec at 08b30ba25, tree key tree-0908599302193e70   core built with: ,"features":"["default", "init-guard", "unknown-fields"] 
+tree commit: 2892e207b
+   core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8   core built with: ,"features":"["default", "init-guard", "unknown-fields"] 
 target runtime: openjdk version "17.0.20.1" 2026-08-18
 floor runtime:  openjdk version "1.8.0_504"
-shim: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jni/libakjni.so  sha256 bc6a35b8436ce14a
-core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target/release/libak_core.so
+shim: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jni/libakjni.so  sha256 62062e175e33ef25
+core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target/release/libak_core.so
 
 ### arm a   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls17   exit 0
-  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are IN USE in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=364  round-trip-ok=46   failing=0
@@ -45,7 +45,7 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
   TOTAL checked=1802  failed=0
 
 ### arm b   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls8   exit 0
-  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=364  round-trip-ok=46   failing=0
@@ -65,7 +65,7 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
   TOTAL checked=1802  failed=0
 
 ### arm c   runtime /usr/lib/jvm/java-8-openjdk-amd64   classes build/cls8   exit 0
-  java.version=1.8.0_504  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=1.8.0_504  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=364  round-trip-ok=46   failing=0
@@ -878,10 +878,10 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
 GATE: PASS on arms a, b, c
 
 ## gen/corpus.sh
-== java slice corpus gate (full build); tree 08b30ba25
-      core snapshot: ffi/poc/codec at 08b30ba25, tree key tree-0908599302193e70
+== java slice corpus gate (full build); tree 2892e207b
+      core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8
    corpus core built with: ,"features":"["corpus", "default", "init-guard", "unknown-fields"] 
-   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus/libakjni.so -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target-corpus/release/libak_core.so
+   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus/libakjni.so -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target-corpus/release/libak_core.so
    the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
    per-row timeout 5000 ms
 
@@ -893,8 +893,8 @@ checked 530 generated files, 0 problem(s)
 ===== 2. the corpus, target (/usr/lib/jvm/java-17-openjdk-amd64, build/cls17), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain =====
 # java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow, ffi-retain, ffi-pull-retain, ffi-pull-walk-retain, ffi-borrow-retain  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
-# classes build/cls17   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus/libakjni.so
-# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# classes build/cls17   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
 # harness exit 0, 7020 result lines
 
@@ -1294,8 +1294,8 @@ RESULT: 0 failing arm-rows over 10 arms x 702 rows
 ===== 2. the corpus, floor (/usr/lib/jvm/java-8-openjdk-amd64, build/cls8), arms R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain =====
 # java slice: ffi/corpus against R, R-retain, ffi, ffi-pull, ffi-pull-walk, ffi-borrow, ffi-retain, ffi-pull-retain, ffi-pull-walk-retain, ffi-borrow-retain  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
-# classes build/cls8   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus/libakjni.so
-# java.version=1.8.0_504  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
+# classes build/cls8   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus/libakjni.so
+# java.version=1.8.0_504  timeout_ms=5000  arms=R,R-retain,ffi,ffi-pull,ffi-pull-walk,ffi-borrow,ffi-retain,ffi-pull-retain,ffi-pull-walk-retain,ffi-borrow-retain  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
 # harness exit 0, 7020 result lines
 
@@ -1776,15 +1776,15 @@ CORPUS GATE PASSED
 
 ## gen/gate.sh, no-unknown build
 == java slice correctness gate (nounk build), three arms (README 5.2), no timing ==
-tree commit: 08b30ba25
-   core snapshot: ffi/poc/codec at 08b30ba25, tree key tree-0908599302193e70   core built with: ,"features":"["init-guard"] 
+tree commit: 2892e207b
+   core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8   core built with: ,"features":"["init-guard"] 
 target runtime: openjdk version "17.0.20.1" 2026-08-18
 floor runtime:  openjdk version "1.8.0_504"
-shim: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jni-nounk/libakjni.so  sha256 f62b9969778c2d0e
-core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target-nounk/release/libak_core.so
+shim: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jni-nounk/libakjni.so  sha256 c8ac49e7d6ad254d
+core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target-nounk/release/libak_core.so
 
 ### arm a   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls17-nounk   exit 0
-  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are IN USE in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=319  round-trip-ok=46   failing=0
@@ -1802,7 +1802,7 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
   TOTAL checked=1389  failed=0
 
 ### arm b   runtime /usr/lib/jvm/java-17-openjdk-amd64   classes build/cls8-nounk   exit 0
-  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=17.0.20.1  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=319  round-trip-ok=46   failing=0
@@ -1820,7 +1820,7 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
   TOTAL checked=1389  failed=0
 
 ### arm c   runtime /usr/lib/jvm/java-8-openjdk-amd64   classes build/cls8-nounk   exit 0
-  java.version=1.8.0_504  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/schema/generated
+  java.version=1.8.0_504  schema=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/schema/generated
   NOTE: compact strings (JDK 9+ String.value/coder) are NOT available in this build.
   rows per arm (a row is one line naming the arm: encode, pairwise, round trip):
     R                    rows=319  round-trip-ok=46   failing=0
@@ -2275,7 +2275,7 @@ core: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/
   EP U-wire-UploadResultDataMessage-upload-as-wt5 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
 
 ### the no-unknown build: its core, its layout facts; the mismatched pairs must fail
-  core /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target-nounk/release/libak_core.so: 0 u-family/reset exports
+  core /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target-nounk/release/libak_core.so: 0 u-family/reset exports
   no-unknown tree (shapes): host reproduces 240 layout facts, the core exports 240; agree
 VARIANT CHECK PASSED
   no-unknown tree (shapes): host reproduces 240 layout facts, the core exports 240; agree
@@ -2286,10 +2286,10 @@ VARIANT CHECK PASSED
 GATE: PASS on arms a, b, c
 
 ## gen/corpus.sh, no-unknown build
-== java slice corpus gate (nounk build); tree 08b30ba25
-      core snapshot: ffi/poc/codec at 08b30ba25, tree key tree-0908599302193e70
+== java slice corpus gate (nounk build); tree 2892e207b
+      core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8
    corpus core built with: ,"features":"["corpus", "init-guard"] 
-   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target-corpus-nounk/release/libak_core.so
+   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so -> /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target-corpus-nounk/release/libak_core.so
    the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
    per-row timeout 5000 ms
 
@@ -2301,8 +2301,8 @@ checked 530 generated files, 0 problem(s)
 ===== 2. the corpus, target (/usr/lib/jvm/java-17-openjdk-amd64, build/cls17-nounk), arms R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
 # java slice: ffi/corpus against R, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
-# classes build/cls17-nounk   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so
-# java.version=17.0.20.1  timeout_ms=5000  arms=R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so  skipInit=0
+# classes build/cls17-nounk   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so
+# java.version=17.0.20.1  timeout_ms=5000  arms=R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
 # harness exit 0, 3510 result lines
 
@@ -2647,8 +2647,8 @@ RESULT: 0 failing arm-rows over 5 arms x 702 rows
 ===== 2. the corpus, floor (/usr/lib/jvm/java-8-openjdk-amd64, build/cls8-nounk), arms R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow =====
 # java slice: ffi/corpus against R, ffi, ffi-pull, ffi-pull-walk, ffi-borrow  (FIX-PLAN WP5 step 3)
 # corpus 1, 702 of 702 vectors
-# classes build/cls8-nounk   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so
-# java.version=1.8.0_504  timeout_ms=5000  arms=R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so  skipInit=0
+# classes build/cls8-nounk   shim /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so
+# java.version=1.8.0_504  timeout_ms=5000  arms=R,ffi,ffi-pull,ffi-pull-walk,ffi-borrow  plant=none  ak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/build/jnicorpus-nounk/libakjni.so  skipInit=0
 # codec LIMIT=100 utf8=reject  C ABI roots 29 of 30 messages
 # harness exit 0, 3510 result lines
 
@@ -3002,7 +3002,7 @@ RESULT: 0 failing arm-rows over 5 arms x 702 rows
           C1   E-map-entry-empty                        reject IllegalStateException:core returned -10
 
 ===== 3d. the no-unknown build: its core, its layout facts, rule 6 (target, then floor) =====
-  core /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-d9-wt/ffi/poc/java/core-build/tree-0908599302193e70/target-corpus-nounk/release/libak_core.so: 0 u-family/reset exports, 29 ak_dec_ctx_new_<Root>
+  core /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-alloc-wt/ffi/poc/java/core-build/tree-f785d45a435221e8/target-corpus-nounk/release/libak_core.so: 0 u-family/reset exports, 29 ak_dec_ctx_new_<Root>
   no-unknown tree (corpus): host reproduces 340 layout facts, the core exports 340; agree
   rule 6: a ListResultsResponse context parsing ListTasksDetailedResponse rc -8 (AK_ERR_INVALID_STATE = -8); its own root rc 0  PASS
 VARIANT CHECK PASSED
@@ -3035,7 +3035,7 @@ merge-oneof (Probe):
 
 CORPUS GATE PASSED
 ## crossing counts, no-unknown build: identical to gen/campaign/counts-nounk.ref (448 rows)
-## rpc server: the Rust slice's rpc_server via poc/rust/serve.sh (poc/rust at fcb7eeda6); # rpc_server: shipped on unix:/tmp/aksrv.OAGr5y/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 23419 # rpc_server: pinned on unix:/tmp/aksrv.OAGr5y/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 23419 
+## rpc server: the Rust slice's rpc_server via poc/rust/serve.sh (poc/rust at 08d32d014); # rpc_server: shipped on unix:/tmp/aksrv.sZtfi5/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 25780 # rpc_server: pinned on unix:/tmp/aksrv.sZtfi5/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 25780 
 ## h2 variant: stock; the RPC cores of this run compiled:
    target-rpc h2-0.4.19/src/codec/framed_write.rs 
    target-rpc-nounk h2-0.4.19/src/codec/framed_write.rs 
@@ -3043,11 +3043,11 @@ CORPUS GATE PASSED
    target-rpc-count-nounk h2-0.4.19/src/codec/framed_write.rs 
 ## rpc crossing counts per call: identical to gen/campaign/rpc-counts.ref (84 rows)
 ## rpc crossing counts per call, no-unknown build: identical to gen/campaign/rpc-counts-nounk.ref (48 rows)
-## upload check, shipped over tcp:127.0.0.1:46705: UPLOAD CHECK PASSED (17 cells; TCP_NODELAY read back on 17/17 live sockets)
-## upload check, pinned over tcp:127.0.0.1:46705: UPLOAD CHECK PASSED (17 cells; TCP_NODELAY read back on 17/17 live sockets)
+## upload check, shipped over tcp:127.0.0.1:38141: UPLOAD CHECK PASSED (17 cells; TCP_NODELAY read back on 17/17 live sockets)
+## upload check, pinned over tcp:127.0.0.1:38141: UPLOAD CHECK PASSED (17 cells; TCP_NODELAY read back on 17/17 live sockets)
 ## upload plant: aborted as required: req 18: A/c: response 0 B, want 1
-## upload check, no-unknown build, shipped over tcp:127.0.0.1:46705: UPLOAD CHECK PASSED (10 cells; TCP_NODELAY read back on 10/10 live sockets)
-## upload check, no-unknown build, pinned over tcp:127.0.0.1:46705: UPLOAD CHECK PASSED (10 cells; TCP_NODELAY read back on 10/10 live sockets)
+## upload check, no-unknown build, shipped over tcp:127.0.0.1:38141: UPLOAD CHECK PASSED (10 cells; TCP_NODELAY read back on 10/10 live sockets)
+## upload check, no-unknown build, pinned over tcp:127.0.0.1:38141: UPLOAD CHECK PASSED (10 cells; TCP_NODELAY read back on 10/10 live sockets)
 ## upload plant, no-unknown build: aborted as required: req 18: A/c: response 0 B, want 1
 ## rpc JMH plant: aborted as required (JMH exit 1, no measurement): req 18: C-retain/c: response 0 B, want 1
 ## the two committed references against each other (full -> no-unknown):
