@@ -92,6 +92,12 @@ JNIEXPORT jint JNICALL Java_ak_Native_allocProbe(JNIEnv *e, jclass c) {
   if (!p) return -1;
   memset(p, 1, 4096);
   struct mallinfo2 after = mallinfo2();
-  free(p);
-  return after.hblks > before.hblks ? 1 : 0;
+  int mmapped = after.hblks > before.hblks;
+  /* An mmapped block is NOT freed: freeing it would raise glibc's dynamic mmap threshold to
+   * 16 MiB for the rest of the process (malloc.c, free of an mmapped chunk above the
+   * threshold), changing the default mode this probe checks; a later probe then reads "heap"
+   * (seen: a second check in one JMH fork). Kept mapped, it costs 16 MiB of address space and
+   * the one touched page. A heap block is freed (no threshold effect). */
+  if (!mmapped) free(p);
+  return mmapped ? 1 : 0;
 }

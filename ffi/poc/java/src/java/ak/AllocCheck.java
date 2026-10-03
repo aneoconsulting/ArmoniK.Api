@@ -14,8 +14,13 @@ public final class AllocCheck {
   public static final String PINNED =
       "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432";
 
-  /** Returns the readback line; throws on any disagreement. ak.lib must be loaded. */
-  public static String verify() {
+  private static String done;
+
+  /** Returns the readback line; throws on any disagreement. ak.lib must be loaded. Probes
+   *  once per process (JMH may run a trial setup more than once in a fork), the result
+   *  cached: see Native.allocProbe. */
+  public static synchronized String verify() {
+    if (done != null) return done;
     String mode = System.getProperty("ak.camp.alloc", "default");
     String env = System.getenv("GLIBC_TUNABLES");
     if (env == null) env = "";
@@ -30,6 +35,7 @@ public final class AllocCheck {
     String line = "ALLOC-CHECK alloc=" + mode + " GLIBC_TUNABLES='" + env + "' 16MiB-malloc=" + got;
     if (!got.equals(want))
       throw new IllegalStateException("alloc check: " + line + ", expected " + want);
+    done = line;
     return line;
   }
 
