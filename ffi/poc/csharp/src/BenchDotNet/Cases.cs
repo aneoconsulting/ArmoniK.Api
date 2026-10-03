@@ -41,6 +41,16 @@ public static class Cases
 
     /// CAMPAIGN req 7 (R-H26): the payloads that carry the Latin-1 and wide content sets.
     public static readonly string[] ContentPayloads = { "P1.2", "P2.2", "P2.4" };
+    /// The largest payload this suite encodes or decodes, in bytes (every payload and content
+    /// set): the size of the glibc pre-grow (owner decision 2026-10-03).
+    public static long LargestPayload()
+    {
+        long big = 0;
+        foreach (var pid in OpsTable.Payloads)
+            foreach (var cs in SetsOf(pid)) { Values.ContentSet = cs; big = Math.Max(big, OpsTable.ForPayload(pid).IncumbentBytes().Length); }
+        Values.ContentSet = Values.Ascii;
+        return big;
+    }
     public static int[] SetsOf(string pid) => Array.IndexOf(ContentPayloads, pid) >= 0 ? new[] { 0, 1, 2 } : new[] { 0 };
 
     /// CAMPAIGN req 11 (R-H29): the encode variants of a shapes payload, as directions.

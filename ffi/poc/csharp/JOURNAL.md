@@ -2217,3 +2217,24 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
   default toolchain, pinned: 10 rows with minflt. No gate (owner); the runner was not run end
   to end for this change.
 - Renamed (owner, one name for every slice): the switch is `AK_CAMPAIGN_ALLOC=default|pinned` (was AK_ALLOC) in the runner, the processes' refusal and the headers; the startup readback is unchanged. Planted mismatch re-checked under the new name. The committed smoke logs (`wp13-d9-alloc-smoke/`) predate the rename and still say AK_ALLOC.
+
+## 67. The allocator probe kept mapped, and the glibc pre-grow (owner decision 2026-10-03)
+
+- Probe: once per process, its 16 MiB block never freed (java 2892e207b: a freed mmapped chunk
+  raises glibc's dynamic threshold, so the probe changed the default mode it checks).
+- Pre-grow: `Alloc.Startup(bytes)`, after the mode check and before any timing, both modes:
+  malloc, touch each page, free, at the run's largest payload (RPC 16 MiB; codec the largest
+  payload over every content set, 4,194,390 bytes), until a round has zero minor faults, cap 8
+  (refuses). Host Main and the first GlobalSetup of each BDN child; rounds and last-round
+  faults in the header and on every case's first row (the child's own in process mode).
+- Defect found and fixed while smoking it: under the default toolchain every case aborted
+  ("task-clock per iteration not recorded"). `CpuClock.ChildDir` was a static readonly read at
+  class init; Startup in the host's Main now initialised the class before Main set
+  AK_CPU_CHILD_DIR, so the host's ChildDir was null and no child's reads were paired. ChildDir
+  is now read from the environment at each use. The minflt check also moved after the pairing
+  checks, so a pairing failure reports itself rather than "minor faults not recorded".
+- Smoke (`logs/csharp/wp13-pregrow-smoke/`, stripped): grouped, C-drop RPC unit, default 4
+  rounds / probe mmapped, pinned 2 rounds / probe heap, 17 cases each, 0 failed; codec
+  core-ffi:retain, default 3 rounds / mmapped, pinned 2 rounds / heap, 156 rows each, 0 failed;
+  Bf under the default toolchain (default mode): 5 children, each probe mmapped and 4 rounds,
+  10 rows. Last round 0 faults everywhere. Not exercised: the cap's refusal. No gate (owner).

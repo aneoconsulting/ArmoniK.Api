@@ -161,6 +161,7 @@ public abstract class RpcBase
     [GlobalSetup]
     public void Setup()
     {
+        Alloc.Startup(Alloc.EnvBytes(16L << 20));   // once per process: a no-op after the host's or this child's first
         _c = RpcCtx.Find(Case);
         RpcCtx.CheckOnce(_c);
         // D10: one untimed call opens the cell's connection, then Nagle off is READ BACK on
@@ -292,12 +293,6 @@ public sealed class RpcJsonExporter : IExporter
             long[] ic, tc, mf;
             if (RpcCtx.Grouped) { RpcCpuDiagnoser.IterCpu.TryGetValue(key, out ic); RpcCpuDiagnoser.IterTc.TryGetValue(key, out tc); CpuClock.IterMf.TryGetValue(key, out mf); }
             else ic = CpuClock.FromChild(key, act.Select(m => m.Nanoseconds).ToList(), out tc, out mf);   // the default toolchain's child
-            if (mf == null || mf.Length != 2 * act.Count)
-            {
-                Failed = true;
-                File.AppendAllLines(_path, new[] { "# ABORT: minor faults per iteration not recorded for " + key + " (req 25 as amended); no samples written" });
-                return new[] { _path };
-            }
             if (tc == null || tc.Length != 2 * act.Count)
             {
                 Failed = true;
@@ -308,6 +303,12 @@ public sealed class RpcJsonExporter : IExporter
             {
                 Failed = true;
                 File.AppendAllLines(_path, new[] { "# ABORT: process CPU per iteration not paired for " + key + "; no samples written" });
+                return new[] { _path };
+            }
+            if (mf == null || mf.Length != 2 * act.Count)
+            {
+                Failed = true;
+                File.AppendAllLines(_path, new[] { "# ABORT: minor faults per iteration not recorded for " + key + " (req 25 as amended); no samples written" });
                 return new[] { _path };
             }
             string jit = "\"jit\":\"not recorded\"";
@@ -328,7 +329,7 @@ public sealed class RpcJsonExporter : IExporter
                 sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"engine\":\"bdn\",\"bdn_warmup\":{0},\"invocations\":{1}", warm, m.Operations / int.Parse(f[3], CultureInfo.InvariantCulture)));
                 if (round == 1)
                 {
-                    sb.Append(',').Append(jit);
+                    sb.Append(',').Append(jit).Append(Alloc.RowFields(key));
                     if (RpcCpuDiagnoser.IrqSpan.TryGetValue(key, out var iq))
                         sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"client_softirq_ticks\":{0},\"client_irq_ticks\":{1}", iq.SoftIrq, iq.Irq));
                 }
@@ -369,6 +370,10 @@ public static class RpcBenchMain
         if (vwhy != null) { File.AppendAllLines(outp, new[] { "# ABORT: core variant mismatch: " + vwhy, "# no samples written" }); return 3; }
         var awhy = Alloc.Mismatch();
         if (awhy != null) { File.AppendAllLines(outp, new[] { "# ABORT: allocator mode mismatch: " + awhy, "# no samples written" }); return 3; }
+        // Owner decision 2026-10-03: the glibc pre-grow at the grid's largest payload (the 16 MiB
+        // stream), once per process, after the check and before any timing; children inherit it.
+        Environment.SetEnvironmentVariable("AK_PREGROW_BYTES", (16L << 20).ToString(CultureInfo.InvariantCulture));
+        try { Alloc.Startup(16L << 20); } catch (InvalidOperationException e) { File.AppendAllLines(outp, new[] { "# ABORT: " + e.Message, "# no samples written" }); return 3; }
         RpcCtx.Sock = Opt(a, "--sock", null);
         RpcCtx.Transport = Opt(a, "--transport", "shipped");
         RpcCtx.Unit = Opt(a, "--unit", null);
@@ -426,7 +431,7 @@ public static class RpcBenchMain
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# job:            {0} actual iterations (rounds) per case, {1} warm-up iterations (the same for every case) after BDN's jitting stage and pilot, iteration time {2} ms (the pilot picks the invocation count, unroll factor 1), strategy Throughput, EvaluateOverhead=false", rounds, warm, itMs));
         hdr.Add("# clocks:         per iteration, read by the job's clock (CpuClock) at the same iteration boundaries: wall (Stopwatch); cpu_ns = perf task-clock of the WHOLE client process (req 21 as amended 2026-10-01: a counter per thread this process opens itself with perf_event_open, PERF_COUNT_SW_TASK_CLOCK, new threads picked up at the next read; softirq-inclusive while the process runs); proc_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it (misses softirq time with IRQ_TIME_ACCOUNTING); per case, client_softirq_ticks / client_irq_ticks = /proc/stat on the CLIENT CPUs (" + (Environment.GetEnvironmentVariable("AK_CPU_CLIENT") ?? "unset") + ") across the actual stage, USER_HZ ticks; the server is another process");
         hdr.Add("# network:        " + (CampaignMain.IsTcp(RpcCtx.Sock) ? "TCP 127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock) + " (D10, req 17 as amended): Nagle off on every client socket (Grpc.Net: Socket.NoDelay in the connect callback; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets of the measuring process in each case's setup after one untimed call (getsockopt TCP_NODELAY on every socket to the server; one without it fails the case); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the client side only (shipped: Grpc.Net DisableDynamicWindowSizing and no window, the core's windows at 0; pinned: 4 MiB windows on both client transports)" : "Unix socket " + RpcCtx.Sock + " (not the campaign's transport since D10)"));
-        hdr.Add("# allocator:      " + Alloc.Label + " (readback at process start: a 16 MiB malloc came from the " + Alloc.Probe() + " (mallinfo2); GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; the core's buffers and transport allocate through glibc malloc in this process; every row carries `alloc` and `minflt`, the client process's minor page faults over the iteration, so faults per call = minflt / iters)");
+        hdr.Add("# allocator:      " + Alloc.Label + " (readback at process start: a 16 MiB malloc came from the " + Alloc.Probe() + " (mallinfo2; the block kept, never freed); pre-grow through glibc in this process: " + Alloc.Summary + " (16 MiB, the grid's largest payload; until a round causes zero minor faults, cap " + Alloc.PregrowCap + " refuses; under the default toolchain each child does its own, on its case's first row: pregrow_rounds, pregrow_last_minflt, alloc_probe); GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; the core's buffers and transport allocate through glibc malloc in this process; every row carries `alloc` and `minflt`, the client process's minor page faults over the iteration, so faults per call = minflt / iters)");
         hdr.Add("# h2:             the loaded core's h2 = " + RpcCtx.H2 + " (D11 as amended: read from the core library; the runner's AK_H2 = " + (wantH2 ?? "unset") + "); every row carries it");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# pools:          D8 / D14: AK_WORKERS = {0}; the core runtime {1} worker thread(s) (ak_runtime_new, shared by every core channel of the process); the .NET thread pool's worker minimum and maximum set to {0} (ThreadPool.SetMin/MaxThreads); the caller pool is the in-flight level (k dedicated caller threads for the blocking cells, not a worker pool); grpc-core is not used by this slice (Grpc.Net is managed)", Environment.GetEnvironmentVariable("AK_WORKERS") ?? "8 (default)", RpcCtx.Workers));
         hdr.Add("# order:          this launch's unit order: " + string.Join(", ", Units(launch)) + " (seed " + (launch * 7907) + "); the cases of this process in a seeded shuffle (seed " + orderer.Seed + "); ratios, where the aggregation forms them, from per-launch medians (req 30)");

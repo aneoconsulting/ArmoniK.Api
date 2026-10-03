@@ -182,7 +182,7 @@ public sealed class JsonLinesExporter : IExporter
             {
                 long cpu = ic[2 * round + 1] - ic[2 * round], flt = mf[2 * round + 1] - mf[2 * round];
                 o.Add(J(c, _launch, ++round, cpu, (long)Math.Round(m.Nanoseconds), m.Operations,
-                    string.Format(CultureInfo.InvariantCulture, "\"minflt\":{0},\"engine\":\"bdn\",\"bdn_warmup\":{1}", flt, warm) + variant));
+                    string.Format(CultureInfo.InvariantCulture, "\"minflt\":{0},\"engine\":\"bdn\",\"bdn_warmup\":{1}", flt, warm) + variant + (round == 1 ? Alloc.RowFields(c.Key) : "")));
             }
             // Every stage BDN ran for this case, as mode/stage: count, ops, ns (requirement 24).
             var stages = string.Join(",", all.GroupBy(m => m.IterationMode + "/" + m.IterationStage)
