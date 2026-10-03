@@ -26,6 +26,7 @@ public static class Program
 {
     public static async Task<int> Main(string[] argv)
     {
+        Armonik.Ffi.Bdn.Alloc.Probe();   // req 25 / D9: the allocator readback, before the runtime frees any large block
         // The concurrency contract's POSITIVE CONTROL, and it runs in its own
         // process on purpose: the rust slice found that a shared encode context
         // ABORTS rather than returning an error, and an abort takes the whole

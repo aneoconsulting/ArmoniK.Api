@@ -130,11 +130,18 @@ builds' generated Shapes.cs; fixed in `ea02da5`, JOURNAL 65). Before WP13: `wp10
   gen/gate.sh`); the runner loops the rpc suite over `AK_H2_VARIANTS` (default both), one gate
   each (`gate.log`, `gate.h2-batch.log`); every akrpc process reads the loaded core's h2, puts
   `h2` on every row and aborts if it differs from AK_H2. Codec rows carry `h2: stock`.
-- **D9.** This slice has no native shim of its own. The shared core it loads allocates its
-  buffers with Rust's global allocator (glibc malloc) inside the .NET process, so glibc's trim
-  and mmap thresholds do govern those buffers; managed objects are on the .NET GC heap. The
-  runner states GLIBC_TUNABLES in every header and does not set it.
-- **Runner settings for small tests:** `AK_RPC_TRANSPORTS`, `AK_RPC_BUILDS`, `AK_H2_VARIANTS`.
+- **D9 / req 25 as amended (ad1a15be5).** The rule covers this slice: the shared core's buffers
+  and transport allocate through glibc malloc inside the .NET process (no shim of its own;
+  managed objects are on the GC heap). Runner switch `AK_ALLOC`: `default` (the main figures,
+  GLIBC_TUNABLES unset, as production) or `pinned` (the labelled diagnostic pass,
+  GLIBC_TUNABLES with trim_threshold 256 MiB and mmap_threshold 32 MiB; files suffixed
+  `.alloc-pinned`), both suites. Every row carries `alloc` and `minflt` (the process's minor
+  page faults over the iteration, read by the job's clock beside the CPU clock, both
+  toolchains; per call = minflt / iters). Each process reads back the mode at start (one
+  16 MiB malloc and mallinfo2's mmapped-block count: default "mmapped", pinned "heap"), states
+  it in the header, and refuses to run if AK_ALLOC disagrees with its GLIBC_TUNABLES or if the
+  pinned readback is not "heap". The RPC server runs the default allocator in both passes.
+- **Runner settings for small tests:** `AK_RPC_TRANSPORTS`, `AK_RPC_BUILDS`, `AK_H2_VARIANTS`; the allocator pass `AK_ALLOC`.
 
 ## Register H (WP6) and WP7
 
@@ -231,7 +238,7 @@ hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 | 22a | benchmark engine | met as amended 2026-09-27: BenchmarkDotNet for the codec suite and the RPC grid (InProcessEmit, pinned by the runner, StopOnFirstError for RPC, raw measurements exported, warm-up and tier recorded; what the framework forces and the custom pieces are listed above) |
 | 23 | 5 rounds x 3 launches | met (defaults) |
 | 24 | warm-up stated, identical; GC/JIT defaults stated; every warm-up a runner parameter | met (amended 85cfd4826): every warm-up is a runner parameter with the campaign default in the header and a short smoke default (run_campaign.sh's AK_RPC_WARM_*, AK_RPC_SERVER_WARM, AK_BDN_WARMUP / _ROUNDS / _ITERATION_MS / _PREWARM_*; JOURNAL 61). codec, per BDN process a pre-warm to JIT quiescence (the job's clock included) and 2 unexported prime cases, then per case BDN's jitting, pilot and a fixed warm-up count; the JIT tier read back per case, `jit check: FAIL` fails the unit. rpc: warm-up rounds of 64 calls per cell, direction and level until a round compiles nothing (at most 10); `jit_in_window` per sample. GC and JIT between blocks at the framework defaults, stated |
-| 25 | allocator/GC warm, GC stated | met: warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row). D9: GLIBC_TUNABLES stated in every header, not set by the runner; the rule's mechanism reaches the core's buffers in this process (see WP13) |
+| 25 | allocator/GC warm, GC stated | met as amended 2026-10-03 (D9): warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row); main figures on glibc's default allocator, `AK_ALLOC=pinned` the labelled GLIBC_TUNABLES pass, `alloc` and `minflt` on every row, the mode read back per process (see WP13) |
 | 26 | correctness before timing | met: the runner requires the gate passed at identical content (both builds, counts included); every BDN process re-checks byte identity of every encode arm and variant (transport frames and pooled graphs included) and every U-* row's encode and re-encode forms before timing |
 | 27 | header | met: commit (dirty tree refused), machine, CPU sets and their source, runtime and incumbent versions, build flags and variant, core features, transport, threads, warm-up and repeats |
 | 28 | JSON lines, raw | met: one line per BDN iteration and per rpc/calib sample, section 7's fields plus `build` and the encode-variant fields; the per-case BDN summary row carries `row: case-summary` and no `cpu_ns`/`wall_ns` |
@@ -275,7 +282,7 @@ campaign's codec suite is correspondingly longer.
 - Anything on .NET Framework 4.8 (compiled only); no floor runs the RPC suite or BDN.
 - `perf stat` cycles and instructions (not installed here), so req 20's per-iteration counts.
 - The JIT tier under the default toolchain (open since JOURNAL 64).
-- GLIBC_TUNABLES set for this slice's processes (stated, not set; D9).
+- The runner end to end with `AK_ALLOC=pinned` (the switch was smoked on units directly, `wp13-d9-alloc-smoke/`); the server's allocator is not switched.
 - Thread CPU time under BenchmarkDotNet (the campaign's figure is process CPU, req 21).
 - Cell B's encode form (incumbent into a span for the core's transport) as a codec-suite row.
 - U-* rows with a pool input or a transport end state (encode-hot only).
@@ -305,6 +312,7 @@ campaign's codec suite is correspondingly longer.
 
 | Log | What it establishes |
 |---|---|
+| `wp13-d9-alloc-smoke/` | the allocator switch (D9 as amended): an RPC and a codec unit in both modes, the readback, a mismatch control, minflt under the default toolchain |
 | `wp13-gate-stock.log`, `wp13-gate-h2-batch.log` | the clean-checkout gates of WP13 at `ea02da5`, one per h2 variant (see Gate) |
 | `wp13-gate-h2-batch-FAILED-2f9ce48.log` | the second gate in one tree failing on the floor build before the fix (JOURNAL 65) |
 | `campaign/wp13-smoke/` | the WP13 minimal smoke: TCP, pinned, full build, both h2 variants, stripped; the plant controls with Nagle on |

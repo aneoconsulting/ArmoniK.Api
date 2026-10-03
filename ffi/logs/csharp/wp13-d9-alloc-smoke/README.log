@@ -1,0 +1,11 @@
+# WP13 / D9 as amended (ad1a15be5): minimal smoke of the allocator switch, at 9d1ea6c plus the
+# mallinfo2 readback (committed with these logs). Container; every figure is instrumentation and
+# none is kept. Shared server (serve.sh, AK_SERVER_TCP=0, GLIBC_TUNABLES unset), TCP, pinned
+# client configuration, full build, stock h2, grouped toolchain unless named.
+# rpc unit C-drop (a, a+read, b, c, d), AK_ALLOC=default: 17 cases, 0 failed, 17 rows alloc=default, minflt on each; readback: 16 MiB malloc mmapped
+# rpc unit C-drop, AK_ALLOC=pinned (GLIBC_TUNABLES pinned): 17 cases, 0 failed, 17 rows alloc=pinned, minflt on each; readback: heap
+# codec unit core-ffi:retain (smoke), default: 156 iteration rows alloc=default with minflt, 0 failed; readback mmapped
+# codec unit core-ffi:retain (smoke), pinned: 156 iteration rows alloc=pinned with minflt, 0 failed; readback heap
+# rpc unit Bf, k=1, 2 rounds, pinned, BDN default toolchain (child per case): 10 rows alloc=pinned with minflt (from the child's clock reads)
+# control: AK_ALLOC=pinned with GLIBC_TUNABLES unset: exit 3, "# ABORT: allocator mode mismatch: AK_ALLOC=pinned but GLIBC_TUNABLES=unset (default)", no sample
+# Not run: the runner itself end to end (its gate would re-run at the new commit; owner: no gate for this change); the server's allocator is not switched.

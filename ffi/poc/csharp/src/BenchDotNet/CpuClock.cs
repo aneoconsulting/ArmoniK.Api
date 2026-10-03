@@ -87,11 +87,33 @@ public static class Alloc
     public const string Pinned = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432";
     public static readonly string Tunables = Environment.GetEnvironmentVariable("GLIBC_TUNABLES");
     public static string Label => string.IsNullOrEmpty(Tunables) ? "default" : Tunables == Pinned ? "pinned" : "other";
-    /// The runner's AK_ALLOC, when set, must equal the label (a mismatch is refused by the mains).
+    /// The runner's AK_ALLOC, when set, must equal the label, and under the pinned mode the
+    /// readback must show the pinned mmap threshold in effect (a mismatch is refused by the mains).
     public static string Mismatch()
     {
         var want = Environment.GetEnvironmentVariable("AK_ALLOC");
-        return want == null || want == Label ? null : "AK_ALLOC=" + want + " but GLIBC_TUNABLES=" + (Tunables ?? "unset") + " (" + Label + ")";
+        if (want != null && want != Label) return "AK_ALLOC=" + want + " but GLIBC_TUNABLES=" + (Tunables ?? "unset") + " (" + Label + ")";
+        if (Label == "pinned" && Probe() != "heap") return "GLIBC_TUNABLES is pinned but a 16 MiB malloc was mmapped (the pinned mmap_threshold is not in effect)";
+        return null;
+    }
+
+    [StructLayout(LayoutKind.Sequential)] private struct MallInfo2 { public nuint Arena, Ordblks, Smblks, Hblks, Hblkhd, Usmblks, Fsmblks, Uordblks, Fordblks, Keepcost; }
+    [DllImport("libc")] private static extern MallInfo2 mallinfo2();
+    [DllImport("libc")] private static extern IntPtr malloc(nuint n);
+    [DllImport("libc")] private static extern void free(IntPtr p);
+    private static string _probe;
+    /// Readback that the allocator mode is the one running: one malloc(16 MiB) and glibc's own
+    /// count of mmapped blocks (mallinfo2().hblks) around it. Pinned (mmap_threshold 32 MiB):
+    /// "heap". Default: "mmapped" while glibc's dynamic threshold is below 16 MiB, "heap" once
+    /// a freed mmapped chunk has raised it; the first call is made at process start.
+    public static string Probe()
+    {
+        if (_probe != null) return _probe;
+        nuint a = mallinfo2().Hblks;
+        var p = malloc(16u << 20);
+        nuint b = mallinfo2().Hblks;
+        free(p);
+        return _probe = b > a ? "mmapped" : "heap";
     }
 }
 
