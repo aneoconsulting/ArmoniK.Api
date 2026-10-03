@@ -1693,3 +1693,25 @@ work, so this is now aligned.
   After one warm-up, pinned Cf-drop still faults, which is what minflt is there to show. Codec
   P5.4: 38 values per mode with `minflt`, 33 (default) and 32 (pinned) of them at 0. The
   planted pre-grow cap log is removed with the pre-grow.
+
+### J62. Diagnosis: Cf-drop's ~514 minor faults per call in the pinned pass (owner request; no fix)
+
+- Throwaway probe (`logs/python/d9-minflt-diag/probe.py.txt`, never in the campaign path):
+  Cf-drop and A, d/16MiB, k = 1, both modes. Runs: main thread after 20 warm-ups, main thread
+  from call 3, a pool thread from its 1st call, and the pool-thread case under strace.
+- (1) It decays. Each mode takes one burst of about 512 faults in the first few calls on the
+  pool thread, then 0-2 per call. After 20 warm-ups: Cf-drop 0-1, A 1-3, in both modes.
+- (2) The faults are on the caller (pool) thread, not on the core's workers (0-11 there).
+- (3) The memory is glibc malloc on the caller thread's arena, about 4 MiB per block. Pinned:
+  arena and uordblks grow by about 4 MiB, with an mprotect of 4,194,304 B. Default: mmapped
+  4,198,400-B blocks, first touched one call later. By size and persistence these fit the
+  core's encode buffers kept in the per-context spare ring (inferred, not traced into the
+  core). A fresh pool thread has a fresh arena and context, so the setup's main-thread calls
+  do not warm it.
+- (4) Pinned and default take the same kind of burst. With 1 warm-up of 1 loop, the value is
+  the pool thread's 2nd call: pinned's burst landed there in the smokes, default's later. A
+  warm-up that is too short, not a mode difference.
+- Unknown: what decides which call takes the burst (transport timing is the likely variable,
+  not measured), and the campaign machine's spacing.
+- One-line fix, not applied: warm each RPC benchmark for several calls on its own pool thread
+  before the first value.

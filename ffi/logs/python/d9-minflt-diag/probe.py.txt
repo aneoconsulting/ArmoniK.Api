@@ -1,0 +1,88 @@
+"""Throwaway diagnosis (not in the campaign path): where do Cf-drop's minor faults per call come
+from on d/16MiB, k = 1? Mirrors a pyperf worker's setup (readback block kept, cells(keys={d:16MiB}),
+one checked call), then per call: process minflt, per-thread minflt (/proc/self/task/*/stat field
+10) grouped by thread name, and mallinfo2 (arena, hblks, hblkhd) before and after.
+
+  python3.12 probe.py SERVER CELL WARMUPS CALLS        (GLIBC_TUNABLES set or not by the caller)
+"""
+import ctypes
+import json
+import os
+import resource
+import sys
+
+sys.path.insert(0, "/home/user/ArmoniK.Api/ffi/poc/python")
+import camp_meas as M  # noqa: E402
+
+srv, cell, warm, calls = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+ON_POOL = len(sys.argv) > 5 and sys.argv[5] == "pool"    # run the calls on a k=1 Pool thread, as the worker does
+mode = "pinned" if os.environ.get("GLIBC_TUNABLES") else "default"
+rb = M.alloc_check(mode)
+
+import camp_rpc as C  # noqa: E402
+
+libc = ctypes.CDLL(None)
+
+
+class MI2(ctypes.Structure):
+    _fields_ = [(n, ctypes.c_size_t) for n in ("arena", "ordblks", "smblks", "hblks", "hblkhd", "usmblks",
+                                               "fsmblks", "uordblks", "fordblks", "keepcost")]
+
+
+libc.mallinfo2.restype = MI2
+
+
+def mi():
+    m = libc.mallinfo2()
+    return {"arena": m.arena, "hblks": m.hblks, "hblkhd": m.hblkhd, "uord": m.uordblks, "ford": m.fordblks}
+
+
+def threads():
+    out = {}
+    for t in os.listdir("/proc/self/task"):
+        try:
+            name = open("/proc/self/task/%s/comm" % t).read().strip()
+            st = open("/proc/self/task/%s/stat" % t).read()
+        except OSError:
+            continue
+        f = st[st.rindex(")") + 2:].split()
+        out[t] = (name, int(f[7]))          # field 10 = minflt (fields after comm start at 3)
+    return out
+
+
+def tdelta(a, b):
+    d = {}
+    for t, (name, v) in b.items():
+        v0 = a.get(t, (name, 0))[1]
+        if v - v0:
+            d[name] = d.get(name, 0) + (v - v0)
+    return d
+
+
+s = C.parse_server(srv)
+cs, keep = C.cells(C.timed_target(s), "pinned", keys={"d:16MiB"})
+fn0 = dict(cs["d:16MiB"])[cell]
+fn0(check=True)
+fn0()
+if ON_POOL:
+    import threading
+    pool = C.Pool(1)
+
+    def fn():
+        failed = []
+        pool.run(1, fn0, 1, threading.Event(), failed)
+        if failed:
+            raise failed[0]
+else:
+    fn = fn0
+for _ in range(warm):
+    fn()
+rows = []
+for i in range(calls):
+    t0, m0, f0 = threads(), mi(), resource.getrusage(resource.RUSAGE_SELF).ru_minflt
+    os.write(2, b"CALLMARK %d\n" % i)     # a marker in an strace of the run
+    fn()
+    t1, m1, f1 = threads(), mi(), resource.getrusage(resource.RUSAGE_SELF).ru_minflt
+    rows.append({"call": i, "minflt": f1 - f0, "by_thread": tdelta(t0, t1),
+                 "mallinfo_delta": {k: m1[k] - m0[k] for k in m0}, "mallinfo_after": m1})
+print(json.dumps({"pool": ON_POOL, "mode": mode, "readback": rb, "cell": cell, "warmups": warm, "rows": rows}))
