@@ -2238,3 +2238,18 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
   core-ffi:retain, default 3 rounds / mmapped, pinned 2 rounds / heap, 156 rows each, 0 failed;
   Bf under the default toolchain (default mode): 5 children, each probe mmapped and 4 rounds,
   10 rows. Last round 0 faults everywhere. Not exercised: the cap's refusal. No gate (owner).
+
+## 68. The heap pre-grow reverted (owner decision 2026-10-03)
+
+- Removed: the glibc pre-grow (JOURNAL 67), its header text, `pregrow_rounds` and
+  `pregrow_last_minflt`, AK_PREGROW_BYTES and `Cases.LargestPayload`. Reason (owner): a
+  pre-grow on one thread cannot reach the other threads' malloc arenas (C++ found the first
+  benchmark still faulting through the core's worker threads); BDN's warm-up runs the real call
+  path on every thread, and the per-row `minflt` shows whether it sufficed.
+- Kept: AK_CAMPAIGN_ALLOC, the probe once per process with its block kept mapped, the refusal on
+  a mismatch, `alloc_probe` on each case's first row, `alloc` and `minflt` on every row, and
+  the ChildDir fix of JOURNAL 67 (independent of the pre-grow).
+- Smoke (`logs/csharp/wp13-alloc-probe-smoke/`, stripped): C-drop grouped, default (probe
+  mmapped) and pinned (heap), 17 cases each, 0 failed; Bf under the default toolchain, pinned,
+  5 children each probing heap, 10 rows; codec core-ffi:retain, default, 156 rows, 0 failed.
+  Every row has `minflt`, none a pre-grow field. No gate (owner).

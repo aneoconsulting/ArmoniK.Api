@@ -117,67 +117,41 @@ public static class Alloc
         return _probe = b > a ? "mmapped" : "heap";
     }
 
-    /// Owner decision 2026-10-03: pre-grow the heap through glibc (the core's malloc, not the
-    /// managed heap) after the check and before any timing, in both modes: malloc, touch every
-    /// page, free a block of the run's largest payload size, until one round causes zero minor
-    /// faults, at most PregrowCap rounds; the cap refuses the process.
-    public const int PregrowCap = 8;
-    public static long PregrowBytes;
-    public static int PregrowRounds;
-    public static long PregrowLastFaults = -1;
     private static bool _started;
     /// Once per process (BDN's per-case child included: the first GlobalSetup calls it, later
-    /// ones return): the probe, the mode check, the pre-grow. Throws on a mismatch or the cap.
-    public static void Startup(long bytes)
+    /// ones return): the probe and the mode check. Throws on a mismatch. No heap pre-grow (owner,
+    /// 2026-10-03: reverted; BDN's warm-up runs the real call path on every thread, and the
+    /// per-row minflt shows whether it sufficed).
+    public static void Startup()
     {
         if (_started) return;
         _started = true;
         Probe();
         var m = Mismatch();
         if (m != null) throw new InvalidOperationException("allocator mode mismatch: " + m);
-        PregrowBytes = bytes;
-        for (int r = 1; r <= PregrowCap; r++)
-        {
-            long f0 = ProcCpu.MinFlt();
-            var p = malloc((nuint)bytes);
-            if (p == IntPtr.Zero) throw new InvalidOperationException("pre-grow malloc failed");
-            unsafe { byte* b = (byte*)p; for (long i = 0; i < bytes; i += 4096) b[i] = 1; b[bytes - 1] = 1; }
-            free(p);
-            PregrowRounds = r; PregrowLastFaults = ProcCpu.MinFlt() - f0;
-            if (PregrowLastFaults == 0) { WriteChild(); return; }
-        }
         WriteChild();
-        throw new InvalidOperationException("pre-grow cap hit: " + PregrowCap + " rounds of " + bytes + " bytes, the last with " + PregrowLastFaults + " minor faults");
     }
-    /// The bytes the runner's process chose (the host sets AK_PREGROW_BYTES before BDN starts;
-    /// a child inherits it).
-    public static long EnvBytes(long fallback) => long.TryParse(Environment.GetEnvironmentVariable("AK_PREGROW_BYTES"), out var v) ? v : fallback;
-    public static string Summary => PregrowRounds + " round(s) of " + PregrowBytes + " bytes, last round " + PregrowLastFaults + " minor faults";
-    /// Under the default toolchain the child's pre-grow is written for the host (one file per
+    /// Under the default toolchain the child's probe is written for the host (one file per
     /// child process), and the host puts it on the case's first row.
     private static void WriteChild()
     {
         if (CpuClock.ChildDir == null) return;
-        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "pregrow-" + Environment.ProcessId + ".txt"), PregrowRounds + " " + PregrowLastFaults + " " + PregrowBytes + " " + _probe + "\n");
-        ChildFile = "pregrow-" + Environment.ProcessId + ".txt";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n");
+        ChildFile = "probe-" + Environment.ProcessId + ".txt";
     }
     public static string ChildFile;
-    /// The row fields: this process's pre-grow (grouped) or the child's (default toolchain; the
-    /// child wrote its pid's file and the key file names it).
+    /// The row field: this process's probe (grouped) or the child's (default toolchain; the
+    /// child wrote its pid's file and the case's key file is a copy).
     public static string RowFields(string key)
     {
-        string rounds = PregrowRounds.ToString(), last = PregrowLastFaults.ToString(), probe = _probe;
+        string probe = _probe;
         if (CpuClock.ChildDir != null)
         {
-            var kf = CpuClock.KeyFile(key) + ".pregrow";
-            if (System.IO.File.Exists(kf))
-            {
-                var f = System.IO.File.ReadAllText(kf).Trim().Split(' ');
-                rounds = f[0]; last = f[1]; probe = f[3];
-            }
-            else return ",\"pregrow\":\"not recorded\"";
+            var kf = CpuClock.KeyFile(key) + ".probe";
+            if (!System.IO.File.Exists(kf)) return ",\"alloc_probe\":\"not recorded\"";
+            probe = System.IO.File.ReadAllText(kf).Trim();
         }
-        return ",\"pregrow_rounds\":" + rounds + ",\"pregrow_last_minflt\":" + last + ",\"alloc_probe\":\"" + probe + "\"";
+        return ",\"alloc_probe\":\"" + probe + "\"";
     }
 }
 
@@ -244,7 +218,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         var sb = new System.Text.StringBuilder();
         for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append(' ').Append(i < Mf.Count ? Mf[i] : -1).Append('\n');
         System.IO.File.WriteAllText(FileOf(key), sb.ToString());
-        if (Alloc.ChildFile != null) System.IO.File.Copy(System.IO.Path.Combine(ChildDir, Alloc.ChildFile), FileOf(key) + ".pregrow", true);
+        if (Alloc.ChildFile != null) System.IO.File.Copy(System.IO.Path.Combine(ChildDir, Alloc.ChildFile), FileOf(key) + ".probe", true);
     }
 
     /// The child's reads for the case's actual iterations (2 per iteration), or null when they

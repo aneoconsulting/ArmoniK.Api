@@ -23,7 +23,7 @@ public class CodecSuite
     public void Setup()
     {
         long t0 = System.Diagnostics.Stopwatch.GetTimestamp(); var p0 = GC.GetTotalPauseDuration(); int g0 = GC.CollectionCount(0), g2 = GC.CollectionCount(2); long a0 = GC.GetTotalAllocatedBytes();
-        Alloc.Startup(Alloc.EnvBytes(Cases.LargestPayload()));   // once per process: a no-op after the host's or this child's first
+        Alloc.Startup();   // once per process: a no-op after the host's or this child's first
         _op = Cases.Build(Bdn.Case.Parse(Case));
         SetupEnd[Case] = DateTime.UtcNow;   // the pre-warm's setups are overwritten by BDN's
         if (Environment.GetEnvironmentVariable("AK_BDN_TRACE") == "1")

@@ -141,15 +141,14 @@ builds' generated Shapes.cs; fixed in `ea02da5`, JOURNAL 65). Before WP13: `wp10
   16 MiB malloc and mallinfo2's mmapped-block count: default "mmapped", pinned "heap"), states
   it in the header, and refuses to run if AK_CAMPAIGN_ALLOC disagrees with its GLIBC_TUNABLES or if the
   pinned readback is not "heap". The RPC server runs the default allocator in both passes.
-- **Probe and pre-grow (owner decision 2026-10-03).** The probe runs once per process and keeps
-  its 16 MiB block mapped (never freed: freeing it raised glibc's dynamic mmap threshold, java
-  2892e207b). Then, before any timing and in both modes, `Alloc.Startup` pre-grows through
-  glibc (malloc, touch every page, free) at the run's largest payload (RPC: 16 MiB; codec: the
-  largest payload of any content set, 4,194,390 bytes) until a round causes zero minor faults,
-  cap 8 rounds, the cap refusing the process. Once per process: in the host's Main and in the
-  first GlobalSetup of each BDN child (later setups return). Header: the host's rounds and last
-  fault count; every case's first row: `pregrow_rounds`, `pregrow_last_minflt`, `alloc_probe`
-  (the child's own under the default toolchain). Not exercised: the cap's refusal.
+- **Probe, no pre-grow (owner decisions 2026-10-03).** The probe runs once per process (the
+  host's Main and the first GlobalSetup of each BDN child; later setups return) and keeps its
+  16 MiB block mapped (never freed: freeing it raised glibc's dynamic mmap threshold, java
+  2892e207b); every case's first row carries `alloc_probe` (the child's own under the default
+  toolchain). There is NO heap pre-grow: it was built and then reverted by the owner, because
+  a pre-grow on one thread cannot reach the other threads' malloc arenas (C++ found the first
+  benchmark still faulting through the core's worker threads); BDN's warm-up runs the real
+  call path on every thread, and `minflt` on every row shows whether it sufficed.
 - **Runner settings for small tests:** `AK_RPC_TRANSPORTS`, `AK_RPC_BUILDS`, `AK_H2_VARIANTS`; the allocator pass `AK_CAMPAIGN_ALLOC`.
 
 ## Register H (WP6) and WP7
@@ -321,7 +320,8 @@ campaign's codec suite is correspondingly longer.
 
 | Log | What it establishes |
 |---|---|
-| `wp13-pregrow-smoke/` | the probe kept mapped and the glibc pre-grow: an RPC and a codec unit per mode, grouped; Bf under the default toolchain (each child its own probe and pre-grow) |
+| `wp13-alloc-probe-smoke/` | after the pre-grow's revert: C-drop per mode (grouped), Bf under the default toolchain (pinned, each child its own probe), a codec unit (default) |
+| `wp13-pregrow-smoke/` | the glibc pre-grow, since reverted (JOURNAL 67, 68) |
 | `wp13-d9-alloc-smoke/` | the allocator switch (D9 as amended): an RPC and a codec unit in both modes, the readback, a mismatch control, minflt under the default toolchain |
 | `wp13-gate-stock.log`, `wp13-gate-h2-batch.log` | the clean-checkout gates of WP13 at `ea02da5`, one per h2 variant (see Gate) |
 | `wp13-gate-h2-batch-FAILED-2f9ce48.log` | the second gate in one tree failing on the floor build before the fix (JOURNAL 65) |
