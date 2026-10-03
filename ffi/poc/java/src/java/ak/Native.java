@@ -85,8 +85,6 @@ public final class Native {
   public static native int allocProbe();
   /** getrusage(RUSAGE_SELF).ru_minflt; native/tax.c (req 25 as amended). */
   public static native long minorFaults();
-  /** Pre-grows glibc's heap: (rounds << 32) | last round's faults; native/tax.c. */
-  public static native long preGrow(long bytes, int cap);
   public static native void decCtxFree(long ctx);
   public static native int decErr(long ctx);
   public static native void decErrReset(long ctx);

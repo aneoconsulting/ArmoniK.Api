@@ -39,40 +39,11 @@ public final class CampaignAlloc {
     return line;
   }
 
-  private static String grown;
-  public static final int PREGROW_CAP = 8;
-
-  /** Req 25 as amended (mechanics): after verify() and before any timing, pre-grow glibc's
-   *  heap with rounds of the run's largest payload ({@code -Dak.camp.pregrow}: a byte count,
-   *  or "codec-max", the largest canonical payload of the codec suite) until a round faults
-   *  nothing, at most 8; throws when the cap is hit. Once per process. */
-  public static synchronized String preGrow() {
-    if (grown != null) return grown;
-    String p = System.getProperty("ak.camp.pregrow", "16777216");
-    long bytes = p.equals("codec-max") ? codecMax() : Long.parseLong(p);
-    long r = Native.preGrow(bytes, PREGROW_CAP);
-    if (r < 0) throw new IllegalStateException("pre-grow: malloc(" + bytes + ") failed");
-    long rounds = r >>> 32, faults = r & 0xffffffffL;
-    String line = "PREGROW bytes=" + bytes + " rounds=" + rounds + " last_round_faults=" + faults;
-    if (faults != 0) throw new IllegalStateException("pre-grow: " + line + ", cap of " + PREGROW_CAP + " rounds hit");
-    grown = line;
-    return line;
-  }
-
-  /** The largest canonical payload of the codec suite (every id, every content set). */
-  static long codecMax() {
-    long m = 0;
-    for (String id : ak.shapes.Arms.IDS)
-      for (int cs = 0; cs < CampaignCodec.SET_NAMES.length; cs++) {
-        try { m = Math.max(m, CampaignCodec.canonical(id, cs).length); }
-        catch (RuntimeException e) { /* a combination the suite does not run (P7.1 off ASCII) */ }
-      }
-    return m;
-  }
-
-  /** verify() then preGrow(): the two lines, for a log. */
+  /** The startup line for a log: verify()'s readback. (The heap pre-grow that followed it
+   *  was reverted by the owner, 2026-10-03: JMH's warm-up runs the real call path on every
+   *  thread, and the per-sample minflt shows whether it sufficed.) */
   public static String startup() {
-    return verify() + " | " + preGrow();
+    return verify();
   }
 
   public static void main(String[] a) {
