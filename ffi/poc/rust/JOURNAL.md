@@ -4381,3 +4381,7 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
 - run_campaign.sh's h2-batch check has the same form. It passed the smoke by luck of timing.
 - Both now capture the ldd output and match it with `case`. Swept: the remaining
   `| grep -q` uses in gen/ are exploration scripts or read a finished `tail -1`.
+- The gate re-ran at d76ce8d91 in the same worktree (incremental build): PASSED in 979 s.
+  Step 12b: TCP uploads on the stock core, then h2-batch uploads over UDS and TCP and
+  rpc_semantics, all passed. Crossing counts: 1,092 / 567 rows identical.
+  Logs: logs/rust/d18-gate/.

@@ -756,6 +756,9 @@ The grid switch is `AK_CAMPAIGN_GRID=core|full` (default `core`) in run_campaign
 - Send path:
   - Every timed core cell sets its path explicitly at `Conn::open`: `ak_client_set_framed(client, framed(cell))`, so B, C, E and their -cb variants run reference and Bf, Cf, Ef and their -cb variants run framed, under core and full alike.
   - That code (cd47d9cf5) landed in the same push as the core's framed default (e8fe14868, both 2026-09-28 19:47:35), so no reference row ever ran framed.
+- **Gate:** run from a clean worktree, both builds and the h2-batch core.
+  - **PASSED at d76ce8d91** (tree-id fecb7495ac67d788), 979 s with an incremental build in the same worktree; crossing counts 1,092 / 567 rows identical (logs/rust/d18-gate/run2-d76ce8d91/).
+  - The first run at 049cfba75 (4,627 s from a fresh build) passed every step through 12, then failed 12b on a harness defect: `ldd | grep -q` under pipefail. Fixed in d76ce8d91 (logs/rust/d18-gate/run1-049cfba75/).
 - Gate step 12b (new) runs:
   - upload_check over TCP loopback on the stock core;
   - gen/h2batch_core.sh;
