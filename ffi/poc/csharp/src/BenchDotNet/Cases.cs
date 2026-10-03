@@ -142,6 +142,10 @@ public static class Cases
 
     public static string CorpusDir()
     {
+        // BDN's default toolchain runs each case from its generated project under the artifacts
+        // directory, which may sit outside the repository: the host passes the path it found.
+        var env = Environment.GetEnvironmentVariable("AK_CORPUS_DIR");
+        if (!string.IsNullOrEmpty(env) && File.Exists(Path.Combine(env, "manifest.json"))) return env;
         var d = AppContext.BaseDirectory;
         for (int i = 0; i < 12 && d != null; i++)
         {

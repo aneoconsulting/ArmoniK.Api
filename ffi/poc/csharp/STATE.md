@@ -60,8 +60,8 @@ gen/crossings.txt           committed R5 counts, full build (22 rows: the CoreAr
                             core's own counters; P1.2, P2.2, P2.4 in three content sets)
 gen/crossings-nounk.txt     the same, no-unknown build (22 rows)
 gen/counts.txt              CAMPAIGN req 19 as amended: every exported entry point one call of each
-                            timed core-ffi case calls, by name, resets and grows placed (1,044 cases)
-gen/counts-nounk.txt        the same, no-unknown build (544 cases)
+                            timed core-ffi case calls, by name, resets and grows placed (1,051 cases: the full grid's 1,044 and the core grid's 7 U-* rows at end state ii)
+gen/counts-nounk.txt        the same, no-unknown build (551 cases, the same 7 added)
 gen/rpc-counts.txt          the same per call of every RPC cell A-F, framed twin, Cc copy cell,
                             direction and upload payload (105 rows)
 gen/rpc-counts-nounk.txt    the same, no-unknown client (62 rows)
@@ -342,14 +342,21 @@ about 2.8 s; c at P5.4, k = 8 about 4.2 s; d at 16 MiB, k = 8 about 11 s at BDN'
 | **timed total** | | **~75 to 90 min** |
 | gates (stock and h2-batch, before the run; reused while the content is unchanged) | | ~45 min |
 
-**BDN's project build** (item 6 of D18): 12 unit processes per launch x ~27 s = ~5.4 min per
-launch, ~16 min of the ~80, about 20 percent overall and about 40 percent of the RPC suite
-(189 of ~480 s per launch). Fewer, larger units would cut it without changing the isolation
-per case: under the default toolchain every case already runs in its own child process
-whatever the unit, so one BDN run per codec build and per RPC run (stock, h2-batch, pinned)
-would build 5 projects per launch instead of 12, ~9.5 min less over 3 launches. Not done:
-the RPC child would have to take its cell from the case key instead of the unit (a small
-change in RpcCtx), and the unit order (req 22) would become a case order inside one run.
+**BDN runs merged (owner, 2026-10-03; done).** Under the core grid the runner makes one BDN run
+per codec build (2 per launch) and one per RPC run kind (stock, h2-batch, pinned: 3 per launch),
+5 instead of 12. Every case still runs in its own child process (default toolchain, same
+warm-up, pilot and iteration settings); what differs per process (build, core library,
+GLIBC_TUNABLES) stays a separate run. The RPC child builds only its case's cell from the case
+key (the host builds the case list without opening a channel); each case's setup records the
+cell, direction, payload and channels it ran, and the exporter refuses a row whose label differs
+or whose process opened another cell's channel (control AK_CAMPAIGN_PLANT=cell: refused, no
+sample). The full grid keeps one run per unit. Measured (container, `logs/csharp/wp13-merge-timing.log`,
+default toolchain, short settings; the same rows checked before and after): RPC stock 4 runs
+237 s against 1 run 123 s, pinned 2 runs 81 s against 1 run 43 s, codec 5 runs 381 s against 2 runs
+228 s: about 5 min saved per launch (~15 min for 3 launches), mostly BDN's project builds
+(26 to 37 s each) and the codec suite's 2 prime cases per run. Estimate above, after the merge:
+~60 to 75 min timed. In the grouped (smoke) mode a merged run holds every cell's channels in one
+process, so `tcp_sockets_after` counts them all there; in the campaign's child mode it is per cell.
 
 ## What is not measured or not established
 
@@ -389,6 +396,7 @@ change in RpcCtx), and the unit order (req 22) would become a case order inside 
 |---|---|
 | `wp13-core-grid-counts/` | the counting build over the core codec grid, both builds (see Campaign grid) |
 | `campaign/wp13-core-smoke/`, `wp13-core-gate-stock.log`, `wp13-core-gate-h2-batch.log` | the core-grid smoke through the runner from a clean worktree at `ebbf1f6`, and its two gates |
+| `wp13-merge-timing.log`, `campaign/wp13-merge-smoke/`, `wp13-merge-gate-stock.log`, `wp13-merge-gate-h2-batch.log` | the BDN merge: timings per launch before and after, the label control; the core-grid smoke after the merge and its two gates at `beae3d7` |
 | `wp13-req24-warmup-count.log` | BDN's stage counts per case at the campaign warm-up, child mode, C-drop at k = 8 (req 24 as amended) |
 | `wp13-alloc-probe-smoke/` | after the pre-grow's revert: C-drop per mode (grouped), Bf under the default toolchain (pinned, each child its own probe), a codec unit (default) |
 | `wp13-pregrow-smoke/` | the glibc pre-grow, since reverted (JOURNAL 67, 68) |

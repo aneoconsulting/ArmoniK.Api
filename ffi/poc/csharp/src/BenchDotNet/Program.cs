@@ -63,6 +63,7 @@ public static class Program
         if (vwhy != null) { Console.Error.WriteLine("core variant mismatch: " + vwhy); return 3; }
         var awhy = Alloc.Mismatch();
         if (awhy != null) { Console.Error.WriteLine("allocator mode mismatch: " + awhy); return 3; }
+        Environment.SetEnvironmentVariable("AK_CORPUS_DIR", Cases.CorpusDir());   // for BDN's child processes
         int checks = Cases.Verify();
         Alloc.Startup();   // once per process; the mismatch was refused above
         // Requirement 24, the tier: a process-level pre-warm before BDN starts. Every case of

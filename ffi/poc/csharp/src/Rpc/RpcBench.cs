@@ -65,7 +65,7 @@ internal static class RpcCtx
     public static readonly Dictionary<string, string> Ran = new Dictionary<string, string>();
     public static void RecordRan(string key, CampaignMain.Cell c)
     {
-        var line = c.Name + "|" + c.Dir + "|" + c.Payload + "\t" + string.Join(";", Chans);
+        var line = (Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT") == "cell" ? "planted-" : "") + c.Name + "|" + c.Dir + "|" + c.Payload + "\t" + string.Join(";", Chans);   // the plant: a control of the row-label check
         Ran[key] = line;
         if (CpuClock.ChildDir != null) File.WriteAllText(CpuClock.KeyFile(key) + ".ran", line);
     }

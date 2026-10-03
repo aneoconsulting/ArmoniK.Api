@@ -2316,3 +2316,33 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
 - Estimate (STATE): ~75 to 90 min timed for the core grid, plus ~45 min of gates; BDN's project
   build ~20 percent overall, ~40 percent of the RPC suite; fewer, larger BDN runs would save
   ~9.5 min without changing per-case isolation (not done).
+
+## 72. Counts for the core-grid U-* rows, explicit send paths, BDN runs merged (owner, 2026-10-03)
+
+- Counts: the gate's counting run (AK_CAMPAIGN_GRID unset) now also counts the core grid's 7
+  U-* rows at end state (ii) per build (Cases.CountKeys); gen/counts.txt 1,051 rows,
+  gen/counts-nounk.txt 551, the 7 added rows equal to the ones recorded in JOURNAL 71.
+- Send path (Python's finding, confirmed here): the core's framed path is its default since
+  e8fe14868 (2026-09-28), and this slice set the path only for the framed twins. So every
+  REFERENCE core row ran framed from the first run on a core with that commit: in this slice's
+  logs, the WP13 smokes and everything after (wp13-smoke, wp13-d9, pregrow, alloc-probe,
+  req-24 count, core-smoke): B, C-*, E-*, Cc-*, the callback and queue rows on b, c, d (on a
+  and a+read the request is empty). The earlier smokes (WP9, WP10) ran on a core before it.
+  All container instrumentation; nothing timed in the campaign. Now every core channel sets its
+  path explicitly: 0 on creation, 1 for Bf, Cf-*, Ef-* (Campaign.cs CoreCh and both twin sites).
+  The crossing counts do not change (the send path is inside the core; the gate's counts equal).
+- BDN merge: one run per codec build and per RPC run kind in the core grid (5 per launch, not
+  12); the RPC host builds the case list without channels, each child builds only its case's
+  cell, the row label is checked against what the child ran (plant: refused, 0 samples).
+  Measured: RPC stock 237 -> 123 s, pinned 81 -> 43 s, codec 381 -> 228 s, same rows; about
+  5 min per launch.
+- A defect the merge measurement exposed: under the default toolchain the codec suite's U-*
+  rows failed (DirectoryNotFoundException ffi/corpus/generated): the child runs from BDN's
+  generated project under the artifacts directory, outside the repository when the artifacts
+  are in a scratch directory (as the runner's are), and CorpusDir() walked up from there. The
+  host now passes AK_CORPUS_DIR. It had not shown because the default-toolchain codec check of
+  JOURNAL 64 ran a payload unit without U-* rows, and the runner's smokes are grouped. Gated
+  behaviour unchanged (the gate sets no AK_CORPUS_DIR and finds the corpus as before).
+- Gates at beae3d7 from a fresh worktree, both variants: PASSED, 30 controls each; counts equal
+  (1,051 / 551, RPC 105 / 62). Core-grid smoke there (grouped): codec 245 rows, rpc 32 + 4 + 4,
+  the same label sets and counts as the pre-merge smoke of JOURNAL 71.

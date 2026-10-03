@@ -1,0 +1,22 @@
+# BDN merge timing (owner, 2026-10-03), container instrumentation: wall seconds of the whole command, default toolchain (one child per case), --rounds 1 --warmup 1 --iteration-ms 20 (rpc) / 2 (codec, --smoke); per-unit = today's one BDN run per unit, merged = one BDN run per run kind; same row set (checked)
+rpc stock per-unit: 236.651800146 rc=0
+rpc stock merged: 123.488212774 rc=0
+rpc pinned per-unit: 80.615754586 rc=0
+rpc pinned merged: 42.760035877 rc=0
+# rpc-pu-A: 3.68+31.64 s of BDN project restore+build
+# rpc-pu-Bf: 2.86+31.14 s of BDN project restore+build
+# rpc-pu-Cf-retain: 2.85+25.9 s of BDN project restore+build
+# rpc-pu-Ef-retain: 2.67+29.8 s of BDN project restore+build
+# rpc-m-A,Bf,Cf-retain,Ef-retain: 2.96+29 s of BDN project restore+build
+# pin-pu-A: 2.94+26.82 s of BDN project restore+build
+# pin-pu-Cf-retain: 2.74+28.96 s of BDN project restore+build
+# pin-m-A,Cf-retain: 3.21+26.57 s of BDN project restore+build
+codec per-unit (5 runs): 381.037990582 s; merged (2 runs): 228.317816936 s; all ok=1 (5 unit runs = 3 full + 2 no-unknown; merged = 1 per build; same 245 rows, checked; after the AK_CORPUS_DIR fix, main tree at beae3d7 + that fix)
+# codec pu-incumbent-prod-default: 9+36.71 s of BDN project restore+build
+# codec pu-core-ffi-retain: 2.92+35.67 s of BDN project restore+build
+# codec pu-host-gen-retain: 3.41+35.26 s of BDN project restore+build
+# codec pun-core-ffi-no-unknown: 2.84+35.48 s of BDN project restore+build
+# codec pun-host-gen-no-unknown: 2.71+25.35 s of BDN project restore+build
+# codec m: 3.18+31.63 s of BDN project restore+build
+# codec mn: 2.91+34.36 s of BDN project restore+build
+# row-label control (AK_CAMPAIGN_PLANT=cell, merged A,Bf, default toolchain): cell plant rc=1 samples=0 # ABORT: A|c|P5.4|1: the row says A|c|P5.4 but the process ran planted-A|c|P5.4; no samples written
