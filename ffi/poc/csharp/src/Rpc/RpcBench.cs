@@ -60,6 +60,31 @@ internal static class RpcCtx
     public static string Sock, Transport, Unit;
     public static string H2 = "unknown";
     public static (int Found, int NoDelay) NoDelaySeen;
+    /// What a process actually ran for a case: "cell|dir|payload <tab> its channels" (the
+    /// case's setup writes it; a child writes it for the host).
+    public static readonly Dictionary<string, string> Ran = new Dictionary<string, string>();
+    public static void RecordRan(string key, CampaignMain.Cell c)
+    {
+        var line = c.Name + "|" + c.Dir + "|" + c.Payload + "\t" + string.Join(";", Chans);
+        Ran[key] = line;
+        if (CpuClock.ChildDir != null) File.WriteAllText(CpuClock.KeyFile(key) + ".ran", line);
+    }
+    /// null when the row's cell, direction and payload are the ones the process ran and every
+    /// channel it opened is that cell's; else why not.
+    public static string RanCheck(string key)
+    {
+        string v = null;
+        if (CpuClock.ChildDir != null) { var fp = CpuClock.KeyFile(key) + ".ran"; if (File.Exists(fp)) v = File.ReadAllText(fp); }
+        else Ran.TryGetValue(key, out v);
+        if (v == null) return "the cell the process ran was not recorded";
+        var p = v.Split('\t');
+        var f = key.Split('|');
+        if (p[0] != f[0] + "|" + f[1] + "|" + f[2]) return "the row says " + f[0] + "|" + f[1] + "|" + f[2] + " but the process ran " + p[0];
+        if (CpuClock.ChildDir != null && p.Length > 1)
+            foreach (var ch in p[1].Split(';', StringSplitOptions.RemoveEmptyEntries))
+                if (!ch.StartsWith(f[0] + ":", StringComparison.Ordinal) && !ch.StartsWith(f[0] + " (", StringComparison.Ordinal)) return "the process opened a channel of another cell: " + ch;
+        return null;
+    }
     /// Per case, after its run: "sockets nodelay keepalive reuseport" to the server.
     public static readonly Dictionary<string, string> After = new Dictionary<string, string>();
     public static string AfterFields(string key)
@@ -129,13 +154,43 @@ internal static class RpcCtx
         if (onlyK != null && !onlyK.Split(',').Contains(k.ToString(CultureInfo.InvariantCulture))) return false;
         if (!CoreGrid) return true;
         if (k != 1 && k != 8) return false;
-        if (c.Name != Unit) return c.Dir == "a+read";   // the partner cell: its a+read only
+        if (!RunUnits.Contains(c.Name)) return c.Dir == "a+read";   // the partner cell: its a+read only
         return c.Dir switch { "a+read" => true, "b" => true, "c" => c.Payload == "P5.4", "d" => c.Payload == "stream-16MiB", _ => false };
     }
 
+    /// The run's units: one, or several merged into one BDN run (`--unit A,Bf,...`; owner,
+    /// 2026-10-03): every case still runs in its own child process (BDN's default toolchain),
+    /// which builds only its own cell from the case key.
+    public static string[] RunUnits => (Unit ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+    private static bool InRun(string n) => RunUnits.Contains(n) || (CoreGrid && RunUnits.Any(u => Partner(u) == n));
+    private static bool _init;
+    private static List<CampaignMain.Cell> _dry;
+    private static readonly Dictionary<string, List<CampaignMain.Cell>> _real = new Dictionary<string, List<CampaignMain.Cell>>();
+    /// The case list: the run's cells, no channel opened.
     public static List<CampaignMain.Cell> Cells()
     {
-        if (_cells != null) return _cells;
+        Init();
+        if (_dry != null) return _dry;
+        _dry = CampaignMain.BuildCells(Sock, Transport == "pinned", IntPtr.Zero, Want, new List<IDisposable>(), new List<string>(), extras: true, keep: InRun, dry: true);
+        if (_dry.Count == 0) throw new InvalidOperationException("no cell named " + Unit + " in this build");
+        return _dry;
+    }
+    /// One cell's real cells and channel(s), built on its first case in this process.
+    public static List<CampaignMain.Cell> Real(string name)
+    {
+        Init();
+        if (_real.TryGetValue(name, out var cs)) return cs;
+        if (_rt == IntPtr.Zero) { _rt = AkRpc.ak_runtime_new((uint)Workers); if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new"); }
+        cs = CampaignMain.BuildCells(Sock, Transport == "pinned", _rt, Want, _owned, Chans, extras: true, keep: n => n == name);
+        if (cs.Count == 0) throw new InvalidOperationException("no cell named " + name + " in this build");
+        _real[name] = cs;
+        Pool ??= new CallerPool(Levels.Max());
+        return cs;
+    }
+    private static void Init()
+    {
+        if (_init) return;
+        _init = true;
         SizePools();
         H2 = LoadedH2();
         // Under BDN's default (out-of-process) toolchain this runs in the benchmark's child
@@ -148,18 +203,12 @@ internal static class RpcCtx
         // GrpcChannelProvider), not the control plane's: under transport armonik it is NOT set.
         CampaignMain.ArmonikCh = Transport == "armonik";
         if (!CampaignMain.ArmonikCh) AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
-        _rt = AkRpc.ak_runtime_new((uint)Workers);
-        if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
-        _cells = CampaignMain.BuildCells(Sock, Transport == "pinned", _rt, Want, _owned, Chans, extras: true, keep: n => n == Unit || (CoreGrid && n == Partner(Unit)));
-        if (_cells.Count == 0) throw new InvalidOperationException("no cell named " + Unit + " in this build");
-        Pool = new CallerPool(Levels.Max());
-        return _cells;
     }
 
     public static CampaignMain.Cell Find(string key)
     {
         var f = key.Split('|');
-        return Cells().First(c => c.Name == f[0] && c.Dir == f[1] && c.Payload == f[2]);
+        return Real(f[0]).First(c => c.Name == f[0] && c.Dir == f[1] && c.Payload == f[2]);
     }
 
     /// Req 18/26 for the upload directions, once per cell before its first timing: every c cell
@@ -198,6 +247,7 @@ public abstract class RpcBase
     {
         Alloc.Startup();   // once per process: a no-op after the host's or this child's first
         _c = RpcCtx.Find(Case);
+        RpcCtx.RecordRan(Case, _c);
         RpcCtx.CheckOnce(_c);
         // D10: one untimed call opens the cell's connection, then Nagle off is READ BACK on
         // every live socket of this process to the server (getsockopt TCP_NODELAY); a socket
@@ -333,7 +383,14 @@ public sealed class RpcJsonExporter : IExporter
         {
             var key = r.BenchmarkCase.Parameters["Case"].ToString();
             var f = key.Split('|');
-            var cell = RpcCtx.Find(key);
+            var cell = RpcCtx.Cells().First(c => c.Name == f[0] && c.Dir == f[1] && c.Payload == f[2]);   // the label, from the case list
+            var why = RpcCtx.RanCheck(key);
+            if (why != null)
+            {
+                Failed = true;
+                File.AppendAllLines(_path, new[] { "# ABORT: " + key + ": " + why + "; no samples written" });
+                return new[] { _path };
+            }
             var all = r.AllMeasurements;
             int warm = all.Count(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Warmup);
             var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
@@ -466,8 +523,8 @@ public static class RpcBenchMain
             File.AppendAllLines(outp, new[] { "# ABORT: the loaded core's h2 is " + RpcCtx.H2 + ", the runner asked for " + wantH2 + "; no samples written" });
             return 3;
         }
-        int seed = launch * 104729 + RpcCtx.Unit.GetHashCode(StringComparison.Ordinal) % 1000;
-        var orderer = new RpcOrderer(launch * 104729 + Units(1).IndexOf(RpcCtx.Unit));
+        int useed = 0; foreach (var ch in RpcCtx.Unit) useed = unchecked(useed * 31 + ch);
+        var orderer = new RpcOrderer(launch * 104729 + (useed & 0xFFFF));
         var o = CampaignMain.CoreOpts(pinned);
         var hdr = new List<string>();
         var sw = new StringWriter();
@@ -503,7 +560,7 @@ public static class RpcBenchMain
             hdr.Add("# armonik:        cell A's channel = packages/csharp ArmoniK.Api.Client GrpcChannelFactory.CreateChannel(new GrpcClient { Endpoint = \"" + ep.ToString().TrimEnd('/') + "\" }), called directly (the assembly built from packages/csharp, unchanged), every other option at its package default: HandlerType Http = HttpClientHandler (SocketsHttpHandler underneath) wrapped in the package's logging DelegatingHandler (logger null), proxy type Undefined (UseProxy true: the system proxy for this endpoint is " + (px == null ? "none (bypassed)" : px.ToString()) + "); GrpcChannelOptions: Credentials Insecure, DisposeHttpClient true, ServiceConfig retry MaxAttempts 5, InitialBackoff 1 s, MaxBackoff 5 s, BackoffMultiplier 1.5 on Unavailable, Aborted, Unknown (so Grpc.Net buffers requests for retry), MaxReceiveMessageSize and MaxSendMessageSize at Grpc.Net's defaults (receive 4 MiB, send unlimited), EnableMultipleHttp2Connections false (the HttpClientHandler default); ServicePointManager.ReusePort = true and ServicePoint SetTcpKeepAlive(true, 30 s, 30 s), MaxIdleTime 5 min, read back on the live sockets per case (so_keepalive_after, so_reuseport_after on each case's first row: 0 = the ServicePoint settings did not reach SocketsHttpHandler's socket); process-wide switches observed: Http2FlowControl.DisableDynamicWindowSizing " + (dws ? "SET" : "not set") + " (the worker channel provider's, not set on the control plane's path), Http2UnencryptedSupport " + (h2u ? "set" : "not set") + " (the factory sets it only for https with AllowUnsafeConnection); Nagle: SocketsHttpHandler's own default sets TCP_NODELAY, read back before timing and after each case (tcp_nodelay_after), the HTTP/2 connections per cell after each case's run on its first row (tcp_sockets_after); the core cells: the core's client configuration of `shipped` (windows at the stack's defaults, adaptive off, tcp_nagle 0)");
         }
         hdr.Add("# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced); the server's receive limit 8 MiB per message (SERVER.md)");
-        foreach (var ch in RpcCtx.Chans) hdr.Add("# channel:        " + ch + " (opened in this process before its first case, kept to its end: one channel per cell per benchmark process)");
+        hdr.Add("# channels:       each benchmark process builds only the cell of its case, from the case key, with its own channel(s) (one per cell and direction group, opened in the case's setup and kept to the process's end); each row's cell is checked against the cell the process ran (refused on a mismatch)" + (RpcCtx.RunUnits.Length > 1 ? "; this BDN run merges units " + RpcCtx.Unit + " (owner, 2026-10-03), every case in its own child process" : ""));
         hdr.Add(CampaignMain.ThreadLine("caller threads " + RpcCtx.Levels.Max() + "; core runtime 1, " + RpcCtx.Workers + " worker thread(s)"));
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);

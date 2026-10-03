@@ -111,6 +111,25 @@ public static class Cases
         return all.OrderBy(_ => rng.Next()).ToList();
     }
 
+    /// The counted cases (CountRun, the gate's req-19 check): every case of the grid in force,
+    /// and, on the full grid, also the core grid's U-* rows at end state (ii)
+    /// (encode-transport-hot, CAMPAIGN 4.0), which the full grid does not time, so the gate
+    /// (run with AK_CAMPAIGN_GRID unset) counts every core-ffi row either grid times (owner,
+    /// 2026-10-03).
+    public static IEnumerable<string> CountKeys()
+    {
+        foreach (var k in All()) yield return k;
+        if (CoreGrid) yield break;
+#if AK_NO_UNKNOWN_FIELDS
+        const string am = "core-ffi:no-unknown";
+#else
+        const string am = "core-ffi:retain";
+#endif
+        if (!InUnit(am)) yield break;
+        var f = am.Split(':');
+        foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-transport-hot", id, "corpus", f[1]);
+    }
+
     /// Two sacrificial cases run first in every process: copies of its first two cases, with
     /// content "prime". They are timed by BDN but never exported. They absorb the tier-up of
     /// runtime helpers that BDN's own engine touches first (cast cache, span fill): without

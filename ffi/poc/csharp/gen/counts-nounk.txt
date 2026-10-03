@@ -544,3 +544,10 @@ U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-hot no-unkno
 U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
 U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-read no-unknown | fwd 3 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1
 U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-reencode no-unknown | fwd 6 rev 1 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_UploadResultDataMessage=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-nested-before corpus core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
+U-deep-u-repeated corpus core-ffi encode-transport-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+U-oneof-u-repeated corpus core-ffi encode-transport-hot no-unknown | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-transport-hot no-unknown | fwd 6 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-transport-hot no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-transport-hot no-unknown | fwd 14 rev 11 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-transport-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1

@@ -309,8 +309,11 @@ public static class CampaignMain
     /// GrpcChannel with its own handler and connection, core cells a CoreChannel on the one
     /// shared runtime `rt`. Directions: a (empty request, P2.2 response, decoded), a+read (the
     /// same, then every field read), b (P2.2 request, empty response).
-    internal static List<Cell> BuildCells(string sock, bool pinned, IntPtr rt, int want, List<IDisposable> owned, List<string> chans, bool extras, Func<string, bool> keep = null)
+    internal static List<Cell> BuildCells(string sock, bool pinned, IntPtr rt, int want, List<IDisposable> owned, List<string> chans, bool extras, Func<string, bool> keep = null, bool dry = false)
     {
+        // dry: the cell list only (names, directions, payloads), no channel opened: the case
+        // keys of a merged BDN run (one run, several cells, every case in its own child process
+        // that then builds only its own cell).
         keep ??= _ => true;   // only the cells kept get channels (one BDN unit = one cell, WP9)
         var g22 = BuildGp.P2_2();
         var f22 = BuildFacade.P2_2();
@@ -324,7 +327,11 @@ public static class CampaignMain
 
         CoreChannel CoreCh(string name, bool queue = false)
         {
+            if (dry) return null;
             var ch = new CoreChannel(rt, CoreUri(sock), CoreOpts(pinned));
+            // The framed path is the core's DEFAULT since e8fe14868 (2026-09-28): every core
+            // channel sets its send path explicitly, reference here, framed by the twins below.
+            if (AkRpc.ak_client_set_framed(ch.Client, 0) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed(0)");
             if (queue) ch.StartQueue();
             owned.Add(ch);
             chans.Add(name + ": its own core channel" + (queue ? " + completion queue drainer" : ""));
@@ -332,6 +339,7 @@ public static class CampaignMain
         }
         CallInvoker GrpcCh(string name)
         {
+            if (dry) return null;
             var ch = ArmonikCh ? ArmonikChannel(sock) : NewGrpc(sock, pinned);
             owned.Add(ch);
             chans.Add(name + ": its own GrpcChannel (SocketsHttpHandler, one HTTP/2 connection)");
@@ -440,7 +448,7 @@ public static class CampaignMain
         {
             if (!keep(name)) return;
             var ch = CoreCh(name + " (b)");
-            if (framed && AkRpc.ak_client_set_framed(ch.Client, 1) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
+            if (ch != null && AkRpc.ak_client_set_framed(ch.Client, framed ? 1 : 0) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
             cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), Channel = name + " (b)", One = () => CoreUp(ch, name, codec, retain) });
         }
 
@@ -582,7 +590,7 @@ public static class CampaignMain
         {
             if (!keep(name)) return;
             var ch = coreCh(name + " (c, d)", false);
-            if (framed && AkRpc.ak_client_set_framed(ch.Client, 1) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
+            if (ch != null && AkRpc.ak_client_set_framed(ch.Client, framed ? 1 : 0) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
             string mode = modeOf(name.Replace("f-", "-").Replace("Bf", "B"));
             foreach (var u in _ups)
             {

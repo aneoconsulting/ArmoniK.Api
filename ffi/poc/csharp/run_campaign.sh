@@ -213,12 +213,16 @@ case "$SUITE" in
       { header "rpc,init-guard (full) and rpc,init-guard without unknown-fields (no-unknown)"; echo "$GATE"; echo "# builds, in this launch's order: $(builds_of "$l") (WP5 step 10; each process checks its core is its variant)"; echo "# h2:            stock (target-core*; the codec suite makes no transport call, so the h2 variant is not a dimension of it; rows carry h2=stock)"; } > "$f"
       for bld in $(builds_of "$l"); do
         if [ "$bld" = full ]; then BX="$B8"; else BX="$BN8"; fi
-        for u in $(dotnet "$BX/BenchDotNet.dll" --launch "$l" --list-units); do
-          ul="$OUT/codec-launch$l$ASFX.${u/:/-}.bdn.log"
+        # Core grid (owner, 2026-10-03): ONE BDN run per build (every case still in its own
+        # child process under the default toolchain); the full grid keeps one run per unit.
+        CU="$(dotnet "$BX/BenchDotNet.dll" --launch "$l" --list-units)"; [ "$AK_CAMPAIGN_GRID" = core ] && CU="all"
+        for u in $CU; do
+          UA=(--unit "$u"); [ "$u" = all ] && UA=()
+          ul="$OUT/codec-launch$l$ASFX.${u/:/-}$([ "$u" = all ] && echo ".$bld").bdn.log"
           # R-H19: BDN's console log carries figures; a smoke's is headed as instrumentation.
           { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
           # R-H18: a unit whose JIT check fails exits non-zero, so the launch stops here.
-          taskset -c "$AK_CPU_CLIENT" dotnet "$BX/BenchDotNet.dll" --launch "$l" --unit "$u" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
+          taskset -c "$AK_CPU_CLIENT" dotnet "$BX/BenchDotNet.dll" --launch "$l" "${UA[@]}" --out "$f" --artifacts "$SCRATCH/bdn-launch$l" "${EXTRA[@]}" \
             >> "$ul" 2>&1 || { echo "codec launch $l unit $u ($bld) failed, or its JIT check failed ($f, $ul)" >&2; exit 1; }
         done
       done
@@ -309,7 +313,7 @@ case "$SUITE" in
         INF=(--inflight 1,8)
         case "$h2v" in
           h2-batch) UNITS="Cf-retain"; UENV=(AK_RPC_ONLY_DIRS=c,d) ;;
-          stock-pinned) h2=stock; UNITS="A Cf-retain"; asfx=".alloc-pinned"
+          stock-pinned) h2=stock; UNITS="A,Cf-retain"; asfx=".alloc-pinned"
             UENV=(AK_RPC_ONLY_DIRS=c,d AK_RPC_ONLY_K=1 GLIBC_TUNABLES="$PINNED_TUNABLES" AK_CAMPAIGN_ALLOC=pinned) ;;
         esac
       fi
@@ -360,7 +364,11 @@ case "$SUITE" in
             done
             continue
           fi
-          for u in ${UNITS:-$(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units)}; do
+          RU="${UNITS:-$(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units)}"
+          # Core grid (owner, 2026-10-03): the run's units merged into ONE BDN run (every case still
+          # in its own child process, which builds only its case's cell); full keeps one per unit.
+          [ "$AK_CAMPAIGN_GRID" = core ] && RU="$(echo $RU | tr ' ' ',')"
+          for u in $RU; do
             ul="$OUT/rpc-$t-$h2-launch$l$sfx$asfx.$u.bdn.log"
             { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
             env "${UENV[@]}" taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" --unit "$u" --launch "$l" --out "$f" "${BDNARGS[@]}" "${INF[@]}" >> "$ul" 2>&1; rc=$?

@@ -56,7 +56,7 @@ public static class CountRun
             "# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...",
         };
         int n = 0;
-        foreach (var k in Cases.All())
+        foreach (var k in Cases.CountKeys())
         {
             var c = Case.Parse(k);
             if (!c.Arm.StartsWith("core-ffi", StringComparison.Ordinal)) continue;
