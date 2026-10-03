@@ -14,7 +14,7 @@ pyperf's model, mapped onto requirement 23 (run_campaign.sh):
   round    one pyperf value; `--values ROUNDS` (>= 5) per worker process
   process  pyperf spawns a fresh worker per benchmark (`--processes 1` per launch), plus its
            loop-calibration worker; each worker imports the arms, applies the allocator
-           readback and pre-grow (D9 as amended) and is pinned by `--affinity` to AK_CPU_CLIENT
+           readback (D9 as amended) and is pinned by `--affinity` to AK_CPU_CLIENT
 Warm-up and calibration are pyperf's: `--warmups W` values discarded per worker, `loops`
 calibrated to `--min-time` in the calibration worker; both are in the JSON and are exported
 as `phase` "warmup" / "calibration" lines, never dropped.
@@ -30,6 +30,7 @@ cases (camp_codec's builders, with their correctness check) the first time it is
 """
 import gc
 import json
+import resource
 import os
 import sys
 import time
@@ -45,7 +46,7 @@ import camp_meas as _M  # noqa: E402
 # anything is timed (one 16 MiB malloc, mallinfo2's mmapped-block count) and refuses to run if it
 # disagrees with AK_CAMPAIGN_ALLOC or with its GLIBC_TUNABLES (the probe's block is kept). No
 # mallopt: M_TOP_PAD (J26) was removed (owner, 2026-10-03). Before the first timed call the
-# worker pre-grows (camp_meas.pre_grow) with the largest payload of the run (P5.4).
+# worker relies on pyperf's own warm-up; the minor faults of every value are recorded (`minflt`).
 ALLOC_RB = (_M.alloc_check(os.environ.get("AK_CAMPAIGN_ALLOC", "default"))
             if "--worker" in sys.argv else None)
 
@@ -137,25 +138,20 @@ def case(family, pid, content, d, arm, mode):
     return _CASES[key][(content, d, arm, mode)]
 
 
-_GROW = []
-
-
 def time_func(loops, family, pid, content, d, arm, mode, side, name):
     c = case(family, pid, content, d, arm, mode)
-    if not _GROW:
-        import arms
-        size = max(len(arms.reference(p)) for p in arms.PAYLOADS)   # P5.4, the run's largest payload
-        _GROW.append({"size": size, "rounds_last_faults": _M.pre_grow(size)})
     if c.prep:
         c.prep()        # the beyond-cache pool, built and checked outside the timed window (req 11)
     gc.collect()
+    f0 = resource.getrusage(resource.RUSAGE_SELF).ru_minflt       # D9: minor faults of the value
     t0, w0 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     c.fn(loops)
     t1, w1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
+    f1 = resource.getrusage(resource.RUSAGE_SELF).ru_minflt
     cpu = t1 - t0
     with open(os.path.join(side, "side-%d.jsonl" % os.getpid()), "a") as f:
         f.write(json.dumps({"name": name, "loops": loops, "cpu_s": cpu, "wall_s": w1 - w0,
-                            "alloc_readback": ALLOC_RB, "pre_grow": _GROW[0]}) + "\n")
+                            "alloc_readback": ALLOC_RB, "minflt": f1 - f0}) + "\n")
     return cpu
 
 

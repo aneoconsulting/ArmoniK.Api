@@ -1,8 +1,8 @@
-# header of a minimal D9 smoke (codec, P5.4 only; per-sample JSON lines not committed)
+# header of a minimal D9 smoke without pre-grow (codec, P5.4 only; per-sample JSON lines not committed)
 # slice:           python
 # suite:           codec
-# commit:          65947226c DIRTY (smoke only)
-# date:            2026-10-03T10:51:26Z
+# commit:          50d6f130e DIRTY (smoke only)
+# date:            2026-10-03T11:20:07Z
 # snapshot:        none (working tree)
 # cpu_model:       Intel(R) Xeon(R) Processor @ 2.10GHz
 # cpus_online:     4
@@ -22,7 +22,7 @@
 # engine:          pyperf 2.10.0 (CAMPAIGN.md 22a)
 # family:          shapes
 # launch:          1
-# allocator:       AK_CAMPAIGN_ALLOC=pinned (D9 as amended, owner 2026-10-03; `default` = glibc's defaults, the main figures; `pinned` = D9's GLIBC_TUNABLES, the labelled diagnostic); no mallopt (M_TOP_PAD, J26, removed); GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432. Readback in every worker at import (one 16 MiB malloc kept mapped, mallinfo2 hblks): heap. Pre-grow before the first timed call (allocate, touch, free the run's largest payload until one round takes zero minor faults, cap 8), per worker {size, [rounds, last round's faults]}: {"rounds_last_faults": [1, 0], "size": 4194390}; {"rounds_last_faults": [2, 0], "size": 4194390}
+# allocator:       AK_CAMPAIGN_ALLOC=pinned (D9 as amended, owner 2026-10-03; `default` = glibc's defaults, the main figures; `pinned` = D9's GLIBC_TUNABLES, the labelled diagnostic); no mallopt (M_TOP_PAD, J26, removed); GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432. Readback in every worker at import (one 16 MiB malloc kept mapped, mallinfo2 hblks): heap. No pre-grow (removed, owner): pyperf's own warm-up runs the real call path; every sample carries `alloc` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker around the value's loops)
 # h2:              none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels the RPC samples)
 # pyperf_args:     x
 # clock:           pyperf values are CLOCK_PROCESS_CPUTIME_ID per loop (process CPU, req 21 as amended) (the time_func's return); wall (perf_counter) of the same call from the side file
@@ -37,4 +37,5 @@
 # order:           pyperf runs benchmarks one after another (no interleaving): blocks of (payload, content, direction), the arms rotated by one per launch inside a block, the list rotated by a third per launch (req 22)
 # worker_threads:  1: a pyperf worker runs one benchmark in its main thread and starts no other thread; the codec suite uses no gRPC stack and no core runtime (req 4)
 # INSTRUMENTATION: a container smoke run (CAMPAIGN.md requirement 32). No figure below is a result.
-# samples: 231
+# samples: 236
+# values 38 alloc ['pinned'] with minflt 38 of which minflt == 0: 32

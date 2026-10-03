@@ -305,39 +305,37 @@ grid and the codec suite); it is stated here, not changed.
        applies a mallopt: J26's M_TOP_PAD was removed from the codec suite by the owner.
      - `pinned` is the labelled diagnostic under D9's tunables, with files suffixed
        `-allocpinned`.
-   - **Labels:** every sample carries `alloc` (renamed from `allocator` on 2026-10-03, one name in every slice; the earlier smoke logs keep the old name); RPC samples also carry `minflt`.
+   - **Labels:** every sample carries `alloc` (renamed from `allocator` on 2026-10-03, one name in every slice; the earlier smoke logs keep the old name) and `minflt` (RPC and codec).
    - **`allocator.py`** stays as a historical tool. No campaign path calls it. The older
      harnesses that still import it (`bench.py`, `rpc.py`, `gcbias.py`, `concurrency.py`) are
      not timed by the campaign. `rpc_gate.py` (gate 94) imports `rpc.py` for correctness only.
-   - **Every measured process** (RPC and codec pyperf workers) does two things before any
-     timing:
-     - **(1) Readback, at import:** it checks its environment against the label, then makes ONE
+   - **Every measured process** (RPC and codec pyperf workers), before any timing:
+     - **Readback, at import:** it checks its environment against the label, then makes ONE
        16 MiB glibc malloc and reads mallinfo2 hblks before and after. `default` must read
        "mmapped", `pinned` must read "heap". The block is kept mapped and never freed: the Java
        slice found that freeing it raises the dynamic mmap threshold, so the check would change
        the mode it verifies.
-     - **(2) Pre-grow:** it allocates, touches (memset) and frees a block of the run's largest
-       payload until one further round takes zero minor faults, capped at 8 rounds; the cap
-       refuses to run. The RPC run's largest payload is 16 MiB ((d)); the codec run's is P5.4,
-       4,194,390 B.
+     - **No pre-grow (owner, 2026-10-03, reverted).** A pre-grow on one thread cannot reach the
+       malloc arenas of the other threads: C++ found its first benchmark still faulting
+       through the core's worker threads, and the Cf-drop pinned figure here may be the same
+       thing. pyperf's own warm-up runs the real call path on every thread, and the minor
+       faults per value (`minflt`, now on codec samples too) show whether it sufficed.
 
-     A mismatch or the cap exits non-zero with no sample. The readback and the pre-grow are in
-     every header.
-   - **Smoke** (`logs/python/d9-alloc-smoke/`, one value per cell):
+     A mismatch exits non-zero and writes no sample. The readback is in every header.
+   - **Smoke** (`logs/python/d9-alloc-smoke/`, one warm-up and one value per cell):
+     - **RPC, d/16MiB at k = 1, minor faults per call:**
 
-     | run | mode | readback | pre-grow rounds | minor faults per call |
-     |---|---|---|---|---|
-     | RPC d/16MiB, k = 1 | default | mmapped | 3 | A 6, Cf-drop 11 |
-     | RPC d/16MiB, k = 1 | pinned | heap | 2 | A 2, Cf-drop 526 |
-     | codec P5.4, 38 benchmarks | default | mmapped | 1-2 per worker | not recorded |
-     | codec P5.4, 38 benchmarks | pinned | heap | 1-2 per worker | not recorded |
+       | mode | cell | warm-up | value |
+       |---|---|---|---|
+       | default | A | 6,122 | 3 |
+       | default | Cf-drop | 3,086 | 1 |
+       | pinned | A | 3,594 | 3 |
+       | pinned | Cf-drop | 2,062 | 514 |
 
-     Every pre-grow ended on a round with 0 faults.
-   - **Planted refusals:**
-     - the label `pinned` without the tunables;
-     - a readback-only mismatch;
-     - the pre-grow cap, with 64 MiB above glibc's 32 MiB mmap ceiling: 8 rounds, the last
-       still 16,385 faults.
+     - **Codec P5.4:** `minflt` is on all 38 values; 33 of them read 0 (default) and 32
+       (pinned).
+   - **Planted refusals:** the label `pinned` without the tunables; a readback-only mismatch.
+
 8. **Unchanged, and stated:** each benchmark worker builds every cell of its direction key.
    So idle grpcio channels and a core runtime exist in every worker beside the timed cell.
    WP11 item 4 measured this for C++; it is not measured here.
@@ -471,7 +469,7 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 22a | met | pyperf 2.10.0 for both codec and rpc. codec: `--processes 1 --values ROUNDS --warmups 3 --min-time 0.1 --affinity`. rpc (WP9): one invocation per build and group (ab, c, d), `--processes 1 --values ROUNDS --warmups 3 --loops 25 / 8 / 3 --affinity --copy-env`, one batch of k calls in flight per loop (`inner_loops = k`); the hand-written sampler and the codec by-hand loop are removed. Every raw value and warm-up exported by the two exporters, the raw pyperf JSON beside it (the committed smoke has its figures stripped and omits that JSON). What pyperf forces that differs from before: section "The RPC grid on pyperf" |
 | 23 | met | defaults 5 rounds x 3 launches; every sample written (smoke: 1 x 1) |
 | 24 | met | every warm-up a runner parameter, in every header: codec, pyperf's warm-up values and loop calibration (`AK_CAMPAIGN_PYPERF_WARMUPS`, `AK_CAMPAIGN_PYPERF_MIN_TIME`); rpc, pyperf's warm-up values per worker (`AK_CAMPAIGN_RPC_WARMUPS`, 3; smoke 1) and the server warm-up (`AK_CAMPAIGN_SERVER_WARMUP`, 64; smoke 8) |
-| 25 | met | D9 as amended: no mallopt in any suite (M_TOP_PAD removed from the codec suite, owner 2026-10-03); AK_CAMPAIGN_ALLOC=default (main figures, glibc's defaults) or pinned (diagnostic, D9's tunables), `alloc` on every sample, `minflt` on RPC samples; every measured process checks its environment and a mallinfo2 readback of one kept 16 MiB malloc at import, then pre-grows with the run's largest payload until a round takes zero minor faults (cap 8, refuses at the cap), both recorded in every header; GC on, `gc.collect()` before every sample |
+| 25 | met | D9 as amended: no mallopt in any suite (M_TOP_PAD removed from the codec suite); AK_CAMPAIGN_ALLOC=default (main figures, glibc's defaults) or pinned (diagnostic, D9's tunables); `alloc` and `minflt` on every RPC and codec sample; every measured process checks its environment and a mallinfo2 readback of one kept 16 MiB malloc at import and refuses on a mismatch, recorded in every header; no pre-grow (owner, reverted 2026-10-03): pyperf's warm-up runs the real call path on every thread, `minflt` shows whether it sufficed; GC on, `gc.collect()` before every sample |
 | 26 | met | codec, rpc and calib each call `need_gate` and refuse to time without a `gate.ok` for the trees they read (calib added, R-H19); the gate covers every codec arm in both unknown-field modes and the no-unknown build (101) |
 | 27 | met | header: commit (a dirty tree refused unless `--allow-dirty`, smoke only), machine, CPU sets, versions, build, transport, warm-up, repeats |
 | 28 | met | one JSON object per raw measurement with the listed fields; rpc rows carry cell, payload, dir, transport, inflight, build, unknown_mode, send_path (move, copy, framed, grpcio, reference), launch, round, phase (warmup or value), cpu_ns, wall_ns, iters = loops x k |

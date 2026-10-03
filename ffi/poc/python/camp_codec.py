@@ -41,7 +41,7 @@ row is like for like).
 
 Samples: pyperf's (camp_pyperf.py states the clock, the warm-ups, the calibration and the order).
 Allocator: glibc's defaults (D9 as amended, 2026-10-03; M_TOP_PAD, J26, no longer applied); camp_pyperf.py's
-workers read the mode back and pre-grow before timing.
+workers read the mode back before timing (no pre-grow: pyperf's warm-up, owner).
 
 Requirement 11: every iteration serialises the SAME object graph again. Neither upb-python
 nor the facades memoise a serialised size or form per instance, so nothing is amortised;
@@ -59,7 +59,7 @@ AFFINITY = L.pin("AK_CPU_CLIENT")   # before any thread or allocation of note
 
 # D9 as amended (owner, 2026-10-03): the codec suite's main figures run on glibc's default
 # allocator too; J26's M_TOP_PAD (allocator.py) is no longer applied here. The workers' readback
-# and pre-grow (camp_meas, camp_pyperf.py) replace it.
+# (camp_meas, camp_pyperf.py) and pyperf's own warm-up replace it.
 _WARM = None
 
 ARGS = sys.argv[1:]

@@ -1674,3 +1674,22 @@ work, so this is now aligned.
 - Smoke in default mode (`logs/python/d9-alloc-smoke/alloc-rename-check.txt`): RPC c/P5.3 (A,
   C-drop) and codec P1.1 rows all carry `"alloc": "default"`, none carry `allocator`, and
   camp_summary's keys end with the `alloc` value.
+
+### J61. Pre-grow reverted (owner, 2026-10-03)
+
+- The pre-grow is removed from the RPC and codec workers (`camp_meas.pre_grow`) and from the
+  headers. Reason, from the owner: a pre-grow on one thread cannot reach the other threads'
+  malloc arenas. C++ found its first benchmark still faulting through the core's worker
+  threads, and J59's Cf-drop pinned figure (526) may be the same thing. pyperf's own warm-up
+  runs the real call path on every thread, and the per-value `minflt` shows whether it
+  sufficed.
+- Kept: AK_CAMPAIGN_ALLOC, the startup readback (once per process, the block kept mapped,
+  refusal on a mismatch), `alloc` and `minflt` on every sample, and M_TOP_PAD removed. Codec
+  samples now carry `minflt` too (getrusage around the value's loops).
+- Smoke, one warm-up and one value per cell. RPC d/16MiB, k = 1, minor faults per call:
+  - default: A 6,122 at warm-up, 3 at the value; Cf-drop 3,086, then 1;
+  - pinned: A 3,594, then 3; Cf-drop 2,062, then 514.
+
+  After one warm-up, pinned Cf-drop still faults, which is what minflt is there to show. Codec
+  P5.4: 38 values per mode with `minflt`, 33 (default) and 32 (pinned) of them at 0. The
+  planted pre-grow cap log is removed with the pre-grow.
