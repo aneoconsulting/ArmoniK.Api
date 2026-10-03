@@ -106,8 +106,8 @@ def send_path(cell):
 GRID = os.environ.get("AK_CAMPAIGN_GRID", "core")
 CORE_CELLS = ["A", "Bf", "Cf-retain", "Ef-retain"]
 CORE_EXTRAS = ("cells B, C, D, E, F (the reference send path), Cc, the queue and callback deliveries; the drop "
-               "mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the pinned client "
-               "configuration; h2-batch beyond Cf on c and d; the pinned allocator pass beyond A and Cf on c and d at k = 1")
+               "mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the shipped and pinned "
+               "client configurations; h2-batch beyond Cf on c and d; the pinned allocator pass beyond A and Cf on c and d at k = 1")
 
 
 def core_keep(name):
@@ -199,12 +199,24 @@ def setup(name):
     if not nd["to_server"] or nd["nodelay_on"] != nd["to_server"]:
         raise SystemExit("benchmark %s: TCP_NODELAY read back on %d of %d live socket(s) to the server (req 17)"
                          % (name, nd["nodelay_on"], nd["to_server"]))
+    sn = server_nodelay_check(srv, port, "benchmark %s" % name)
     pool = C.Pool(int(k))
-    facts = {"h2": C.arms.H2, "alloc": alloc, "alloc_readback": ALLOC_RB, "glibc_tunables": os.environ.get("GLIBC_TUNABLES"), "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
+    facts = {"server_nodelay": sn, "h2": C.arms.H2, "alloc": alloc, "alloc_readback": ALLOC_RB, "glibc_tunables": os.environ.get("GLIBC_TUNABLES"), "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
              "workers": C.WORKERS, "cpu": M.cpu_facts(), "nodelay_setup": nd}
     _W.update(C=C, fn=fn, k=int(k), keep=keep, pool=pool, u0=C.arms._ffi.unk_totals(),
               t0=C.arms._ffi.tls_created(), port=port, cpus=set(os.sched_getaffinity(0)), facts=facts, first=True)
     return _W
+
+
+def server_nodelay_check(srv, port, who):
+    """CAMPAIGN 4.0 as amended: Nagle off on the server's sockets too, read back on the live sockets
+    before timing (camp_meas.server_nodelay); refuses the run otherwise. Needs the server's pid."""
+    if "pid" not in srv:
+        raise SystemExit("%s: no server pid in --server, the server's TCP_NODELAY cannot be read back" % who)
+    sn = M.server_nodelay(srv["pid"], port)
+    if "error" in sn or not sn["accepted"] or sn["nodelay_on"] != sn["accepted"]:
+        raise SystemExit("%s: server-side TCP_NODELAY read back as %r (req 17 as amended)" % (who, sn))
+    return sn
 
 
 def loaded_core():
@@ -288,6 +300,9 @@ def precheck_main():
                              % (nd["nodelay_on"], nd["to_server"]))
         print("   precheck %s %s %s: TCP_NODELAY read back on %d of %d live sockets to 127.0.0.1:%d"
               % (VARIANT, h2, t, nd["nodelay_on"], nd["to_server"], port))
+        sn = server_nodelay_check(srv, port, "precheck")
+        print("   precheck %s %s %s: server side, TCP_NODELAY read back on %d of %d accepted sockets"
+              % (VARIANT, h2, t, sn["nodelay_on"], sn["accepted"]))
         cell = "Cf-" + ("nounk" if NOUNK else "drop")
         fn = dict(cs["d:16MiB"])[cell]
         fn()
@@ -323,7 +338,8 @@ def main():
         sys.path.insert(0, HERE)
         from camp_rpc_srv import Server
         own = Server(tempfile.mkdtemp(prefix="akrpcpp"), warm=1)
-        socks = "shipped=%s,pinned=%s,tcp=%s" % (own.info["shipped"], own.info["pinned"], own.info["tcp"])
+        socks = "shipped=%s,pinned=%s,tcp=%s,pid=%s" % (own.info["shipped"], own.info["pinned"], own.info["tcp"],
+                                                        own.info["pid"])
         A.extend(["--server", socks])
         # with --only (the controls: named benchmarks), the grid precheck is skipped and each
         # worker's own setup check is what stands before its timed loop, so a planted fault

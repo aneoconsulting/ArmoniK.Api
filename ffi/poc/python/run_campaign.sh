@@ -152,13 +152,13 @@ case "$SUITE" in
     # is running (camp_rpc_pyperf.py --precheck).
     GS="$OUT/gate/rpc-tcp-server"; mkdir -p "$GS"
     SL=$(bash "$AK_SERVE_SH" start --out "$GS") || { echo "   serve.sh start failed: $(tail -2 "$GS/rpc-server.log")"; exit 1; }
-    GSOCKS="shipped=unix:$(echo "$SL" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SL" | sed -n 's/^pinned //p'),tcp=$(echo "$SL" | sed -n 's/^tcp //p')"
+    GSOCKS="shipped=unix:$(echo "$SL" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SL" | sed -n 's/^pinned //p'),tcp=$(echo "$SL" | sed -n 's/^tcp //p'),pid=$(echo "$SL" | sed -n 's/^pid //p')"
     bash "$AK_SERVE_SH" warm 1 > "$GS/warm.out" 2>&1 || { bash "$AK_SERVE_SH" stop >/dev/null; echo "   serve.sh warm failed"; exit 1; }
     for h in stock h2-batch; do
       for v in full nounk; do
         f="$OUT/gate/rpc-tcp-precheck-$v-$h.out"
         echo "== the RPC grid's checks over TCP 127.0.0.1: build $v, h2 $h =="
-        if ! "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$GSOCKS" > "$f" 2>&1; then
+        if ! "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$GSOCKS" --transports shipped,pinned,armonik > "$f" 2>&1; then
           tail -3 "$f"; bash "$AK_SERVE_SH" stop >/dev/null; echo "   RPC TCP CHECK FAILED ($v, $h)"; exit 1
         fi
         grep "write syscalls\|TCP_NODELAY" "$f"
@@ -254,7 +254,10 @@ case "$SUITE" in
     # AK_CAMPAIGN_RPC_TRANSPORTS: the client transports timed (campaign: shipped,pinned, both;
     # a minimal smoke may name one). The server always serves both.
     TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-shipped,pinned}
-    [ "$AK_CAMPAIGN_GRID" = core ] && TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-shipped}
+    # CAMPAIGN 4.0 as amended (b58543f7b): the core grid's one client configuration is `armonik`
+    # (packages/python's create_channel for A; the core's own client configuration for the core
+    # cells); `shipped` and `pinned` stay under AK_CAMPAIGN_GRID=full.
+    [ "$AK_CAMPAIGN_GRID" = core ] && TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-armonik}
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
     discard() {  # discard <launch> <why>
       rm -rf "$OUT"/rpc-launch"$1".* "$OUT"/rpc-nounk-launch"$1".* "$OUT"/rpc-*-launch"$1".*
@@ -304,7 +307,7 @@ case "$SUITE" in
     for l in $(seq 1 "$LAUNCHES"); do
       SL="$OUT/rpc-server-launch$l"; mkdir -p "$SL"
       SLINE=$(bash "$AK_SERVE_SH" start --out "$SL") || { echo "   serve.sh start failed: $(tail -2 "$SL/rpc-server.log")"; exit 1; }
-      SOCKS="shipped=unix:$(echo "$SLINE" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SLINE" | sed -n 's/^pinned //p'),tcp=$(echo "$SLINE" | sed -n 's/^tcp //p')"
+      SOCKS="shipped=unix:$(echo "$SLINE" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SLINE" | sed -n 's/^pinned //p'),tcp=$(echo "$SLINE" | sed -n 's/^tcp //p'),pid=$(echo "$SLINE" | sed -n 's/^pid //p')"
       echo "   launch $l server: the Rust rpc_server, $(echo "$SLINE" | tr '\n' ' '), AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}"
       OK=1
       bash "$AK_SERVE_SH" warm "$AK_CAMPAIGN_SERVER_WARMUP" > "$SL/warm.out" 2>&1 || OK=0

@@ -69,6 +69,7 @@ def main():
     alloc = opt("--alloc", "default")
     rbs = set()
     nd_tot = [0, 0]
+    snd = set()
     for b in suite.get_benchmarks():
         name = b.get_name()
         _, build, transport, d, pid, cell, k = name.split("|")
@@ -92,6 +93,7 @@ def main():
                         if r["facts"].get("h2") != h2:
                             bad.append(name + " (h2 %s, not %s)" % (r["facts"].get("h2"), h2))
                         rbs.add(r["facts"].get("alloc_readback"))
+                        snd.add(json.dumps(r["facts"].get("server_nodelay"), sort_keys=True))
                         if r["facts"].get("alloc") != alloc:
                             bad.append(name + " (alloc %s, not %s)" % (r["facts"].get("alloc"), alloc))
                     nd_tot[0] += r["nodelay"]["nodelay_on"]
@@ -115,11 +117,11 @@ def main():
                grid=("AK_CAMPAIGN_GRID=%s. " % os.environ.get("AK_CAMPAIGN_GRID", "core")) + (
                    "CAMPAIGN section 4.0 (D18): cells A, Bf, Cf-retain, Ef-retain (full build, retain, blocking "
                    "delivery, the core cells on the framed send path) on a+read, b, c/P5.4 and d/16MiB at k = 1 and 8, "
-                   "the shipped client configuration only, stock h2; Cf-retain on h2-batch for c and d at k = 1 and 8; "
+                   "the `armonik` client configuration only (CAMPAIGN 4.0 as amended), stock h2; Cf-retain on h2-batch for c and d at k = 1 and 8; "
                    "the pinned allocator pass: A and Cf-retain on c and d at k = 1. Left out (labelled extras, "
                    "AK_CAMPAIGN_GRID=full): cells B, C, D, E, F (the reference send path), Cc, the queue and callback "
                    "deliveries; drop mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the "
-                   "pinned client configuration; h2-batch beyond Cf on c and d; the pinned allocator pass beyond its "
+                   "shipped and pinned client configurations; h2-batch beyond Cf on c and d; the pinned allocator pass beyond its "
                    "subset" if os.environ.get("AK_CAMPAIGN_GRID", "core") == "core"
                    else "every row of section 4.2; rows outside section 4.0 are labelled extras"),
                server="the Rust slice's tonic rpc_server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa; "
@@ -157,6 +159,13 @@ def main():
                raw_json=os.path.basename(opt("--json")),
                h2="%s (D11 as amended; every sample carries `h2`); the core each worker mapped: %s" % (
                    h2, json.dumps(sorted({json.dumps(f.get("core")) for f in facts.values()}))),
+               client_config=("`armonik` (the core grid, CAMPAIGN 4.0 as amended b58543f7b): grpcio channels made by "
+                              "packages/python's create_channel (src/armonik/common/channel.py, loaded by path) for "
+                              "http://127.0.0.1:PORT, which passes no channel option (grpcio defaults; no authority "
+                              "override, not needed over TCP); core cells: ak_client_new with no options (the core's "
+                              "client configuration: tonic Endpoint defaults, tcp_nodelay true). " if "armonik" in opt(
+                                  "--pyperf-args", "") else "") + "Server-side TCP_NODELAY read back in every worker "
+                             "before timing (pidfd_getfd on the server's accepted sockets): %s" % "; ".join(sorted(snd)),
                transport_net="TCP 127.0.0.1 for every cell (WP13, D10, req 17 as amended): every client configuration "
                              "dials the shared server's TCP listener, which runs the PINNED server configuration only, so "
                              "`shipped` and `pinned` differ on the client side only (grpcio channel options; core client "

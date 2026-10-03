@@ -184,3 +184,42 @@ def alloc_check(mode):
         raise SystemExit("allocator: AK_CAMPAIGN_ALLOC=%s but a 16 MiB malloc came from the %s (want %s)"
                          % (mode, "heap" if rb == "heap" else "mmap path", want))
     return rb
+
+
+def server_nodelay(pid, port):
+    """TCP_NODELAY on the SERVER's accepted sockets of the TCP listener `port`, read back on the
+    live sockets from this process (CAMPAIGN 4.0 as amended: Nagle off on every client and server
+    socket, read back before timing): each of the server's socket fds is duplicated here with
+    pidfd_getfd (Linux 5.6+, same user) and getsockopt'd. Returns {"accepted": n, "nodelay_on": m}
+    or {"error": "..."} when the kernel refuses the duplication."""
+    out = {"accepted": 0, "nodelay_on": 0}
+    try:
+        pfd = _libc.syscall(434, int(pid), 0)                    # pidfd_open
+        if pfd < 0:
+            return {"error": "pidfd_open: " + os.strerror(ctypes.get_errno())}
+        for name in os.listdir("/proc/%d/fd" % int(pid)):
+            try:
+                if not os.readlink("/proc/%d/fd/%s" % (int(pid), name)).startswith("socket:"):
+                    continue
+            except OSError:
+                continue
+            fd = _libc.syscall(438, pfd, int(name), 0)          # pidfd_getfd
+            if fd < 0:
+                os.close(pfd)
+                return {"error": "pidfd_getfd: " + os.strerror(ctypes.get_errno())}
+            s = socket.socket(fileno=fd)
+            try:
+                if s.family in (socket.AF_INET, socket.AF_INET6) and s.type == socket.SOCK_STREAM \
+                        and s.getsockname()[1] == port:
+                    try:
+                        s.getpeername()
+                    except OSError:
+                        continue                                  # the listening socket
+                    out["accepted"] += 1
+                    out["nodelay_on"] += s.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY) != 0
+            finally:
+                s.close()
+        os.close(pfd)
+    except OSError as e:
+        return {"error": str(e)}
+    return out

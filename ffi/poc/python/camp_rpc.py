@@ -156,6 +156,28 @@ def runtime():
     return RT[0]
 
 
+# CAMPAIGN 4.0 as amended (b58543f7b, owner): the core grid's ONE client configuration,
+# `armonik`. grpcio channels are made by packages/python's own create_channel
+# (src/armonik/common/channel.py, loaded from the repository by path, read only): for an http
+# URI it is grpc.insecure_channel(endpoint, options=None), no option at all. Over TCP no
+# authority override is needed (the default :authority is "127.0.0.1:PORT", which the server's
+# h2 accepts; the override was for unix: targets). The core cells keep the core's own client
+# configuration: ak_client_new with no options (tonic's Endpoint defaults; tcp_nodelay true).
+_AK_CHANNEL = []
+
+
+def armonik_create_channel():
+    if not _AK_CHANNEL:
+        import importlib.util
+        path = os.path.normpath(os.path.join(HERE, "..", "..", "..", "packages", "python", "src", "armonik",
+                                             "common", "channel.py"))
+        spec = importlib.util.spec_from_file_location("armonik_common_channel", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _AK_CHANNEL.extend([mod.create_channel, path])
+    return _AK_CHANNEL[0]
+
+
 def grpc_target(target):
     """grpcio's form of a server address: `127.0.0.1:PORT` over TCP (WP13, D10), or `unix:...`."""
     return target
@@ -172,7 +194,7 @@ def core_client(target, transport):
     default); pinned: ak_client_opts with tcp_nagle 0 (Nagle off). Both read back on the live
     socket by the worker (camp_meas.nodelay_summary)."""
     target = core_target(target)
-    if transport == "shipped":
+    if transport in ("shipped", "armonik"):
         return arms._ffi.client_new(runtime(), target)        # tonic's defaults: the core ships no pin
     # ak_client_opts: stream and connection windows 4 MiB, adaptive OFF, limits raised,
     # Nagle OFF (0; no effect on a Unix socket, stated).
@@ -193,7 +215,10 @@ def cells(target, transport, keys=None):
 
     def chan(cell):
         if cell not in chans:
-            chans[cell] = grpc.insecure_channel(grpc_target(target), options=grpc_options(transport))
+            if transport == "armonik":
+                chans[cell] = armonik_create_channel()("http://" + grpc_target(target))
+            else:
+                chans[cell] = grpc.insecure_channel(grpc_target(target), options=grpc_options(transport))
         return chans[cell]
 
     def cli(cell):
