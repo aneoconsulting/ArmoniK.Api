@@ -70,8 +70,13 @@ pub const D_INFLIGHT: &[usize] = &[1, 8];
 pub const WIN: u32 = 4 * 1024 * 1024;
 /// Worker threads of every tokio runtime the client makes (cells A, D, F), and of the
 /// core's runtime (`ak_runtime_new`, cells B, C, E). Recorded in every header (req 4).
-pub const TOKIO_WORKERS: usize = 2;
-pub const CORE_WORKERS: u32 = 2;
+/// D14 (owner, 2026-10-03): every pool is AK_WORKERS workers, default 8 (the threads of a set).
+pub const TOKIO_WORKERS: usize = 8;
+pub const CORE_WORKERS: u32 = 8;
+/// `AK_WORKERS` (campaign.machine via campaign.sh), else 8: the default of every pool.
+pub fn workers_default() -> usize {
+    std::env::var("AK_WORKERS").ok().and_then(|v| v.parse().ok()).filter(|n| *n >= 1).unwrap_or(TOKIO_WORKERS)
+}
 
 /// The runtime probe (container instrumentation, 2026-09-28): the host runtime's workers
 /// (`AK_HOST_WORKERS`: N >= 1 workers of a multi-thread runtime, `ct` a current-thread
@@ -80,7 +85,7 @@ pub const CORE_WORKERS: u32 = 2;
 pub fn host_workers() -> Option<usize> {
     static W: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
     *W.get_or_init(|| match std::env::var("AK_HOST_WORKERS").ok().as_deref() {
-        None | Some("") => Some(TOKIO_WORKERS),
+        None | Some("") => Some(workers_default()),
         Some("ct") => None,
         Some(v) => Some(v.parse().ok().filter(|n| *n >= 1).expect("AK_HOST_WORKERS: N >= 1 or ct")),
     })
@@ -88,7 +93,7 @@ pub fn host_workers() -> Option<usize> {
 pub fn core_workers() -> u32 {
     static W: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
     *W.get_or_init(|| match std::env::var("AK_CORE_WORKERS").ok().as_deref() {
-        None | Some("") => CORE_WORKERS,
+        None | Some("") => workers_default() as u32,
         Some(v) => v.parse().ok().filter(|n| *n >= 1).expect("AK_CORE_WORKERS: N >= 1"),
     })
 }

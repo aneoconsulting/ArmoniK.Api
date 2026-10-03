@@ -13,7 +13,7 @@
 //!
 //! The ready file is written once every socket is bound: `<config> <path>` per line, and
 //! `tcp 127.0.0.1:<port>` when --tcp is given.
-//! Worker threads: AK_SERVER_THREADS (default 4, the campaign's SERVER set size), one tokio
+//! Worker threads: AK_SERVER_THREADS (default AK_WORKERS, else 8: D14), one tokio
 //! multi-thread runtime shared by both sockets; recorded in its log.
 
 fn main() {
@@ -37,7 +37,9 @@ fn main() {
         socks.push((arg("--socket").expect("--socket"), pinned));
     }
     let bytes = campaign::server::p22_response();
-    let threads: usize = std::env::var("AK_SERVER_THREADS").ok().and_then(|v| v.parse().ok()).unwrap_or(4);
+    // D14: AK_SERVER_THREADS, else AK_WORKERS, else 8.
+    let threads: usize = std::env::var("AK_SERVER_THREADS").ok().and_then(|v| v.parse().ok())
+        .unwrap_or_else(campaign::grid::workers_default);
     let rt = tokio::runtime::Builder::new_multi_thread().worker_threads(threads).enable_all().build().unwrap();
     let n = bytes.len();
     let (tx, rx) = std::sync::mpsc::channel::<()>();

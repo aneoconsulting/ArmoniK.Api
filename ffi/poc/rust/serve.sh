@@ -14,7 +14,8 @@
 #                                  tonic client and from the core's client, on BOTH sockets
 #   serve.sh stop                  stop it and remove its socket directory
 #
-# Environment: AK_CPU_SERVER (taskset list), AK_SERVER_THREADS (tokio workers, default 4),
+# Environment: AK_CPU_SERVER (taskset list), AK_SERVER_THREADS (tokio workers, default
+# AK_WORKERS, else 8: D14),
 # AK_SERVE_STATE (default ${TMPDIR:-/tmp}/ak-rpc-server.state), AK_SERVER_TCP (unset = Unix
 # sockets only; a port, 0 = any free port: also a TCP listener on 127.0.0.1 with the pinned
 # configuration and TCP_NODELAY; start prints and the state file holds `tcp 127.0.0.1:PORT`;
@@ -47,7 +48,7 @@ case "$cmd" in
     S1="$D/shipped.sock"; S2="$D/pinned.sock"; RF="$D/ready"
     PIN=(); [ -n "${AK_CPU_SERVER:-}" ] && PIN=(taskset -c "$AK_CPU_SERVER")
     TCP=(); [ -n "${AK_SERVER_TCP:-}" ] && TCP=(--tcp "$AK_SERVER_TCP")
-    AK_SERVER_THREADS=${AK_SERVER_THREADS:-4} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" "${TCP[@]}" \
+    AK_SERVER_THREADS=${AK_SERVER_THREADS:-${AK_WORKERS:-8}} "${PIN[@]}" "$SRV" --socket-shipped "$S1" --socket-pinned "$S2" "${TCP[@]}" \
       --ready-file "$RF" > /dev/null 2> "$OUT/rpc-server.log" < /dev/null &
     SP=$!
     for _ in $(seq 200); do [ -s "$RF" ] && break; kill -0 $SP 2>/dev/null || break; sleep 0.05; done

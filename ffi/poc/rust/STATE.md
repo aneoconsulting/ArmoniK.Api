@@ -585,6 +585,11 @@ each binary loads the core of its variant. Latest smoke run: `logs/rust/campaign
 c8e8694eb (every suite; figures stripped).
 Every figure in both is instrumentation.
 
+**D14 (owner, 2026-10-03): every pool is AK_WORKERS workers, default 8.** The server
+(AK_SERVER_THREADS), the core runtime (AK_CORE_WORKERS) and the tokio client runtimes
+(AK_HOST_WORKERS) default to AK_WORKERS, else 8 (grid.rs, rpc_server, run_campaign.sh,
+serve.sh); every header states them. Minimal smoke: `logs/rust/d14/`.
+
 **FIX-PLAN WP10 (CAMPAIGN req 13 as amended at 9f6d579fa): the one RPC server of every
 slice.** `serve.sh build | start --out DIR | warm N | stop` runs one `rpc_server` process per
 launch, pinned to AK_CPU_SERVER, on two Unix sockets (shipped and pinned server

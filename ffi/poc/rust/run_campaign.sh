@@ -14,7 +14,8 @@
 #   AK_ONLY         codec: comma-separated input id prefixes (narrows a launch)
 #   AK_LLC_BYTES    codec: the last-level cache in bytes (default 14417920, the i9-7900X's 13.75 MiB)
 #   AK_POOL_BYTES   codec: requirement 11's pool input (default 2 x AK_LLC_BYTES; smoke 1 MiB)
-#   AK_SERVER_THREADS  rpc: the server's tokio workers (default 4, the SERVER set size)
+#   AK_WORKERS      every pool's workers (D14; default 8): AK_SERVER_THREADS, AK_CORE_WORKERS and
+#                   AK_HOST_WORKERS default to it
 #   AK_RPC_TRANSPORTS / AK_RPC_BUILDS  rpc: narrow a (smoke) run, default "shipped pinned" /
 #                   "full nounk"
 #   Warm-ups and measurement (requirement 24; campaign default / smoke default; criterion's
@@ -89,7 +90,7 @@ header() {  # header SUITE [VARIANT]
   echo "# turbo      intel_pstate/no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) cpufreq/boost=$(sysf /sys/devices/system/cpu/cpufreq/boost)"
   echo "# isolation  cmdline: $(tr ' ' '\n' < /proc/cmdline | grep -E '^(isolcpus|nohz_full|rcu_nocbs)=' | tr '\n' ' ' || true)cgroup: $(sysf /sys/fs/cgroup/cpuset.cpus.effective)"
   echo "# cpu sets   CLIENT=${AK_CPU_CLIENT:-unset} SERVER=${AK_CPU_SERVER:-unset} OS=the rest; set size ${AK_SET_SIZE:-unset} (ffi/campaign.machine ${AK_MACHINE_NAME:-not read})"
-  echo "# threads    codec: 1 measuring thread; rpc client: tokio ${AK_HOST_WORKERS:-2} workers per A/D/F and -cb cell runtime (AK_HOST_WORKERS; ct = current-thread), ak_runtime_new(${AK_CORE_WORKERS:-2}) per B/C/E client (AK_CORE_WORKERS), k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-4} workers (AK_SERVER_THREADS); calib: 1 thread"
+  echo "# threads    D14: AK_WORKERS=${AK_WORKERS:-8} sizes every pool unless overridden; codec: 1 measuring thread; rpc client: tokio ${AK_HOST_WORKERS:-${AK_WORKERS:-8}} workers per A/D/F and -cb cell runtime (AK_HOST_WORKERS; ct = current-thread), ak_runtime_new(${AK_CORE_WORKERS:-${AK_WORKERS:-8}}) per B/C/E client (AK_CORE_WORKERS), k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-${AK_WORKERS:-8}} workers (AK_SERVER_THREADS); calib: 1 thread"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
@@ -219,7 +220,10 @@ case "$SUITE" in
       RWARM=${AK_RPC_WARMUP_MS:-500}; RMEAS=${AK_RPC_MEASURE_MS:-2000}; SWARM=${AK_RPC_SERVER_WARMUP:-64}
     fi
     RSAMP=${AK_RPC_SAMPLES:-10}
-    export AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}
+    # D14 (owner, 2026-10-03): every pool is AK_WORKERS workers (campaign.machine via
+    # campaign.sh), default 8: the server, the core runtime and the tokio client runtimes.
+    export AK_WORKERS=${AK_WORKERS:-8}
+    export AK_SERVER_THREADS=${AK_SERVER_THREADS:-$AK_WORKERS} AK_CORE_WORKERS=${AK_CORE_WORKERS:-$AK_WORKERS} AK_HOST_WORKERS=${AK_HOST_WORKERS:-$AK_WORKERS}
     # Requirement 13 as amended (R-H33, and 9f6d579fa / FIX-PLAN WP10): ONE server process per
     # launch, THE server of every slice (poc/rust/serve.sh, interface SERVER.md), serving both
     # configurations on two Unix sockets (requirement 17) and every cell of BOTH builds. The

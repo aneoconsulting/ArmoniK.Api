@@ -24,7 +24,7 @@ poc/rust/serve.sh stop
 - Log: `DIR/rpc-server.log` (one line per socket: configuration, path, P2.2 size, workers,
   receive limit, pid). State: `$AK_SERVE_STATE` (default `${TMPDIR:-/tmp}/ak-rpc-server.state`).
 - `AK_SERVER_THREADS`: the tokio multi-thread runtime's worker count, shared by both sockets
-  (default 4, the campaign's SERVER set size). Stated in the log.
+  (default `AK_WORKERS`, else 8: owner decision D14, 2026-10-03). Stated in the log.
 - `serve.sh warm N`: on each socket, N checked Fetch (a), Push (b) and Upload (c) calls and
   ceil(N/4) UploadStream (d, 4 MiB) calls, from a tonic client with prost and from the core's
   client with prost. Exit 3 on the first failed check.

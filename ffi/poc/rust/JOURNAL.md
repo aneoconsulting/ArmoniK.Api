@@ -4190,3 +4190,13 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
 - RPC (TCP, k = 1): c/P5.4 and d/16MiB work on every cell through the backward core; client CPU per call
   inside the round spread of the committed core (Cf d/16MiB 11.04 vs 11.63 ms medians, ranges overlapping).
 - Committed tooling: codec_suite AK_CASE_* filters (defaults unchanged), gen/bwd_*.sh, gen/bwd_tables.py.
+
+## 2026-10-03 -- D14: every pool is AK_WORKERS workers, default 8
+
+- Checked: the server (AK_SERVER_THREADS, default 4), the core runtime (AK_CORE_WORKERS,
+  default 2) and the tokio client runtimes (AK_HOST_WORKERS, default 2) did NOT follow
+  AK_WORKERS. Changed: all three default to AK_WORKERS, else 8, in the code (grid.rs
+  workers_default, rpc_server), in run_campaign.sh (which exports them from AK_WORKERS) and
+  in serve.sh; the runner header, the RPC header and the server log state the values.
+  SERVER.md's default updated (the interface is otherwise unchanged). Minimal smoke
+  (logs/rust/d14/): server 8 workers, client mt8, ak_runtime_new(8).
