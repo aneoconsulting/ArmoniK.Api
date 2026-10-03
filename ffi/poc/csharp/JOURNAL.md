@@ -2286,3 +2286,33 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
 - Result: ~26 h per allocator pass (codec ~17.4 h, RPC ~8.1 h, calib and server warm-ups
   ~0.35 h), ~52 h for both passes, plus the two gates once (~0.75 h). Table in STATE. All
   container figures, for sizing only.
+
+## 71. D18: the campaign grid (CAMPAIGN 4.0), and transport `armonik` (4.0 as amended b58543f7b)
+
+- `AK_CAMPAIGN_GRID=core|full`, runner default core; the processes read it (unset = full, so
+  the gate and every count file stay on the full grid). Codec core: 3 units in the full build
+  and 2 in the no-unknown build, 49 cases each (17 encode-transport-hot, 18 decode-read, 7 U-*
+  rows x 2). The U-* rows' encode at end state (ii) had no row before: byte identity of its
+  frame is now checked in Cases.Verify (all arms, both builds), and the counting build over the
+  core grid gives 42 rows identical to the gated count files and 7 new rows per build equal to
+  the gated encode-hot rows of the same U-* rows (`logs/csharp/wp13-core-grid-counts/`). Those
+  7 rows per build are not in the gate's committed files (open for the aggregating session).
+- RPC core: A, Bf, Cf-retain, Ef-retain; the framed cells have no a+read (empty request), so
+  their unit runs the reference cell's a+read beside them under its own name (B, C-retain,
+  E-retain), whose crossing counts are already gated. h2-batch Cf-retain on c and d; the pinned
+  allocator subset A and Cf-retain on c and d at k = 1, GLIBC_TUNABLES for those processes only.
+- Transport `armonik` (owner addendum): cell A calls packages/csharp's
+  GrpcChannelFactory.CreateChannel directly, built from `git archive HEAD packages/csharp
+  Protos` into this slice (dotnet --artifacts-path; nothing under packages/ written, checked
+  with git status). Observed: DisableDynamicWindowSizing not set (this slice used to set it in
+  every process; now only for shipped/pinned); the system proxy bypasses loopback; TCP_NODELAY
+  on by SocketsHttpHandler's default; SO_KEEPALIVE and SO_REUSEPORT 0 on the live socket (the
+  ServicePoint settings do not reach .NET 8's handler); one HTTP/2 connection at k = 1 and 8.
+  Readback after each case added (tcp_sockets_after and the three options on the first row).
+- First smoke attempt at 3fd5702 was stopped by me when the addendum arrived (its rpc part would
+  have used `shipped`); the smoke at ebbf1f6 from a fresh worktree: both gates passed (30
+  controls each), codec 245 rows, rpc 40 rows, 0 failed. The background job reported exit 1
+  after both suites had written rc=0 (the wrapper's last command; not a suite failure).
+- Estimate (STATE): ~75 to 90 min timed for the core grid, plus ~45 min of gates; BDN's project
+  build ~20 percent overall, ~40 percent of the RPC suite; fewer, larger BDN runs would save
+  ~9.5 min without changing per-case isolation (not done).

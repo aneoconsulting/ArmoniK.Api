@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -92,19 +92,21 @@ src/HarnessFloor/           net48, compile only (the binding; the host half is c
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
 
-## Gate (WP13): clean checkout, one per h2 variant
+## Gate (D18): clean checkout, one per h2 variant
 
-`logs/csharp/wp13-gate-stock.log` and `logs/csharp/wp13-gate-h2-batch.log`: **GATE PASSED** for
-each, at commit `ea02da5`, run by `run_campaign.sh --suite rpc --smoke` from a fresh worktree
-(one gate per variant, in the same tree, as the campaign runs them); net8.0 and net6.0, both
-builds; 0 step failures; 30 planted controls failing as required in each (WP10's 29 plus the
-Nagle-on control). The core is `ffi/poc/codec` at `59a96f8` (p1, the spare ring); the gate's
-RPC steps run over TCP against the shared server's listener (`AK_SERVER_TCP=0`), the upload
-check reading TCP_NODELAY back on 33 of 33 (full) and 17 of 17 (no-unknown) sockets; in the
-h2-batch gate every transport core placed is a `-h2b` build (the gate log names the h2 in
-each). Earlier the same day at `2f9ce48`: stock passed, h2-batch FAILED on a second gate in
-one tree (`wp13-gate-h2-batch-FAILED-2f9ce48.log`: the net48 floor build compiled the counting
-builds' generated Shapes.cs; fixed in `ea02da5`, JOURNAL 65). Before WP13: `wp10b-gate.log`.
+`logs/csharp/wp13-core-gate-stock.log` and `wp13-core-gate-h2-batch.log`: **GATE PASSED** for
+each at `ebbf1f6`, run by the runner from a fresh worktree (one gate per variant in one tree);
+net8.0 and net6.0, both builds; 30 planted controls failing as required in each. The gate runs
+with AK_CAMPAIGN_GRID unset, so it checks the full grid; `gen/build_core.sh` now also builds
+ArmoniK.Api.Client and ArmoniK.Api.Common from packages/csharp at HEAD (cell A's channel).
+Before D18: `wp13-gate-stock.log`, `wp13-gate-h2-batch.log` at `ea02da5`.
+
+**Smoke, core grid** (`logs/csharp/campaign/wp13-core-smoke/`, stripped; grouped switch on, the
+smoke default; container instrumentation): codec, 5 units, 245 rows, 0 failed; rpc over the
+`armonik` configuration: stock 4 units, 32 rows (A, Bf + B a+read, Cf-retain + C-retain a+read,
+Ef-retain + E-retain a+read at k = 1 and 8), h2-batch Cf-retain 4 rows, pinned A and Cf-retain
+4 rows (`alloc: pinned`), 0 failed; A: one socket to the server after every case, TCP_NODELAY
+on, SO_KEEPALIVE and SO_REUSEPORT 0.
 
 ## WP13 (FIX-PLAN, 2026-10-03)
 
@@ -173,7 +175,7 @@ itself does not specify.
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the core-ffi host half has no net48 form (needs delegate thunks rooted for the vtable's lifetime) |
 | D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
-| D45 | `src/Rpc/RpcBench.cs` unit header | the per-unit `# build ...` line still says "the server's pinned socket" and "Unix socket tcp:127.0.0.1:PORT (req 17: UDS)" over TCP; the `# network` line beside it is right. Wording only, out of scope (JOURNAL 65), not fixed |
+| D45 | (closed, D18) | the per-unit `# build ...` header line said "Unix socket ... (req 17: UDS)" over TCP; rewritten with the transport line in ebbf1f6 |
 
 ## Campaign readiness (design/CAMPAIGN.md at 3210f28; section 10 checklist)
 
@@ -284,35 +286,70 @@ one unit of 336 cases at the default BDN job (10 warm-up, 5 x 100 ms) ran 17 to 
 WP7 roughly triples the encode cases (four variants, U-* encode) and adds pool setups; the
 campaign's codec suite is correspondingly longer.
 
-## Campaign duration estimate (2026-10-03, computed, nothing run)
+## Campaign grid (D18, CAMPAIGN section 4.0 as amended b58543f7b)
 
-Campaign defaults, BDN's per-case child processes, both allocator passes. Per-case times are
-container figures used only for sizing (JOURNAL 70): RPC from `logs/csharp/wp13-req24-warmup-count.log`'s
-run (7 cases, 24.9 s run time, 16.1 s of iterations: about 1.25 s per case for child start
-and setup; BDN's project build 26.7 s per unit process); codec from `bdn-default-job-unit/`
-(336 cases in 17 to 18 min in-process at 10 warm-up and 5 x 100 ms, about 3.1 s per case) plus
-the same 1.25 s child overhead (not measured for the codec suite).
+`AK_CAMPAIGN_GRID=core|full` (runner default `core`; the processes read it, unset = full, so
+the gate, which the runner runs with it unset, checks the full grid unchanged).
+- **codec, core:** units incumbent-prod:default, core-ffi:retain, host-gen:retain (full build)
+  and core-ffi:no-unknown, host-gen:no-unknown (no-unknown build); directions
+  encode-transport-hot (end state ii, one hot graph) and decode-read; the 16 shapes (P7.1
+  decode only), Latin-1 and wide on P2.2 only; the 7 named U-* rows, encode-transport-hot and
+  decode-read. 49 cases per unit, 245 per launch (+2 primes per unit). The U-* rows'
+  transport form is new: its byte identity is checked before timing in every process
+  (Cases.Verify, all arms, both builds), and its crossing counts were taken with the counting
+  build (`logs/csharp/wp13-core-grid-counts/`: 49 core-ffi cases per build, 42 identical to
+  the gated `gen/counts*.txt` rows, the 7 new U-* transport rows equal to their gated
+  encode-hot rows); those 7 rows per build are not in the gate's committed count files.
+- **rpc, core:** units A, Bf, Cf-retain, Ef-retain (full build), a+read and b (P2.2), c at
+  P5.4, d at 16 MiB, k = 1 and 8 (8 cases per unit). The framed cells' a+read is the
+  reference cell's (B, C-retain, E-retain; a has an empty request, so the send path is the
+  same), run in the framed cell's process under its own name. Plus Cf-retain on h2-batch for c
+  and d at k = 1 and 8 (4 cases), and the pinned-allocator subset, A and Cf-retain on c and d
+  at k = 1 (4 cases, GLIBC_TUNABLES pinned for those processes only, files `.alloc-pinned`).
+  `AK_RPC_ONLY_DIRS` / `AK_RPC_ONLY_K` narrow a process; the runner sets them.
+- **transport, core: `armonik`.** Cell A's channel is ArmoniK's: packages/csharp
+  `GrpcChannelFactory.CreateChannel(new GrpcClient { Endpoint })`, called directly, every other
+  option at its package default (HttpClientHandler in its logging DelegatingHandler, retry
+  ServiceConfig 5 attempts 1 s / 5 s / 1.5 on Unavailable, Aborted, Unknown, DisposeHttpClient,
+  ServicePoint settings, Grpc.Net's default message limits: receive 4 MiB). The assemblies are
+  built from `git archive HEAD packages/csharp Protos` by `gen/build_core.sh` into
+  `target-armonik-client/` (nothing written under packages/). The process-wide
+  `Http2FlowControl.DisableDynamicWindowSizing` is NOT set under `armonik` (it is the worker
+  channel provider's). Observed in the container: the system proxy bypasses the loopback
+  endpoint; Nagle is off on A's socket by SocketsHttpHandler's own default; SO_KEEPALIVE and
+  SO_REUSEPORT are 0 on the live socket (ArmoniK's ServicePoint settings do not reach .NET 8's
+  SocketsHttpHandler); one HTTP/2 connection per cell at k = 1 and 8. The core cells keep the
+  core's `shipped` client configuration (windows at the stack's defaults, adaptive off,
+  tcp_nagle 0). Every case's first row: tcp_sockets_after, tcp_nodelay_after,
+  so_keepalive_after, so_reuseport_after. The req-18 controls run on `shipped` (the Nagle plant
+  reaches Grpc.Net's socket there).
+- **full:** today's grid, with `shipped` and `pinned`, every extra.
 
-| Item | Count per pass | Per item | Per allocator pass |
-|---|---|---|---|
-| codec, full build, per launch | 7 units, 2,908 cases (incumbent-prod 500, incumbent-best 364, host-gen and core-ffi retain/drop 500 each, core-ffi-pull 44) + 2 primes per unit | ~4.3 s per case (3.1 + 1.25), 27 s build per unit | 3.5 h per launch |
-| codec, no-unknown build, per launch | 5 units, 1,908 cases | same | 2.3 h per launch |
-| codec suite, 3 launches (net8.0 only; stock h2; no transport) | 14,448 cases | | ~17.4 h (14.5 to 19 h for 3.6 to 4.6 s per case) |
-| RPC, one launch x transport x h2: full client | 21 units, 283 cases (10 cells x 17, 7 x 11, 4 x 9) | fast case ~2.8 s; d/16 MiB at k = 8 ~11 s (BDN's 4-invocation floor: 4 batches of 8 x 16 MiB per iteration, ~0.58 s each, 16 iterations); 27 s build per unit | ~27 min |
-| RPC, same: no-unknown client | 10 units, 146 cases (6 x 17, 4 x 11) | same | ~14 min |
-| RPC grid: 3 launches x 2 transports x 2 h2 variants | 5,148 cases, 372 unit processes | | ~8.1 h (6.5 to 10 h), + server start and 2,000-call warm per launch ~0.1 h |
-| calib | 3 launches | a few minutes each (not timed here) | ~0.25 h |
-| **one allocator pass** | | | **~26 h (21 to 30 h)** |
-| gates (stock and h2-batch, once; reused by the second pass if the content is identical) | 2 | ~21.5 min each (wp13 gates) | ~0.75 h once |
-| **both passes (default + pinned diagnostic)** | | | **~52 h (43 to 60 h)** |
+## Campaign duration estimate, core grid (2026-10-03, computed, nothing run)
 
-The three largest contributors, per pass: (1) the codec suite's U-* rows: 92 rows x 3 or 4
-directions x every arm and both builds, 3,496 of the 4,816 codec cases per launch, ~12.6 h;
-(2) the per-case child process (start, setup, BDN's own stages outside the timed iterations),
-~1.25 s x 19,596 cases, ~6.8 h, plus BDN's project build per unit process (~27 s x 408 units,
-~3 h); (3) the RPC grid's multiplicity (3 launches x 2 transports x 2 h2 variants = 12 copies of
-429 cases), ~8.1 h, of which the c and d cases at k = 8 (BDN's 4-invocation floor at 2 to 16 MiB
-per call) are about a quarter. The pinned allocator pass doubles all of it.
+BDN's per-case child processes at the campaign defaults (3 launches, 5 rounds, 10 warm-up
+iterations of 100 ms). Container figures, for sizing only: RPC per case from
+`wp13-req24-warmup-count.log` (about 1.25 s per case of child start and setup; a fast case
+about 2.8 s; c at P5.4, k = 8 about 4.2 s; d at 16 MiB, k = 8 about 11 s at BDN's
+4-invocation floor; BDN's project build 26.7 s per unit process); codec 3.25 to 4.35 s per case
+(2.0 to 3.1 s of BDN stages, hot inputs only, plus the 1.25 s child overhead).
+
+| Item | Per launch | 3 launches |
+|---|---|---|
+| codec: 5 units, 245 cases + 10 primes | 255 x 3.25 to 4.35 s + 5 x 27 s build: 16 to 21 min | 48 to 62 min |
+| rpc: 4 stock units x 8 cases, Cf h2-batch 4 cases, pinned A + Cf 4 cases: 40 cases, 7 unit processes | ~161 s of cases + 7 x 27 s build + server start and 2,000-call warm (~2 min): ~8 min | ~24 min |
+| calib | < 1 min | ~3 min |
+| **timed total** | | **~75 to 90 min** |
+| gates (stock and h2-batch, before the run; reused while the content is unchanged) | | ~45 min |
+
+**BDN's project build** (item 6 of D18): 12 unit processes per launch x ~27 s = ~5.4 min per
+launch, ~16 min of the ~80, about 20 percent overall and about 40 percent of the RPC suite
+(189 of ~480 s per launch). Fewer, larger units would cut it without changing the isolation
+per case: under the default toolchain every case already runs in its own child process
+whatever the unit, so one BDN run per codec build and per RPC run (stock, h2-batch, pinned)
+would build 5 projects per launch instead of 12, ~9.5 min less over 3 launches. Not done:
+the RPC child would have to take its cell from the case key instead of the unit (a small
+change in RpcCtx), and the unit order (req 22) would become a case order inside one run.
 
 ## What is not measured or not established
 
@@ -350,6 +387,8 @@ per call) are about a quarter. The pinned allocator pass doubles all of it.
 
 | Log | What it establishes |
 |---|---|
+| `wp13-core-grid-counts/` | the counting build over the core codec grid, both builds (see Campaign grid) |
+| `campaign/wp13-core-smoke/`, `wp13-core-gate-stock.log`, `wp13-core-gate-h2-batch.log` | the core-grid smoke through the runner from a clean worktree at `ebbf1f6`, and its two gates |
 | `wp13-req24-warmup-count.log` | BDN's stage counts per case at the campaign warm-up, child mode, C-drop at k = 8 (req 24 as amended) |
 | `wp13-alloc-probe-smoke/` | after the pre-grow's revert: C-drop per mode (grouped), Bf under the default toolchain (pinned, each child its own probe), a codec unit (default) |
 | `wp13-pregrow-smoke/` | the glibc pre-grow, since reverted (JOURNAL 67, 68) |
