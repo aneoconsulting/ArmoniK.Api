@@ -258,11 +258,60 @@ def counts_only():
                 core = m.core_counters("enc" if direction == "encode" else "dec")
                 abirows.append((vid, direction, mode, "C ext type", abi["calls"], abi["resets"],
                                 core["grows"], core["forward"], core["reverse"]))
+    # CAMPAIGN 4.0 (D18): every TIMED core-grid row has gated counts. The rows above cover encode
+    # and decode on ASCII content; these add, from the codec suite's own case builder (the timed
+    # code path, camp_codec), the core grid's rows: core-ffi and host-gen in this build's timed
+    # mode (retain, or no-unknown), encode (hot input, transport-ready end state) and decode+read,
+    # on the 16 shapes ASCII, P2.2 Latin-1 and wide, and the 7 named U-* rows. host-gen makes no
+    # ABI call by construction; its rows gate that it stays zero.
+    abirows += core_grid_rows(m)
     print("\n## every ABI call per call (req 19): calls, resets among them, core grows, core fwd/rev")
     for pid, direction, mode, bk, calls, resets, grows, fwd, rev in abirows:
         print("   abi %-26s %-7s %-10s %-22s calls %6d resets %3d grows %4d fwd %6d rev %6d"
               % (pid, direction, mode, bk, calls, resets, grows, fwd, rev))
     return 0
+
+
+CORE_U = ["U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+          "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
+          "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5"]
+
+
+def core_grid_rows(m):
+    """The core grid's timed codec rows (CAMPAIGN 4.0) through camp_codec's cases, counted per call
+    after one warm call. Labels: `<pid>/<content>` (or the U-* id), direction `encode` or
+    `dec+read`, mode, backend `core-ffi` or `host-gen`."""
+    if arms.NOUNK_VARIANT:
+        os.environ["AK_VARIANT"] = "nounk"
+    import camp_codec as CC
+
+    class Quiet:
+        def note(self, s):
+            pass
+    want_mode = "no-unknown" if arms.NOUNK_VARIANT else "retain"
+    out = []
+    for fam, ids in (("shapes", list(arms.PAYLOADS)), ("unknown", CORE_U)):
+        for pid in ids:
+            build = CC.shapes_cases if fam == "shapes" else CC.unknown_cases
+            cases, gates = build(Quiet(), only=pid)
+            if gates:
+                raise SystemExit("core-grid counts: the case gate failed: %s" % gates[:2])
+            for c in cases:
+                if c.arm not in ("core-ffi", "host-gen") or c.mode != want_mode or c.dir not in ("encode", "decode+read"):
+                    continue
+                if fam == "shapes" and not (c.content == "ascii" or c.payload == "P2.2"):
+                    continue
+                if c.prep:
+                    c.prep()
+                c.fn(1)
+                m.reset_counts()
+                c.fn(1)
+                abi = m.abi_counts()
+                core = m.core_counters("enc" if c.dir == "encode" else "dec")
+                label = "%s/%s" % (pid, c.content) if fam == "shapes" else pid
+                out.append((label, "encode" if c.dir == "encode" else "dec+read", c.mode, c.arm,
+                            abi["calls"], abi["resets"], core["grows"], core["forward"], core["reverse"]))
+    return out
 
 
 def oneof_refusals():
