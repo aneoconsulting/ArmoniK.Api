@@ -701,6 +701,36 @@ ABI); D35 (recursive messages: refused from the C ABI by owner decision, ABI-v1;
 on core-native only, a scope limit listed below); D38, D39, D40 (fixed by their slices,
 FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --check`).
 
+## Campaign duration estimate (2026-10-03, computed, no benchmark run; container-sized)
+
+Defaults: 3 launches; codec warm-up 500 ms + measurement 2000 ms; RPC warm-up 1500 ms (a, a+read, b) or 5000 ms (c, d) + 2000 ms; 100,000 criterion resamples; 2 transports; no h2 variant in this runner.
+- Criterion's warm-up stops after the doubling step that crosses the setting, so it really takes 1x to 2x the setting (1.5x used).
+- The measurement is max(2 s, 10 x one iteration), the 10-samples x 1-iteration floor. That floor only matters for d/16MiB at k = 8 (~2.0-2.3 s).
+- Analysis is ~45 ms per benchmark: the d9 codec smoke ran 48 benchmarks in 3 s with a 15 ms budget each.
+- Pool cases rebuild a 2 x LLC pool, ~50 ms each.
+
+Benchmarks per process:
+- codec: full build 5,116 (counted, AK_PRECHECK_ONLY); no-unknown ~3,200 (derived: 30 cases per input against 48).
+- rpc: cells x 17 (9 a/a+read/b at k 1/8/16, 4 c, 4 d). Full: 29 cells = 493 (261 short, 232 long). No-unknown: 17 cells = 289 (153 short, 136 long).
+
+| part | per launch | x3 launches = one allocator pass |
+|---|---|---|
+| codec full (5,116 x ~2.8 s + ~85 s pools + ~90 s startup/precheck) | ~4.0 h (3.6-4.4) | ~12.0 h |
+| codec no-unknown (~3,200 x ~2.8 s + ~2 min) | ~2.5 h (2.3-2.7) | ~7.5 h |
+| rpc full, 2 transports (261 x ~4.3 s + 232 x ~9.65 s, each) | ~1.9 h (1.4-2.3) | ~5.6 h |
+| rpc no-unknown, 2 transports (153 x ~4.3 s + 136 x ~9.65 s, each) | ~1.1 h (0.8-1.3) | ~3.3 h |
+| rpc plants (52 short processes, once per run), server start/warm, process startups | ~0.05 h | ~0.1 h |
+| calib (20M iterations x 5 rounds x 2 arms + perf) and crossing checks | < 0.05 h | ~0.1 h |
+| **one allocator pass** | | **~29 h (25-32)** |
+| **both passes (default + pinned at the same grid)** | | **~57 h (50-64)** |
+
+- Not included: the gate and the release builds, once per tree (not per pass), ~0.5-1 h, estimated, no timed log.
+- Largest contributors, per pass:
+  1. codec measurement, 8,316 benchmarks x 2 s x 3 = ~13.9 h;
+  2. codec warm-up, 8,316 x ~0.75 s x 3 = ~5.2 h;
+  3. RPC c/d warm-up, 368 x 2 transports x 3 x ~7.5 s = ~4.6 h.
+- Container figures for the per-iteration times. The machine's own will differ, but the totals are dominated by fixed criterion times, not by call costs.
+
 ## What is not measured
 
 - **The backward-encode experiment's gaps**: listed in `logs/rust/opt/patches/backward-encode/README.md` (pool inputs, decode, the 2x2 on order-dependent payloads, the P6.1 attribution, the floor and the campaign machine on the patched tree).
