@@ -81,13 +81,13 @@ def main():
                             bad.append(name + " (h2 %s, not %s)" % (r["facts"].get("h2"), h2))
                         rbs.add(r["facts"].get("alloc_readback"))
                         grows.add(json.dumps(r["facts"].get("pre_grow"), sort_keys=True))
-                        if r["facts"].get("allocator") != alloc:
-                            bad.append(name + " (allocator %s, not %s)" % (r["facts"].get("allocator"), alloc))
+                        if r["facts"].get("alloc") != alloc:
+                            bad.append(name + " (alloc %s, not %s)" % (r["facts"].get("alloc"), alloc))
                     nd_tot[0] += r["nodelay"]["nodelay_on"]
                     nd_tot[1] += r["nodelay"]["to_server"]
                     q = r["client_cpus_irq"]
                     log.sample(cell=cell, payload=pid, dir=d, transport=transport, inflight=int(k),
-                               unknown_mode=unknown_mode(cell), send_path=send_path(cell), h2=h2, allocator=alloc,
+                               unknown_mode=unknown_mode(cell), send_path=send_path(cell), h2=h2, alloc=alloc,
                                minflt=r["minflt"],
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(r["task_clock_s"] * 1e9)),
@@ -161,7 +161,7 @@ def main():
                          "every worker (one 16 MiB malloc at startup, kept mapped; mallinfo2 hblks before and after): %s. Pre-grow "
                          "before any timing (allocate, touch, free 16 MiB until one round takes zero minor faults, cap 8), "
                          "per worker {size, [rounds, last round's faults]}: %s. Every "
-                         "sample carries `allocator` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker "
+                         "sample carries `alloc` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker "
                          "process around the same batches; per call = minflt / iters)"
                          % (alloc, "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432",
                             os.environ.get("GLIBC_TUNABLES") or "unset", ", ".join(sorted(map(str, rbs))), "; ".join(sorted(grows))))

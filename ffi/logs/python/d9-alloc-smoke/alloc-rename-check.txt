@@ -1,0 +1,6 @@
+# the per-sample field rename allocator -> alloc (owner, 2026-10-03): a default-mode smoke, RPC c/P5.3 (A, C-drop) and codec P1.1, dev tree before the commit; figures not recorded
+codec-shapes-launch1.jsonl: 507 rows with "alloc", 0 with "allocator"
+rpc-c-launch1.jsonl: 4 rows with "alloc", 0 with "allocator"
+camp_summary.py: exit 0; group and base keys end with the alloc value:
+  codec group key ('full', 'core-ffi', 'P1.1', 'ascii', 'decode', 'drop', None, None, 'none', 'default') | base key ('full', 'P1.1', 'ascii', 'encode', 'default')
+  rpc group key ('full', 'A', 'P5.3', None, 'c', 'incumbent-default', 'pinned', 1, 'stock', 'default') | base key ('full', 'pinned', 'c', 'P5.3', 1, 'stock', 'default')

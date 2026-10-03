@@ -47,7 +47,7 @@ def build_of(r):
 def group_key(suite, r):
     who = "cell" if suite == "rpc" else "arm"
     return (build_of(r), r.get(who), r.get("payload"), r.get("content"), r.get("dir"),
-            r.get("unknown_mode"), r.get("transport"), r.get("inflight"), r.get("h2"), r.get("allocator"))
+            r.get("unknown_mode"), r.get("transport"), r.get("inflight"), r.get("h2"), r.get("alloc"))
 
 
 def base_key(suite, r):
@@ -56,10 +56,10 @@ def base_key(suite, r):
     or 16MiB, so without the payload two uploads would share one baseline median). The launch
     is added by the caller."""
     if suite == "codec":
-        return (build_of(r), r.get("payload"), r.get("content"), r.get("dir"), r.get("allocator"))
+        return (build_of(r), r.get("payload"), r.get("content"), r.get("dir"), r.get("alloc"))
     # WP13: the h2 variant too (each variant is its own pyperf invocation with its own cell A)
     return (build_of(r), r.get("transport"), r.get("dir"), r.get("payload"), r.get("inflight"), r.get("h2"),
-            r.get("allocator"))
+            r.get("alloc"))
 
 
 def is_base(suite, r):

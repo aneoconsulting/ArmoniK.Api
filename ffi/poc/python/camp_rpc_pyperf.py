@@ -172,7 +172,7 @@ def setup(name):
     # D9 as amended: pre-grow before any timing, with the RPC run's largest payload ((d) 16 MiB)
     grow = {"size": 16 << 20, "rounds_last_faults": M.pre_grow(16 << 20)}
     pool = C.Pool(int(k))
-    facts = {"h2": C.arms.H2, "allocator": alloc, "alloc_readback": ALLOC_RB, "pre_grow": grow, "glibc_tunables": os.environ.get("GLIBC_TUNABLES"), "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
+    facts = {"h2": C.arms.H2, "alloc": alloc, "alloc_readback": ALLOC_RB, "pre_grow": grow, "glibc_tunables": os.environ.get("GLIBC_TUNABLES"), "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
              "workers": C.WORKERS, "cpu": M.cpu_facts(), "nodelay_setup": nd}
     _W.update(C=C, fn=fn, k=int(k), keep=keep, pool=pool, u0=C.arms._ffi.unk_totals(),
               t0=C.arms._ffi.tls_created(), port=port, cpus=set(os.sched_getaffinity(0)), facts=facts, first=True)

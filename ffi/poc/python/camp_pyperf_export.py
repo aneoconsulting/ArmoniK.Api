@@ -66,7 +66,7 @@ def main():
                     if phase == "value":
                         rnd += 1
                     inp, end = ENC.get(d, (None, None))
-                    log.sample(arm=arm, h2="none", allocator=os.environ.get("AK_CAMPAIGN_ALLOC", "default"), payload=pid, content=content, dir=d, unknown_mode=mode,
+                    log.sample(arm=arm, h2="none", alloc=os.environ.get("AK_CAMPAIGN_ALLOC", "default"), payload=pid, content=content, dir=d, unknown_mode=mode,
                                input=inp, end_state=end,
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(v * loops * 1e9)),

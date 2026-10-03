@@ -1662,3 +1662,15 @@ work, so this is now aligned.
   pre-grow ran. One value is instrumentation, not a comparison.
 - The codec header's allocator string described the pinned run as "glibc's default allocator".
   It was caught on the smoke and fixed before commit.
+
+### J60. `allocator` renamed `alloc` (owner, 2026-10-03)
+
+- The per-sample field is now `alloc`, the name CAMPAIGN req 25 uses and the other slices
+  use. The change covers the RPC and codec exporters, the workers' facts and label check,
+  camp_summary's group and base keys, the RPC header's description of the field, and STATE.
+  The header line itself is still called `allocator`.
+- Committed logs keep the old name (`logs/python/d9-alloc-smoke/*header.txt` from J58 and J59;
+  the campaign smoke from WP13 predates the field).
+- Smoke in default mode (`logs/python/d9-alloc-smoke/alloc-rename-check.txt`): RPC c/P5.3 (A,
+  C-drop) and codec P1.1 rows all carry `"alloc": "default"`, none carry `allocator`, and
+  camp_summary's keys end with the `alloc` value.
