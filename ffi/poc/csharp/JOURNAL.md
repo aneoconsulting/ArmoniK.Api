@@ -2273,3 +2273,16 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
   run in the shared scratchpad (their serve.state appeared in it, and my server's state file
   disappeared). I stopped my own server by its pid (18183, the one started with --tcp 0 at my
   start time) through a rebuilt state file, and did not touch theirs (18772).
+
+## 70. Campaign duration estimate (computed, no benchmark run)
+
+- Inputs: the req-24 check's BDN log (C-drop at k = 8, child mode, 10 x 100 ms warm-up, 1
+  round): run time 24.9 s for 7 cases, of which 16.1 s are BDN iterations, so ~1.25 s per case
+  for child start and setup; BDN's generated-project build 26.7 s per unit process; d/16 MiB at
+  k = 8 runs 4 invocations (BDN's floor) of ~0.145 s per iteration. Codec: 336 cases in 17 to
+  18 min in-process at the default job (`bdn-default-job-unit/`, before WP7), ~3.1 s per case;
+  the codec child overhead is taken equal to the RPC one (not measured). Case counts from
+  Cases.All() (22 payload-content sets, 92 U-* rows) and the units listed by both builds.
+- Result: ~26 h per allocator pass (codec ~17.4 h, RPC ~8.1 h, calib and server warm-ups
+  ~0.35 h), ~52 h for both passes, plus the two gates once (~0.75 h). Table in STATE. All
+  container figures, for sizing only.

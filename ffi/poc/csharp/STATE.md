@@ -284,6 +284,36 @@ one unit of 336 cases at the default BDN job (10 warm-up, 5 x 100 ms) ran 17 to 
 WP7 roughly triples the encode cases (four variants, U-* encode) and adds pool setups; the
 campaign's codec suite is correspondingly longer.
 
+## Campaign duration estimate (2026-10-03, computed, nothing run)
+
+Campaign defaults, BDN's per-case child processes, both allocator passes. Per-case times are
+container figures used only for sizing (JOURNAL 70): RPC from `logs/csharp/wp13-req24-warmup-count.log`'s
+run (7 cases, 24.9 s run time, 16.1 s of iterations: about 1.25 s per case for child start
+and setup; BDN's project build 26.7 s per unit process); codec from `bdn-default-job-unit/`
+(336 cases in 17 to 18 min in-process at 10 warm-up and 5 x 100 ms, about 3.1 s per case) plus
+the same 1.25 s child overhead (not measured for the codec suite).
+
+| Item | Count per pass | Per item | Per allocator pass |
+|---|---|---|---|
+| codec, full build, per launch | 7 units, 2,908 cases (incumbent-prod 500, incumbent-best 364, host-gen and core-ffi retain/drop 500 each, core-ffi-pull 44) + 2 primes per unit | ~4.3 s per case (3.1 + 1.25), 27 s build per unit | 3.5 h per launch |
+| codec, no-unknown build, per launch | 5 units, 1,908 cases | same | 2.3 h per launch |
+| codec suite, 3 launches (net8.0 only; stock h2; no transport) | 14,448 cases | | ~17.4 h (14.5 to 19 h for 3.6 to 4.6 s per case) |
+| RPC, one launch x transport x h2: full client | 21 units, 283 cases (10 cells x 17, 7 x 11, 4 x 9) | fast case ~2.8 s; d/16 MiB at k = 8 ~11 s (BDN's 4-invocation floor: 4 batches of 8 x 16 MiB per iteration, ~0.58 s each, 16 iterations); 27 s build per unit | ~27 min |
+| RPC, same: no-unknown client | 10 units, 146 cases (6 x 17, 4 x 11) | same | ~14 min |
+| RPC grid: 3 launches x 2 transports x 2 h2 variants | 5,148 cases, 372 unit processes | | ~8.1 h (6.5 to 10 h), + server start and 2,000-call warm per launch ~0.1 h |
+| calib | 3 launches | a few minutes each (not timed here) | ~0.25 h |
+| **one allocator pass** | | | **~26 h (21 to 30 h)** |
+| gates (stock and h2-batch, once; reused by the second pass if the content is identical) | 2 | ~21.5 min each (wp13 gates) | ~0.75 h once |
+| **both passes (default + pinned diagnostic)** | | | **~52 h (43 to 60 h)** |
+
+The three largest contributors, per pass: (1) the codec suite's U-* rows: 92 rows x 3 or 4
+directions x every arm and both builds, 3,496 of the 4,816 codec cases per launch, ~12.6 h;
+(2) the per-case child process (start, setup, BDN's own stages outside the timed iterations),
+~1.25 s x 19,596 cases, ~6.8 h, plus BDN's project build per unit process (~27 s x 408 units,
+~3 h); (3) the RPC grid's multiplicity (3 launches x 2 transports x 2 h2 variants = 12 copies of
+429 cases), ~8.1 h, of which the c and d cases at k = 8 (BDN's 4-invocation floor at 2 to 16 MiB
+per call) are about a quarter. The pinned allocator pass doubles all of it.
+
 ## What is not measured or not established
 
 - **No timing in this slice is a result.** Every figure is container instrumentation.
