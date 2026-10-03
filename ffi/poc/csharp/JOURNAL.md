@@ -2253,3 +2253,23 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
   mmapped) and pinned (heap), 17 cases each, 0 failed; Bf under the default toolchain, pinned,
   5 children each probing heap, 10 rows; codec core-ffi:retain, default, 156 rows, 0 failed.
   Every row has `minflt`, none a pre-grow field. No gate (owner).
+
+## 69. Req 24 as amended (8c02e7c58): >= 20 calls per calling thread before the first measured value
+
+- Checked against the campaign defaults (10 warm-up iterations, 100 ms), BDN child mode, C-drop
+  at k = 8 (`logs/csharp/wp13-req24-warmup-count.log`, stage and op counts only). d/16 MiB at
+  k = 8: jitting 1 invocation (8 calls), pilot 1 iteration of 4 invocations, warm-up 10 x 4
+  invocations: 1 + 4 + 40 = 45 calls per caller thread. One invocation is k calls, one on each
+  of the k caller threads (CallerPool.Run, n = k), and BDN never runs fewer than 4 invocations
+  per iteration (its minimum invoke count: the pilot started at 4 even where one invocation
+  exceeded the iteration time), so the warm-up alone gives every caller thread >= 40 on any
+  machine. The caller threads are created in the case's process (the first GlobalSetup builds
+  the context) before BDN's first stage and kept: same process, same threads.
+- Met, default unchanged. Added the `# warm-up/thread` header line per unit (it states the
+  bound from the run's warm-up count and flags a setting below 20). Async cells (A, D, F,
+  callback/queue extras): >= 40 calls per async loop on the fixed pool of AK_WORKERS threads, but
+  which pool thread runs a call is not controlled; stated, not changed.
+- Housekeeping: my scratch dir for this check was named `w24` and collided with another agent's
+  run in the shared scratchpad (their serve.state appeared in it, and my server's state file
+  disappeared). I stopped my own server by its pid (18183, the one started with --tcp 0 at my
+  start time) through a rebuilt state file, and did not touch theirs (18772).
