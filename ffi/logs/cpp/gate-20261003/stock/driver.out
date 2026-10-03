@@ -1,0 +1,8 @@
+[2026-10-03T16:13:35Z] wp12_gates.sh stock, steps: build wp5 campaign
+[2026-10-03T16:13:35Z] build: Google Benchmark
+[2026-10-03T16:14:38Z] build: configure
+[2026-10-03T16:15:01Z] build: every target (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-03T17:11:34Z] build: the wp5_gate build directory ./build (cmake -DAK_RPC=ON, every target; flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-03T17:29:54Z] build: serve.sh build (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-03T17:32:32Z] header.txt written
+[2026-10-03T17:48:23Z] done: wp5 exit=0 census=0 campaign exit=0 census=0 

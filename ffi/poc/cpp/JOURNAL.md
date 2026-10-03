@@ -2332,3 +2332,11 @@ changes.
   (0 for B, C, E and their -q forms, 1 for the framed ones) since de2defc9e (2026-09-30). From e8fe14868 (2026-09-28,
   framed became the core's default) to de2defc9e the reference rows ran framed (physical-probe runs of that window).
   No fix needed now.
+
+## 2026-10-03: full gate, both variants (`WP12_STEPS="build wp5 campaign"`)
+
+- stock at 730a75f0d: exit 0, 94 min (77 of it the build). wp5 0 failed steps, campaign gate 0 FAIL, core census ok.
+- h2-batch at 730a75f0d: wp5 and campaign exit 0 but the core census FAILED: `counts_grid` / `counts_grid_nounk` were run without `cs_env` and loaded the stock camp-count cores. Fixed in 506a6623a (wp5_gate.sh, run_campaign.sh call through `cs_env`).
+- h2-batch at 506a6623a: exit 0, 28 min, census ok. The stock build was reused; 730a75f0d..506a6623a touches only those two scripts and poc/rust.
+- Both: 530 count rows equal to counts-baseline, 49 + 49 core-grid rows equal, and the RPC plants (length, abort-after, c-len/d-sha/d-count) abort as required.
+- Logs: logs/cpp/gate-20261003/{stock,h2-batch,h2-batch-first}/, RESULT.txt. wp5-*.log at logs/cpp/ refreshed from the stock pass.

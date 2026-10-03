@@ -1,0 +1,109 @@
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+# {"build": {"core_features": "init-guard", "core_profile": "cargo --release", "cxx_flags": "-O2 -g -DNDEBUG -std=c++17", "dir": "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/cpp-gwt/ffi/poc/cpp/build-campaign", "linkage": "shared (libak_core.so)", "lto": "off", "std": "c++17 (target)"}, "commit": "506a6623a146d7423de51919b38171454415ab77", "dirty": false, "dirty_files": [], "grid": {"codec_core": "16 shapes (P7.1 decode only), ascii; latin1 and wide on P2.2; 7 U rows (U-nested-before, U-deep-u-repeated, U-oneof-u-repeated, U-wire-ListTaskSummaryResponse-tasks-as-wt5, U-wire-UploadResultDataMessage-upload-as-wt5, U-wire-ListMetricsResponse-batches-as-wt0, U-wire-DualResponse-left-as-wt5); arms incumbent-prod (full build only), core-ffi (push), host-gen; encode end=transport input=hot, decode_read; retain (full build), no-unknown (no-unknown build)", "extras_left_out": "codec: incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, end=reused and input=pool encodes, drop mode, content sets on P1.2 and P2.4 and the extra payloads, the other 85 U rows; rpc: cells B, C, D, E, F and their -q / p twins, the non-framed references, direction a, k = 16, P5.3, d 4 MiB, the no-unknown client, the shipped and pinned transports, h2-batch on other rows, the pinned allocator pass beyond its subset; the second grpc++ version (AK_INCUMBENT_PREFIX)", "grpcpp_versions": "one, the machine's (the second, ArmoniK's v1.54.0 through AK_INCUMBENT_PREFIX, is an extra)", "mode": "core", "rpc_core": "cells A, Bf, Cf-retain, Ef-retain (full build; B, C, E blocking on the framed path, A grpc++ sync); a+read and b (P2.2), c (P5.4), d (16 MiB); k = 1 and 8; transport armonik only (cell A: packages/cpp getChannelArguments with ControlPlane defaults, replicated, retry service config included; core cells: ak_client_new defaults; Nagle off read back on the live sockets, Unix sockets have none; server: the shared Rust server's TCP 127.0.0.1 listener (serve.sh AK_SERVER_TCP=0: the pinned server configuration, TCP_NODELAY on accept); TCP 127.0.0.1 for every client (D10): at least one TCP socket required, TCP_NODELAY read back on every live client socket and, through pidfd_getfd, every connected server socket, a socket with Nagle on refusing the run); stock h2, plus Cf-retain on the h2-batch core for c and d at k = 1 and 8 (h2=h2-batch); pinned allocator pass: A and Cf-retain, c and d, k = 1", "rule": "D18, CAMPAIGN section 4.0 (AK_CAMPAIGN_GRID=core|full; every sample carries grid=core|extra)"}, "instrumentation": false, "launch": 0, "machine": {"boost": null, "cpu_client": "0,1", "cpu_model": "Intel(R) Xeon(R) Processor @ 2.80GHz", "cpu_server": "2,3", "cpus_online": "0-3", "governor": "unavailable", "isolated": "", "isolation_cmdline": [], "kernel": "Linux 6.18.44-fc-v64 x86_64", "no_turbo": null, "nproc": "4", "runner_cpuset": "0-3", "smt_active": "0"}, "malloc": {"diagnostic": "pinned (AK_CAMPAIGN_ALLOC=pinned): GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432 on the measured client processes, files alloc-pinned-*", "main_figures": "default: glibc's default allocator, as production (req. 25, D9 amended 2026-10-03)", "minor_faults": "every sample: ru_minflt per repetition and per call (RPC minflt_per_call) or per operation (codec minflt_per_op)", "mode": "default", "server": "never pinned", "this_run_glibc_tunables": "none"}, "ran": {"builds": "both", "transports": "armonik"}, "repeats": {"launches": 3, "rounds": 5}, "sample": {"calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round", "calib_iters": 100000000, "codec_clock": "Google Benchmark v1.8.3 (344117638c8f, Release, built by the runner): cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "codec_min_time_s_per_repetition": 0.5, "codec_pool_bytes": 28835840, "llc_bytes": 14417920, "rpc_clock": "Google Benchmark (the same build, WP9): cpu_time = process CPU per repetition (MeasureProcessCPUTime), real_time = wall (UseRealTime); one iteration = a batch of k calls in flight; repetitions randomly interleaved across the benchmarks of one client process", "rpc_min_time_s_per_repetition": 1.0}, "slice": "cpp", "smoke": false, "suite": "gate", "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)", "rpc_client": "D14: the core's runtime workers = AK_WORKERS (8); caller threads = the in-flight level (1, 8, 16: one blocking call each, req. 15/16, so this is not a worker pool), created before any benchmark; grpc-core (grpc++'s A, D, F) has no public setting for its pollers or EventEngine threads: it sizes itself from sysconf(_SC_NPROCESSORS_CONF) (EventEngine Clamp(n, 4, 16)), recorded with the thread classes in each client header, not set to AK_WORKERS", "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log", "rpc_server_threads": "the shared tokio server's runtime: AK_SERVER_THREADS = AK_WORKERS (8)", "workers": 8}, "transport": {"pinned": "grpc++: 4 MiB stream window, BDP off (no connection-window argument exists, C31); core: 4 MiB stream and connection windows, adaptive off, Nagle off; both, and the server: 8 MiB max message, send and receive (D44: covers P5.4, 4,194,390 B); core shipped: tonic defaults (receive 4 MiB, send unlimited), enforced", "shipped": "grpc++: keepalive 30 s, max idle 5 min, local subchannel pool (packages/cpp getChannelArguments; its retry service config not applied); core: ak_client_new defaults"}, "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop", "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"}, "versions": {"cxx": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0", "grpcpp": "1.51.1", "incumbent_prefix": "system", "protobuf_pkgconfig": "3.21.12", "protoc": "libprotoc 3.21.12", "rustc": "rustc 1.94.1 (e408947bf 2026-03-25)"}, "warmup": {"allocator": "every benchmark runs the framework's warm-up before its first repetition", "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s_a_b": 1.5, "rpc_min_warmup_time_s_c_d": 2.5, "rpc_server_calls": 200}, "codec_google_benchmark_min_warmup_time_s_per_benchmark": 0.5, "rpc_google_benchmark_min_warmup_time_s_a_b": 1.5, "rpc_google_benchmark_min_warmup_time_s_c_d": 2.5, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": 200, "rpc_warmup_rule": "req. 24 as amended (8c02e7c58): >= 20 calls per calling thread at the cell's payload before its first measured value, same process, same threads. Google Benchmark's warm-up runs before a benchmark's first repetition on the same k pre-created caller threads as the measurement (one call per thread per iteration) and stops on wall time (UseRealTime) once one attempt alone lasts its MinWarmUpTime, so calls per thread >= warm-up / batch wall. c, d: 2.5 s against the slowest c/d batch measured on the campaign machine, d/16MiB k=8 C-retain, 79 ms (logs/cpp/opt/physical-probe/main/tables.md): >= 31; c/P5.4 k=8 there 21 to 77 ms: >= 32. a, a+read, b: 1.5 s against the slowest a/b batch of one small container run (a+read k=16 Bf-q, 61 ms; the probe tables have no a/b rows; a container over-estimates the campaign machine): >= 24; the earlier 0.5 s gave about 8. The smoke's 0.01 s meets neither and is not a campaign figure", "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s_a_b": 0.01, "rpc_min_warmup_time_s_c_d": 0.01, "rpc_server_calls": 20}}}
+===== build: generate, configure, build every target (D39) =====
+guard 5 shared C++ backend modules import plans only; slice glue imports no IR; a planted IR import is caught
+>>> ok: build
+===== conformance: byte identity on the payload set, every level and linkage =====
+  conformance_a17_shared: 608 checks, 0 failures, 1 payloads with two valid encodings
+  conformance_b17_shared: 608 checks, 0 failures, 1 payloads with two valid encodings
+  conformance_c14_shared: 608 checks, 0 failures, 1 payloads with two valid encodings
+  conformance_c11_shared: 608 checks, 0 failures, 1 payloads with two valid encodings
+  conformance_a17_static: 608 checks, 0 failures, 1 payloads with two valid encodings
+  control noinit: failed as required
+===== the full corpus, four arms (drop and retain), target and floor =====
+  ## ffi-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## native-drop
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## native-retain
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## ffi-pull-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-pull-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  CORPUS PASSES on every built arm
+  ## ffi-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## native-drop
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## native-retain
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+  ## ffi-pull-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  ## ffi-pull-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+  CORPUS PASSES on every built arm
+  control proj: failed as required
+  control reenc: failed as required
+  control accept: failed as required
+  control noinit (corpus): failed as required
+===== crossing counts (requirement 19): the counting core against the committed counts =====
+  530 count rows identical to logs/cpp/counts-baseline.log
+  49 core-grid count rows identical to logs/cpp/counts-grid.log
+  49 core-grid count rows identical to logs/cpp/counts-grid-nounk.log
+===== WP5 step 10: the no-unknown build (gen/nounk_gate.sh -> logs/cpp/wp5s10-nounk.log) =====
+    conformance_nounk_a17 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
+    conformance_nounk_c11 -> core-build/target-nounk/release/libak_core.so : u-family exports 0
+    corpus_nounk_a17 -> core-build/target-corpus-nounk/release/libak_core.so : u-family exports 0
+    corpus_nounk_c11 -> core-build/target-corpus-nounk/release/libak_core.so : u-family exports 0
+    counts_nounk -> core-build/target-count-nounk/release/libak_core.so : u-family exports 0
+    campaign_codec_nounk -> core-build/target-camp-nounk-h2batch/release/libak_core.so : u-family exports 0
+    campaign_rpc_nounk -> core-build/target-camp-nounk-h2batch/release/libak_core.so : u-family exports 0
+    (full) conformance_a17_shared -> core-build/target/release/libak_core.so : u-family exports 21
+    (full) corpus_all_a17 -> core-build/target-corpus/release/libak_core.so : u-family exports 70
+    (full) campaign_codec -> core-build/target-camp-h2batch/release/libak_core.so : u-family exports 21
+    (full) campaign_rpc -> core-build/target-camp-h2batch/release/libak_core.so : u-family exports 21
+  >>> ok: every variant binary resolves a no-unknown core, every full one a full core
+  >>> ok: c_variant
+  >>> ok: conformance_nounk_a17
+  >>> ok: conformance_nounk_c11
+  >>> ok: conformance_nounk_static
+  >>> ok: corpus corpus_nounk_a17
+  >>> ok: corpus corpus_nounk_c11
+  >>> ok: C++17 = C++11 outcomes
+  >>> ok: control proj failed as required
+  >>> ok: control reenc failed as required
+  >>> ok: control accept failed as required
+  >>> ok: control noinit failed as required
+  >>> ok: the dropped-form check fails on a retaining arm (seen failing)
+  >>> ok: 301 rows identical to counts-nounk-baseline.log
+  nounk_gate: 0 failure(s)
+===== the codec campaign binary's own gate, and its planted control =====
+  # {"malloc_check": {"ak_campaign_alloc": "default", "glibc_tunables": "", "malloc_16mib": "mmapped", "hblks_before": 0, "hblks_after": 1, "ok": true}}
+  # {"campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}}
+  # {"campaign_codec": {"launch": 0, "rounds": 0, "min_time_s_per_repetition": 0.500, "min_warmup_time_s_per_benchmark": 0.500, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall; iterations chosen by the framework (--benchmark_min_time), warm-up the framework's (--benchmark_min_warmup_time, before a benchmark's first repetition)", "pool_bytes": 28835840, "core_encode_fill": "sparse (decision 9: encode_into_*_zeroed, encode_into_*_unk_zeroed)", "host_gen_utf8": "ak_utf8_check (HG-3: the core's own check, simdutf8::basic, one forward call per non-empty string decoded)", "harness": "H-1: input=pool walks the pool (a cursor per slot, one graph per iteration across calls), one pool alive at a time, kept across consecutive calls of its slot; H-7: incumbent-best encodes with ByteSizeLong + SerializeWithCachedSizesToArray into a reused growing buffer, decodes with ParseFromArray; incumbent-arena (payloads only, labelled) decodes on a fresh Arena per decode with a reused 256 KiB first block; H-8: from=bytebuffer decode rows (payloads only, labelled) for core-ffi and host-gen, the ByteBuffer path of cells D and F; H-9: one run(iterations) call per repetition (KeepRunningBatch)", "threads": {"process_threads_at_start": 4, "measuring_threads": 1, "note": "the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls"}}}
+  # {"campaign_codec_grid": {"grid": "core", "core_benchmarks": 147, "all_benchmarks": 4436, "core": "CAMPAIGN 4.0: incumbent-prod (full build), core-ffi push, host-gen; encode end=transport input=hot, decode_read; retain (full) / no-unknown (no-unknown build); 16 shapes ascii, P2.2 latin1 and wide, 7 U rows", "extras_left_out": "incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, decode from=bytebuffer, the other encode variants (end=reused, input=pool), drop mode, content sets beyond P2.2, the other U rows"}}
+  control campaign_codec plant: 860 slots failed as required
+  # {"malloc_check": {"ak_campaign_alloc": "default", "glibc_tunables": "", "malloc_16mib": "mmapped", "hblks_before": 0, "hblks_after": 1, "ok": true}}
+  # {"campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}}
+  # {"campaign_codec": {"launch": 0, "rounds": 0, "min_time_s_per_repetition": 0.500, "min_warmup_time_s_per_benchmark": 0.500, "affinity": "0,1,2,3", "timer": "Google Benchmark 1.8.3: cpu_time = PROCESS CPU (MeasureProcessCPUTime, CLOCK_PROCESS_CPUTIME_ID) per repetition, real_time = wall; iterations chosen by the framework (--benchmark_min_time), warm-up the framework's (--benchmark_min_warmup_time, before a benchmark's first repetition)", "pool_bytes": 28835840, "core_encode_fill": "sparse (decision 9: encode_into_*_zeroed, encode_into_*_unk_zeroed)", "host_gen_utf8": "ak_utf8_check (HG-3: the core's own check, simdutf8::basic, one forward call per non-empty string decoded)", "harness": "H-1: input=pool walks the pool (a cursor per slot, one graph per iteration across calls), one pool alive at a time, kept across consecutive calls of its slot; H-7: incumbent-best encodes with ByteSizeLong + SerializeWithCachedSizesToArray into a reused growing buffer, decodes with ParseFromArray; incumbent-arena (payloads only, labelled) decodes on a fresh Arena per decode with a reused 256 KiB first block; H-8: from=bytebuffer decode rows (payloads only, labelled) for core-ffi and host-gen, the ByteBuffer path of cells D and F; H-9: one run(iterations) call per repetition (KeepRunningBatch)", "threads": {"process_threads_at_start": 4, "measuring_threads": 1, "note": "the codec suite runs every arm on the one benchmark thread; the core starts no thread for codec calls"}}}
+  # {"campaign_codec_grid": {"grid": "core", "core_benchmarks": 98, "all_benchmarks": 2724, "core": "CAMPAIGN 4.0: incumbent-prod (full build), core-ffi push, host-gen; encode end=transport input=hot, decode_read; retain (full) / no-unknown (no-unknown build); 16 shapes ascii, P2.2 latin1 and wide, 7 U rows", "extras_left_out": "incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, decode from=bytebuffer, the other encode variants (end=reused, input=pool), drop mode, content sets beyond P2.2, the other U rows"}}
+  control campaign_codec_nounk plant: 740 slots failed as required
+===== the RPC call check (requirement 18) seen failing, and leaving NO sample (R-H4) =====
+  server warm-up (poc/rust/serve.sh warm 200): passed
+  control rpc length (campaign_rpc): aborted as required (exit 3, 0 samples: CALL CHECK FAILED: pre-check fetch (540422) -- the run is aborted, no figure)
+  control rpc abort after 2 samples (campaign_rpc): exit 3, 0 samples written, as required
+  control rpc length (campaign_rpc_nounk): aborted as required (exit 3, 0 samples: CALL CHECK FAILED: pre-check fetch (540422) -- the run is aborted, no figure)
+  control rpc abort after 2 samples (campaign_rpc_nounk): exit 3, 0 samples written, as required
+  control rpc c-len (campaign_rpc): 15 cells aborted with no sample, as required
+  control rpc d-sha (campaign_rpc): 15 cells aborted with no sample, as required
+  control rpc d-count (campaign_rpc): 15 cells aborted with no sample, as required
+  control rpc c-len (campaign_rpc_nounk): 9 cells aborted with no sample, as required
+  control rpc d-sha (campaign_rpc_nounk): 9 cells aborted with no sample, as required
+  control rpc d-count (campaign_rpc_nounk): 9 cells aborted with no sample, as required
+  132 RPC count rows identical to logs/cpp/rpc-counts.log
+  78 RPC count rows identical to logs/cpp/rpc-counts-nounk.log
+  control runner rpc discard: exit 1, no file, as required
+===== campaign_calib failure propagated (R-H5) =====
+  control calib failure: exit 2, no sample, as required

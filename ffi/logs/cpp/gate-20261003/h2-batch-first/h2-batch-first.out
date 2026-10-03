@@ -1,0 +1,4 @@
+[2026-10-03T17:48:23Z] wp12_gates.sh h2-batch, steps: build wp5 campaign
+[2026-10-03T17:48:23Z] build: the h2-batch twins (flock /tmp/claude-0/ak-codec-build.lock)
+[2026-10-03T17:53:13Z] header.txt written
+[2026-10-03T18:09:32Z] done: wp5 exit=0 census=1 campaign exit=0 census=1 

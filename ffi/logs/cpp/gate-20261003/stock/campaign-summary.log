@@ -1,0 +1,44 @@
+[2026-10-03T17:35:43Z] step campaign: bash gen/run_campaign.sh --suite gate --out /tmp/tmp.CPpZS2GR5h/camp
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+
+  Traceback (most recent call last):  Traceback (most recent call last):
+
+    File "<frozen site>", line 201, in addpackage    File "<frozen site>", line 201, in addpackage
+
+    File "<string>", line 1, in <module>    File "<string>", line 1, in <module>
+
+  ModuleNotFoundError: No module named '_distutils_hack'  ModuleNotFoundError: No module named '_distutils_hack'
+
+
+Remainder of file ignored
+Remainder of file ignored
+
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+Error processing line 1 of /usr/lib/python3/dist-packages/distutils-precedence.pth:
+
+  Traceback (most recent call last):
+    File "<frozen site>", line 201, in addpackage
+    File "<string>", line 1, in <module>
+  ModuleNotFoundError: No module named '_distutils_hack'
+
+Remainder of file ignored
+gate passed: /tmp/tmp.CPpZS2GR5h/camp/gate.log
+[2026-10-03T17:48:21Z] step campaign: exit 0
+[2026-10-03T17:48:23Z]   census campaign: ok (census-campaign.txt: 44 lines)

@@ -1,8 +1,8 @@
 # cpp slice, WP5 step 2: the generator
-#   date       2026-10-03T17:32:35Z
+#   date       2026-10-03T20:29:53Z
 #   machine    Linux 6.18.44-fc-v64 x86_64, 4 vCPU, Intel(R) Xeon(R) Processor @ 2.80GHz
 #   compiler   g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25)
-#   commit     730a75f0d
+#   commit     506a6623a
 #   core       ffi/poc/codec at that commit, built --features init-guard (and corpus,init-guard
 #              for the corpus ABI); no timing is taken by anything in this log
 
@@ -134,7 +134,7 @@ refusal_test: 17 passed, 0 failed
   >>> ok: src/rpccounts.cpp
 
 ===== plant A: the struct loses tcp_nagle (host smaller than core) -- must NOT compile =====
-    /tmp/tmp.e8ccBg1LP7/a/ak_abi.h:1371:42: error: static assertion failed: sizeof ak_client_opts
+    /tmp/tmp.TuOQhHfdU0/a/ak_abi.h:1371:42: error: static assertion failed: sizeof ak_client_opts
      1324 | #define AK_SASSERT(c, m) static_assert(c, m)
   >>> ok: plant A refused
 

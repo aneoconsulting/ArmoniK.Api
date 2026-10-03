@@ -1,0 +1,2 @@
+wp5 exit=0 census=0
+campaign exit=0 census=0

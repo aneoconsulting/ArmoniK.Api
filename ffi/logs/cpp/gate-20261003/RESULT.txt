@@ -1,0 +1,3 @@
+stock (at 730a75f0d): exit 0 in 94 min (build 77 min of it: two build directories, Google Benchmark, serve.sh)
+h2-batch first attempt (730a75f0d): wp5 and campaign exit 0, core census FAIL: counts_grid and counts_grid_nounk loaded the stock camp-count cores (no cs_env); 21 min
+h2-batch (at 506a6623a: the cs_env fix, no other change to poc/codec, poc/cpp, schema or corpus): exit 0 in 28 min, census ok

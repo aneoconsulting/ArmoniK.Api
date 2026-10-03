@@ -1,0 +1,10 @@
+warning: unused variable: `sites`
+warning: unused variable: `sites`
+  100 |   F("shapes::TaskSummary.error", (uint32_t)offsetof(shapes::TaskSummary, error)) \
+  100 |   F("shapes::TaskSummary.error", (uint32_t)offsetof(shapes::TaskSummary, error)) \
+exit 0; 63 executables linked; 423 crate compilations
+[100%] Building CXX object CMakeFiles/campaign_codec_nounk.dir/src/generated/touch.cpp.o
+[100%] Linking CXX executable campaign_rpc_nounk
+[100%] Built target campaign_rpc_nounk
+[100%] Linking CXX executable campaign_codec_nounk
+[100%] Built target campaign_codec_nounk
