@@ -80,6 +80,9 @@ public final class Native {
   /** (TCP sockets of this process connected to 127.0.0.1:port) << 32 | (those with
    *  TCP_NODELAY set); native/tax.c (CAMPAIGN req 17 as amended, D10). */
   public static native long tcpNodelay(int port);
+  /** 1 when a 16 MiB glibc malloc is mmapped, 0 when it comes from the heap, -1 on failure;
+   *  native/tax.c (req 25 / D9 as amended). */
+  public static native int allocProbe();
   public static native void decCtxFree(long ctx);
   public static native int decErr(long ctx);
   public static native void decErrReset(long ctx);

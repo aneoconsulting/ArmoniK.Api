@@ -9,7 +9,7 @@ whose counter is missing is refused, not guessed.
 A meta line per benchmark records what JMH ran with: warm-up and measurement iterations,
 the mode, forks, the JVM, its arguments.
 
-  gen/jmh_to_jsonl.py <jmh.json> <launch> <coder> [<build>] >> <log.jsonl>
+  gen/jmh_to_jsonl.py <jmh.json> <launch> <coder> [<build> [<alloc>]] >> <log.jsonl>
 
 `build` (WP5 step 10): full (default) or no-unknown, written on every sample.
 """
@@ -36,6 +36,7 @@ def main():
     res = json.load(open(sys.argv[1]))
     launch, coder = int(sys.argv[2]), sys.argv[3]
     build = sys.argv[4] if len(sys.argv) > 4 else "full"
+    alloc = sys.argv[5] if len(sys.argv) > 5 else "default"   # req 25 / D9 as amended
     out = []
     for b in res:
         cell = b["params"]["cell"]
@@ -72,6 +73,7 @@ def main():
                     extra["end"] = "transport" if d.startswith("encode-transport") else "buf"
                     extra["input"] = "hot" if d.endswith("-hot") else ("pool" if cont != "corpus" else "row")
                 extra["row_class"] = row_class(payload, content)
+                extra["alloc"] = alloc
                 extra["h2"] = "n/a"     # D11: codec cores carry no rpc feature, so no h2
                 rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
                     "content": cont, "dir": dd, "unknown_mode": mode, "build": build, "coder": coder,

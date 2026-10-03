@@ -83,6 +83,7 @@ public class CodecJmh {
   @Setup(Level.Trial)
   public void trial() throws Exception {
     Native.ensureBound();          // the process CPU clock is read through the shim (req 21)
+    System.out.println(AllocCheck.verify());   // req 25 / D9: refuse a wrong allocator mode
     String[] c = cell.split("\\|");
     id = c[2];
     dir = c[4];

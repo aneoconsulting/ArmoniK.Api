@@ -95,6 +95,27 @@ AK_H2=${AK_H2:-stock}
 case "$AK_H2" in stock) H2S= ;; h2-batch) H2S=-h2b ;; *) echo "AK_H2 must be stock or h2-batch"; exit 2 ;; esac
 # D8 / D14: every pool sized to AK_WORKERS (campaign.machine; 8).
 AK_WORKERS=${AK_WORKERS:-8}
+# Req 25 / D9 as amended by the owner 2026-10-03: AK_CAMPAIGN_ALLOC=default|pinned (default:
+# default). default = glibc's default allocator, the MAIN figures, as production; pinned =
+# GLIBC_TUNABLES with glibc's trim and mmap thresholds pinned, the labelled diagnostic. Both
+# suites, every measured JVM (the core and its transport allocate through glibc in the JVM).
+# Each measured process checks it before timing (ak.AllocCheck: GLIBC_TUNABLES and a 16 MiB
+# malloc read back through mallinfo2) and refuses on a disagreement; the header records the
+# readback, and every sample carries `alloc`.
+AK_CAMPAIGN_ALLOC=${AK_CAMPAIGN_ALLOC:-default}
+case "$AK_CAMPAIGN_ALLOC" in
+  default) ALLOC_TUNABLES= ;;
+  pinned) ALLOC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432 ;;
+  *) echo "AK_CAMPAIGN_ALLOC must be default or pinned"; exit 2 ;;
+esac
+# AK_ALLOC_PLANT=1 (a control): GLIBC_TUNABLES is left out of the measured processes while
+# AK_CAMPAIGN_ALLOC=pinned, so every alloc check must refuse and the run produce no sample.
+[ "${AK_ALLOC_PLANT:-0}" = 1 ] && ALLOC_TUNABLES=
+# The header's readback: one JVM on the given shim, in the measured processes' environment.
+alloc_readback() {  # $1 = shim (libakjni.so)
+  GLIBC_TUNABLES=$ALLOC_TUNABLES "$J17/bin/java" -cp "build/cls17:$CP" -Dak.lib="$1" \
+    -Dak.camp.alloc="$AK_CAMPAIGN_ALLOC" ak.AllocCheck 2>&1 | grep -m1 'ALLOC-CHECK'
+}
 SERVE="$TOP/ffi/poc/rust/serve.sh"
 export AK_SERVE_STATE="$SOCKDIR/serve.state"
 if [ "${AK_CAMPAIGN_NO_BUILD:-0}" != 1 ] || [ ! -x "$TOP/ffi/poc/rust/target-server/release/rpc_server" ]; then
@@ -137,7 +158,7 @@ header() {  # $1 = file, $2 = suite description
     echo "#   governor=$(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost) kernel=$(uname -r)"
     echo "#   isolation=\"${AK_ISOLATION:-not stated}\" isolated_cpus=$(sysf /sys/devices/system/cpu/isolated) numa_nodes=$(ls -d /sys/devices/system/node/node* 2>/dev/null | wc -l)"
     echo "#   AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset} AK_CPU_SERVER=${AK_CPU_SERVER:-unset} (taskset; OS = the rest)"
-    echo "# h2 variant of the RPC cores (D11): $AK_H2; pools AK_WORKERS=$AK_WORKERS (D14)"
+    echo "# h2 variant of the RPC cores (D11): $AK_H2; pools AK_WORKERS=$AK_WORKERS (D14); allocator AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC${AK_ALLOC_PLANT:+ (PLANT: GLIBC_TUNABLES withheld)}"
     echo "# runtime: target $("$J17/bin/java" -version 2>&1 | head -1)   floor (gated only) $("$J8/bin/java" -version 2>&1 | head -1)"
     echo "# incumbent: $(echo "$CP" | tr ':' '\n' | grep -oE 'protobuf-java-[0-9.]+\.jar|grpc-(api|netty-shaded|protobuf)-[0-9.]+\.jar' | sort -u | tr '\n' ' ')"
     echo "# build: $(cat build/core-rev.txt 2>/dev/null | sed 's/^ *//')"
@@ -292,12 +313,13 @@ codec)
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
       echo "# cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read inside the benchmark method, exported by JMH as an @AuxCounters counter per iteration; wall_ns: JMH's raw per-iteration time; jit_ms_during: the JVM's JIT compile time between the iteration's setup and teardown (an @AuxCounters counter)" >> "$f"
-      $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+      echo "# allocator (D9, req 25 as amended): AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC, GLIBC_TUNABLES=${ALLOC_TUNABLES:-unset}; readback: $(alloc_readback "$HERE/build/jni$SX/libakjni.so"); every fork repeats the check before timing" >> "$f"
+      GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
         -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$CELLS" \
-        -jvmArgs "$JVM_FLAGS $CF -Dak.lib=$HERE/build/jni$SX/libakjni.so $EXTRA" \
+        -jvmArgs "$JVM_FLAGS $CF -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC -Dak.lib=$HERE/build/jni$SX/libakjni.so $EXTRA" \
         -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
         || { echo "codec$TAG launch $l ($coder) FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" "$coder" "$BUILD" >> "$f" \
+      python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" "$coder" "$BUILD" "$AK_CAMPAIGN_ALLOC" >> "$f" \
         || { echo "codec$TAG launch $l ($coder): conversion FAILED; no figure"; exit 1; }
       echo "codec$TAG launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
@@ -308,12 +330,13 @@ codec)
              ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
     f="$OUT/codec$TAG-unknown-launch-$l.jsonl"; base="$OUT/codec$TAG-unknown-launch-$l"
     header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM + $ROUNDS iteration(s), corpus U-* rows (req 7), build=$V coder=compact launch=$l, $(echo "$UCELLS" | tr ',' '\n' | wc -l) cells"
-    $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
+    echo "# allocator (D9, req 25 as amended): AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC, GLIBC_TUNABLES=${ALLOC_TUNABLES:-unset}; readback: $(alloc_readback "$HERE/build/jnicorpus$SX/libakjni.so"); every fork repeats the check before timing" >> "$f"
+    GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.CodecJmh.sample' \
       -f 1 -wi "$WARM" -i "$ROUNDS" -foe true -p cell="$UCELLS" \
-      -jvmArgs "$JVM_FLAGS -Dak.lib=$HERE/build/jnicorpus$SX/libakjni.so $EXTRA" \
+      -jvmArgs "$JVM_FLAGS -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC -Dak.lib=$HERE/build/jnicorpus$SX/libakjni.so $EXTRA" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 \
       || { echo "codec$TAG U-rows launch $l FAILED (JMH, -foe true); no figure: $base.jmh.txt"; exit 1; }
-    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" compact "$BUILD" >> "$f" \
+    python3 -S gen/jmh_to_jsonl.py "$base.jmh.json" "$l" compact "$BUILD" "$AK_CAMPAIGN_ALLOC" >> "$f" \
       || { echo "codec$TAG U-rows launch $l: conversion FAILED; no figure"; exit 1; }
     echo "codec$TAG U-rows launch $l: $(grep -c '"cpu_ns"' "$f") samples -> $f"
   }
@@ -359,16 +382,6 @@ rpc)
     bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
       || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
-  # D9 / req 25 as amended by the owner 2026-10-03 (ad1a15be5): the core and its transport
-  # (tonic, h2, their buffers) allocate through glibc malloc inside the client JVM. The MAIN
-  # figures run with the default allocator, as production does (alloc=default);
-  # AK_D9_PINNED_ALLOC=1 is the labelled diagnostic pass (alloc=pinned) with glibc's trim and
-  # mmap thresholds pinned, inherited by JMH's forks from the environment. Every sample
-  # carries `alloc` and `minflt` (the process's minor faults over the iteration), so the
-  # faults per call sit beside every gap. Netty's pooled direct buffers and the Java heap are
-  # not glibc malloc.
-  D9_TUNABLES=; D9_ALLOC=default
-  [ "${AK_D9_PINNED_ALLOC:-0}" = 1 ] && { D9_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; D9_ALLOC=pinned; }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
     local l=$1 tr=$2 V=$3 SX= TAG=
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; }
@@ -393,10 +406,10 @@ rpc)
     echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10; TCP listener 127.0.0.1, pinned configuration, AK_SERVER_TCP=0): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
-    echo "# allocator (D9, req 25 as amended 2026-10-03): alloc=$D9_ALLOC for every client fork and sample -- default: glibc's default allocator, the MAIN figures (as production); pinned (AK_D9_PINNED_ALLOC=1): GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${D9_TUNABLES:-unset}; minflt per sample: the process's minor faults over the iteration (/proc/self/stat), faults per call = minflt / iters" >> "$f"
-    GLIBC_TUNABLES=$D9_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+    echo "# allocator (D9, req 25 as amended 2026-10-03): AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC for every client fork and sample (alloc) -- default: glibc's default allocator, the MAIN figures (as production); pinned: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${ALLOC_TUNABLES:-unset}; readback: $(alloc_readback "$HERE/build/jnirpc$H2S$SX/libakjni.so"); every fork repeats the check before timing and refuses on a disagreement; minflt per sample: the process's minor faults over the iteration (/proc/self/stat), faults per call = minflt / iters" >> "$f"
+    GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
       -f 1 -foe true -wi "$WI" -w "$WTIME" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$PCOMBO" \
-      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$D9_ALLOC ${AK_RPC_PROPS:-}" \
+      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC ${AK_RPC_PROPS:-}" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
     python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
       || discard "$l" "conversion ($tr, $V)"

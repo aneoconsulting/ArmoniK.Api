@@ -76,3 +76,22 @@ JNIEXPORT jlong JNICALL Java_ak_Native_tcpNodelay(JNIEnv *e, jclass c, jint port
   closedir(d);
   return (jlong) ((n << 32) | on);
 }
+
+/* CAMPAIGN req 25 / D9 as amended (owner, 2026-10-03): the allocator mode this process really
+ * runs. One 16 MiB malloc through glibc (the allocator the core and its transport use in this
+ * process), with mallinfo2's count of mmapped blocks read before and after: glibc's default
+ * mmap threshold (128 KiB, dynamic up to 32 MiB) serves it with mmap -> 1 ("mmapped"); the
+ * pinned pass (GLIBC_TUNABLES mmap_threshold=33554432) serves it from the heap -> 0 ("heap").
+ * -1 when the allocation fails. */
+#include <malloc.h>
+#include <string.h>
+JNIEXPORT jint JNICALL Java_ak_Native_allocProbe(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+  struct mallinfo2 before = mallinfo2();
+  void *volatile p = malloc((size_t) 16 << 20);
+  if (!p) return -1;
+  memset(p, 1, 4096);
+  struct mallinfo2 after = mallinfo2();
+  free(p);
+  return after.hblks > before.hblks ? 1 : 0;
+}

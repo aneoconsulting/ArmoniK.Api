@@ -175,6 +175,7 @@ public class RpcJmh {
     CampaignRpc.uploads();
     elg = new EpollEventLoopGroup(CampaignRpc.EVENT_LOOPS);
     c = CampaignRpc.cell(cell, sock, elg, transport.equals("pinned"));
+    System.out.println(AllocCheck.verify());        // req 25 / D9: refuse a wrong allocator mode
     CampaignRpc.precheck(c);
     TaskClock.ensureOpen();                          // req 21 as amended: refuse without it
     String nodelay = CampaignRpc.checkNodelay(sock); // req 17 as amended: on the live sockets
