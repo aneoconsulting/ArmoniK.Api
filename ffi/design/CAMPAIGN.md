@@ -307,6 +307,18 @@ in its container shows it executes (section 9).
     The **main figures use the default allocator**, as production does; the pinned
     `GLIBC_TUNABLES` pass is the labelled diagnostic, with the minor faults per call
     recorded beside every gap, and the report shows where the two disagree.
+    **Amended by the owner 2026-10-03 (mechanics):** one switch in every slice,
+    `AK_CAMPAIGN_ALLOC=default|pinned` (default `default`); the shared server never
+    gets the tunables. Every measured process, before any timing, (i) checks the mode
+    against `GLIBC_TUNABLES` and reads it back once with one 16 MiB malloc against
+    mallinfo2's mmapped-block count (default reads mmapped, pinned reads heap), keeping
+    that block mapped so the probe does not move glibc's dynamic mmap threshold, and
+    refuses to run on any disagreement; (ii) pre-grows the heap in both modes:
+    allocate, touch and free a block of the run's largest payload until one more
+    round faults nothing, at most 8 rounds, else refuse. The readback, the rounds and
+    the last round's faults go in the header; `alloc` and the minor faults over the
+    measured span go on every sample. No suite sets mallopt of its own (Python's
+    M_TOP_PAD is removed).
 
 ## 6. Correctness before timing
 
