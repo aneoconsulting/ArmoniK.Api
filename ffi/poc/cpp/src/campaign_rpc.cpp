@@ -245,6 +245,7 @@ std::vector<Cell> parse_cells(const std::string &spec) {
 struct Cfg {
   std::string target, transport = "shipped", cells = "ABCDEF", dirs = "arbcd";
   std::string core_target;  // --core-target URI: the core client's endpoint when it differs from grpc++'s
+  bool require_tcp = false; // --require-tcp 1 (the core grid, D10): zero TCP sockets refuses the run
                             // target (TCP: grpc++ `ipv4:127.0.0.1:P`, the core `http://127.0.0.1:P`)
   std::string plant;     // test only (req. 18 controls): c-len | d-count | d-sha
   std::vector<int> inflight = {1, 8, 16};
@@ -2358,6 +2359,7 @@ int main(int argc, char **argv) {
     const char *v = argv[i + 1];
     if (a == "--target") c.target = v;
     else if (a == "--core-target") c.core_target = v;
+    else if (a == "--require-tcp") c.require_tcp = std::atoi(v) != 0;
     else if (a == "--transport") c.transport = v;
     else if (a == "--cells") c.cells = v;
     else if (a == "--dirs") c.dirs = v;
@@ -2409,7 +2411,7 @@ int main(int argc, char **argv) {
   if (c.plant == "c-len") w.want_c_len = 1;
   else if (c.plant == "d-count") { w.st[0].bytes += 1; w.st[1].bytes += 1; }
   else if (c.plant == "d-sha") { w.st[0].sha[0] ^= 1; w.st[1].sha[0] ^= 1; }
-  else if (!c.plant.empty()) die("unknown --plant", 0);
+  else if (!c.plant.empty() && c.plant != "nagle") die("unknown --plant", 0);  // nagle: at the socket check
   if (c.semantics) {
     const int r = q_semantics(w);
     ak_runtime_destroy(w.rt);
@@ -2833,6 +2835,8 @@ int main(int argc, char **argv) {
   {
     ThreadCtx tc;
     for (size_t i = 0; i < w.cells.size(); ++i) cell_call(w, i, Job{'a', 0}, 0, tc);
+    // --plant nagle (the gate's control): Nagle switched ON on one live client TCP socket first.
+    int planted = -1;
     int nunix = 0, ntcp = 0, ntcp_nagle = 0;
     if (DIR *d = opendir("/proc/self/fd")) {
       while (struct dirent *e = readdir(d)) {
@@ -2845,6 +2849,10 @@ int main(int argc, char **argv) {
         if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &ty, &l) != 0 || ty != SOCK_STREAM) continue;
         if (dom == AF_UNIX) { ++nunix; continue; }
         if (dom != AF_INET && dom != AF_INET6) continue;
+        if (c.plant == "nagle" && planted < 0) {
+          int zero = 0;
+          if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &zero, sizeof zero) == 0) planted = fd;
+        }
         int nd = 0;
         l = sizeof nd;
         getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nd, &l);
@@ -2853,12 +2861,54 @@ int main(int argc, char **argv) {
       }
       closedir(d);
     }
-    std::printf("# {\"client_sockets\": {\"unix_stream\": %d, \"tcp\": %d, \"tcp_with_nagle_on\": %d,"
-                " \"nagle\": \"off on every TCP socket, read back with getsockopt(TCP_NODELAY) on the live sockets after one"
-                " call per cell; a Unix socket has no Nagle algorithm\", \"server\": \"the shared Rust server on Unix"
-                " sockets (no Nagle)\"}}\n", nunix, ntcp, ntcp_nagle);
-    if (ntcp_nagle > 0) {
-      std::fprintf(stderr, "NAGLE CHECK FAILED: %d TCP socket(s) with Nagle on; nothing is timed\n", ntcp_nagle);
+    // The server's connected TCP sockets (AK_SERVER_PID, the runner's): each duplicated into this
+    // process with pidfd_getfd and read back the same way; the listening socket is skipped.
+    int srv_tcp = -1, srv_nagle = 0;
+    std::string srv_note = "no AK_SERVER_PID";
+    if (const char *sp = std::getenv("AK_SERVER_PID")) {
+      const long spid = std::atol(sp);
+      const int pfd = (int)syscall(SYS_pidfd_open, (pid_t)spid, 0);
+      if (pfd < 0) srv_note = std::string("pidfd_open: ") + std::strerror(errno);
+      else {
+        srv_tcp = 0;
+        srv_note = "read back through pidfd_getfd";
+        if (DIR *d = opendir(("/proc/" + std::to_string(spid) + "/fd").c_str())) {
+          while (struct dirent *e = readdir(d)) {
+            if (e->d_name[0] == '.') continue;
+            const int tfd = (int)syscall(SYS_pidfd_getfd, pfd, std::atoi(e->d_name), 0);
+            if (tfd < 0) { srv_tcp = -1; srv_note = std::string("pidfd_getfd: ") + std::strerror(errno); break; }
+            int dom = 0, ty = 0, acc = 0, nd = 0;
+            socklen_t l = sizeof dom;
+            if (getsockopt(tfd, SOL_SOCKET, SO_DOMAIN, &dom, &l) == 0 && (dom == AF_INET || dom == AF_INET6)) {
+              l = sizeof ty; getsockopt(tfd, SOL_SOCKET, SO_TYPE, &ty, &l);
+              l = sizeof acc; getsockopt(tfd, SOL_SOCKET, SO_ACCEPTCONN, &acc, &l);
+              if (ty == SOCK_STREAM && !acc) {
+                l = sizeof nd; getsockopt(tfd, IPPROTO_TCP, TCP_NODELAY, &nd, &l);
+                ++srv_tcp;
+                if (nd <= 0) ++srv_nagle;
+              }
+            }
+            close(tfd);
+          }
+          closedir(d);
+        }
+        close(pfd);
+      }
+    }
+    std::printf("# {\"sockets\": {\"client_unix_stream\": %d, \"client_tcp\": %d, \"client_tcp_with_nagle_on\": %d,"
+                " \"server_tcp\": %d, \"server_tcp_with_nagle_on\": %d, \"server_read_back\": \"%s\","
+                " \"nagle\": \"TCP_NODELAY read back with getsockopt on every live client TCP socket after one call per"
+                " cell, and on every connected TCP socket of the server; a Unix socket has no Nagle algorithm\","
+                " \"require_tcp\": %s, \"planted\": %s}}\n",
+                nunix, ntcp, ntcp_nagle, srv_tcp, srv_nagle, srv_note.c_str(), c.require_tcp ? "true" : "false",
+                planted >= 0 ? "true" : "false");
+    std::string why;
+    if (ntcp_nagle > 0) why = std::to_string(ntcp_nagle) + " client TCP socket(s) with Nagle on";
+    else if (srv_nagle > 0) why = std::to_string(srv_nagle) + " server TCP socket(s) with Nagle on";
+    else if (c.require_tcp && ntcp == 0) why = "no client TCP socket (the core grid runs over TCP 127.0.0.1, D10)";
+    else if (c.require_tcp && srv_tcp <= 0) why = "the server's TCP sockets could not be read back (" + srv_note + ")";
+    if (!why.empty()) {
+      std::fprintf(stderr, "NAGLE CHECK FAILED: %s; nothing is timed\n", why.c_str());
       std::fflush(stdout);
       std::_Exit(4);
     }
