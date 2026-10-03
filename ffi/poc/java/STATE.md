@@ -12,7 +12,7 @@ is byte identity, crossing counts, floor builds, corpus passes, feasibility and 
 
 | | |
 |---|---|
-| **Status** (2026-10-03) | WP13 (the WP12 contract): every RPC cell on TCP 127.0.0.1 with TCP_NODELAY read back on the live sockets, client CPU from perf task-clock of the whole process (a JVM agent) with the process clock and the CLIENT CPUs' softirq beside it, every pool at `AK_WORKERS` (8), both h2 variants of the RPC cores (stock and h2-batch, `AK_H2`, every RPC sample labelled `h2`), D9's allocator tunables on the RPC forks; rebuilt on the core at 777e02e8b (p1). Gates from one clean worktree at 88fa071e2 (core tree 89bfc215, poc/rust fcb7eeda6), outside smoke, server unpinned: stock GATE PASSED (`logs/java/campaign-wp13/gate-b312f1ba7acf7027.log`) and h2-batch GATE PASSED (`gate-b312f1ba7acf7027-h2b.log`), each with payload, corpus, controls, the four count files identical, the variant's h2 checked in every RPC core, the upload checks over TCP with TCP_NODELAY read back (17/17 and 10/10 sockets), both plants. Minimal smoke (grouped, h2-batch, pinned, full build, 1 launch, 1 round, 20 ms iterations): 289 samples, every one `h2: h2-batch`, `net: tcp`, figures stripped. One runner line changed after 88fa071e2 (the smoke's sample count counted the 17 meta lines too: 306 printed for 289 samples), not re-run. Two builds of the binding (full, no-unknown), the RPC grid on JMH against the shared Rust server, one fork per (cell, combination) by default. |
+| **Status** (2026-10-03) | D18: `AK_CAMPAIGN_GRID=core|full`, default core. The default runs exactly CAMPAIGN section 4.0's grid. Codec: 16 shapes, Latin-1 and wide on P2.2 only, the 7 named U-* rows, incumbent-prod (full build only), core-ffi push and host-gen in retain and no-unknown, encode-transport-hot and decode-read, utf16 only on the content-set rows. RPC: A, Bf, Cf-retain, Ef-retain, a+read and b, c P5.4, d 16 MiB at k = 1 and 8, stock h2, plus Cf on h2-batch for c and d, plus the pinned allocator pass on A and Cf for c and d at k = 1. Every other row is a labelled extra under `full`. The core grid has ONE transport configuration, `armonik` (4.0 as amended b58543f7b): cell A goes through packages/java's GrpcChannelBuilder, called directly and compiled unchanged from the committed tree; the core cells use the core's current client configuration; Nagle is read back before timing. Shipped and pinned stay under `full`. Core-grid smoke at d128ddaed: `logs/java/campaign-core/` (gates PASSED for both h2 variants; RPC 32 + 4 + 4 samples; codec 141 + 12 and 94 + 8, the smoke thinning the U-* rows to 6 of 7). Earlier state: WP13 (TCP, task-clock, pools, both h2 variants), the allocator switch and check, JMH for both suites, the shared Rust server. |
 | **Levels** (owner decision D3) | **floor Java 8** (correctness only): `openjdk 1.8.0_504`, JDK 8 `javac`. **target JDK 17**: `openjdk 17.0.20.1`. JDK 21 only for two secondary probes (virtual threads, FFM preview). |
 | **Incumbent** | protobuf-java **3.25.5** (resolved from `packages/java`'s pins), grpc-java 1.74.0, protoc 3.19.0. The production path (R14) is `io.grpc.protobuf.lite.ProtoLiteUtils`' marshaller. |
 | **Core** | the shared crate `poc/codec/crates/ak-core` (R0), no copy here. RPC cores in two h2 variants (D11): stock (crates.io h2 0.4.19) and h2-batch (poc/codec/h2-batch/: the full rpc core through its build.sh, the no-unknown and counting rpc cores through the same patched source and `--config patch.crates-io.h2.path`), shims `jnirpc[-h2b][-nounk]`, `jnirpccnt[-h2b][-nounk]`; `build/h2-compiled.txt` names the h2 each RPC core compiled (framed_write.rs's panic path) and the gate requires the variant's. `gen/build.sh` builds it from a `git archive` snapshot of the committed `ffi/poc/codec` into `core-build/<tree key>/`, one target directory per feature set: timed, counting, corpus, rpc, and the same four with `--no-default-features` (the no-unknown build). **Every build carries `init-guard`.** Every shim is checked to link this key's core and the core of its own variant (a full core exports `ak_uencode_*`, a no-unknown core none). |
@@ -132,34 +132,33 @@ time (`-r`) rather than a call count, for c and d as for a, a+read and b; JMH's 
 score per benchmark averages unlike combinations and is not a figure (the raw per-iteration
 data is).
 
-### Campaign duration estimate (2026-10-03, sizing only, from container figures)
+### Campaign duration estimate, core grid (CAMPAIGN 4.0, D18; 2026-10-03, sizing only)
 
-Campaign defaults, one fork per (cell, combination). Per-fork overheads and per-operation
-times come from this container's smokes (`logs/java/campaign-r24/`, `campaign-d9/`): an RPC
-fork's JVM start and setup is about 1.9 s; a codec fork's is about 0.5 s; a P2.2 codec
-operation took about 3 ms cold. These are container figures, used only to size the run.
+This is for `AK_CAMPAIGN_GRID=core`, the default. It runs exactly section 4.0's grid with
+3 launches and 5 rounds. Per-fork overheads and per-operation times come from this container's
+smokes and are used for sizing only: an RPC fork's JVM start and setup takes about 1.9 s, a
+codec fork's about 0.5 s.
 
-| part | forks per launch | per fork | per launch | x 3 launches (one allocator pass) |
+| part | forks per launch | per fork | per launch | x 3 launches |
 |---|---|---|---|---|
-| codec cells, full build, compact + utf16 | 3,564 x 2 = 7,128 | ~2.5 s (0.5 start, 10 SingleShot iterations of 32 MiB, pool prepare) | ~5.0 h | ~14.9 h |
-| codec cells, no-unknown build, compact + utf16 | 2,468 x 2 = 4,936 | ~2.5 s | ~3.4 h | ~10.3 h |
-| codec U-* rows (full 5,668, no-unknown 3,784) | 9,452 | ~0.8 s | ~2.1 h | ~6.3 h |
-| RPC a, a+read, b (27 cells x 9 combos x 2 transports x 2 h2) | 972 | 1.9 + 2 x 2 s warm-up + 5 x 1 s = ~10.9 s | ~2.9 h | ~8.8 h |
-| RPC c, d (27 cells x 8 combos x 2 transports x 2 h2) | 864 | 1.9 + 2 x 6 s + 5 x 1 s = ~18.9 s | ~4.5 h | ~13.6 h |
-| server start and warm (1 per launch) | | | ~2 min | ~0.1 h |
-| **one allocator pass** | | | | **~54 h** |
+| codec, full build: 3 arms x (15 encodable shapes x 2 dirs + P7.1 decode-read + P2.2 Latin-1/wide x 2 dirs) + 7 U-* x 2 dirs | 147 compact + 12 utf16 = 159 | ~2.5 s (5 + 5 SingleShot iterations of a 32 MiB budget) | ~6.6 min | ~20 min |
+| codec, no-unknown build: core-ffi and host-gen, the same rows | 98 + 8 = 106 | ~2.5 s | ~4.4 min | ~13 min |
+| RPC a+read, b (A, Bf, Cf, Ef x 4 combos, armonik, stock h2) | 16 | 1.9 + 2 x 2 s warm-up + 5 x 1 s = ~10.9 s | ~2.9 min | ~8.7 min |
+| RPC c P5.4, d 16 MiB (4 cells x 4 combos) | 16 | 1.9 + 2 x 6 s + 5 x 1 s = ~18.9 s | ~5.0 min | ~15.1 min |
+| RPC Cf on h2-batch, c and d at k = 1 and 8 | 4 | ~18.9 s | ~1.3 min | ~3.8 min |
+| RPC pinned allocator pass, A and Cf, c and d at k = 1 | 4 | ~18.9 s | ~1.3 min | ~3.8 min |
+| server start and serve.sh warm | 1 | ~1.5 min | ~1.5 min | ~4.5 min |
+| **timed suites** | | | | **~68 min** |
 
-- Both allocator passes (default plus the pinned diagnostic): about 108 h.
-- Add once: the gate per h2 variant, about 2 x 17 min, and calib, about 15 min. Total about
-  109 h, roughly 4.5 days.
-- Range: 80 to 150 h, since the per-fork codec times are guesses from cold container
-  operations.
-- The codec suite has no h2 dependency, so the h2 variants multiply the RPC grid only.
-- The three largest contributors, per pass:
-  1. the codec cells: 12,064 forks per launch, about 25 h;
-  2. RPC c and d warm-up: 2,592 forks x 12 s, about 8.6 h;
-  3. RPC measurement: 5,508 forks x 5 s, about 7.7 h.
-  The codec U-* rows follow at about 6.3 h.
+- Add once: the gate per h2 variant, about 2 x 17 min, and calib, about 15 min. Total about 2 h.
+- Range for the timed suites: about 45 to 100 min, since the codec per-fork time is a guess
+  from cold container operations.
+- The three largest contributors:
+  1. the codec suite's 265 forks per launch, about 33 min;
+  2. RPC c and d forks, warm-up dominated, about 23 min with the h2-batch and pinned rows;
+  3. the gates, 2 x 17 min, not timed.
+
+The full grid (`AK_CAMPAIGN_GRID=full`) is the earlier estimate: about 54 h per allocator pass.
 
 ## Correctness (results)
 
@@ -307,6 +306,7 @@ No other defect known to this slice is open. Closed items are in JOURNAL (J2-J28
 
 | Log | What it establishes |
 |---|---|
+| `campaign-core/` | D18 core grid smoke at d128ddaed, transport armonik: the gates for stock and h2-batch, run by the runner (`gate-ce1fe371d40e7455*.log`, PASSED); RPC main 32 samples (4 cells x 8 combinations), h2-batch 4 (Cf, c and d at k 1 and 8), pinned allocator 4 (A and Cf, c and d at k 1); codec 141 compact + 12 utf16 (full build) and 94 + 8 (no-unknown build; smoke thins the U-* rows to 6), utf16 on P2.2 Latin-1 and wide only; headers and per-row summaries only |
 | `campaign-d9/` | req 25: smokes at 6bc18a5d5 (after the pre-grow revert), one per `AK_CAMPAIGN_ALLOC` mode (rpc grouped, pinned transport, full build, stock h2; codec reduced to P2.2 ASCII and one U-* row). Headers carry the readback ("mmapped" default, "heap" pinned) and state there is no pre-grow; `alloc` and `minflt` are on every sample (summaries only); the gate the runner ran first passed (`gate-a843dd27b531718f.log`). The planted mismatch (AK_ALLOC_PLANT) ran at 2892e207b (JOURNAL 39) |
 | `campaign-wp13/` | WP13: the two gates (stock, h2-batch) from a clean worktree at 88fa071e2 (TCP, TCP_NODELAY read back, h2 per core, counts, upload checks, plants; the upload-check and count files are the h2-batch gate's, which ran second), the server logs, and the minimal grouped rpc smoke on h2-batch (its header and a per-cell summary, `rpc-pinned-h2b-launch-1.summary.txt`; the raw .jsonl is not committed, logs/PURGED.md). A first attempt at 1fc059f8b/2f9ce4823 failed: its worktree was deleted mid-build by another session sharing the scratchpad name, and its gate's upload check split the `tcp:` address on `:` (fixed in 88fa071e2) |
 | `campaign-wp9g/` | req 22a grouping switch: the gate from a clean worktree at d9467f77f (outside smoke, which re-checks G6), and the grouped rpc smoke (pinned, full build); figures stripped |

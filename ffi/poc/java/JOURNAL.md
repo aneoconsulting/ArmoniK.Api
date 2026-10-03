@@ -1108,3 +1108,46 @@ Both invocations ran and converted:
 
 Summary in logs/java/campaign-r24/. A campaign-duration estimate is in STATE: about 109 h at
 the defaults, both allocator passes.
+
+### J43. D18: the core campaign grid, and the armonik transport (owner, 2026-10-03)
+
+**Grid switch.** `AK_CAMPAIGN_GRID=core|full`, default core.
+- `CampaignCodec` lists exactly section 4.0 under core: 147 cells in the full build, 98 in
+  the no-unknown build, the 7 named U-* rows included.
+- The runner gives utf16 only to the content-set rows (12 and 8), and skips the corpus-core
+  U-* invocation under core.
+- The RPC core grid makes three invocations per launch:
+  - the main grid: A, Bf, Cf-retain and Ef-retain over 8 combinations, stock h2, default
+    allocator;
+  - Cf-retain on h2-batch for c and d;
+  - the pinned allocator pass: A and Cf-retain on c and d at k = 1.
+- The core grid always runs one fork per (cell, combination).
+- The h2-batch gate is required for the core RPC suite.
+- `full` is unchanged.
+
+**Transport.** The core grid's one transport configuration is `armonik`
+(b58543f7b). Cell A calls packages/java's GrpcChannelBuilder directly:
+- the builder and the two classes it references are compiled from `git archive` of the
+  committed tree into build/armonik-client;
+- slf4j-api 2.0.12 is added to deps/pom.xml, the version packages/java pins.
+
+The core cells keep `ak_client_new` with no options, and Nagle is read back on every live
+socket. `-Dio.grpc.netty.shaded.io.netty.eventLoopThreads=AK_WORKERS` sizes grpc-java's
+default group, because ArmoniK's builder sets no group.
+
+**Found by the smoke.** Three runner defects, each found by a run and fixed:
+1. The RPC grid note held backticks inside double quotes. That is a command substitution,
+   and under `set -e` it stopped the runner right after the build.
+2. An empty direction group made `grep` fail inside a pipeline, and under `pipefail` it
+   stopped the runner at the h2-batch row.
+3. The transport, pools and combinations header lines still described shipped/pinned and
+   all 17 combinations. Corrected for armonik; this header-text change came after the smoke
+   and was not re-run.
+
+**Smoke at d128ddaed:**
+- gates PASSED for both h2 variants;
+- RPC: 32 + 4 + 4 samples, labelled h2 and alloc;
+- codec: 141 + 12 and 94 + 8; smoke mode thins the U-* rows to 6 of 7.
+
+The core-grid estimate in STATE is about 68 min of timed suites, about 2 h with the gates and
+calib.

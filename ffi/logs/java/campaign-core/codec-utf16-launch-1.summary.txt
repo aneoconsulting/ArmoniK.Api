@@ -1,0 +1,37 @@
+# campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=codec  engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up 1 iteration(s) + 1 measurement iteration(s) per cell, build=full coder=utf16 launch=1, 12 cells
+# commit 91b17ccc5   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
+# machine: cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 smt=0
+#   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v64
+#   isolation="not stated" isolated_cpus= numa_nodes=1
+#   AK_CPU_CLIENT=unset AK_CPU_SERVER=unset (taskset; OS = the rest)
+# grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=core (core: the campaign grid; full: 4.1 and 4.2 with every extra)
+# h2 variant of the RPC cores (D11): stock (the core grid's RPC suite runs stock and, for its labelled rows, h2-batch; each RPC file names its own); pools AK_WORKERS=8 (D14); allocator AK_CAMPAIGN_ALLOC=default
+# runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
+# incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
+# build: core snapshot: ffi/poc/codec at 91b17ccc5, tree key tree-f785d45a435221e8
+#   core cargo profile release, features ["default", "init-guard", "unknown-fields"]  (shared library, cdylib); shim gcc -O2 -std=c11
+#   JVM: -Xms2g -Xmx2g -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=8 (tiered JIT on, default thresholds)
+# worker threads (req 4, R-H34), as the pinned JVM sizes them: CICompilerCount=3 ConcGCThreads=2 ParallelGCThreads=8 (JVM); codec: 1 benchmark thread (JMH); rpc: Netty event loops, core runtime workers and grpc-java's executor in each rpc log's meta line and the server's THREADS line
+# order (req 22): codec -- JMH runs cells in the order given, cannot randomise across forks; arm order rotated one step per launch inside each (payload, content, dir) block; rpc -- JMH forks one JVM per cell, cells rotated one step per launch, the 17 combinations cycled through JMH iterations inside each fork, start rotated per launch; the two builds alternate by launch
+# ratios (req 30, R-H24): formed from per-launch medians; the codec suite forks per cell, so every ratio is cross-process
+# repeats: 1 launch(es) x 1 round(s) per process (req 23)
+# warm-up (req 24): AK_WARM, campaign default 5 JMH warm-up iterations per cell; under smoke AK_SMOKE_WARM, default 1
+# grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=core; core = the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 named U-* rows through the shapes core, arms incumbent-prod (full build only), core-ffi push and host-gen in retain (full build) and no-unknown (no-unknown build), encode end state (ii) with one hot graph (encode-transport-hot) and decode-read, compact strings on every row and -XX:-CompactStrings on the content-set rows (P2.2 Latin-1 and wide) only; extras left out under core: incumbent-best, pull decode, bare decode, the other three encode variants, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, the corpus-core U-* invocation, utf16 on ASCII rows
+# command:  java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi 1 -i 1 -foe true -jvmArgs '-Xms2g -Xmx2g -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=8 -XX:-CompactStrings ...'
+# cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read inside the benchmark method, exported by JMH as an @AuxCounters counter per iteration; wall_ns: JMH's raw per-iteration time; jit_ms_during: the JVM's JIT compile time between the iteration's setup and teardown (an @AuxCounters counter)
+# allocator (D9, req 25 as amended): AK_CAMPAIGN_ALLOC=default, GLIBC_TUNABLES=unset; readback: ALLOC-CHECK alloc=default GLIBC_TUNABLES='' 16MiB-malloc=mmapped; every fork repeats the check once before timing; no heap pre-grow (JMH's warm-up, minflt per sample); minflt on every sample: the process's minor faults over the measured span (getrusage)
+## samples (figures stripped; the raw .jsonl is not committed, logs/PURGED.md):
+  core-ffi retain decode-read P2.2 latin1  h2=n/a alloc=default utf16: 1
+  core-ffi retain decode-read P2.2 wide  h2=n/a alloc=default utf16: 1
+  core-ffi retain encode P2.2 latin1  h2=n/a alloc=default utf16: 1
+  core-ffi retain encode P2.2 wide  h2=n/a alloc=default utf16: 1
+  host-gen retain decode-read P2.2 latin1  h2=n/a alloc=default utf16: 1
+  host-gen retain decode-read P2.2 wide  h2=n/a alloc=default utf16: 1
+  host-gen retain encode P2.2 latin1  h2=n/a alloc=default utf16: 1
+  host-gen retain encode P2.2 wide  h2=n/a alloc=default utf16: 1
+  incumbent-prod default decode-read P2.2 latin1  h2=n/a alloc=default utf16: 1
+  incumbent-prod default decode-read P2.2 wide  h2=n/a alloc=default utf16: 1
+  incumbent-prod default encode P2.2 latin1  h2=n/a alloc=default utf16: 1
+  incumbent-prod default encode P2.2 wide  h2=n/a alloc=default utf16: 1
+## samples: 12
