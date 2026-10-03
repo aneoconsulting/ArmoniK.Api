@@ -340,6 +340,33 @@ grid and the codec suite); it is stated here, not changed.
    So idle grpcio channels and a core runtime exist in every worker beside the timed cell.
    WP11 item 4 measured this for C++; it is not measured here.
 
+## Campaign length, estimated (2026-10-03; no benchmark run, container figures for sizing)
+
+These are campaign defaults: 3 launches, 5 values, 3 warm-ups (RPC d: 7), codec `--min-time 0.1`,
+both builds, both transports, both h2 variants. Each pyperf benchmark gets its own worker.
+
+**Per-benchmark cost assumed.**
+- Codec benchmark: about 1.2 s fixed (a calibration worker plus a value worker, each with its
+  imports). The smokes measured 1.04-1.34 s per benchmark over 38 benchmarks. On top of that,
+  about 1.5 s of timing: calibration about 0.3 s, then 8 values of about 0.15 s each. The
+  shapes pool directions add an assumed 2 x 2 s to build the 13.75 MiB pool (not measured).
+- RPC benchmark: 1.2-1.4 s fixed per worker (the smokes measured 0.5-0.8 s of worker duration
+  plus the spawn), then `(warm-ups + values) x loops` batches. Assumed per-call wall at k = 1:
+  P2.2 3 ms, P5.3 4 ms, P5.4 12 ms, 4MiB 7 ms, 16MiB 25 ms. A batch of k calls costs
+  k x w / min(k, 4).
+
+| part | benchmarks per pass | per pass | both passes |
+|---|---|---|---|
+| codec unknown-corpus (labelled extra) | 22,392 | 16.8 h | 33.6 h |
+| codec unknown | 7,452 | 5.6 h | 11.2 h |
+| codec shapes | 3,696 | 4.1 h | 8.2 h |
+| RPC grid | 4,860 | 3.4 h | 6.8 h |
+| gate, calib (once) | | 0.9 h | 0.9 h |
+| total | | 30.7 h | 60.7 h |
+
+The script is `scratchpad/python-est/est.py` (not committed); its per-cell breakdown is in
+JOURNAL J64.
+
 ## What was checked, and the log that carries it
 
 Full build, logs 90-98:

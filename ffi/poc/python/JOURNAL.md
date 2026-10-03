@@ -1729,3 +1729,41 @@ work, so this is now aligned.
   and c are unchanged. Every RPC log states its per-thread count (`warmup_per_thread`). The
   header line was checked by re-exporting an earlier smoke with the campaign arguments. No gate,
   no smoke.
+
+### J64. Campaign length, estimated (owner's concern; no benchmark run)
+
+Benchmark counts come from the drivers' own lists, computed without running anything.
+
+| part | per launch | per allocator pass |
+|---|---|---|
+| codec, full build | shapes 836, unknown 1,656, unknown-corpus 5,598 | |
+| codec, no-unknown build | 396, 828, 1,866 | |
+| codec, all | 11,180 | 33,540 |
+| RPC | 810 per h2 variant (full 518, no-unknown 292) | 4,860 |
+
+Per-benchmark costs are sized from the container smokes:
+- codec: 1.04-1.34 s per benchmark at smoke settings, about 1.2 s fixed. Campaign timing adds
+  about 1.5 s;
+- RPC: worker duration 0.5-0.8 s, about 1.2-1.4 s fixed. Campaign timing adds the warm-up and
+  value batches, from the assumed per-call walls in STATE.
+
+| part | per pass | both passes |
+|---|---|---|
+| codec | 26.5 h | 53.0 h |
+| RPC | 3.4 h | 6.8 h |
+| gate and calib (once) | 0.9 h | 0.9 h |
+| total | 30.7 h | 60.7 h |
+
+The three largest contributors:
+
+| part | both passes | share of the codec suite |
+|---|---|---|
+| codec unknown-corpus (a labelled extra) | 33.6 h | 2/3 of the benchmarks |
+| codec unknown | 11.2 h | |
+| codec shapes | 8.2 h | |
+
+The RPC grid is fourth, at 6.8 h. The fixed per-worker cost (spawn, imports, case build) is
+about half of every codec benchmark.
+
+Not measured: the pool build time in campaign mode, the per-call walls at k = 8 and 16 on the
+campaign machine, and the precheck length (assumed 60 s per build and h2 variant per launch).
