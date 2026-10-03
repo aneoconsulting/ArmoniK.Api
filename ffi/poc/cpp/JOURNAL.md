@@ -2291,3 +2291,13 @@ changes.
   x 8 = 79 ms (logs/cpp/opt/physical-probe/main/tables.md): 0.5 s gave about 6 calls per thread, below the rule.
   Campaign default raised to 2.5 s (>= 31 calls per thread); smoke stays 0.01 s. Header key rpc_warmup_rule.
   No other code; no smoke.
+
+## 2026-10-03, per-direction RPC warm-up; campaign estimate
+
+- Owner: MinWarmUpTime per benchmark: c, d 2.5 s (AK_CAMPAIGN_RPC_WARMUP_LONG_S), a, a+read, b short (AK_CAMPAIGN_RPC_WARMUP_S).
+  The short value checked with one small container run (dirs a, a+read, b at k 8 and 16, every cell): the slowest
+  batch is a+read k=16 Bf-q 61 ms, so 0.5 s gives about 8 calls per caller thread; the short default is 1.5 s (>= 24).
+  c at 2.5 s: c/P5.4 k=8 on the campaign machine 21 to 77 ms (>= 32). Google Benchmark 1.8.3 applies a
+  benchmark's MinWarmUpTime only with its own MinTime, so c/d benchmarks set both. Checked: two c benchmarks
+  at 1.5 s added 5.3 s of wall to a run, a unchanged; the header renders 1.5 / 2.5 (campaign) and 0.01 (smoke).
+- Campaign wall-time estimate in STATE (computed, not run): 37 to 57 h per (grpc++ version, allocator pass).

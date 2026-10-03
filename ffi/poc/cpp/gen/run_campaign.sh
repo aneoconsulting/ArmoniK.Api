@@ -12,9 +12,10 @@
 #   AK_CAMPAIGN_MIN_TIME_S codec: --benchmark_min_time per repetition   (default 0.5; smoke 0.01)
 #   AK_CAMPAIGN_WARMUP_S codec: --benchmark_min_warmup_time per benchmark (default 0.5; smoke 0.01)
 #   AK_CAMPAIGN_RPC_MIN_TIME_S rpc: --benchmark_min_time per repetition (default 1.0; smoke 0.01)
-#   AK_CAMPAIGN_RPC_WARMUP_S rpc: Google Benchmark's min warm-up time per benchmark, seconds
-#                        (default 2.5: req. 24 as amended, >= 20 calls per caller thread at the
-#                        slowest batch, d/16MiB k=8, 79 ms; smoke 0.01), before its first repetition
+#   AK_CAMPAIGN_RPC_WARMUP_S rpc: Google Benchmark's min warm-up time per a, a+read and b benchmark,
+#                        seconds (default 1.5; smoke 0.01), before its first repetition
+#   AK_CAMPAIGN_RPC_WARMUP_LONG_S rpc: the same for c and d (default 2.5; smoke 0.01); req. 24 as
+#                        amended: >= 20 calls per caller thread at the slowest batch (header)
 #   AK_CAMPAIGN_SERVER_WARMUP rpc: server warm-up calls per direction per client transport
 #                        (poc/rust/serve.sh warm N; default 200; smoke 20; d: ceil(N/4))
 #   (req. 24, amended 2026-09-27: every warm-up is a parameter; AK_CAMPAIGN_SMOKE=1 shortens
@@ -59,12 +60,13 @@ TMPD=$(mktemp -d)   # scratch files of the gate and the server; never committed
 : "${AK_CPU_SERVER:?AK_CPU_SERVER is required (requirement 4)}"
 LAUNCHES=${AK_CAMPAIGN_LAUNCHES:-3}
 ROUNDS=${AK_CAMPAIGN_ROUNDS:-5}
-if [ "${AK_CAMPAIGN_SMOKE:-}" = 1 ]; then T_CODEC=0.01; W_CODEC=0.01; T_RPC=0.01; W_RPC=0.01; W_SRV=20
-else T_CODEC=0.5; W_CODEC=0.5; T_RPC=1.0; W_RPC=2.5; W_SRV=200; fi
+if [ "${AK_CAMPAIGN_SMOKE:-}" = 1 ]; then T_CODEC=0.01; W_CODEC=0.01; T_RPC=0.01; W_RPC=0.01; W_RPCL=0.01; W_SRV=20
+else T_CODEC=0.5; W_CODEC=0.5; T_RPC=1.0; W_RPC=1.5; W_RPCL=2.5; W_SRV=200; fi
 MINT=${AK_CAMPAIGN_MIN_TIME_S:-$T_CODEC}
 WARM=${AK_CAMPAIGN_WARMUP_S:-$W_CODEC}
 RPCMINT=${AK_CAMPAIGN_RPC_MIN_TIME_S:-$T_RPC}
-RPCWARM=${AK_CAMPAIGN_RPC_WARMUP_S:-$W_RPC}
+RPCWARM=${AK_CAMPAIGN_RPC_WARMUP_S:-$W_RPC}            # a, a+read, b
+RPCWARML=${AK_CAMPAIGN_RPC_WARMUP_LONG_S:-$W_RPCL}     # c, d (the long calls)
 SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
 # D14 (2026-10-03): every pool is AK_WORKERS (campaign.machine via campaign.sh: the 8 threads of
 # a set's taskset, D8), default 8: the client's core runtime (campaign_rpc reads AK_WORKERS) and
@@ -202,7 +204,7 @@ h = {
              "workers": $WORKERS, "rpc_client": "D14: the core's runtime workers = AK_WORKERS ($WORKERS); caller threads = the in-flight level (1, 8, 16: one blocking call each, req. 15/16, so this is not a worker pool), created before any benchmark; grpc-core (grpc++'s A, D, F) has no public setting for its pollers or EventEngine threads: it sizes itself from sysconf(_SC_NPROCESSORS_CONF) (EventEngine Clamp(n, 4, 16)), recorded with the thread classes in each client header, not set to AK_WORKERS", "rpc_server_threads": "the shared tokio server's runtime: AK_SERVER_THREADS = AK_WORKERS ($WORKERS)",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "malloc": {"mode": "$ALLOC", "main_figures": "default: glibc's default allocator, as production (req. 25, D9 amended 2026-10-03)", "diagnostic": "pinned (AK_CAMPAIGN_ALLOC=pinned): GLIBC_TUNABLES=$TUNABLES on the measured client processes, files alloc-pinned-*", "this_run_glibc_tunables": "$( [ "$ALLOC" = pinned ] && echo "$TUNABLES" || echo none)", "server": "never pinned", "minor_faults": "every sample: ru_minflt per repetition and per call (RPC minflt_per_call) or per operation (codec minflt_per_op)"}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
- "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 2.5, "rpc_server_calls": 200}, "rpc_warmup_rule": "req. 24 as amended (8c02e7c58): >= 20 calls per calling thread at the cell's payload before its first measured value, same process, same threads. Google Benchmark's warm-up runs before a benchmark's first repetition on the same k pre-created caller threads as the measurement (one call per thread per iteration); it stops on wall time (UseRealTime) once one attempt alone lasts min_warmup_time, so calls per thread >= min_warmup_time / batch wall. The slowest batch measured on the campaign machine, d/16MiB k=8 C-retain, is 79 ms (logs/cpp/opt/physical-probe/main/tables.md), so the 2.5 s default gives >= 31 calls per thread; the smoke's 0.01 s does not meet the rule and is not a campaign figure", "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
+ "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_a_b": $RPCWARM, "rpc_google_benchmark_min_warmup_time_s_c_d": $RPCWARML, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s_a_b": 1.5, "rpc_min_warmup_time_s_c_d": 2.5, "rpc_server_calls": 200}, "rpc_warmup_rule": "req. 24 as amended (8c02e7c58): >= 20 calls per calling thread at the cell's payload before its first measured value, same process, same threads. Google Benchmark's warm-up runs before a benchmark's first repetition on the same k pre-created caller threads as the measurement (one call per thread per iteration) and stops on wall time (UseRealTime) once one attempt alone lasts its MinWarmUpTime, so calls per thread >= warm-up / batch wall. c, d: 2.5 s against the slowest c/d batch measured on the campaign machine, d/16MiB k=8 C-retain, 79 ms (logs/cpp/opt/physical-probe/main/tables.md): >= 31; c/P5.4 k=8 there 21 to 77 ms: >= 32. a, a+read, b: 1.5 s against the slowest a/b batch of one small container run (a+read k=16 Bf-q, 61 ms; the probe tables have no a/b rows; a container over-estimates the campaign machine): >= 24; the earlier 0.5 s gave about 8. The smoke's 0.01 s meets neither and is not a campaign figure", "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s_a_b": 0.01, "rpc_min_warmup_time_s_c_d": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
  "sample": {"codec_min_time_s_per_repetition": $MINT, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_min_time_s_per_repetition": $RPCMINT, "calib_iters": $CITERS,
             "codec_clock": "Google Benchmark " + "v1.8.3 (344117638c8f, Release, built by the runner)" + ": cpu_time = process CPU per repetition (MeasureProcessCPUTime) and real_time, repetitions randomly interleaved", "rpc_clock": "Google Benchmark (the same build, WP9): cpu_time = process CPU per repetition (MeasureProcessCPUTime), real_time = wall (UseRealTime); one iteration = a batch of k calls in flight; repetitions randomly interleaved across the benchmarks of one client process", "calib_clock": "CLOCK_PROCESS_CPUTIME_ID of campaign_calib per round"},
 }
@@ -383,7 +385,7 @@ rpc_launch_file() {
   [ "$BUILDS" = full ] && RBS=campaign_rpc; [ "$BUILDS" = no-unknown ] && RBS=campaign_rpc_nounk
   for rb in $RBS; do
     env $ALLOCENV $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
-      --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" $extra \
+      --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" --warmup-long-s "$RPCWARML" $extra \
       --gbench-out "$TMPD/rpc.gbench.json" > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
       echo "rpc client $rb ($t) failed (exit $rc): $(grep -m1 'CALL CHECK' "$TMPD/client.out")" >&2

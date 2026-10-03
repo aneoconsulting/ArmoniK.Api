@@ -248,7 +248,8 @@ struct Cfg {
   std::vector<int> inflight = {1, 8, 16};
   int launch = 0, rounds = 5, calls = 96, workers = 8;  // D14: AK_WORKERS, default 8
   int fail_after = -1;   // test only: abort after this many samples (the gate's R-H4 control)
-  double warmup_s = 0.5; // Google Benchmark's min warm-up time per benchmark (req. 24)
+  double warmup_s = 0.5; // Google Benchmark's min warm-up time per benchmark (req. 24): a, a+read, b
+  double warmup_long_s = -1;  // --warmup-long-s: directions c and d (the long calls); < 0 = warmup_s
   double min_time_s = 0.5; // Google Benchmark's min time per repetition (its iteration control)
   std::string gbout;     // Google Benchmark JSON output (WP9)
   int count = 0;         // --count N
@@ -2323,6 +2324,7 @@ int main(int argc, char **argv) {
     else if (a == "--expect") w.expect_a = (size_t)std::atoll(v);
     else if (a == "--fail-after") c.fail_after = std::atoi(v);
     else if (a == "--warmup-s") c.warmup_s = std::atof(v);
+    else if (a == "--warmup-long-s") c.warmup_long_s = std::atof(v);
     else if (a == "--min-time-s") c.min_time_s = std::atof(v);
     else if (a == "--gbench-out") c.gbout = v;
     else if (a == "--count") c.count = std::atoi(v);
@@ -2810,7 +2812,8 @@ int main(int argc, char **argv) {
               " earlier sampler had one per sample); iterations chosen by the framework (--benchmark_min_time per"
               " repetition, so every benchmark gets the same time rather than the same call count); repetitions = rounds,"
               " every one reported raw; cpu_time = process CPU (MeasureProcessCPUTime), real_time = wall (UseRealTime);"
-              " warm-up = --benchmark_min_warmup_time %.3f s per benchmark, before its first repetition; order ="
+              " warm-up = MinWarmUpTime %.3f s per a/a+read/b benchmark and %.3f s per c/d benchmark, before its first"
+              " repetition, on the same caller threads; order ="
               " --benchmark_enable_random_interleaving (repetitions of every benchmark in random order, unseeded;"
               " order_pos is the position in Google Benchmark's output) plus registration order rotated by launch; a"
               " failed call check aborts the process (exit 3) and the JSON is only renamed into place on success\","
@@ -2825,7 +2828,7 @@ int main(int argc, char **argv) {
               " repetition's timed loop: counters ru_nvcsw, ru_nivcsw, ru_minflt, ru_majflt (repetition totals)\","
               " \"cpu\": %s, \"thread_classes_before_benchmarks\": %s, \"core_target\": \"%s\", \"tcp_sockets\": %s}}\n",
               kBuild, c.target.c_str(), c.transport.c_str(), c.cells.c_str(), c.dirs.c_str(), c.min_time_s,
-              c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, maxk, c.workers, proc_threads(),
+              c.rounds, c.launch, w.expect_a, AK_GBENCH_VERSION, c.warmup_s, c.warmup_long_s >= 0 ? c.warmup_long_s : c.warmup_s, maxk, c.workers, proc_threads(),
               c.payloads.empty() ? "all" : c.payloads.c_str(), c.iters.empty() ? "none" : c.iters.c_str(),
               cpu_facts().c_str(), thread_classes().c_str(), c.core_target.c_str(), tcp_sockets().c_str());
   std::fflush(stdout);
@@ -2885,6 +2888,11 @@ int main(int argc, char **argv) {
         fixed_iters.find(std::string(job_payload(w.jobs[r.job])) + "/" + std::to_string(r.k));
     if (fi == fixed_iters.end()) fi = fixed_iters.find(std::to_string(r.k));
     if (fi != fixed_iters.end()) bm->Iterations(fi->second);  // --iters: no estimation
+    else if (c.warmup_long_s >= 0 && (w.jobs[r.job].dir == 'c' || w.jobs[r.job].dir == 'd'))
+      // req. 24 as amended: the long calls get the long warm-up. Google Benchmark 1.8.3 applies a
+      // benchmark's own MinWarmUpTime only when the benchmark also sets MinTime (otherwise the
+      // flag's), so both are set, MinTime to the run's --min-time-s.
+      bm->MinTime(c.min_time_s)->MinWarmUpTime(c.warmup_long_s);
   }
   char wu[64];
   std::snprintf(wu, sizeof(wu), "--benchmark_min_warmup_time=%.6f", c.warmup_s);

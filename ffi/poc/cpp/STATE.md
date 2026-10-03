@@ -574,7 +574,7 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | 22 | order | **met**, stated. Codec and RPC: Google Benchmark's `--benchmark_enable_random_interleaving` (the repetitions of every benchmark of one process in random order, unseeded) plus registration order rotated by launch; RPC samples record `order_pos`, the position in Google Benchmark's output. The two builds' RPC binaries (and codec binaries) alternate by launch. Changed by WP9: the RPC order was a per-(round, dir, k) seeded shuffle of the cells |
 | 22a | benchmark engine | **met** for codec and RPC (WP9, amended 2026-09-27): Google Benchmark v1.8.3, a Release build made by the runner from the upstream tag with its commit checked. Its warm-up, iteration control, ordering and raw export are used as they are; the custom pieces are listed under "Custom code around the framework" below. Every repetition is exported raw and converted to section 7's lines (`gen/gbench_to_jsonl.py`, codec and rpc modes). The calib suite stays on the runner (a few crossing loops, no framework needed) |
 | 23 | 5 rounds x 3 launches, every round committed | **met**: rounds = Google Benchmark repetitions (runner defaults 5 x 3; the smokes used fewer, stated) |
-| 24 | warm-up fixed, identical, a parameter | **met**: Google Benchmark's own `--benchmark_min_warmup_time` per benchmark, before its first repetition, codec (AK_CAMPAIGN_WARMUP_S) and RPC (AK_CAMPAIGN_RPC_WARMUP_S), and the server's warm-up calls (AK_CAMPAIGN_SERVER_WARMUP; d a tenth); AK_CAMPAIGN_SMOKE=1 shortens the defaults (0.01 s, 0.01 s, 20 against 0.5 s, 0.5 s, 200), and the header states the values run and both default sets. Changed by WP9: the harness-run codec warm-up (bytes per arm) and the RPC warm-up calls per cell are gone. Req. 24 as amended (8c02e7c58): the RPC campaign default is 2.5 s (was 0.5): Google Benchmark's warm-up runs on the same k caller threads as the measurement, one call per thread per iteration, and stops once one attempt lasts min_warmup_time (wall), so the slowest batch measured on the campaign machine (d/16MiB k=8 C-retain, 79 ms) gets >= 31 calls per thread, against about 6 at 0.5 s; stated as `rpc_warmup_rule` in the header |
+| 24 | warm-up fixed, identical, a parameter | **met**: Google Benchmark's own `--benchmark_min_warmup_time` per benchmark, before its first repetition, codec (AK_CAMPAIGN_WARMUP_S) and RPC (AK_CAMPAIGN_RPC_WARMUP_S), and the server's warm-up calls (AK_CAMPAIGN_SERVER_WARMUP; d a tenth); AK_CAMPAIGN_SMOKE=1 shortens the defaults (0.01 s, 0.01 s, 20 against 0.5 s, 0.5 s, 200), and the header states the values run and both default sets. Changed by WP9: the harness-run codec warm-up (bytes per arm) and the RPC warm-up calls per cell are gone. Req. 24 as amended (8c02e7c58), per-benchmark warm-up (owner, 2026-10-03): `MinWarmUpTime` 2.5 s for c and d (AK_CAMPAIGN_RPC_WARMUP_LONG_S; slowest c/d batch on the campaign machine d/16MiB k=8 C-retain 79 ms: >= 31 calls per caller thread; c/P5.4 k=8 21 to 77 ms: >= 32) and 1.5 s for a, a+read, b (AK_CAMPAIGN_RPC_WARMUP_S; slowest a/b batch of one small container run, a+read k=16 Bf-q 61 ms: >= 24; 0.5 s gave about 8). Google Benchmark's warm-up runs on the same k caller threads as the measurement, one call per thread per iteration, and stops once one attempt lasts the warm-up time (wall). Stated as `rpc_warmup_rule` in the header |
 | 25 | allocator warmed identically; allocator mode | **met**: every benchmark's framework warm-up precedes its first repetition. D9 as amended 2026-10-03: the main figures run with glibc's default allocator (AK_CAMPAIGN_ALLOC=default, the runner unsets any ambient GLIBC_TUNABLES); AK_CAMPAIGN_ALLOC=pinned is the labelled diagnostic (GLIBC_TUNABLES trim 268435456, mmap 33554432 on the measured client processes, never the server; files alloc-pinned-*). The header's `malloc` states both; every sample carries `alloc` and its minor faults (RPC `ru_minflt`, `minflt_per_call`; codec `ru_minflt`, `minflt_per_op`). GC is not applicable. Startup check (`src/alloc_check.h`, in `campaign_codec*` and `campaign_rpc*`): one 16 MiB malloc against mallinfo2's mmapped-block count before any timing, once per process and kept mapped (freeing it would move glibc's dynamic mmap threshold), default must read `mmapped` and pinned `heap`; the process exits 4 with no sample if the readback disagrees with AK_CAMPAIGN_ALLOC (unset = default) or AK_CAMPAIGN_ALLOC with GLIBC_TUNABLES; the readback is a header line (`malloc_check`). No heap pre-grow (owner, 2026-10-03: reverted): Google Benchmark's own warm-up runs the real call path on every thread, including the core's worker threads whose malloc arenas a main-thread pre-grow cannot reach, and the per-sample minor faults show whether it sufficed |
 | 26 | correctness gate first | **met**: the campaign gate runs the full build's conformance, corpus, plants and counts, `nounk_gate.sh`, each codec binary's own gate and plant, both RPC clients' length and abort-after controls, the c/d plants in every cell and send path of both builds, and the RPC counts |
 | 27 | header; dirty tree refused | **met**: a dirty tree is refused unless AK_CAMPAIGN_ALLOW_DIRTY=1 (smoke only). The header's `"instrumentation"` is true on a dirty tree or with AK_CAMPAIGN_SMOKE=1, which also sets `"smoke": true`, so a clean-tree smoke is marked (R-H19) |
@@ -583,6 +583,31 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
 | 30 | summaries only as specified | **met**: `gen/campaign_summary.py` keys on (build, arm or cell, payload, content, direction, mode, end, input, set, row) and forms ratios to incumbent-prod (end=transport for encode) or cell A from per-launch medians; no committed summary |
 | 31 | runner interface; top-level `ffi/campaign.sh` | **met** for the slice runner. `ffi/campaign.sh` belongs to the aggregating session |
 | 32 | smoke committed, marked | **met**: the WP5 step 10 smoke, figures stripped |
+
+## Campaign wall-time estimate (2026-10-03, computed, not run)
+
+Campaign defaults: 3 launches x 5 rounds; codec min time 0.5 s and warm-up 0.5 s; RPC min time 1.0 s, warm-up
+1.5 s (a, a+read, b) and 2.5 s (c, d). Benchmark counts from the binaries at this commit: codec full 4436, no-unknown
+2724 (each binary's gate); RPC full client 29 cells (4 pull cells: a and a+read only) = 449 benchmarks (249 a/b, 200
+c/d), no-unknown 17 cells = 267 (147, 120). Per benchmark: Google Benchmark's warm-up overshoots its minimum (1.0 to
+1.8x; measured 1.77x on c), the first repetition re-estimates iterations (up to one extra min time); input=pool
+codec rows (about 31%) rebuild the 2 x LLC pool per call of the benchmark function (0.5 to 3 s, not measured).
+
+| Item | Per unit | Units per (grpc++ version, allocator pass) | Hours |
+|---|---|---|---|
+| codec, full binary | 3.0 to 4.4 s per benchmark, + pool rebuild, + gate about 8 min | 4436 benchmarks x 3 launches | 12 to 20 |
+| codec, no-unknown binary | the same | 2724 x 3 | 7.5 to 12.5 |
+| RPC, full client | a/b 6.5 to 8.7 s, c/d 7.5 to 10.5 s | 449 x 2 transports x 2 h2 variants x 3 launches | 10.4 to 14.2 |
+| RPC, no-unknown client | the same | 267 x 2 x 2 x 3 | 6.2 to 8.5 |
+| gate (wp5 + campaign gate) | about 1.2 h (container figure) | once per build (the pinned pass reuses gate.ok) | 1.2 (default pass only) |
+| calib + Rust crossing bench | about 5 min per launch | 3 | 0.25 |
+| **per (grpc++ version, allocator pass)** | | | **37 to 57** |
+
+Totals: x 2 allocator passes (default, pinned diagnostic) = 74 to 113 h (3.1 to 4.7 days) with one grpc++ version
+(the campaign machine has 1.80 only); x 2 grpc++ versions (CAMPAIGN section 3: v1.54.0 and current) = 148 to 226 h.
+The h2 variant multiplies the RPC grid only (it changes the core's transport). Largest contributors: (1) the codec
+suite's 7160 benchmarks x 5 repetitions (about 55% of the time); (2) the RPC grid's multiplicity, 46 cells x 17
+groups x 2 transports x 2 h2 variants (about 40%); (3) the pinned allocator pass, which doubles everything.
 
 ## Custom code around the framework (WP9, req. 22a amended)
 
