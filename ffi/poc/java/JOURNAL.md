@@ -1179,3 +1179,5 @@ panicked at start-up because its compiled-in source paths were gone, and a rebui
 because cached build-script outputs pointed there too. I removed those two cached outputs
 (campaign, harness) under poc/rust/target-server and rebuilt with `serve.sh build`. That
 target directory is an untracked artefact shared by every slice; no source changed.
+
+h2-batch gate at fe4ef72be (owner follow-up): GATE PASSED in 1,417 s, build included. RPC cores compiled h2-batch-src; counts 810 / 452; rpc counts 84 / 48 on the h2-batch counting cores; upload checks and plants pass (logs/java/campaign-counts/gate-a0a952387b2acf69-h2b.log).
