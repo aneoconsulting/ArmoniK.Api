@@ -1151,3 +1151,29 @@ default group, because ArmoniK's builder sets no group.
 
 The core-grid estimate in STATE is about 68 min of timed suites, about 2 h with the gates and
 calib.
+
+### J44. Core-grid counts and the explicit send path (owner, 2026-10-03)
+
+**Counts.** Of the timed core-grid rows, the counting build and the committed count files
+lacked only the P2.2 Latin-1 and wide rows: core-ffi encode end state (ii) and decode, in
+drop, retain and no-unknown. RunCounts now emits `EP P2.2/latin1` and `EP P2.2/wide`, which
+adds 8 rows to counts.ref and 4 to counts-nounk.ref. Their values equal the ASCII P2.2 rows.
+Every existing row is unchanged.
+
+Already covered:
+- the 7 U-* rows' `encode (transport)` and decode, in every mode;
+- the shapes' encode (transport) and decode;
+- the RPC framed cells, in rpc-counts.
+
+**Send path.** CoreCell called `ak_client_set_framed(c, 1)` for the framed twins only and
+left reference cells unset. Since e8fe14868 (2026-09-28) the core's default is framed, so
+B, C, Cc and E ran framed while labelled reference. Fixed: every core client now sets the
+path explicitly to its label. The affected runs are the full-grid java RPC smokes since then
+(WP13, D9, r24). The core grid uses only framed cells, so it is not affected. rpc-counts are
+identical after the fix on both paths, so the counts never showed it.
+
+**Shared server binary.** It was built from cpp's since-deleted worktree (`cpp-wt`). It
+panicked at start-up because its compiled-in source paths were gone, and a rebuild failed
+because cached build-script outputs pointed there too. I removed those two cached outputs
+(campaign, harness) under poc/rust/target-server and rebuilt with `serve.sh build`. That
+target directory is an untracked artefact shared by every slice; no source changed.
