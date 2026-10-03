@@ -323,7 +323,7 @@ codec)
       # Core grid (req 24 as narrowed by 4.0): the second string-coder state on the content-set
       # rows only.
       if [ "$AK_CAMPAIGN_GRID" = core ] && [ $coder = utf16 ]; then
-        CELLS=$(echo "$ALLCELLS" | tr ',' '\n' | grep -E '\|(latin1|wide)\|' | paste -sd,)
+        CELLS=$(echo "$ALLCELLS" | tr ',' '\n' | grep -E '\|(latin1|wide)\|' | paste -sd, || true)
       fi
       [ -n "$CELLS" ] || continue
       f="$OUT/codec$TAG-$coder-launch-$l.jsonl"; base="$OUT/codec$TAG-$coder-launch-$l"
@@ -457,8 +457,8 @@ rpc)
     for part in $parts; do
       case $part in
         all) combos=$PCOMBO; wt=$WTIME_DOWN; pb=$base ;;
-        down) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(a|a\+read|b)/' | paste -sd,); wt=$WTIME_DOWN; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-down-launch-$l ;;
-        up) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(c|d):' | paste -sd,); wt=$WTIME_UP; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-up-launch-$l ;;
+        down) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(a|a\+read|b)/' | paste -sd, || true); wt=$WTIME_DOWN; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-down-launch-$l ;;
+        up) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(c|d):' | paste -sd, || true); wt=$WTIME_UP; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-up-launch-$l ;;
       esac
       [ -n "$combos" ] || continue
       echo "# invocation $part: -p combo=$combos -wi $WI -w $wt -i $MI -r $RTIME" >> "$f"
