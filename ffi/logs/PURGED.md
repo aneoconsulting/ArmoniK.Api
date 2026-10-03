@@ -18,3 +18,25 @@ snapshot tables can no longer be regenerated from their raw samples.
 
 The originals survive only where a clone made before the rewrite still exists (the campaign
 machine's checkout, unless reset).
+
+# Second purge: the whole branch history (owner, 2026-10-03)
+
+`claude/poc-adversarial-review-38g5y8` was rewritten on 2026-10-03, after merging the
+optimisation branch at 90171425, to remove raw benchmark output and build artefacts from
+every commit of its history (2,840 commits; the commits of `main` it builds on carry none of
+these paths and are unchanged). The packed repository went from 99 MiB to 23 MiB, and
+`ffi/logs` in a checkout from 128 MB to 53 MB.
+
+| Removed | Pattern |
+|---|---|
+| raw per-sample timing output (every slice, every campaign, smoke and optimisation run) | `ffi/logs/**/*.jsonl` |
+| raw tables and compressed dumps | `ffi/logs/**/*.tsv`, `ffi/logs/**/*.gz` |
+| raw framework output | `ffi/logs/**/*.gbench.json`, `ffi/logs/**/*.bdn.log`, `ffi/logs/**/*.criterion.log`, `ffi/logs/**/*.console` |
+| committed C++ build directories (object files, a binary; `gen/upb_ab.sh` rebuilds them) | `ffi/poc/cpp/build-upbclang/`, `ffi/poc/cpp/build-upbft/` |
+
+Kept: every gate and check log (`*.log`), every summary, table and report in text (`*.txt`,
+`*.md`, `*.out`, `*.err`, `*.perfstat`, `*.syscalls.txt`, patches), and every committed count
+file. None of the removed files was an input to a gate or a harness. Paths in STATE, JOURNAL,
+findings and tables that name a removed file now point at nothing; what was derived from it
+stays. Every figure in the removed files was container or physical-probe instrumentation,
+not a campaign result.
