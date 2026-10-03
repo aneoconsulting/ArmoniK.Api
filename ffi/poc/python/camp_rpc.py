@@ -138,21 +138,37 @@ def grpc_options(transport):
             ("grpc.max_send_message_length", MSG_LIMIT)]
 
 
-CORE_WORKERS = int(os.environ.get("AK_CORE_WORKERS", "2"))   # the core runtime's worker threads (req 4)
+# D14 (owner, 2026-10-03): every pool sized to AK_WORKERS (8, campaign.machine); AK_CORE_WORKERS
+# overrides the core runtime's alone (an exploration knob, stated in the header)
+WORKERS = int(os.environ.get("AK_WORKERS", "8"))
+CORE_WORKERS = int(os.environ.get("AK_CORE_WORKERS", str(WORKERS)))   # the core runtime's worker threads (req 4)
 RT = []
 
 
 def runtime():
     """ONE core runtime per client process, shared by every core client (stated: its worker
-    thread count is AK_CORE_WORKERS, the core's default when the host passes 0 being 2)."""
+    thread count is CORE_WORKERS: AK_WORKERS, D14)."""
     if not RT:
         RT.append(arms._ffi.rt_new(CORE_WORKERS))
     return RT[0]
 
 
+def grpc_target(target):
+    """grpcio's form of a server address: `127.0.0.1:PORT` over TCP (WP13, D10), or `unix:...`."""
+    return target
+
+
+def core_target(target):
+    """The core's (tonic Endpoint::from_shared) form: `http://127.0.0.1:PORT`, or `unix:...`."""
+    return target if target.startswith("unix:") else "http://" + target
+
+
 def core_client(target, transport):
-    """A core client dialling `target` (`unix:/path`, req 17 as amended: tonic's
-    Endpoint::from_shared dials a Unix domain socket for a `unix:` target)."""
+    """A core client dialling `target`: TCP 127.0.0.1 since WP13 (D10, req 17 as amended).
+    shipped: ak_client_new, no options (tonic's defaults, its Endpoint sets TCP_NODELAY by
+    default); pinned: ak_client_opts with tcp_nagle 0 (Nagle off). Both read back on the live
+    socket by the worker (camp_meas.nodelay_summary)."""
+    target = core_target(target)
     if transport == "shipped":
         return arms._ffi.client_new(runtime(), target)        # tonic's defaults: the core ships no pin
     # ak_client_opts: stream and connection windows 4 MiB, adaptive OFF, limits raised,
@@ -174,7 +190,7 @@ def cells(target, transport, keys=None):
 
     def chan(cell):
         if cell not in chans:
-            chans[cell] = grpc.insecure_channel(target, options=grpc_options(transport))
+            chans[cell] = grpc.insecure_channel(grpc_target(target), options=grpc_options(transport))
         return chans[cell]
 
     def cli(cell):
@@ -614,7 +630,7 @@ POOL = []
 
 # the shared server's start, warm and stop, and its socket list (no heavy import: the pyperf
 # master process uses it too)
-from camp_rpc_srv import Server, parse_server, serve_sh  # noqa: E402,F401
+from camp_rpc_srv import Server, parse_server, serve_sh, timed_target, tcp_port  # noqa: E402,F401
 
 
 def start_server(d, warm=0):

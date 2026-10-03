@@ -60,13 +60,15 @@ def main():
                     if phase == "value":
                         rnd += 1
                     inp, end = ENC.get(d, (None, None))
-                    log.sample(arm=arm, payload=pid, content=content, dir=d, unknown_mode=mode,
+                    log.sample(arm=arm, h2="none", payload=pid, content=content, dir=d, unknown_mode=mode,
                                input=inp, end_state=end,
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
                                cpu_ns=int(round(v * loops * 1e9)),
                                wall_ns=int(round(wall * 1e9)) if wall is not None else None,
                                iters=loops)
     log.header(engine="pyperf %s (CAMPAIGN.md 22a)" % pyperf.__version__, family=fam, launch=launch,
+               h2="none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels "
+                  "the RPC samples)",
                pyperf_args=opt("--pyperf-args", "?"),
                clock="pyperf values are CLOCK_PROCESS_CPUTIME_ID per loop (process CPU, req 21 as amended) (the time_func's return); wall "
                      "(perf_counter) of the same call from the side file",

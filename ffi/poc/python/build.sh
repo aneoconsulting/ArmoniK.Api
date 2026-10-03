@@ -96,6 +96,42 @@ cargo_q rpc-count-nounk --no-default-features --features rpc,count,init-guard
 RPCCOUNTLIB="$TBASE/rpc-count/release"; NRPCCOUNTLIB="$TBASE/rpc-count-nounk/release"
 NCORELIB="$TBASE/plain-nounk/release"; NCOUNTLIB="$TBASE/count-nounk/release"
 NRPCLIB="$TBASE/rpc-nounk/release"; NCORPUSLIB="$TBASE/corpus-nounk/release"
+# FIX-PLAN WP13 / D11 as amended: the h2-batch variant of every core that carries h2 (the rpc
+# feature): rpc, rpc-nounk, rpc-count, rpc-count-nounk. The full rpc core through the shared
+# poc/codec/h2-batch/build.sh (it materialises h2 0.4.19 from cargo's cache, checks its sha256
+# against Cargo.lock and applies h2-batch.patch); the other three by hand with the same
+# --config and the same patched source (README "By hand"), because the script takes features
+# only and the no-unknown cores need --no-default-features. Each in its own target directory.
+# The stock cores are the ones above (an ordinary build is stock: no [patch] anywhere).
+H2B="$TBASE/rpc-h2batch"
+bash "$CORE/h2-batch/build.sh" h2-batch "$H2B" rpc,init-guard > "$TBASE/rpc-h2batch.log" 2>&1 \
+  || { tail -5 "$TBASE/rpc-h2batch.log"; echo "   FAIL: the h2-batch rpc core did not build"; exit 1; }
+H2SRC="$H2B/h2-batch-src"
+cargo_h2b() {  # cargo_h2b <name> <cargo args...>: an h2-batch core, by hand
+  local name=$1; shift
+  cp "$CORE/Cargo.lock" "$TBASE/$name.lock.saved"
+  (cd "$CORE" && CARGO_TARGET_DIR="$TBASE/$name" CARGO_BUILD_BUILD_DIR="$TBASE/$name" cargo build --release -q -p ak-core "$@" \
+     --config "patch.crates-io.h2.path=\"$H2SRC\"") 2> "$TBASE/$name.stderr" || { cp "$TBASE/$name.lock.saved" "$CORE/Cargo.lock"; cat "$TBASE/$name.stderr"; exit 1; }
+  cp "$TBASE/$name.lock.saved" "$CORE/Cargo.lock"
+}
+cargo_h2b rpc-nounk-h2batch --no-default-features --features rpc,init-guard
+cargo_h2b rpc-count-h2batch --features rpc,count,init-guard
+cargo_h2b rpc-count-nounk-h2batch --no-default-features --features rpc,count,init-guard
+HRPCLIB="$H2B/release"; HNRPCLIB="$TBASE/rpc-nounk-h2batch/release"
+HRPCCOUNTLIB="$TBASE/rpc-count-h2batch/release"; HNRPCCOUNTLIB="$TBASE/rpc-count-nounk-h2batch/release"
+# Which h2 each rpc core compiled in (panic-location paths of h2's framed_write.rs): the stock
+# cores must name the crates.io source, the h2-batch cores the patched one (h2-batch-src).
+for pair in "$RPCLIB:stock" "$NRPCLIB:stock" "$RPCCOUNTLIB:stock" "$NRPCCOUNTLIB:stock" \
+            "$HRPCLIB:h2-batch" "$HNRPCLIB:h2-batch" "$HRPCCOUNTLIB:h2-batch" "$HNRPCCOUNTLIB:h2-batch"; do
+  IFS=: read -r lib v <<< "$pair"
+  src=$(strings "$lib/libak_core.so" | grep -o '/[^ ]*/src/codec/framed_write\.rs' | sort -u | head -1)
+  case "$v:$src" in
+    stock:*h2-batch-src*|stock:) echo "   FAIL: $lib (stock) compiled in h2 from '$src'"; exit 1;;
+    h2-batch:*h2-batch-src*) ;;
+    h2-batch:*) echo "   FAIL: $lib (h2-batch) compiled in h2 from '$src'"; exit 1;;
+  esac
+  echo "   $(basename "$(dirname "$lib")"): h2 $v ($(echo "$src" | grep -o '[^/]*/src/codec/framed_write\.rs$' | sed 's#/src/codec/framed_write.rs##')), sha256 $(sha256sum "$lib/libak_core.so" | cut -c1-16)"
+done
 UFAM=' T ak_(uencode_|uelem|dec_reset_)'
 for lib in "$CORELIB" "$COUNTLIB" "$RPCLIB" "$CORPUSLIB"; do
   n=$(nm -D --defined-only "$lib/libak_core.so" | grep -cE "$UFAM" || true)
@@ -160,6 +196,22 @@ for PY in "$@"; do
     f=$( (cd "$D" && "$PYABS" -c "import $m; print($m.counting(), $m.abi_counts() is not None, $m.nounk())") 2>&1) \
       || { echo "   FAIL: $m does not import: $f"; exit 1; }
     echo "   $m (the RPC counting build, req 19): counting, abi counts, variant: $f"
+  done
+  # WP13 / D11: the h2-batch variant's rpc shims, the same module names in $D/h2batch (AK_H2=h2-batch
+  # puts it first on sys.path, arms.py), each linked to its h2-batch core
+  mkdir -p "$D/h2batch"
+  shim _akffi_rpc gen/out "$HRPCLIB" "$D/h2batch" -DAK_RPC
+  shim _akffi_rpc_nounk gen/out/nounk "$HNRPCLIB" "$D/h2batch" -DAK_NOUNK -DAK_RPC
+  shim _akffi_rpc_count gen/out "$HRPCCOUNTLIB" "$D/h2batch" -DAK_RPC -DAK_COUNT
+  shim _akffi_rpc_count_nounk gen/out/nounk "$HNRPCCOUNTLIB" "$D/h2batch" -DAK_NOUNK -DAK_RPC -DAK_COUNT
+  for pair in "_akffi_rpc:$HRPCLIB" "_akffi_rpc_nounk:$HNRPCLIB" "_akffi_rpc_count:$HRPCCOUNTLIB" "_akffi_rpc_count_nounk:$HNRPCCOUNTLIB"; do
+    IFS=: read -r m lib <<< "$pair"
+    rl=$(ldd "$D/h2batch/$m$SOABI" | awk '/libak_core/ {print $3}')
+    [ "$(readlink -f "$rl")" = "$(readlink -f "$lib/libak_core.so")" ] || { echo "   FAIL: h2batch/$m resolves libak_core.so to $rl, not $lib"; exit 1; }
+    f=$(cd "$HERE" && AK_H2=h2-batch AK_FFI_MODULE=$m "$PYABS" -c "import sys; sys.argv=['x']; import arms; m=arms._ffi; import os; print(m.__name__, os.path.relpath(m.__file__), m.nounk())" 2>&1 | tail -1) \
+      || { echo "   FAIL: AK_H2=h2-batch does not load h2batch/$m: $f"; exit 1; }
+    case "$f" in *h2batch/*) ;; *) echo "   FAIL: AK_H2=h2-batch loaded $f, not build/py$TAG/h2batch/$m"; exit 1;; esac
+    echo "   h2batch/$m: libak_core.so is $(basename "$(dirname "$lib")"); AK_H2=h2-batch loads $f"
   done
   shim _akffi_corpus_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS
   shim _akffi_corpus_chunk_nounk gen/out/corpus-nounk "$NCORPUSLIB" "$D" -DAK_NOUNK -DAK_CORPUS -DAK_CHUNK_BYTES=256 -DAK_CHUNK_PACKED=3
@@ -233,6 +285,11 @@ for PY in "$@"; do
   rm -f "$neg"
   echo "   must-fail control: a shim built WITHOUT -DAK_RPC imports $r of 6 and is refused"
 done
+
+echo
+echo "== the grpc-core CPU-count shim (WP13 / D14: grpc-core sizes itself from sysconf(_SC_NPROCESSORS_CONF)) =="
+cc -O2 -shared -fPIC -Wall -Werror -o build/ncpus_shim.so native/ncpus_shim.c -ldl
+echo "   build/ncpus_shim.so: LD_PRELOAD with AK_SHIM_NCPUS=N makes sysconf(_SC_NPROCESSORS_CONF/ONLN) report N"
 
 echo
 echo "== the shared campaign RPC server (FIX-PLAN WP10: the Rust rpc_server, poc/rust/SERVER.md) =="

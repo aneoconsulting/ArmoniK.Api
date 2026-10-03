@@ -79,6 +79,14 @@ need_pyperf() {
 # private to this runner, so another slice's serve.sh start does not collide with it.
 export AK_SERVE_SH="$AK_SNAPSHOT_DIR/ffi/poc/rust/serve.sh"
 export AK_SERVE_STATE="$HERE/build/serve-state-$$"
+# WP13. D14: every pool sized to AK_WORKERS (campaign.machine: 8): the server's tokio runtime,
+# the core runtime (camp_rpc.py), grpc-core (the sysconf shim below). D10: the server also
+# listens on TCP 127.0.0.1 (AK_SERVER_TCP=0, any free port, pinned server configuration), and
+# every timed cell dials it. D11: both h2 variants of the rpc core, AK_CAMPAIGN_H2 (default both).
+if [ -z "${AK_WORKERS:-}" ] && [ -f "$HERE/../../campaign.machine" ]; then AK_WORKERS=$(. "$HERE/../../campaign.machine"; echo "$AK_WORKERS"); fi
+export AK_WORKERS="${AK_WORKERS:-8}"
+export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}" AK_SERVER_TCP=0
+H2S="${AK_CAMPAIGN_H2:-stock h2-batch}"
 
 need_gate() {
   if [ "$(cat "$OUT/gate.ok" 2>/dev/null)" != "$STAMP" ]; then
@@ -119,6 +127,25 @@ case "$SUITE" in
     rpc_control count d "rpc|full|shipped|d|4MiB|C-drop|1" "a call failed: .*want 4194305"
     echo "== the RPC runner's must-fail control: (d) expects a wrong digest from UploadStreamCheck =="
     rpc_control digest d "rpc|full|shipped|d|4MiB|C-drop|1" "check: .*not the bytes and digest sent"
+    # WP13: the RPC checks over TCP 127.0.0.1 for both h2 variants and both builds: every cell of
+    # every direction on both client configurations against the shared server's TCP listener,
+    # TCP_NODELAY read back on every live socket, and the write-count marker that shows which h2
+    # is running (camp_rpc_pyperf.py --precheck).
+    GS="$OUT/gate/rpc-tcp-server"; mkdir -p "$GS"
+    SL=$(bash "$AK_SERVE_SH" start --out "$GS") || { echo "   serve.sh start failed: $(tail -2 "$GS/rpc-server.log")"; exit 1; }
+    GSOCKS="shipped=unix:$(echo "$SL" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SL" | sed -n 's/^pinned //p'),tcp=$(echo "$SL" | sed -n 's/^tcp //p')"
+    bash "$AK_SERVE_SH" warm 1 > "$GS/warm.out" 2>&1 || { bash "$AK_SERVE_SH" stop >/dev/null; echo "   serve.sh warm failed"; exit 1; }
+    for h in stock h2-batch; do
+      for v in full nounk; do
+        f="$OUT/gate/rpc-tcp-precheck-$v-$h.out"
+        echo "== the RPC grid's checks over TCP 127.0.0.1: build $v, h2 $h =="
+        if ! "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$GSOCKS" > "$f" 2>&1; then
+          tail -3 "$f"; bash "$AK_SERVE_SH" stop >/dev/null; echo "   RPC TCP CHECK FAILED ($v, $h)"; exit 1
+        fi
+        grep "write syscalls\|TCP_NODELAY" "$f"
+      done
+    done
+    bash "$AK_SERVE_SH" stop > /dev/null
     echo "$STAMP" > "$OUT/gate.ok"
     echo "GATE PASSED"
     ;;
@@ -181,8 +208,10 @@ case "$SUITE" in
     [ -x "$AK_SERVE_SH" ] || { echo "   no $AK_SERVE_SH: the snapshot has no poc/rust (run the gate)"; exit 1; }
     # Req 13 as amended at 9f6d579fa (FIX-PLAN WP10): ONE server process per launch, the Rust
     # slice's tonic rpc_server (poc/rust/SERVER.md), started through the snapshot's serve.sh,
-    # pinned by it to AK_CPU_SERVER, both configurations (shipped: tonic's defaults; pinned:
-    # windows 4 MiB, adaptive off) on two Unix sockets; serving every cell of both builds;
+    # pinned by it to AK_CPU_SERVER, AK_SERVER_THREADS=AK_WORKERS tokio workers (D14); since
+    # WP13 (D10) every timed cell dials its TCP listener on 127.0.0.1 (AK_SERVER_TCP=0, the
+    # pinned server configuration, TCP_NODELAY on accept), whatever its client configuration;
+    # its Unix sockets are left unused; serving every cell of both builds and both h2 variants;
     # warmed by `serve.sh warm AK_CAMPAIGN_SERVER_WARMUP` (checked calls per direction from a
     # tonic and a core client, both sockets) before any invocation.
     if [ -n "$SMOKE" ]; then export AK_CAMPAIGN_SERVER_WARMUP="${AK_CAMPAIGN_SERVER_WARMUP:-8}"
@@ -207,35 +236,43 @@ case "$SUITE" in
       echo "# ABORTED, NO FIGURE: $2" > "$OUT/rpc-launch$1.ABORTED"
       echo "   launch $1 DISCARDED: $2"
     }
-    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets> <server log>; nonzero on any failure
-      local l=$1 v=$2 S=$3 SLOG=$4 g L
-      "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --server "$S" --transports "$TR" > "$OUT/rpc-$v-precheck-launch$l.out" 2>&1 \
-        || { tail -3 "$OUT/rpc-$v-precheck-launch$l.out"; return 1; }
+    rpc_run() {  # rpc_run <launch> <full|nounk> <server sockets> <server log> <h2>; nonzero on any failure
+      local l=$1 v=$2 S=$3 SLOG=$4 h=$5 g L hs=""
+      [ "$h" = h2-batch ] && hs="-h2batch"
+      "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$S" --transports "$TR" > "$OUT/rpc-$v$hs-precheck-launch$l.out" 2>&1 \
+        || { tail -3 "$OUT/rpc-$v$hs-precheck-launch$l.out"; return 1; }
       for g in ab c d; do
         case $g in ab) L=$LAB;; c) L=$LC;; d) L=$LD;; esac
-        local F="$OUT/rpc-$g-launch$l"; [ "$v" = nounk ] && F="$OUT/rpc-nounk-$g-launch$l"
+        local F="$OUT/rpc-$g$hs-launch$l"; [ "$v" = nounk ] && F="$OUT/rpc-nounk-$g$hs-launch$l"
         local PP="--processes 1 --values $ROUNDS --warmups $RW --loops $L"
         rm -rf "$F.side" "$F.pyperf.json"
+        # grpc-core sized to AK_WORKERS through the sysconf shim (D14), preloaded into the pyperf
+        # processes (--copy-env carries it into every worker)
+        AK_H2="$h" AK_SHIM_NCPUS="$AK_WORKERS" LD_PRELOAD="$HERE/build/ncpus_shim.so" \
         PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py --variant "$v" --group $g --launch "$l" --server "$S" \
           --transports "$TR" --side "$F.side" -o "$F.pyperf.json" $PP --affinity "$AFF" --copy-env --quiet > "$F.pyperf.out" 2>&1 \
           || { tail -5 "$F.pyperf.out"; return 1; }
-        "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g \
+        AK_SHIM_NCPUS="$AK_WORKERS" "$PY" camp_rpc_pyperf_export.py --json "$F.pyperf.json" --side "$F.side" --launch "$l" --variant "$v" --group $g --h2 "$h" \
           --server "$S" --server-log "$SLOG" --pyperf-args "$PP --affinity $AFF --copy-env --transports $TR" --out "$F.jsonl" $SMOKE $DIRTY || return 1
         rm -rf "$F.side"
-        echo "   rpc ($v, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
+        echo "   rpc ($v, $h, $g) launch $l: $(grep -c '"phase": "value"' "$F.jsonl" || true) values, $(grep -c '^{' "$F.jsonl" || true) raw measurements"
       done
     }
     for l in $(seq 1 "$LAUNCHES"); do
       SL="$OUT/rpc-server-launch$l"; mkdir -p "$SL"
       SLINE=$(bash "$AK_SERVE_SH" start --out "$SL") || { echo "   serve.sh start failed: $(tail -2 "$SL/rpc-server.log")"; exit 1; }
-      SOCKS="shipped=unix:$(echo "$SLINE" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SLINE" | sed -n 's/^pinned //p')"
+      SOCKS="shipped=unix:$(echo "$SLINE" | sed -n 's/^shipped //p'),pinned=unix:$(echo "$SLINE" | sed -n 's/^pinned //p'),tcp=$(echo "$SLINE" | sed -n 's/^tcp //p')"
       echo "   launch $l server: the Rust rpc_server, $(echo "$SLINE" | tr '\n' ' '), AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, AK_SERVER_THREADS=${AK_SERVER_THREADS:-4}"
       OK=1
       bash "$AK_SERVE_SH" warm "$AK_CAMPAIGN_SERVER_WARMUP" > "$SL/warm.out" 2>&1 || OK=0
       echo "   server warm-up: serve.sh warm $AK_CAMPAIGN_SERVER_WARMUP, $( [ $OK = 1 ] && echo passed || echo FAILED: $(tail -1 "$SL/warm.out"))"
       if [ $OK = 1 ]; then
         if [ $((l % 2)) = 1 ]; then ORD="full nounk"; else ORD="nounk full"; fi
-        for v in $ORD; do rpc_run "$l" "$v" "$SOCKS" "$SL/rpc-server.log" || { OK=0; break; }; done
+        # AK_CAMPAIGN_RPC_BUILDS: the builds timed (campaign: both; a minimal smoke may name one)
+        [ -n "${AK_CAMPAIGN_RPC_BUILDS:-}" ] && ORD="$AK_CAMPAIGN_RPC_BUILDS"
+        for v in $ORD; do
+          for h in $H2S; do rpc_run "$l" "$v" "$SOCKS" "$SL/rpc-server.log" "$h" || { OK=0; break 2; }; done
+        done
       fi
       bash "$AK_SERVE_SH" stop > /dev/null
       [ $OK = 1 ] || { discard "$l" "a benchmark, the precheck or the server warm-up failed"; exit 1; }

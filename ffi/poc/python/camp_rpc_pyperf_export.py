@@ -51,6 +51,9 @@ def main():
     log = L.Log(opt("--out"), "rpc", allow_dirty="--allow-dirty" in A, smoke="--smoke" in A,
                 build="nounk" if variant == "nounk" else "full")
     bad = []
+    facts = {}
+    h2 = opt("--h2", "stock")
+    nd_tot = [0, 0]
     for b in suite.get_benchmarks():
         name = b.get_name()
         _, build, transport, d, pid, cell, k = name.split("|")
@@ -69,10 +72,20 @@ def main():
                     i += 1
                     if phase == "value":
                         rnd += 1
+                    if "facts" in r:
+                        facts[name] = r["facts"]
+                        if r["facts"].get("h2") != h2:
+                            bad.append(name + " (h2 %s, not %s)" % (r["facts"].get("h2"), h2))
+                    nd_tot[0] += r["nodelay"]["nodelay_on"]
+                    nd_tot[1] += r["nodelay"]["to_server"]
+                    q = r["client_cpus_irq"]
                     log.sample(cell=cell, payload=pid, dir=d, transport=transport, inflight=int(k),
-                               unknown_mode=unknown_mode(cell), send_path=send_path(cell),
+                               unknown_mode=unknown_mode(cell), send_path=send_path(cell), h2=h2,
                                launch=launch, round=rnd if phase == "value" else None, phase=phase,
-                               cpu_ns=int(round(r["cpu_s"] * 1e9)), wall_ns=int(round(r["wall_s"] * 1e9)),
+                               cpu_ns=int(round(r["task_clock_s"] * 1e9)),
+                               process_cpu_ns=int(round(r["cpu_s"] * 1e9)), wall_ns=int(round(r["wall_s"] * 1e9)),
+                               client_softirq_ticks=q["softirq_ticks"], client_irq_ticks=q["irq_ticks"],
+                               client_net_rx=q["net_rx"], client_net_tx=q["net_tx"],
                                iters=r["loops"] * int(k))
             del loops
         if i != len(recs):
@@ -100,18 +113,44 @@ def main():
                                 "of k calls in flight (inner_loops = k), --loops fixed per group (no calibration "
                                 "worker); warm-ups are pyperf's per-worker warm-up values (--warmups), replacing "
                                 "the per-cell warm-up; the order is pyperf's sequential order, rotated per launch",
-               clock="the time_func returns CLOCK_PROCESS_CPUTIME_ID of the worker per value (req 21); wall "
-                     "(perf_counter) of the same batches from the side file",
+               clock="the time_func returns perf task-clock of the worker process per value (req 21 as amended, "
+                     "WP13); the process clock and wall (perf_counter) of the same batches from the side file",
                worker_threads="per benchmark worker: a client pool of k threads; one core runtime of "
-                              "AK_CORE_WORKERS (%s) workers where the cell uses the core; grpcio's own threads "
-                              "where it uses grpcio (a D or F stream adds one per call); the server's tokio runtime, "
-                              "AK_SERVER_THREADS workers (default 4)"
-                              % os.environ.get("AK_CORE_WORKERS", "2"),
+                              "%s workers where the cell uses the core; grpc-core's threads where it uses grpcio (a D "
+                              "or F stream adds one per call); the server's tokio runtime, AK_SERVER_THREADS=%s workers"
+                              % (os.environ.get("AK_CORE_WORKERS", os.environ.get("AK_WORKERS", "8")),
+                                 os.environ.get("AK_SERVER_THREADS", "4")),
                order="blocks of (transport, direction, payload, k) in list order, the cells rotated by one per "
                      "launch inside a block, the whole list rotated by a third per launch (pyperf cannot interleave)",
                checks="every call checked (req 18); a failed check fails the worker and the run, and the runner "
                       "then discards the whole launch's output (every build and group of that launch)",
-               raw_json=os.path.basename(opt("--json")))
+               raw_json=os.path.basename(opt("--json")),
+               h2="%s (D11 as amended; every sample carries `h2`); the core each worker mapped: %s" % (
+                   h2, json.dumps(sorted({json.dumps(f.get("core")) for f in facts.values()}))),
+               transport_net="TCP 127.0.0.1 for every cell (WP13, D10, req 17 as amended): every client configuration "
+                             "dials the shared server's TCP listener, which runs the PINNED server configuration only, so "
+                             "`shipped` and `pinned` differ on the client side only (grpcio channel options; core client "
+                             "ak_client_new against ak_client_opts with tcp_nagle 0). TCP_NODELAY read back with getsockopt "
+                             "on every live socket to the server after the setup and after every value: %d of %d set"
+                             % (nd_tot[0], nd_tot[1]),
+               cpu_figure="cpu_ns = perf task-clock of the whole worker process (perf_event_open PERF_COUNT_SW_TASK_CLOCK, "
+                          "opened by the process before its first thread, inherited by every thread), pyperf's value; "
+                          "process_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it; client_softirq_ticks / client_irq_ticks "
+                          "(/proc/stat, USER_HZ) and client_net_rx / client_net_tx (/proc/softirqs) over the worker's "
+                          "affinity set (the CLIENT CPUs), around the same batches (req 21 as amended)",
+               pools="AK_WORKERS=%s (D14). Core runtime: ak_runtime_new(%s) where the cell uses the core. grpc-core: sized "
+                     "from sysconf(_SC_NPROCESSORS_CONF), not the affinity mask; the runner preloads build/ncpus_shim.so "
+                     "with AK_SHIM_NCPUS=AK_WORKERS so it reads %s (its EventEngine reserves Clamp(n, 4, 16) threads). "
+                     "grpcio's Python client has no executor of its own (a ThreadPoolExecutor exists only on servers). "
+                     "The k client threads are the benchmark's pool. Per worker, the CPU facts and threads by name: %s" % (
+                         os.environ.get("AK_WORKERS", "8"), os.environ.get("AK_CORE_WORKERS", os.environ.get("AK_WORKERS", "8")),
+                         os.environ.get("AK_SHIM_NCPUS", "unset"),
+                         json.dumps(sorted({json.dumps({"cpu": f.get("cpu"), "threads": f.get("threads")}, sort_keys=True)
+                                            for f in facts.values()})[:6])),
+               allocator="mallopt(M_TOP_PAD, 8 MiB) at import (allocator.py, req 25); GLIBC_TUNABLES=%s (D9: see STATE)"
+                         % (os.environ.get("GLIBC_TUNABLES") or "unset"))
+    if nd_tot[1] == 0 or nd_tot[0] != nd_tot[1]:
+        bad.append("TCP_NODELAY %d of %d" % tuple(nd_tot))
     if bad:
         log.close(False, "%d benchmark(s) whose side records do not match pyperf's values: %s (harness defect)"
                   % (len(set(bad)), ", ".join(sorted(set(bad))[:5])))

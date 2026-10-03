@@ -79,6 +79,24 @@ for PY in "$@"; do
   { hdr "python slice: conformance on _akffi_rpc_nounk, $T"; AK_FFI_MODULE=_akffi_rpc_nounk AK_COUNT_MODULE=_akffi_count_nounk "$PY" conformance.py; } \
     > "$LOGS/102-wp5s10-conformance-rpc-nounk-$T.log" 2>&1 || rc=1
   echo "  102 conformance rpc nounk:  $(tail -1 "$LOGS/102-wp5s10-conformance-rpc-nounk-$T.log")"
+  # WP13 / D11 as amended: the steps that load an rpc core (92, 94, 102), again on the h2-batch
+  # variant (AK_H2=h2-batch: build/<tag>/h2batch first, arms.py); each log first names the
+  # module file and the libak_core.so it mapped, so the variant gated is the one named.
+  h2b_where() {  # h2b_where <module>
+    AK_H2=h2-batch AK_FFI_MODULE=$1 "$PY" -c "import arms; m = arms._ffi; print('# h2-batch module:', m.__file__); print('# mapped:', sorted({l.split()[-1] for l in open('/proc/self/maps') if l.rstrip().endswith('libak_core.so')}))"
+  }
+  { hdr "python slice: conformance on _akffi_rpc, h2-batch core (WP13), $T"; h2b_where _akffi_rpc
+    AK_H2=h2-batch AK_FFI_MODULE=_akffi_rpc "$PY" conformance.py; } > "$LOGS/106-wp13-conformance-rpc-h2batch-$T.log" 2>&1 || rc=1
+  grep -q "h2batch/_akffi_rpc" "$LOGS/106-wp13-conformance-rpc-h2batch-$T.log" || { echo "   106: the h2-batch module was not loaded"; rc=1; }
+  echo "  106 conformance rpc h2-batch: $(tail -1 "$LOGS/106-wp13-conformance-rpc-h2batch-$T.log")"
+  { hdr "python slice: the RPC arm under injected failure, h2-batch core (WP13), $T"; h2b_where _akffi_rpc
+    AK_H2=h2-batch "$PY" rpc_gate.py; } > "$LOGS/107-wp13-rpc-gate-h2batch-$T.log" 2>&1 || rc=1
+  echo "  107 rpc gate h2-batch:      $(grep -c 'ABORTED, no figure' "$LOGS/107-wp13-rpc-gate-h2batch-$T.log") aborted, $(grep -c 'FIGURE PRODUCED' "$LOGS/107-wp13-rpc-gate-h2batch-$T.log") timed under injection"
+  { hdr "python slice: conformance on _akffi_rpc_nounk, h2-batch core (WP13), $T"; h2b_where _akffi_rpc_nounk
+    AK_H2=h2-batch AK_FFI_MODULE=_akffi_rpc_nounk AK_COUNT_MODULE=_akffi_count_nounk "$PY" conformance.py; } \
+    > "$LOGS/108-wp13-conformance-rpc-nounk-h2batch-$T.log" 2>&1 || rc=1
+  grep -q "h2batch/_akffi_rpc_nounk" "$LOGS/108-wp13-conformance-rpc-nounk-h2batch-$T.log" || { echo "   108: the h2-batch module was not loaded"; rc=1; }
+  echo "  108 conformance rpc nounk h2-batch: $(tail -1 "$LOGS/108-wp13-conformance-rpc-nounk-h2batch-$T.log")"
 done
 
 echo "===== 103. crossing counts, whole numbers per call: full (drop) and no-unknown builds ====="
@@ -115,17 +133,19 @@ grep -q "DIFFERS from counts/" "$LOGS/103-wp5s10-counts-drop-vs-nounk.log" && rc
 
 echo "===== 105. the RPC cells B, C, D, E per call, both builds (req 19 as amended) ====="
 {
-  hdr "python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31)"
+  hdr "python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31), both h2 variants (WP13), over TCP 127.0.0.1"
+  for h in stock h2-batch; do
   for v in full nounk; do
     A=""; [ "$v" = nounk ] && A="--variant nounk"
-    python3.12 rpc_counts.py $A > "$HERE/build/rpc-$v.out" 2>&1 || echo "   rpc_counts $v FAILED: $(tail -2 "$HERE/build/rpc-$v.out")"
-    cat "$HERE/build/rpc-$v.out"
-    grep '^   rpc ' "$HERE/build/rpc-$v.out" > "$HERE/build/rpc-$v.txt"
-    if diff "$HERE/counts/rpc-$v.txt" "$HERE/build/rpc-$v.txt"; then
-      echo "   rpc $v: $(wc -l < "$HERE/build/rpc-$v.txt") rows, IDENTICAL to counts/rpc-$v.txt"
+    AK_H2=$h python3.12 rpc_counts.py $A > "$HERE/build/rpc-$v-$h.out" 2>&1 || echo "   rpc_counts $v $h FAILED: $(tail -2 "$HERE/build/rpc-$v-$h.out")"
+    cat "$HERE/build/rpc-$v-$h.out"
+    grep '^   rpc ' "$HERE/build/rpc-$v-$h.out" > "$HERE/build/rpc-$v-$h.txt"
+    if diff "$HERE/counts/rpc-$v.txt" "$HERE/build/rpc-$v-$h.txt"; then
+      echo "   rpc $v h2 $h: $(wc -l < "$HERE/build/rpc-$v-$h.txt") rows, IDENTICAL to counts/rpc-$v.txt"
     else
-      echo "   rpc $v: DIFFERS from counts/rpc-$v.txt (above)"
+      echo "   rpc $v h2 $h: DIFFERS from counts/rpc-$v.txt (above)"
     fi
+  done
   done
 } > "$LOGS/105-wp7-rpc-counts.log" 2>&1
 grep -E 'IDENTICAL|DIFFERS|FAILED' "$LOGS/105-wp7-rpc-counts.log"

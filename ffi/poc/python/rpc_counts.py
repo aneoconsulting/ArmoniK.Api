@@ -7,7 +7,8 @@ framed twins Bf, Cf, Ef), per call, in directions a, a+read, b, c (P5.3, P5.4) a
 The rpc core's COUNTING build (`rpc,count,init-guard`, and `--no-default-features` for the
 no-unknown build) behind the same generated shim, the cells exactly as camp_rpc.py builds
 them (one channel per cell), against this process's own start of the shared server (the Rust
-rpc_server through poc/rust/serve.sh, FIX-PLAN WP10) over a Unix socket (`shipped`). Per cell and direction: one warm call, then one counted call:
+rpc_server through poc/rust/serve.sh, FIX-PLAN WP10) over TCP 127.0.0.1 (WP13), `shipped` client
+configuration. AK_H2=h2-batch counts the h2-batch rpc counting build (arms.py). Per cell and direction: one warm call, then one counted call:
   calls / resets  every ak_* call the client made (the shim's macros; resets apart)
   rpc fwd / rev   the core's RPC counters (ak_rpc_counters)
   codec fwd / rev the core's codec counters of that call's encode or decode
@@ -32,14 +33,17 @@ def main():
     if m is None or not m.counting():
         print("RPC COUNTS: no counting build loaded (%s)" % os.environ["AK_FFI_MODULE"])
         return 1
-    print("# RPC cells, every ABI call per call (req 19); module %s, variant %s"
-          % (m.__name__, "no-unknown" if NOUNK else "full"))
+    print("# RPC cells, every ABI call per call (req 19); module %s, variant %s, h2 %s"
+          % (m.__file__, "no-unknown" if NOUNK else "full", arms.H2))
+    if (arms.H2 == "h2-batch") != ("/h2batch/" in m.__file__):
+        print("RPC COUNTS: AK_H2=%s but the module loaded is %s" % (arms.H2, m.__file__))
+        return 1
     print("# resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,")
     print("# ak_enc_reset before the encode (steady state); one warm call precedes every counted call")
     srv, info = C.start_server(tempfile.mkdtemp(prefix="akrpccnt"), warm=1)
     rows = []
     try:
-        cs, keep = C.cells(info["shipped"], "shipped")
+        cs, keep = C.cells(C.timed_target(info), "shipped")      # TCP 127.0.0.1 (WP13)
         for d, lst in cs.items():
             for name, fn in lst:
                 if name[0] not in "BCDE" or "-queue" in name or "-callback" in name:

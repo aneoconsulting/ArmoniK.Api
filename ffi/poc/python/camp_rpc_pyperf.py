@@ -44,8 +44,13 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "build", "pyperf"))
 
 import pyperf  # noqa: E402
+import camp_meas as M  # noqa: E402
 
 A = sys.argv
+# Req 21 as amended (WP13): the RPC client's CPU figure is perf task-clock of the whole process.
+# The counter is opened here, at import, before this process starts any thread, so it inherits
+# into every thread the worker creates (pool, core runtime, grpc-core).
+M.task_clock_open()
 
 
 def arg(n, d=None):
@@ -117,6 +122,11 @@ def setup(name):
     the pool of k client threads."""
     if _W:
         return _W
+    if arg("--h2"):
+        os.environ["AK_H2"] = arg("--h2")       # the h2 variant's shims (arms.py), before camp_rpc
+    if M.task_clock() is None:
+        raise SystemExit("benchmark %s: perf_event_open refused the task-clock counter (%s); req 21 as "
+                         "amended needs it" % (name, M.task_clock_refusal()))
     if arg("--plant"):
         # pyperf gives a worker a clean environment unless --copy-env; the controls' plant is
         # passed as an argument so it reaches the worker whatever the pyperf options
@@ -125,7 +135,7 @@ def setup(name):
     _, build, transport, d, pid, cell, k = name.split("|")
     key = d if d in ("a", "a+read", "b") else "%s:%s" % (d, pid)
     srv = C.parse_server(arg("--server"))
-    cs, keep = C.cells(srv[transport], transport, keys={key})
+    cs, keep = C.cells(C.timed_target(srv), transport, keys={key})
     fns = dict(cs[key])
     if cell not in fns:
         raise SystemExit("benchmark %s: cells() built no cell %s for %s" % (name, cell, key))
@@ -145,9 +155,25 @@ def setup(name):
                 else C.arms._ffi.encode("cext", C.arms.ROOT_OF[C.PID], o, None, cell.endswith("-retain")))
         if back != ref and R.FromString(back) != R.FromString(ref):
             raise SystemExit("benchmark %s: cell %s (a) does not re-encode to P2.2" % (name, cell))
-    _W.update(C=C, fn=fn, k=int(k), keep=keep, pool=C.Pool(int(k)), u0=C.arms._ffi.unk_totals(),
-              t0=C.arms._ffi.tls_created())
+    port = C.tcp_port(srv)
+    nd = M.nodelay_summary(port)
+    if not nd["to_server"] or nd["nodelay_on"] != nd["to_server"]:
+        raise SystemExit("benchmark %s: TCP_NODELAY read back on %d of %d live socket(s) to the server (req 17)"
+                         % (name, nd["nodelay_on"], nd["to_server"]))
+    pool = C.Pool(int(k))
+    facts = {"h2": C.arms.H2, "core": loaded_core(), "core_workers": C.CORE_WORKERS if C.RT else None,
+             "workers": C.WORKERS, "cpu": M.cpu_facts(), "nodelay_setup": nd}
+    _W.update(C=C, fn=fn, k=int(k), keep=keep, pool=pool, u0=C.arms._ffi.unk_totals(),
+              t0=C.arms._ffi.tls_created(), port=port, cpus=set(os.sched_getaffinity(0)), facts=facts, first=True)
     return _W
+
+
+def loaded_core():
+    """The libak_core.so this process mapped, and its sha256 (the h2 variant actually running)."""
+    import hashlib
+    with open("/proc/self/maps") as f:
+        paths = sorted({ln.split()[-1] for ln in f if ln.rstrip().endswith("libak_core.so")})
+    return [{"path": p, "sha256": hashlib.sha256(open(p, "rb").read()).hexdigest()[:16]} for p in paths]
 
 
 def time_func(loops, name, side):
@@ -156,12 +182,14 @@ def time_func(loops, name, side):
     failed = []
     stop = __import__("threading").Event()
     gc.collect()
-    t0, w0 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
+    q0 = M.irq_snap(w["cpus"])
+    c0, t0, w0 = M.task_clock(), time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     for _ in range(loops):
         pool.run(k, fn, 1, stop, failed)      # one batch: k calls in flight, one per thread
         if failed:
             break
-    t1, w1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
+    t1, w1, c1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter(), M.task_clock()
+    q1 = M.irq_snap(w["cpus"])
     if failed:
         e = failed[0]
         raise SystemExit("benchmark %s: a call failed: %s: %s" % (name, type(e).__name__, str(e)[:200]))
@@ -170,9 +198,18 @@ def time_func(loops, name, side):
         raise SystemExit("benchmark %s: %d unknown-field buffer(s) left undelivered" % (name, u[2] - w["u0"][2]))
     if C.arms._ffi.tls_created() - w["t0"] > 2 * k + 64 + loops * 4 * k:
         raise SystemExit("benchmark %s: contexts are not per thread" % name)
+    nd = M.nodelay_summary(w["port"])
+    if not nd["to_server"] or nd["nodelay_on"] != nd["to_server"]:
+        raise SystemExit("benchmark %s: TCP_NODELAY read back on %d of %d live socket(s) to the server (req 17)"
+                         % (name, nd["nodelay_on"], nd["to_server"]))
+    rec = {"name": name, "loops": loops, "task_clock_s": (c1 - c0) / 1e9, "cpu_s": t1 - t0, "wall_s": w1 - w0,
+           "client_cpus_irq": M.irq_delta(q0, q1), "nodelay": nd}
+    if w["first"]:
+        w["first"] = False
+        rec["facts"] = dict(w["facts"], threads=M.thread_classes())
     with open(os.path.join(side, "side-%d.jsonl" % os.getpid()), "a") as f:
-        f.write(json.dumps({"name": name, "loops": loops, "cpu_s": t1 - t0, "wall_s": w1 - w0}) + "\n")
-    return t1 - t0
+        f.write(json.dumps(rec) + "\n")
+    return (c1 - c0) / 1e9                    # req 21 as amended: task-clock is pyperf's value
 
 
 def add_args(cmd, args):
@@ -182,17 +219,50 @@ def add_args(cmd, args):
         cmd.extend(["--only", args.only])
     if os.environ.get("AK_CAMP_PLANT"):
         cmd.extend(["--plant", os.environ["AK_CAMP_PLANT"]])
+    cmd.extend(["--h2", os.environ.get("AK_H2", "stock")])
 
 
 def precheck_main():
     """Before the build's invocations, in one process of that build (req 26): every cell of
-    every direction built and called once on each transport, with the checks camp_rpc.gate
-    makes (re-encodings, the requests' bytes, the retain or no-unknown control)."""
+    every direction built and called once on each client configuration over TCP, with the checks
+    camp_rpc.gate makes (re-encodings, the requests' bytes, the retain or no-unknown control);
+    TCP_NODELAY read back on every live socket to the server; and the h2 variant's write-count
+    marker: the process's write syscalls per (d)/16MiB call on the framed core cell at k = 1
+    (stock h2 writes one 16 KiB DATA frame per syscall, about 1,030 per call; h2-batch coalesces,
+    about 75: poc/codec/h2-batch, WP12). A count on the wrong side of 400 fails: the variant
+    the label names is not the one running."""
+    if arg("--h2"):
+        os.environ["AK_H2"] = arg("--h2")
     import camp_rpc as C
     srv = C.parse_server(arg("--server"))
+    port = C.tcp_port(srv)
+    h2 = C.arms.H2
+    print("   precheck %s, h2 %s, core %s" % (VARIANT, h2, json.dumps(loaded_core())))
     for t in arg("--transports", "shipped,pinned").split(","):
-        cs, keep = C.cells(srv[t], t)
-        print("   precheck %s %s: %s" % (VARIANT, t, C.gate(cs)))
+        cs, keep = C.cells(C.timed_target(srv), t)
+        print("   precheck %s %s %s: %s" % (VARIANT, h2, t, C.gate(cs)))
+        nd = M.nodelay_summary(port)
+        if not nd["to_server"] or nd["nodelay_on"] != nd["to_server"]:
+            raise SystemExit("precheck: TCP_NODELAY read back on %d of %d live socket(s) to the server"
+                             % (nd["nodelay_on"], nd["to_server"]))
+        print("   precheck %s %s %s: TCP_NODELAY read back on %d of %d live sockets to 127.0.0.1:%d"
+              % (VARIANT, h2, t, nd["nodelay_on"], nd["to_server"], port))
+        cell = "Cf-" + ("nounk" if NOUNK else "drop")
+        fn = dict(cs["d:16MiB"])[cell]
+        fn()
+
+        def syscw():
+            with open("/proc/self/io") as f:
+                return int([ln for ln in f if ln.startswith("syscw:")][0].split()[1])
+        w0 = syscw()
+        for _ in range(3):
+            fn()
+        per = (syscw() - w0) / 3.0
+        ok = per > 400 if h2 == "stock" else per < 400
+        print("   precheck %s %s %s: write syscalls per d/16MiB call on %s at k = 1: %.0f (%s, want %s 400)"
+              % (VARIANT, h2, t, cell, per, "ok" if ok else "WRONG VARIANT", ">" if h2 == "stock" else "<"))
+        if not ok:
+            raise SystemExit("precheck: the write count %.0f does not match h2 %s" % (per, h2))
         del keep
     return 0
 
@@ -209,14 +279,15 @@ def main():
         sys.path.insert(0, HERE)
         from camp_rpc_srv import Server
         own = Server(tempfile.mkdtemp(prefix="akrpcpp"), warm=1)
-        socks = "shipped=%s,pinned=%s" % (own.info["shipped"], own.info["pinned"])
+        socks = "shipped=%s,pinned=%s,tcp=%s" % (own.info["shipped"], own.info["pinned"], own.info["tcp"])
         A.extend(["--server", socks])
         # with --only (the controls: named benchmarks), the grid precheck is skipped and each
         # worker's own setup check is what stands before its timed loop, so a planted fault
         # is caught by the benchmark's per-call checks and not before them
         if not arg("--only"):
             r = subprocess.run([sys.executable, __file__, "--precheck", "--server", socks, "--variant", VARIANT,
-                                "--transports", arg("--transports", "shipped,pinned")])
+                                "--transports", arg("--transports", "shipped,pinned"),
+                                "--h2", os.environ.get("AK_H2", "stock")])
             if r.returncode:
                 own.stop()
                 return 1
@@ -230,6 +301,7 @@ def main():
     ap.add_argument("--transports", default="shipped,pinned")
     ap.add_argument("--only", default="")
     ap.add_argument("--plant", default="")
+    ap.add_argument("--h2", default="stock", choices=["stock", "h2-batch"])
     args = runner.parse_args()
     os.makedirs(args.side, exist_ok=True)
     names = names_of(args.group, args.transports.split(","), args.launch)

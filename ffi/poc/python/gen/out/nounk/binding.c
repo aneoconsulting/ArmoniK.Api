@@ -12647,13 +12647,20 @@ static void ak_py_tls_release(int root, ak_dec_ctx *c, int tmp) {
   if (t) t->busy[root] = 0;
 }
 /* The encode context: unbound, one per thread; reset per encode (the output buffer and the
- * sticky error slot start clean). */
+ * sticky error slot start clean), a NEW context included: since the framed default
+ * (e8fe14868) ak_enc_ctx_new sets 5 bytes of headroom that only ak_enc_reset lays down, so a
+ * context's first encode without a reset came out 5 bytes short (WP13, python JOURNAL J56). */
 static ak_enc_ctx *ak_py_tls_enc_acquire(int *tmp) {
   *tmp = 0;
   struct ak_py_tls *t = ak_py_tls_block();
-  if (!t || t->ebusy) { *tmp = 1; return ak_enc_ctx_new(); }
+  if (!t || t->ebusy) {
+    ak_enc_ctx *c = ak_enc_ctx_new();
+    *tmp = 1;
+    if (c) ak_enc_reset(c);
+    return c;
+  }
   if (!t->e) { t->e = ak_enc_ctx_new(); if (!t->e) return NULL; AK_TLS_CREATED++; }
-  else ak_enc_reset(t->e);
+  ak_enc_reset(t->e);
   t->ebusy = 1;
   return t->e;
 }

@@ -45,6 +45,14 @@ _GEN_OUT = os.path.join(HERE, "gen", "out", "nounk") if NOUNK_VARIANT else os.pa
 for p in (HERE, os.path.join(HERE, "build", TAG), _GEN_OUT, _PB2):
     if p not in sys.path:
         sys.path.insert(0, p)
+# FIX-PLAN WP13 / D11: the h2 variant of the RPC core. AK_H2=h2-batch puts build/<tag>/h2batch
+# first: the same module names (_akffi_rpc, _akffi_rpc_nounk and their counting builds) linked
+# against the h2-batch rpc cores (build.sh); the codec-only shims have no h2 and are shared.
+H2 = os.environ.get("AK_H2", "stock")
+if H2 not in ("stock", "h2-batch"):
+    raise SystemExit("AK_H2 must be stock or h2-batch, not %r" % H2)
+if H2 == "h2-batch":
+    sys.path.insert(0, os.path.join(HERE, "build", TAG, "h2batch"))
 
 BASELINE = ("gRPC's generated marshaller path: Message.SerializeToString on encode and "
             "Message.FromString on decode (R14)")

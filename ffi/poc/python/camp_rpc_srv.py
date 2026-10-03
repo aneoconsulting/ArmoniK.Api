@@ -25,7 +25,10 @@ class Server:
 
     def __init__(self, d, warm=0):
         import tempfile
-        self.env = dict(os.environ, AK_SERVE_STATE=os.path.join(tempfile.mkdtemp(prefix="akserve"), "state"))
+        # WP13 (D10): AK_SERVER_TCP=0, the server also listens on 127.0.0.1 (any free port, pinned
+        # server configuration, TCP_NODELAY on accept); the timed cells dial it
+        self.env = dict(os.environ, AK_SERVE_STATE=os.path.join(tempfile.mkdtemp(prefix="akserve"), "state"),
+                        AK_SERVER_TCP="0")
         r = subprocess.run([serve_sh(), "start", "--out", d], env=self.env, capture_output=True, text=True)
         if r.returncode:
             raise RuntimeError("serve.sh start failed: %s" % (r.stderr or r.stdout).strip()[-300:])
@@ -41,8 +44,9 @@ class Server:
 
 
 def parse_server(text):
-    """serve.sh start's `shipped PATH` / `pinned PATH` / `pid N` lines, or the runner's
-    `shipped=unix:PATH,pinned=unix:PATH` -> {"shipped": "unix:PATH", "pinned": "unix:PATH", ...}."""
+    """serve.sh start's `shipped PATH` / `pinned PATH` / `tcp 127.0.0.1:PORT` / `pid N` lines, or
+    the runner's `shipped=unix:PATH,pinned=unix:PATH,tcp=127.0.0.1:PORT` -> {"shipped":
+    "unix:PATH", "pinned": "unix:PATH", "tcp": "127.0.0.1:PORT", ...}."""
     out = {}
     for x in text.replace(",", "\n").splitlines():
         x = x.strip()
@@ -55,6 +59,17 @@ def parse_server(text):
         else:
             continue
         out[k] = v
-    if "shipped" not in out or "pinned" not in out:
-        raise RuntimeError("no server sockets in %r" % text[:200])
+    if "tcp" not in out:
+        raise RuntimeError("no TCP listener in %r (the server must be started with AK_SERVER_TCP=0)" % text[:200])
     return out
+
+
+def timed_target(srv):
+    """The address every timed cell dials, whatever its client configuration (shipped or pinned):
+    the server's TCP listener, which runs the pinned SERVER configuration only (SERVER.md; WP13,
+    D10, CAMPAIGN req 17 as amended). The Unix sockets are history."""
+    return srv["tcp"]
+
+
+def tcp_port(srv):
+    return int(srv["tcp"].rsplit(":", 1)[1])
