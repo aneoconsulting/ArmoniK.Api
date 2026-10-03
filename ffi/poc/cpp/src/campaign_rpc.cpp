@@ -52,6 +52,8 @@
 //   --count N        (req. 19, a counting build): per call, the crossings of cells B, C, D
 //                    and E in each mode and direction, then exit
 #include "rpc_common.h"
+#include <google/protobuf/duration.pb.h>
+#include <google/protobuf/util/json_util.h>
 
 #include <arpa/inet.h>
 #include <dirent.h>
@@ -564,7 +566,49 @@ struct World {
   size_t want_c_len = 0;     // direction c's response length (0; 1 under the c-len plant)
 };
 
+// D18 / CAMPAIGN 4.0 as amended (b58543f7b): the core grid's cell A runs ArmoniK's C++ channel
+// configuration as packages/cpp builds it with its package defaults. Replicated EXACTLY (linking
+// ArmoniK.Api.Common would pull its whole proto build): ArmoniK.Api.Common/source/utils/
+// ChannelArguments.cpp getChannelArguments and getServiceConfigJson, with ControlPlane.cpp's
+// defaults (keep-alive 30 s, max idle 5 min, max attempts 5, backoff multiplier 1.5, initial
+// backoff 1 s, max backoff 5 s, request timeout 366 days), the durations rendered with the same
+// google::protobuf::util::MessageToJsonString. No message-size argument: packages/cpp sets none.
+google::protobuf::Duration ak_duration(int64_t days, int64_t hours, int64_t minutes, int64_t seconds) {
+  google::protobuf::Duration d;
+  d.set_seconds(((days * 24 + hours) * 60 + minutes) * 60 + seconds);
+  return d;
+}
+std::string armonik_service_config_json() {
+  std::string initialBackoff, maxBackoff, timeout;
+  if (!google::protobuf::util::MessageToJsonString(ak_duration(0, 0, 0, 1), &initialBackoff).ok() ||
+      !google::protobuf::util::MessageToJsonString(ak_duration(0, 0, 0, 5), &maxBackoff).ok() ||
+      !google::protobuf::util::MessageToJsonString(ak_duration(366, 0, 0, 0), &timeout).ok())
+    die("ArmoniK service config: duration to JSON", 0);
+  std::stringstream ss;
+  ss << R"({ "methodConfig": [{ "name": [{}], )" << R"("timeout" : )" << timeout << ',' << R"("retryPolicy" : {)"
+     << R"("backoffMultiplier": )" << 1.5 << ',' << R"("initialBackoff":)" << initialBackoff
+     << "," << R"("maxBackoff":)" << maxBackoff << "," << R"("maxAttempts":)" << 5 << ','
+     << R"("retryableStatusCodes": [ "UNAVAILABLE", "ABORTED", "UNKNOWN" ])" << "}}]}";
+  return ss.str();
+}
+grpc::ChannelArguments armonik_channel_args() {
+  grpc::ChannelArguments args;
+  args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, 30 * 1000);       // getMilliseconds(30 s)
+  args.SetInt(GRPC_ARG_MAX_CONNECTION_IDLE_MS, 5 * 60 * 1000);  // getMilliseconds(5 min)
+  args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
+  args.SetServiceConfigJSON(armonik_service_config_json());
+  return args;
+}
+
 grpc::ChannelArguments channel_args(const std::string &transport, const std::string &cell) {
+  if (transport == "armonik") {
+    // ArmoniK's configuration, plus the two arguments every campaign channel carries: the cell's
+    // label (one connection per cell, req. 13) and the unix-target :authority (below).
+    grpc::ChannelArguments a = armonik_channel_args();
+    a.SetString("ak.campaign.cell", cell);
+    a.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
+    return a;
+  }
   // `shipped`: what packages/cpp's getChannelArguments sets (keepalive 30 s, max idle 5 min,
   // a local subchannel pool; ArmoniK.Api.Common/source/utils/ChannelArguments.cpp). Its
   // retry/timeout service config is NOT applied: the retry policy never fires on a healthy
@@ -591,7 +635,8 @@ ak_client *core_client_ref(ak_runtime *rt, const std::string &target, const std:
   // connection windows, adaptive off, Nagle off, max message 8 MiB (rpc_common.h core_opts).
   // `shipped` keeps tonic's limits (receive 4 MiB, send unlimited), enforced (D44): every
   // response is at most 540 KB, every request at most 4,194,390 B.
-  // The target is `unix:<path>`, which the core dials as a Unix domain socket.
+  // The target is `unix:<path>`, which the core dials as a Unix domain socket. `armonik` (the
+  // core grid, CAMPAIGN 4.0): the core's current client configuration, ak_client_new's defaults.
   if (transport == "pinned") {
     ak_client_opts o = pinned_core_opts(true);
     return ak_client_new_opts(rt, (const uint8_t *)target.data(), target.size(), &o);
@@ -2341,7 +2386,7 @@ int main(int argc, char **argv) {
     else { std::fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
   if (c.core_target.empty()) c.core_target = c.target;
-  if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned") || !w.expect_a) {
+  if (c.target.empty() || (c.transport != "shipped" && c.transport != "pinned" && c.transport != "armonik") || !w.expect_a) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
     return 2;
   }
@@ -2780,6 +2825,49 @@ int main(int argc, char **argv) {
     std::printf("%s\n", o.c_str());
     std::fflush(stdout);
     return 0;
+  }
+  // CAMPAIGN 4.0 as amended: Nagle off on every client socket, read back on the live sockets
+  // before any timing. One call per cell opens every connection; then every TCP socket of the
+  // process must read TCP_NODELAY = 1, or the run is refused (exit 4). A Unix socket has no
+  // Nagle algorithm (no TCP_NODELAY), which is recorded as such.
+  {
+    ThreadCtx tc;
+    for (size_t i = 0; i < w.cells.size(); ++i) cell_call(w, i, Job{'a', 0}, 0, tc);
+    int nunix = 0, ntcp = 0, ntcp_nagle = 0;
+    if (DIR *d = opendir("/proc/self/fd")) {
+      while (struct dirent *e = readdir(d)) {
+        if (e->d_name[0] == '.') continue;
+        const int fd = std::atoi(e->d_name);
+        int dom = 0, ty = 0;
+        socklen_t l = sizeof dom;
+        if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &dom, &l) != 0) continue;
+        l = sizeof ty;
+        if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &ty, &l) != 0 || ty != SOCK_STREAM) continue;
+        if (dom == AF_UNIX) { ++nunix; continue; }
+        if (dom != AF_INET && dom != AF_INET6) continue;
+        int nd = 0;
+        l = sizeof nd;
+        getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nd, &l);
+        ++ntcp;
+        if (nd <= 0) ++ntcp_nagle;
+      }
+      closedir(d);
+    }
+    std::printf("# {\"client_sockets\": {\"unix_stream\": %d, \"tcp\": %d, \"tcp_with_nagle_on\": %d,"
+                " \"nagle\": \"off on every TCP socket, read back with getsockopt(TCP_NODELAY) on the live sockets after one"
+                " call per cell; a Unix socket has no Nagle algorithm\", \"server\": \"the shared Rust server on Unix"
+                " sockets (no Nagle)\"}}\n", nunix, ntcp, ntcp_nagle);
+    if (ntcp_nagle > 0) {
+      std::fprintf(stderr, "NAGLE CHECK FAILED: %d TCP socket(s) with Nagle on; nothing is timed\n", ntcp_nagle);
+      std::fflush(stdout);
+      std::_Exit(4);
+    }
+    if (c.transport == "armonik")
+      std::printf("# {\"transport_armonik\": {\"cell_A\": \"packages/cpp getChannelArguments with ControlPlane defaults,"
+                  " replicated (ChannelArguments.cpp:33-50): keepalive_time_ms 30000, max_connection_idle_ms 300000,"
+                  " use_local_subchannel_pool 1, service config %s; plus ak.campaign.cell and default_authority localhost\","
+                  " \"core_cells\": \"ak_client_new defaults (the core's current client configuration)\"}}\n",
+                  [] { std::string j = armonik_service_config_json(), o; for (char ch : j) { if (ch == '"') o += "\\\""; else o += ch; } return "\"" + o + "\""; }().c_str());
   }
   if (c.gbout.empty()) {  // a usage error, never a call check (the gate's controls grep for those)
     std::fprintf(stderr, "usage: --gbench-out FILE is required (the samples are Google Benchmark's)\n");

@@ -32,8 +32,8 @@ H2 = os.environ.get("AK_H2_VARIANT", "stock")
 def rpc_core_grid(cell, direction, payload, k, transport, build):
     """CAMPAIGN section 4.0 (D18): cells A, Bf, Cf, Ef (full build, retain, the core cells
     blocking on the framed path), a+read and b on P2.2, c on P5.4, d on 16 MiB, k = 1 and 8,
-    one transport (shipped); stock h2 everywhere, plus Cf on h2-batch for c and d."""
-    if k not in (1, 8) or transport != "shipped" or build != "full":
+    one transport (armonik: ArmoniK's client configuration, CAMPAIGN 4.0 as amended); stock h2 everywhere, plus Cf on h2-batch for c and d."""
+    if k not in (1, 8) or transport != "armonik" or build != "full":
         return False
     if (direction, payload) not in (("a+read", "P2.2"), ("b", "P2.2"), ("c", "P5.4"), ("d", "16MiB")):
         return False
