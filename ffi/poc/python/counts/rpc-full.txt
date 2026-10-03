@@ -58,11 +58,11 @@
    rpc d:4MiB       Bf        calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       C-retain  calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cf-retain calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
-   rpc d:4MiB       D-retain  calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-retain  calls    5 resets  1 rpc fwd   0 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cc-retain calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       C-drop    calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cf-drop   calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
-   rpc d:4MiB       D-drop    calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-drop    calls    5 resets  1 rpc fwd   0 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cc-drop   calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       E-retain  calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       Ef-retain calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
@@ -72,11 +72,11 @@
    rpc d:16MiB      Bf        calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      C-retain  calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cf-retain calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
-   rpc d:16MiB      D-retain  calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-retain  calls   23 resets  7 rpc fwd   0 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cc-retain calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      C-drop    calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cf-drop   calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
-   rpc d:16MiB      D-drop    calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-drop    calls   23 resets  7 rpc fwd   0 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cc-drop   calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      E-retain  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      Ef-retain calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0

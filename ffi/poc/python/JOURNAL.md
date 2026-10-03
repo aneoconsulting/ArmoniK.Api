@@ -1618,3 +1618,25 @@ work, so this is now aligned.
 - The codec suite keeps M_TOP_PAD (req 25's warming rule); stated.
 - If the core's context fix lands and the shim's extra reset is dropped, only D's (d) rows
   change (-1 call, -1 reset per call: 4 full rows, 2 no-unknown rows).
+
+### J58. D9 switch renamed, allocator readback, the shim's extra reset dropped (owner, 2026-10-03)
+
+- The switch is now `AK_CAMPAIGN_ALLOC=default|pinned` (default `default`), in the runner,
+  the workers' label check and the headers.
+- **The readback** (C#'s startup check): one 16 MiB malloc through glibc (ctypes), with
+  mallinfo2 hblks read before and after, in every measured process at import, before anything
+  is timed. Default read "mmapped" and pinned read "heap". Planted:
+  - label `pinned` without the tunables: refused by the environment check, no JSON;
+  - a process configured pinned at exec whose environment then says `default`: refused by the
+    readback alone ("came from the heap, want mmapped").
+
+  Smoke on d/16MiB, k = 1, minor faults per call: A 2 and Cf-drop 514 (default), A 2 and
+  Cf-drop 11 (pinned). The codec worker reads "mmapped" before camp_codec's M_TOP_PAD; that
+  mallopt is kept (owner undecided).
+- **The extra reset is dropped.** The core's fd69b0d6b lays the headroom down in
+  `ak_enc_ctx_new`. After a rebuild the first encode on a fresh context is correct with no
+  shim reset, in `_akffi` and `_akffi_rpc`. `counts/rpc-*.txt` are back to their values before
+  86c141a1c, on both h2 variants: D's (d) rows went from calls 6 / resets 2 (4MiB) and 24 / 8
+  (16MiB) to 5 / 1 and 23 / 7, in D-retain, D-drop (full) and D-nounk. No gate run (owner).
+- A defect of my own, fixed before commit: the codec exporter's header carried `allocator`
+  twice (SyntaxError at export), caught by the smoke.

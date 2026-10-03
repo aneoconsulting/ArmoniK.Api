@@ -39,6 +39,14 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "build", "pyperf"))
 
 import pyperf  # noqa: E402
+import camp_meas as _M  # noqa: E402
+
+# D9 as amended (owner, 2026-10-03): every measured process reads its allocator back before
+# anything is timed (one 16 MiB malloc, mallinfo2's mmapped-block count) and refuses to run if it
+# disagrees with AK_CAMPAIGN_ALLOC or with its GLIBC_TUNABLES. The codec suite runs `default`
+# only (its M_TOP_PAD mallopt, J26, is applied later, at camp_codec's import; owner: undecided).
+ALLOC_RB = (_M.alloc_check(os.environ.get("AK_CAMPAIGN_ALLOC", "default"))
+            if "--worker" in sys.argv else None)
 
 # WP5 step 10: `--variant nounk` times the no-unknown build, a separately built extension
 # over ak-core without `unknown-fields`. The flag is passed on to every worker
@@ -138,7 +146,8 @@ def time_func(loops, family, pid, content, d, arm, mode, side, name):
     t1, w1 = time.clock_gettime(time.CLOCK_PROCESS_CPUTIME_ID), time.perf_counter()
     cpu = t1 - t0
     with open(os.path.join(side, "side-%d.jsonl" % os.getpid()), "a") as f:
-        f.write(json.dumps({"name": name, "loops": loops, "cpu_s": cpu, "wall_s": w1 - w0}) + "\n")
+        f.write(json.dumps({"name": name, "loops": loops, "cpu_s": cpu, "wall_s": w1 - w0,
+                            "alloc_readback": ALLOC_RB}) + "\n")
     return cpu
 
 

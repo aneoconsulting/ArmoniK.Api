@@ -30,6 +30,9 @@ def opt(n, d=None):
     return A[A.index(n) + 1] if n in A else d
 
 
+RBS = set()
+
+
 def main():
     launch = int(opt("--launch", "1"))
     side = {}
@@ -37,6 +40,7 @@ def main():
         for ln in open(p):
             r = json.loads(ln)
             side.setdefault((r["name"], r["loops"], r["cpu_s"] / r["loops"]), []).append(r["wall_s"])
+            RBS.add(str(r.get("alloc_readback")))
     suite = pyperf.BenchmarkSuite.load(opt("--json"))
     log = L.Log(opt("--out"), "codec", allow_dirty="--allow-dirty" in A, smoke="--smoke" in A,
                 build="nounk" if opt("--variant") == "nounk" else "full")
@@ -67,6 +71,10 @@ def main():
                                wall_ns=int(round(wall * 1e9)) if wall is not None else None,
                                iters=loops)
     log.header(engine="pyperf %s (CAMPAIGN.md 22a)" % pyperf.__version__, family=fam, launch=launch,
+               allocator="AK_CAMPAIGN_ALLOC=%s (D9 as amended): glibc's defaults plus mallopt(M_TOP_PAD, 8 MiB) at "
+                         "camp_codec's import (J26; owner undecided); the readback in every worker before that "
+                         "mallopt (one 16 MiB malloc, mallinfo2 hblks): %s" % (
+                             os.environ.get("AK_CAMPAIGN_ALLOC", "default"), ", ".join(sorted(RBS))),
                h2="none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels "
                   "the RPC samples)",
                pyperf_args=opt("--pyperf-args", "?"),
@@ -75,7 +83,6 @@ def main():
                warmup_calibration="pyperf's: warm-up values and the loop-calibration run are exported "
                                   "with phase warmup / calibration",
                gc="ON (bench_time_func leaves it); gc.collect() before every timed call, untimed",
-               allocator="M_TOP_PAD in every worker at import (J26)",
                variant_build=("no-unknown variant (WP5 step 10): _akffi_nounk / _akffi_corpus_nounk over ak-core "
                       "--no-default-features; a SEPARATE build, compared with the full build only through "
                       "the incumbent rows timed in the same launch" if opt("--variant") == "nounk"

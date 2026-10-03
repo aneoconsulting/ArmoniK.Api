@@ -138,3 +138,40 @@ def cpu_facts():
             "sysconf_nprocessors_conf": os.sysconf("SC_NPROCESSORS_CONF"),
             "sysconf_nprocessors_onln": os.sysconf("SC_NPROCESSORS_ONLN"),
             "ld_preload": os.environ.get("LD_PRELOAD", ""), "ak_shim_ncpus": os.environ.get("AK_SHIM_NCPUS", "")}
+
+
+D9_TUNABLES = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
+
+
+def alloc_readback():
+    """D9 (owner, 2026-10-03), the C# slice's startup check: one 16 MiB malloc through glibc,
+    with mallinfo2's count of mmapped blocks (hblks) read before and after. Under glibc's
+    defaults a 16 MiB block is mmapped (mmap_threshold 128 KiB, at most 32 MiB once raised by a
+    free, so the check runs before any timing); under D9's tunables (mmap_threshold 32 MiB) it
+    comes from the heap. Returns "mmapped" or "heap"."""
+    class MI2(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_size_t) for n in ("arena", "ordblks", "smblks", "hblks", "hblkhd", "usmblks",
+                                                   "fsmblks", "uordblks", "fordblks", "keepcost")]
+    _libc.mallinfo2.restype = MI2
+    _libc.malloc.restype = ctypes.c_void_p
+    _libc.free.argtypes = [ctypes.c_void_p]
+    h0 = _libc.mallinfo2().hblks
+    p = _libc.malloc(16 << 20)
+    h1 = _libc.mallinfo2().hblks
+    _libc.free(p)
+    return "mmapped" if h1 > h0 else "heap"
+
+
+def alloc_check(mode):
+    """Refuse (SystemExit, so no sample) unless the process's allocator matches `mode`, both by its
+    environment (GLIBC_TUNABLES) and by the readback. Returns the readback for the header."""
+    want_env = D9_TUNABLES if mode == "pinned" else None
+    if os.environ.get("GLIBC_TUNABLES") != want_env:
+        raise SystemExit("allocator: AK_CAMPAIGN_ALLOC=%s but GLIBC_TUNABLES=%r in this process"
+                         % (mode, os.environ.get("GLIBC_TUNABLES")))
+    rb = alloc_readback()
+    want = "heap" if mode == "pinned" else "mmapped"
+    if rb != want:
+        raise SystemExit("allocator: AK_CAMPAIGN_ALLOC=%s but a 16 MiB malloc came from the %s (want %s)"
+                         % (mode, "heap" if rb == "heap" else "mmap path", want))
+    return rb

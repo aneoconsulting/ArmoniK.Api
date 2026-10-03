@@ -1,0 +1,3 @@
+allocator: AK_CAMPAIGN_ALLOC=pinned but GLIBC_TUNABLES=None in this process
+Traceback (most recent call last):
+RuntimeError: /usr/bin/python3.12 failed with exit code 1

@@ -88,10 +88,14 @@ export AK_WORKERS="${AK_WORKERS:-8}"
 export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}" AK_SERVER_TCP=0
 H2S="${AK_CAMPAIGN_H2:-stock h2-batch}"
 # D9 as amended (owner, 2026-10-03): the RPC grid's main figures run with glibc's DEFAULT
-# allocator (no GLIBC_TUNABLES, no mallopt), as production does; AK_CAMPAIGN_ALLOC_PINNED=1 adds
-# the labelled diagnostic pass under D9's tunables, files suffixed -allocpinned, samples
-# `allocator: pinned`, with the minor faults per call beside every sample.
-ALLOCS="default"; [ "${AK_CAMPAIGN_ALLOC_PINNED:-0}" = 1 ] && ALLOCS="default pinned"
+# allocator (no GLIBC_TUNABLES, no mallopt), as production does. AK_CAMPAIGN_ALLOC=default|pinned
+# (owner, default `default`) picks the mode of a run; `pinned` is the labelled diagnostic under
+# D9's tunables, files suffixed -allocpinned, samples `allocator: pinned`, the minor faults per
+# call beside every sample. Every measured process reads its allocator back at startup (a 16 MiB
+# malloc, mallinfo2) and refuses to run if it disagrees (camp_meas.alloc_check).
+export AK_CAMPAIGN_ALLOC="${AK_CAMPAIGN_ALLOC:-default}"
+case "$AK_CAMPAIGN_ALLOC" in default|pinned) ;; *) echo "AK_CAMPAIGN_ALLOC must be default or pinned"; exit 2;; esac
+ALLOCS="$AK_CAMPAIGN_ALLOC"
 D9_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
 
 need_gate() {
@@ -246,7 +250,7 @@ case "$SUITE" in
       local l=$1 v=$2 S=$3 SLOG=$4 h=$5 al=$6 g L hs="" AE
       [ "$h" = h2-batch ] && hs="-h2batch"
       [ "$al" = pinned ] && hs="$hs-allocpinned"
-      if [ "$al" = pinned ]; then AE=(env GLIBC_TUNABLES="$D9_TUNABLES" AK_ALLOC=pinned); else AE=(env -u GLIBC_TUNABLES AK_ALLOC=default); fi
+      if [ "$al" = pinned ]; then AE=(env GLIBC_TUNABLES="$D9_TUNABLES" AK_CAMPAIGN_ALLOC=pinned); else AE=(env -u GLIBC_TUNABLES AK_CAMPAIGN_ALLOC=default); fi
       "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$S" --transports "$TR" > "$OUT/rpc-$v$hs-precheck-launch$l.out" 2>&1 \
         || { tail -3 "$OUT/rpc-$v$hs-precheck-launch$l.out"; return 1; }
       for g in ab c d; do

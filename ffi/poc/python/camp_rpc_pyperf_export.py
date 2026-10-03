@@ -54,6 +54,7 @@ def main():
     facts = {}
     h2 = opt("--h2", "stock")
     alloc = opt("--alloc", "default")
+    rbs = set()
     nd_tot = [0, 0]
     for b in suite.get_benchmarks():
         name = b.get_name()
@@ -77,6 +78,7 @@ def main():
                         facts[name] = r["facts"]
                         if r["facts"].get("h2") != h2:
                             bad.append(name + " (h2 %s, not %s)" % (r["facts"].get("h2"), h2))
+                        rbs.add(r["facts"].get("alloc_readback"))
                         if r["facts"].get("allocator") != alloc:
                             bad.append(name + " (allocator %s, not %s)" % (r["facts"].get("allocator"), alloc))
                     nd_tot[0] += r["nodelay"]["nodelay_on"]
@@ -153,11 +155,12 @@ def main():
                                             for f in facts.values()})[:6])),
                allocator="pass %s (D9 as amended, owner 2026-10-03): `default` = glibc's default allocator, no "
                          "mallopt and no GLIBC_TUNABLES, as production runs (the MAIN figures); `pinned` = GLIBC_TUNABLES=%s, "
-                         "the labelled diagnostic (AK_CAMPAIGN_ALLOC_PINNED=1). This invocation: GLIBC_TUNABLES=%s. Every "
+                         "the labelled diagnostic (AK_CAMPAIGN_ALLOC=pinned). This invocation: GLIBC_TUNABLES=%s; readback in "
+                         "every worker (one 16 MiB malloc at startup, mallinfo2 hblks before and after): %s. Every "
                          "sample carries `allocator` and `minflt` (getrusage RUSAGE_SELF ru_minflt delta of the worker "
                          "process around the same batches; per call = minflt / iters)"
                          % (alloc, "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432",
-                            os.environ.get("GLIBC_TUNABLES") or "unset"))
+                            os.environ.get("GLIBC_TUNABLES") or "unset", ", ".join(sorted(map(str, rbs)))))
     if nd_tot[1] == 0 or nd_tot[0] != nd_tot[1]:
         bad.append("TCP_NODELAY %d of %d" % tuple(nd_tot))
     if bad:
