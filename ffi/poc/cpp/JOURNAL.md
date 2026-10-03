@@ -2252,3 +2252,14 @@ changes.
   iteration after a 0.01 s warm-up: the first growth, not grpc++. Codec P1.1 reads mmapped / heap as expected.
 - Planted: pinned without tunables, default with tunables, tunables overridden to a 1 MiB mmap threshold
   (readback mmapped under pinned), codec pinned without tunables: each exit 4, no output file.
+
+## 2026-10-03, req 25 mechanics: probe kept mapped, heap pre-grown in both modes
+
+- alloc_check.h: the 16 MiB probe runs once per process and its block stays mapped (Java 2892e207b: freeing it
+  raises glibc's dynamic mmap threshold). pregrow_or_exit(bytes): allocate, touch, free the run's largest
+  message until a round faults nothing, cap 8, else exit 4; header line heap_pregrow. Per-sample field renamed
+  allocator -> alloc (req 25 text).
+- Smoke (RPC A, C-drop, D-drop, E-drop, dir d, k 1, 0.3 s; codec P1.1): readbacks mmapped / heap; pre-grow 1
+  round, 0 faults, in both modes (the payload set-up, 16 MiB of stream data and P5.4, had already grown the heap).
+  Pinned: the first benchmark in run order now 0.07 faults per call (C-drop 16 MiB), against 70 (E-drop 16 MiB)
+  before; the highest row 2.2 (A 4 MiB, second in order); default 0 to 0.18. The 70 is gone in this run.

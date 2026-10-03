@@ -58,7 +58,7 @@ def main(path, launch, build="full", suite="codec"):
             ru = {c: round(b[c]) for c in ("ru_nvcsw", "ru_nivcsw", "ru_minflt", "ru_majflt") if c in b}
             if "ru_minflt" in ru:
                 ru["minflt_per_call"] = round(ru["ru_minflt"] / float(it * k), 3)
-            ru["allocator"] = ALLOC
+            ru["alloc"] = ALLOC
             print(json.dumps({"slice": "cpp", "suite": "rpc", "build": build, "cell": arm, "unknown_mode": mode,
                               "payload": payload, "dir": direction, "socket": "uds", "inflight": k,
                               "launch": int(launch), "round": int(b.get("repetition_index", 0)), "order_pos": n,
@@ -74,7 +74,7 @@ def main(path, launch, build="full", suite="codec"):
                           "content": content, "dir": direction, "unknown_mode": mode,
                           "build": build, "launch": int(launch), "round": int(b.get("repetition_index", 0)),
                           "cpu_ns": round(b["cpu_time"] * sc * it), "cpu_clock": "process", "wall_ns": round(b["real_time"] * sc * it),
-                          "iters": it, "allocator": ALLOC, **cru, **tags}, separators=(",", ":")))
+                          "iters": it, "alloc": ALLOC, **cru, **tags}, separators=(",", ":")))
         n += 1
     print("# " + json.dumps({"samples_converted": n}))
     return 0 if n else 1

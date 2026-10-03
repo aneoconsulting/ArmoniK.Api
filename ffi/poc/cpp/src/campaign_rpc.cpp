@@ -2382,6 +2382,17 @@ int main(int argc, char **argv) {
     if (keep.empty()) die("--payloads selects no job", 0);
     w.jobs = keep;
   }
+  // req. 25 (ii): pre-grow the heap to the run's largest message (a/b: the P2.2 response or
+  // request; c: P5.3 / P5.4; d: one 2 MiB M5 chunk), before any timing, in both modes.
+  {
+    size_t big = w.expect_a;
+    for (size_t i = 0; i < w.jobs.size(); ++i) {
+      const Job &j = w.jobs[i];
+      if (j.dir == 'c' && w.wire_up[j.pi].size() > big) big = w.wire_up[j.pi].size();
+      if (j.dir == 'd' && !w.st[j.pi].wire.empty() && w.st[j.pi].wire[0].size() > big) big = w.st[j.pi].wire[0].size();
+    }
+    std::printf("# %s\n", akalloc::pregrow_or_exit(big).c_str());
+  }
   std::map<std::string, long> fixed_iters;  // --iters [PAYLOAD/]K:N, keyed "K" or "PAYLOAD/K"
   for (size_t p = 0; !c.iters.empty() && p <= c.iters.size();) {
     size_t q = c.iters.find(',', p);

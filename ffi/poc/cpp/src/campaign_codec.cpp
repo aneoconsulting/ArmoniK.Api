@@ -974,6 +974,12 @@ int main(int argc, char **argv) {
               g_cfg.launch, g_cfg.rounds, g_cfg.min_time_s, g_cfg.warmup_s, cpus.c_str(), AK_GBENCH_VERSION,
               g_cfg.pool_bytes, proc_threads());
 
+  // req. 25 (ii): pre-grow the heap to the run's largest payload, before any timing.
+  {
+    size_t big = 1;
+    for (size_t gi = 0; gi < groups.size(); ++gi) if (groups[gi].wire > big) big = groups[gi].wire;
+    std::printf("# %s\n", akalloc::pregrow_or_exit(big).c_str());
+  }
   // ---- timing: Google Benchmark (CAMPAIGN.md requirement 22a, owner 2026-09-25) ----
   // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Iterations chosen by
   // Google Benchmark (--benchmark_min_time), `rounds` repetitions, every
