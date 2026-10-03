@@ -353,6 +353,10 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
     // is the message alone, as before.
     let mut e = Enc::new(generated::codec::SITES);
     e.head = ak_rt::enc::FRAME_HEAD;
+    // The context is returned in the state `ak_enc_reset` leaves it in, the headroom laid
+    // down, so the first encode needs no reset (ABI v1 requires none; owner-approved fix
+    // 2026-10-03: before it, a fresh context's first encode came out short).
+    e.reset();
     let b = Box::new(EncCtxImpl {
         hdr: CtxHeader { kind: AK_CTX_ENC, err: AK_OK },
         e,
