@@ -1,9 +1,9 @@
 # python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31), both h2 variants (WP13), over TCP 127.0.0.1
-# date:      2026-10-03T14:59:24Z
-# commit:    9a5b189ab
+# date:      2026-10-03T16:20:20Z
+# commit:    8afef07c3
 # phase:     correctness only; nothing here is a timing
 
-# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 stock
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/py3.12/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 stock
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
@@ -97,7 +97,7 @@
    rpc d:16MiB      Ef-drop   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
 RPC COUNTS: 89 rows
    rpc full h2 stock: 89 rows, IDENTICAL to counts/rpc-full.txt
-# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 stock
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/py3.12/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 stock
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
@@ -153,7 +153,7 @@ RPC COUNTS: 89 rows
    rpc d:16MiB      Ef-nounk  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
 RPC COUNTS: 51 rows
    rpc nounk h2 stock: 51 rows, IDENTICAL to counts/rpc-nounk.txt
-# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 h2-batch
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 h2-batch
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
@@ -247,7 +247,7 @@ RPC COUNTS: 51 rows
    rpc d:16MiB      Ef-drop   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
 RPC COUNTS: 89 rows
    rpc full h2 h2-batch: 89 rows, IDENTICAL to counts/rpc-full.txt
-# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 h2-batch
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 h2-batch
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0

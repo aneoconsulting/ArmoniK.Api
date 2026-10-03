@@ -404,6 +404,24 @@ identical.
 - The runner's snapshot now carries `packages/rust`: the rust slice's campaign crate, and with
   it the shared server, depends on it by path, so serve.sh could not build without it.
 
+**Crossing counts for every timed core-grid row (owner-approved).**
+- The committed counts covered core-ffi encode and decode on ASCII content (16 shapes, all 92
+  U-* rows), in each mode.
+- New rows:
+  - **decode+read** for every core-grid core-ffi row;
+  - **P2.2 Latin-1 and wide**, encode and decode+read;
+  - **host-gen**, encode and decode+read, on every core-grid payload and the 7 U-* rows. host-gen
+    makes no ABI call by construction; the zeros are gated so that stays true.
+- The 7 U-* rows' encode at the transport-ready end state was already covered: their existing
+  `encode` rows count exactly that path, and the new rows agree with them.
+- The rows come from the codec suite's own case builder, so they count the timed code path
+  (`conformance.core_grid_rows`; P7.1's encode case is counted too, a superset).
+- `counts/abi-full.txt` 560 to 660 rows, `abi-nounk.txt` 344 to 444, gate 103 at both levels;
+  every existing row is identical.
+- RPC: A makes no ABI call (incumbent over grpcio). Bf, Cf and Ef in every core-grid direction
+  were already in `counts/rpc-*.txt` (a+read added with D18), on both h2 variants (gate 105).
+- Gate at 8afef07c3: `gate exit 0`, `GATE PASSED`, all logs at that commit.
+
 **Gate:** clean worktree at 9a5b189ab, `gate exit 0`, `GATE PASSED`, all 30 logs at that
 commit. The RPC TCP prechecks cover all three client configurations, both builds and both h2
 variants: client and server TCP_NODELAY on every socket; write counts stock 1,035-1,039 and

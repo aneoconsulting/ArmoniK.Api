@@ -1,14 +1,14 @@
 # python slice: crossing counts per call, full build (drop) and no-unknown build (WP5 step 10, requirement 19)
-# date:      2026-10-03T14:59:24Z
-# commit:    9a5b189ab
+# date:      2026-10-03T16:20:19Z
+# commit:    8afef07c3
 # phase:     correctness only; nothing here is a timing
 
-   py3.12 abi full: 560 rows, IDENTICAL to counts/abi-full.txt
-   py3.12 abi nounk: 344 rows, IDENTICAL to counts/abi-nounk.txt
+   py3.12 abi full: 660 rows, IDENTICAL to counts/abi-full.txt
+   py3.12 abi nounk: 444 rows, IDENTICAL to counts/abi-nounk.txt
    py3.12 drop: 160 rows, IDENTICAL to counts/crossings-drop.txt
    py3.12 nounk: 160 rows, IDENTICAL to counts/crossings-nounk.txt
-   py3.7 abi full: 560 rows, IDENTICAL to counts/abi-full.txt
-   py3.7 abi nounk: 344 rows, IDENTICAL to counts/abi-nounk.txt
+   py3.7 abi full: 660 rows, IDENTICAL to counts/abi-full.txt
+   py3.7 abi nounk: 444 rows, IDENTICAL to counts/abi-nounk.txt
    py3.7 drop: 160 rows, IDENTICAL to counts/crossings-drop.txt
    py3.7 nounk: 160 rows, IDENTICAL to counts/crossings-nounk.txt
 

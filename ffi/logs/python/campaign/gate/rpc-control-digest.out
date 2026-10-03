@@ -1,28 +1,28 @@
 benchmark rpc|full|shipped|d|4MiB|C-drop|1: the setup's checked call failed: CallFailed: (d) 4MiB check: the server answered 40 B (count 4194304), not the bytes and digest sent
 Traceback (most recent call last):
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/camp_rpc_pyperf.py", line 387, in <module>
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/camp_rpc_pyperf.py", line 387, in <module>
     sys.exit(main())
              ^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/camp_rpc_pyperf.py", line 379, in main
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/camp_rpc_pyperf.py", line 379, in main
     runner.bench_time_func(name, time_func, name, args.side, inner_loops=k)
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 502, in bench_time_func
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 502, in bench_time_func
     result = self._main(task)
              ^^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 468, in _main
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 468, in _main
     bench = self._manager()
             ^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 681, in _manager
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_runner.py", line 681, in _manager
     bench = Manager(self).create_bench()
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 243, in create_bench
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 243, in create_bench
     worker_bench, run = self.create_worker_bench()
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 142, in create_worker_bench
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 142, in create_worker_bench
     suite = self.create_suite()
             ^^^^^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 136, in create_suite
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 136, in create_suite
     suite = self.spawn_worker(0, 0)
             ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 118, in spawn_worker
+  File "/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/pyperf/pyperf/_manager.py", line 118, in spawn_worker
     raise RuntimeError("%s failed with exit code %s"
 RuntimeError: /usr/bin/python3.12 failed with exit code 1

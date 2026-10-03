@@ -1795,3 +1795,18 @@ campaign machine, and the precheck length (assumed 60 s per build and h2 variant
   my private `AK_SERVE_STATE`, so on the default state path. If another agent's server had used
   that default path at that moment, it was stopped. Nothing afterwards showed a default-path
   server running, and I cannot tell whether one was.
+
+### J66. Gated counts for every timed core-grid row (owner-approved)
+
+- Found missing: decode+read for every core-ffi row, the P2.2 Latin-1/wide content sets, and
+  host-gen as an arm. host-gen makes no ABI call by construction; its rows gate the zero.
+- Already covered: the 7 U-* rows' encode at the transport-ready end state. Their existing
+  rows count that exact path, and the new rows agree.
+- `conformance.core_grid_rows` counts these rows through camp_codec's case builder, which is
+  the timed code: 100 new rows per build. `abi-full` went from 560 to 660 rows and
+  `abi-nounk` from 344 to 444; every existing row is identical. P2.2 Latin-1 and wide count
+  the same as ASCII.
+- RPC: no new rows. A makes no ABI calls; Bf, Cf and Ef in a+read, b, c and d were already
+  counted, on both h2 variants.
+- Gate at 8afef07c3: `gate exit 0`, `GATE PASSED`, both levels.
+- Removed the stale python- worktrees and scratch.

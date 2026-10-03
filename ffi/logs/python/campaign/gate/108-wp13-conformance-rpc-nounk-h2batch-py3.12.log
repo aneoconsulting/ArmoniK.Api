@@ -1,17 +1,17 @@
 # python slice: conformance on _akffi_rpc_nounk, h2-batch core (WP13), py3.12
-# date:      2026-10-03T14:58:02Z
-# commit:    9a5b189ab
+# date:      2026-10-03T16:16:28Z
+# commit:    8afef07c3
 # phase:     correctness only; nothing here is a timing
 
-# h2-batch module: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so
-# mapped: ['/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt18d/ffi/poc/python/build/cargo-9a5b189ab/rpc-nounk-h2batch/release/libak_core.so']
+# h2-batch module: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so
+# mapped: ['/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/python-wt19/ffi/poc/python/build/cargo-8afef07c3/rpc-nounk-h2batch/release/libak_core.so']
 # python slice, work unit 2: conformance on the COMPOSED arm (README R2)
 # interpreter: 3.12.3
 # baseline:    gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
 # manifest:    validated against prost 0.14.4 and a second encoder (W2)
 # shim:        _akffi_rpc_nounk (_akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so)
 # section 9:   present (call_unary, call_unary_q, call_unary_cb)
-# core loaded: poc/python/build/cargo-9a5b189ab/rpc-nounk-h2batch/release/libak_core.so
+# core loaded: poc/python/build/cargo-8afef07c3/rpc-nounk-h2batch/release/libak_core.so
 
 ## R1: the generated tree is current with shapes.json
    guard 2 python backend modules import plans only; a planted IR import is caught
@@ -346,7 +346,7 @@ generated tree is current with the plans (18 files)
    0 finding(s) over 38 Plain/Slots classes, 19 C types, 32 decoded objects
 
 ## crossing counts, counting build, BOTH halves (README R5)
-#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-9a5b189ab/count-nounk/release/libak_core.so
+#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-8afef07c3/count-nounk/release/libak_core.so
 #  The core counts its own crossings and the shim counts what it does to
 #  CPython. Neither half can count the other's, which is why both are here.
 #  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
@@ -1021,5 +1021,105 @@ generated tree is current with the plans (18 files)
    abi U-wire-UploadResultDataMessage-upload-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
    abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
    abi U-wire-UploadResultDataMessage-upload-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P1.1/ascii                 encode  no-unknown core-ffi               calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P1.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P1.2/ascii                 encode  no-unknown core-ffi               calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P1.2/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P1.3/ascii                 encode  no-unknown core-ffi               calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P1.3/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.1/ascii                 encode  no-unknown core-ffi               calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/ascii                 encode  no-unknown core-ffi               calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/latin1                encode  no-unknown core-ffi               calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2/latin1                encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/latin1                dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2/latin1                dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/wide                  encode  no-unknown core-ffi               calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2/wide                  encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.2/wide                  dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2/wide                  dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.3/ascii                 encode  no-unknown core-ffi               calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.3/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.4/ascii                 encode  no-unknown core-ffi               calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.4/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.5/ascii                 encode  no-unknown core-ffi               calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P2.5/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P3.1/ascii                 encode  no-unknown core-ffi               calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P3.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P4.1/ascii                 encode  no-unknown core-ffi               calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P4.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.1/ascii                 encode  no-unknown core-ffi               calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.2/ascii                 encode  no-unknown core-ffi               calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.2/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.3/ascii                 encode  no-unknown core-ffi               calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.3/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.4/ascii                 encode  no-unknown core-ffi               calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P5.4/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P6.1/ascii                 encode  no-unknown core-ffi               calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P6.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P7.1/ascii                 encode  no-unknown core-ffi               calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1/ascii                 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi P7.1/ascii                 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1/ascii                 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-nested-before            encode  no-unknown core-ffi               calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-before            encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-nested-before            dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-before            dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-deep-u-repeated          encode  no-unknown core-ffi               calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-repeated          encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-deep-u-repeated          dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-repeated          dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-oneof-u-repeated         encode  no-unknown core-ffi               calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-repeated         encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-oneof-u-repeated         dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-repeated         dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  no-unknown core-ffi               calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  no-unknown core-ffi               calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  no-unknown core-ffi               calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-ListMetricsResponse-batches-as-wt0 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt0 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-DualResponse-left-as-wt5 encode  no-unknown core-ffi               calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt5 encode  no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
+   abi U-wire-DualResponse-left-as-wt5 dec+read no-unknown core-ffi               calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt5 dec+read no-unknown host-gen               calls      0 resets   0 grows    0 fwd      0 rev      0
 
 ALL CHECKS PASS
