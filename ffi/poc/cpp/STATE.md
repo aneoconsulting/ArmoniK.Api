@@ -595,13 +595,19 @@ narrowed A/B (`gen/opt_ab.sh`, logs/cpp/opt/ab/). The reference for the steps is
   (replicated: keep-alive 30 s, max idle 5 min, local subchannel pool, the retry service config of
   ControlPlane.cpp's defaults), the core cells with `ak_client_new`'s defaults; Nagle read back on the live
   sockets after one call per cell (a TCP socket with Nagle on refuses the run; Unix sockets have none); the
-  shared server's `shipped` socket. Cells A, Bf, Cf-retain, Ef-retain (the core cells blocking, framed path),
+  shared server's TCP 127.0.0.1 listener (D10; serve.sh AK_SERVER_TCP=0, the pinned server configuration,
+  TCP_NODELAY on accept): grpc++ dials ipv4:127.0.0.1:PORT, the core http://127.0.0.1:PORT; at least one TCP
+  socket required, TCP_NODELAY read back on every client socket and, through pidfd_getfd, every connected server
+  socket, a socket with Nagle on or no TCP socket refusing the run (exit 4). Unix sockets only under `full`. Cells A, Bf, Cf-retain, Ef-retain (the core cells blocking, framed path),
   a+read and b (P2.2), c (P5.4), d (16 MiB), k = 1 and 8, full build: 32 benchmarks; plus Cf-retain on the
   h2-batch core for c and d at k = 1 and 8 (4, `h2=h2-batch`). Pinned allocator pass: A and Cf-retain, c and d,
   k = 1 (4); the codec and calib suites decline the core grid's pinned pass.
 - Smoke of the core grid (2026-10-03, smoke mode, 1 launch, 1 round, full build; the runner driven with a
   hand-written gate.ok, no gated path changed): codec 147 samples, every one grid=core; rpc 36 (32 stock + 4
-  h2-batch), header client_sockets unix 5, tcp 0; pinned rpc 4; codec pinned declined. Raw output not
+  h2-batch); pinned rpc 4; codec pinned declined. That first smoke ran over Unix sockets (5 client sockets, 0
+  TCP), a defect: re-run (2026-10-03, RPC only, over TCP): 36 samples, sockets client_tcp 4 / server_tcp 4 (h2-batch
+  run 1 / 1), Nagle on 0 everywhere; planted Nagle-on socket and a Unix target with --require-tcp both exit 4, no
+  output file. Raw output not
   committed (logs/PURGED.md).
 
 Estimate at the campaign defaults (3 launches x 5 rounds; codec min time 0.5 s, warm-up 0.5 s; RPC min time

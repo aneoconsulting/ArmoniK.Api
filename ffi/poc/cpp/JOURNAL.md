@@ -2312,3 +2312,13 @@ changes.
   43 core-ffi decode_read rows, 18 of them from=bytebuffer).
 - Smoke (smoke mode, full build, runner with a hand-written gate.ok): codec 147, rpc 36 (+4 h2-batch inside),
   pinned 4, codec pinned declined; client sockets all Unix. Estimate in STATE: suites 60 to 87 min, plus the gate.
+
+## 2026-10-03, D10 in the core grid (defect: the first core-grid smoke ran over Unix sockets)
+
+- The runner starts the server with its TCP listener in the core grid (serve.sh AK_SERVER_TCP=0) and dials
+  ipv4:127.0.0.1:PORT (grpc++) / http://127.0.0.1:PORT (core) with --require-tcp 1 and AK_SERVER_PID. The client reads
+  TCP_NODELAY back on every client TCP socket and on every connected server TCP socket (pidfd_getfd), refusing
+  (exit 4) on Nagle on, on zero client TCP sockets, or when the server's sockets cannot be read; --plant nagle.
+- RPC smoke (core grid, smoke mode, runner, hand-written gate.ok): 36 samples; client_tcp 4, server_tcp 4 (h2-batch
+  run 1 and 1), Nagle on 0. Plant nagle: exit 4 "1 client TCP socket(s) with Nagle on", no output; Unix target with
+  --require-tcp: exit 4, no output. Disk 89% (other slices' scratch worktrees); only campaign_rpc and the two cores built.
