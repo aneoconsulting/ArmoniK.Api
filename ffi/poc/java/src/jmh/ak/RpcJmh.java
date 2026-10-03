@@ -104,14 +104,14 @@ public class RpcJmh {
   @AuxCounters(AuxCounters.Type.EVENTS)
   @State(Scope.Thread)
   public static class Totals {
-    public long rpcCpuNs, callsMade, rpcTaskClockNs, softirqTicks;
-    private long irq0;
+    public long rpcCpuNs, callsMade, rpcTaskClockNs, softirqTicks, minflt;
+    private long irq0, flt0;
     @Setup(Level.Iteration)
-    public void reset() { rpcCpuNs = 0; callsMade = 0; rpcTaskClockNs = 0; irq0 = softirq(); }
+    public void reset() { rpcCpuNs = 0; callsMade = 0; rpcTaskClockNs = 0; irq0 = softirq(); flt0 = minorFaults(); }
     /** Req 21 as amended: softirq time on the CLIENT CPUs over the iteration (/proc/stat, in
      *  USER_HZ ticks), read outside the timed invocations. */
     @TearDown(Level.Iteration)
-    public void irq() { softirqTicks = softirq() - irq0; }
+    public void irq() { softirqTicks = softirq() - irq0; minflt = minorFaults() - flt0; }
   }
 
   /** The CLIENT CPUs (-Dak.camp.clientcpus, a cpu list like "1-4,11-14"; unset: every CPU). */
@@ -125,6 +125,18 @@ public class RpcJmh {
     }
     return b;
   }
+  /** D9 / req 25 as amended: the process's minor faults (/proc/self/stat field 10). */
+  static long minorFaults() {
+    try {
+      String st = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/proc/self/stat")),
+          java.nio.charset.StandardCharsets.US_ASCII);
+      String[] f = st.substring(st.lastIndexOf(')') + 2).trim().split(" ");
+      return Long.parseLong(f[7]);   // fields after "(comm)" start at field 3: minflt is field 10
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   /** The summed softirq column of /proc/stat's cpuN lines for the CLIENT CPUs. */
   static long softirq() {
     long t = 0;
@@ -171,7 +183,8 @@ public class RpcJmh {
         + (c.codec == CampaignRpc.INC ? "incumbent" : c.codec == CampaignRpc.FFI ? "core-ffi" : "host-gen")
         + "\t" + CampaignRpc.sendPath(c) + "\t" + (c instanceof CampaignRpc.CoreCell ? "core" : "grpc")
         + "\t" + transport + "\t" + ak.Variant.NAME + "\t" + CampaignRpc.threadsJson()
-        + "\t" + System.getProperty("ak.camp.h2", "unknown") + "\t" + nodelay);
+        + "\t" + System.getProperty("ak.camp.h2", "unknown") + "\t" + nodelay
+        + "\t" + System.getProperty("ak.camp.alloc", "default"));
     workers = new Thread[15];
     for (int t = 0; t < 15; t++) {
       final int w = t + 1;

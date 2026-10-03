@@ -359,13 +359,16 @@ rpc)
     bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
       || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
-  # D9 / req 25 as amended: the core cells' transport (tonic, h2, their buffers) and the core
-  # allocate through glibc malloc inside the client JVM, as in a native slice, so the RPC forks
-  # run with glibc's trim and mmap thresholds pinned (inherited by JMH's forks from the
-  # environment); AK_D9_DEFAULT_ALLOC=1 is the default-allocator pass. Netty's pooled direct
-  # buffers and the Java heap are not glibc malloc.
-  D9_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432
-  [ "${AK_D9_DEFAULT_ALLOC:-0}" = 1 ] && D9_TUNABLES=
+  # D9 / req 25 as amended by the owner 2026-10-03 (ad1a15be5): the core and its transport
+  # (tonic, h2, their buffers) allocate through glibc malloc inside the client JVM. The MAIN
+  # figures run with the default allocator, as production does (alloc=default);
+  # AK_D9_PINNED_ALLOC=1 is the labelled diagnostic pass (alloc=pinned) with glibc's trim and
+  # mmap thresholds pinned, inherited by JMH's forks from the environment. Every sample
+  # carries `alloc` and `minflt` (the process's minor faults over the iteration), so the
+  # faults per call sit beside every gap. Netty's pooled direct buffers and the Java heap are
+  # not glibc malloc.
+  D9_TUNABLES=; D9_ALLOC=default
+  [ "${AK_D9_PINNED_ALLOC:-0}" = 1 ] && { D9_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; D9_ALLOC=pinned; }
   rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
     local l=$1 tr=$2 V=$3 SX= TAG=
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; }
@@ -390,10 +393,10 @@ rpc)
     echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10; TCP listener 127.0.0.1, pinned configuration, AK_SERVER_TCP=0): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
-    echo "# allocator (D9, req 25 as amended): GLIBC_TUNABLES=${D9_TUNABLES:-unset (the default-allocator pass, AK_D9_DEFAULT_ALLOC=1)} for every client fork" >> "$f"
+    echo "# allocator (D9, req 25 as amended 2026-10-03): alloc=$D9_ALLOC for every client fork and sample -- default: glibc's default allocator, the MAIN figures (as production); pinned (AK_D9_PINNED_ALLOC=1): GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${D9_TUNABLES:-unset}; minflt per sample: the process's minor faults over the iteration (/proc/self/stat), faults per call = minflt / iters" >> "$f"
     GLIBC_TUNABLES=$D9_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
       -f 1 -foe true -wi "$WI" -w "$WTIME" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$PCOMBO" \
-      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l ${AK_RPC_PROPS:-}" \
+      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$D9_ALLOC ${AK_RPC_PROPS:-}" \
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
     python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
       || discard "$l" "conversion ($tr, $V)"

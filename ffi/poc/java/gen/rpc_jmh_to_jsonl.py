@@ -38,7 +38,7 @@ def main():
             f = line.split("\t")
             cells[f[1]] = {"mode": f[2], "codec": f[3], "send_path": f[4], "kind": f[5],
                            "transport": f[6], "build": f[7], "threads": json.loads(f[8]),
-                           "h2": f[9], "nodelay": f[10]}
+                           "h2": f[9], "nodelay": f[10], "alloc": f[11] if len(f) > 11 else "default"}
         elif line.startswith("RPCJMH-ITER\t"):
             f = line.split("\t")
             if f[2] == "m":
@@ -54,7 +54,7 @@ def main():
         pm, sm = b["primaryMetric"], b.get("secondaryMetrics", {})
         if pm.get("scoreUnit") != "ns/op":
             raise SystemExit("unexpected JMH unit %r for %s" % (pm.get("scoreUnit"), cell))
-        for name in ("rpcCpuNs", "callsMade", "calls", "rpcTaskClockNs", "softirqTicks"):
+        for name in ("rpcCpuNs", "callsMade", "calls", "rpcTaskClockNs", "softirqTicks", "minflt"):
             if name not in sm:
                 raise SystemExit("no %s counter for %s" % (name, cell))
         out.append(json.dumps({"meta": {"suite": "rpc", "engine": "jmh " + b.get("jmhVersion", "?"),
@@ -62,7 +62,7 @@ def main():
             "warmup_iterations": b["warmupIterations"], "warmup_time": b.get("warmupTime"),
             "measurement_iterations": b["measurementIterations"], "measurement_time": b.get("measurementTime"),
             "jdk": b.get("jdkVersion"), "vm": b.get("vmName", "") + " " + b.get("vmVersion", ""),
-            "jvm_args": b.get("jvmArgs"), "threads": cl["threads"], "h2": cl["h2"],
+            "jvm_args": b.get("jvmArgs"), "threads": cl["threads"], "h2": cl["h2"], "alloc": cl["alloc"],
             "tcp_nodelay_read_back": cl["nodelay"],
             "cpu_ns": "perf task-clock of the whole process (JVM agent, inherited counter), per invocation summed; process_cpu_ns: CLOCK_PROCESS_CPUTIME_ID beside it; softirq_ticks_client: /proc/stat softirq on the CLIENT CPUs over the iteration, USER_HZ ticks", "combinations": ncombo,
             "order": ("one fork per cell (grouped, AK_RPC_GROUP=1), cells in the order given (rotated per launch); inside the fork JMH iteration i runs combination (i + launch - 1) mod 17, warm-up and measurement counted separately" if combo == "cycle" else "one fork per (cell, combination), JMH's order of the cross product, cells rotated per launch"),
@@ -79,6 +79,7 @@ def main():
                     per_call = sm["calls"]["rawData"][f][i]
                     tclock = sm["rpcTaskClockNs"]["rawData"][f][i]
                     irq = sm["softirqTicks"]["rawData"][f][i]
+                    flt = sm["minflt"]["rawData"][f][i]
                 except (IndexError, KeyError):
                     raise SystemExit("no counter sample for %s measurement %d" % (cell, i))
                 k = lab["k"]
@@ -100,7 +101,7 @@ def main():
                        "send_path": cl["send_path"], "engine": "jmh", "launch": launch,
                        "round": i // ncombo + 1, "cpu_ns": int(round(tclock)), "process_cpu_ns": int(round(cpu)),
                        "wall_ns": int(round(wall)), "softirq_ticks_client": int(round(irq)),
-                       "h2": cl["h2"], "net": "tcp" if cl["nodelay"] != "uds" else "uds",
+                       "h2": cl["h2"], "alloc": cl["alloc"], "minflt": int(round(flt)), "net": "tcp" if cl["nodelay"] != "uds" else "uds",
                        "iters": made}
                 out.append(json.dumps(rec, separators=(",", ":")))
                 seen += 1
