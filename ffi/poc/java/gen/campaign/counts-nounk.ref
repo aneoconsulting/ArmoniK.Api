@@ -170,6 +170,10 @@ EP P6.1                       decode-pull (walk)    no-unknown host      2 core 
 EP P7.1                       decode                no-unknown host      1 core      1 rev      7 grow    0
 EP P7.1                       decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0
 EP P7.1                       decode-pull (walk)    no-unknown host      2 core      2 rev      0 grow    0
+EP P2.2/latin1                encode (transport)    no-unknown host   2513 core   2511 rev   2501 grow    0
+EP P2.2/latin1                decode                no-unknown host      1 core      1 rev   3501 grow    0
+EP P2.2/wide                  encode (transport)    no-unknown host   2513 core   2511 rev   2501 grow    0
+EP P2.2/wide                  decode                no-unknown host      1 core      1 rev   3501 grow    0
 EP U-deep-all                 encode (transport)    no-unknown host      9 core      7 rev      6 grow    0
 EP U-deep-all                 decode                no-unknown host      1 core      1 rev      8 grow    0
 EP U-deep-all                 decode-pull (drain)   no-unknown host      3 core      3 rev      0 grow    0

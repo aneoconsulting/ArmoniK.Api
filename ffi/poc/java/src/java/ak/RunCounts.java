@@ -215,6 +215,24 @@ public final class RunCounts {
         b.close();
       }
     }
+    // CAMPAIGN 4.0 (D18): the core grid times P2.2 in the Latin-1 and wide content sets too
+    // (core-ffi encode end state (ii) and decode); their rows, labelled P2.2/latin1, P2.2/wide.
+    for (int cs : new int[] {Values.LATIN1, Values.WIDE}) {
+      final String id = "P2.2", label = id + (cs == Values.LATIN1 ? "/latin1" : "/wide");
+      final String root = Arms.root(id);
+      final Object o = Arms.build(id, cs);
+      Binding t = new Binding();
+      FfiArms.encode(t, id, o);
+      final byte[] w = t.take();
+      t.close();
+      for (String m : modes) {
+        final Binding b = new Binding();
+        FfiArms.setRetain(b, m.equals("retain"));
+        log.append(row(label, "encode (transport)", m, b, () -> { FfiArms.encode(b, id, o); b.take(); }, false, root));
+        log.append(row(label, "decode", m, b, () -> FfiArms.decode(b, id, w, 0, w.length), true, root));
+        b.close();
+      }
+    }
     // The U-* rows at the shapes core's ABI roots (req 7 as amended), accepted, class unknown.
     java.io.File dir = new java.io.File(Payloads.SCHEMA_DIR, "../../corpus/generated");
     @SuppressWarnings("unchecked")

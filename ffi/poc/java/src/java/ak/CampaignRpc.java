@@ -563,7 +563,10 @@ public final class CampaignRpc {
       pathC = path(UPLOAD); lenC = UPLOAD.length() + 1;
       pathD = path(STREAM); lenD = STREAM.length() + 1;
       pathDCheck = path(STREAM_CHECK); lenDCheck = STREAM_CHECK.length() + 1;
-      if (framed && NativeRpc.clientSetFramed(client, 1) != 0) fail(name + ": ak_client_set_framed");
+      // The send path is set EXPLICITLY on every core client, to the cell's label: the framed
+      // path is the core's default since e8fe14868 (2026-09-28), so a reference cell (B, C, Cc,
+      // E) that left it unset ran framed until this fix.
+      if (NativeRpc.clientSetFramed(client, framed ? 1 : 0) != 0) fail(name + ": ak_client_set_framed(" + (framed ? 1 : 0) + ")");
     }
 
     static final byte[] EMPTY = new byte[0];

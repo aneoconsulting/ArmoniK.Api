@@ -248,6 +248,14 @@ EP P7.1                       decode-pull (walk)    drop       host      2 core 
 EP P7.1                       decode                retain     host      2 core      1 rev      7 grow    0
 EP P7.1                       decode-pull (drain)   retain     host      4 core      3 rev      0 grow    0
 EP P7.1                       decode-pull (walk)    retain     host      3 core      2 rev      0 grow    0
+EP P2.2/latin1                encode (transport)    drop       host   2513 core   2511 rev   2501 grow    0
+EP P2.2/latin1                decode                drop       host      1 core      1 rev   3501 grow    0
+EP P2.2/latin1                encode (transport)    retain     host   2519 core   2517 rev   2501 grow    0
+EP P2.2/latin1                decode                retain     host      2 core      1 rev   3501 grow    0
+EP P2.2/wide                  encode (transport)    drop       host   2513 core   2511 rev   2501 grow    0
+EP P2.2/wide                  decode                drop       host      1 core      1 rev   3501 grow    0
+EP P2.2/wide                  encode (transport)    retain     host   2519 core   2517 rev   2501 grow    0
+EP P2.2/wide                  decode                retain     host      2 core      1 rev   3501 grow    0
 EP U-deep-all                 encode (transport)    drop       host      9 core      7 rev      6 grow    0
 EP U-deep-all                 decode                drop       host      1 core      1 rev      8 grow    0
 EP U-deep-all                 decode-pull (drain)   drop       host      3 core      3 rev      0 grow    0
