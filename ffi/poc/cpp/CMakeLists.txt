@@ -472,6 +472,11 @@ if(AK_RPC)
     BYPRODUCTS ${CORE_CAMP_COUNT_OUT}/libak_core.so
     COMMENT "cargo build the shared ak-core --features rpc,count,init-guard (campaign counts)")
   ak_rpc_bin(campaign_rpc_count ${CMAKE_CURRENT_SOURCE_DIR}/src/campaign_rpc.cpp ${CORE_CAMP_COUNT_OUT} core_camp_count)
+  # D18 / req. 19: the core grid's codec count rows (transport-ready encode: ak_enc_take_owned and
+  # ak_bytes_free are RPC-layer entries, so this binary links the rpc,count campaign core).
+  ak_arm(counts_grid ${COUNTS} 17 target on shared reject ${CORE_CAMP_COUNT_OUT})
+  add_dependencies(counts_grid core_camp_count)
+  target_compile_definitions(counts_grid PRIVATE AK_COUNTING=1 AK_COUNT_GRID=1)
   target_sources(campaign_rpc_count PRIVATE ${CAMP_RPC_EXTRA} ${CAMP_GRID}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/core_native_retain.cpp)
   target_compile_definitions(campaign_rpc_count PRIVATE AK_COUNTING=1)
@@ -680,6 +685,8 @@ if(AK_RPC)
             cargo build --release ${NOUNK_FEATURES} rpc,count,${AK_CORE_FEATURES} --manifest-path ${CORE_DIR}/Cargo.toml
     BYPRODUCTS ${CORE_CAMP_COUNT_NOUNK_OUT}/libak_core.so
     COMMENT "cargo build ak-core, no-unknown variant, --features rpc,count (campaign counts)")
+  ak_arm_nounk(counts_grid_nounk ${COUNTS} 17 shared ${CORE_CAMP_COUNT_NOUNK_OUT} core_camp_count_nounk)
+  target_compile_definitions(counts_grid_nounk PRIVATE AK_COUNTING=1 AK_COUNT_GRID=1)
   # campaign_rpc_nounk and its counting twin: the same source against the no-unknown build.
   foreach(tgt campaign_rpc_nounk campaign_rpc_count_nounk)
     if(tgt STREQUAL "campaign_rpc_nounk")

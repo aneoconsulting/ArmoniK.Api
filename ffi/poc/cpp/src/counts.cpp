@@ -197,25 +197,6 @@ static void chunk_row(const char *id, const char *elem, size_t elems) {
 #define AK_COUNT_ENC_UNK(s) &shapes::ffi::encode_into_##s##_unk
 #endif
 
-int main(int argc, char **argv) {
-  std::string corpus, rows;
-  for (int i = 1; i + 1 < argc; i += 2) {
-    if (std::string(argv[i]) == "--corpus") corpus = argv[i + 1];
-    else if (std::string(argv[i]) == "--rows") rows = argv[i + 1];
-  }
-  std::printf("counting build, linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
-  std::printf("Per-element columns are forward / reverse. forward = core + host + take (req 19):\n"
-              "host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the\n"
-              "one ak_dec_reset_<Root> of a retain decode (before it; rule 7); take = the timed loop's\n"
-              "ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 8).\n\n");
-#define X(id, Root, sroot, pfx, sha, nbytes)                                        \
-  run_case<shapes::Root, ns::Root>(                                                 \
-      id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                   \
-      &shapes::ffi::encode_into_##sroot, &shapes::ffi::encode_into_##sroot##_zeroed,\
-      &shapes::ffi::encode_into_##sroot##_nobatch, AK_COUNT_ENC_UNK(sroot),         \
-      &shapes::ffi::decode_with_##sroot,                                            \
-      &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot,        \
-      AK_ELEMS_##pfx);
 #define AK_ELEMS_p1_1 4
 #define AK_ELEMS_p1_2 1000
 #define AK_ELEMS_p1_3 300
@@ -231,6 +212,146 @@ int main(int argc, char **argv) {
 #define AK_ELEMS_p5_3 1
 #define AK_ELEMS_p5_4 1
 #define AK_ELEMS_p6_1 200
+
+#ifdef AK_COUNT_GRID
+// D18 (CAMPAIGN section 4.0) and req. 19: one count row per timed core-ffi row of the core grid,
+// exactly the calls that row's timed loop makes. Encode: end state (ii), the transport-ready form:
+// encode_into_* (retain in the full build; the no-unknown build's own), ak_enc_take_owned (the
+// buffer moved to the transport) and ak_bytes_free when the transport drops it: `take` here is
+// those two RPC-layer entries, from the core's RPC counters (this binary links the rpc,count
+// campaign core). Decode: decode_with_*_unk (full) / decode_with_* (no-unknown) from the
+// contiguous buffer, then the read (host code, no crossing). Rows: the 16 shapes in ASCII (P7.1
+// decode only), P2.2 Latin-1 and wide, and the 7 U-* rows of section 4.0.
+template <class F>
+static void count_enc_transport(const char *id, const char *what, ak_enc_ctx *ctx,
+                                intptr_t (*enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &), const F &v,
+                                double elems) {
+  AkCounters c;
+  ak_enc_counters_reset(ctx);
+  ak_rpc_counters_reset();
+  shapes::ffi::host_calls_take();
+  enc(ctx, v, shapes::ffi::tcs_core());
+  struct ak_bytes b;
+  b.ptr = NULL; b.len = 0; b.owner = NULL;
+  ak_enc_take_owned(ctx, &b);
+  ak_bytes_free(&b);
+  uint64_t host = shapes::ffi::host_calls_take();
+  struct ak_rpc_counters rc;
+  ak_rpc_counters(&rc);
+  ak_enc_counters(ctx, &c);
+  show(id, what, c, host, (int)rc.forward, elems);
+}
+#ifdef AK_NO_UNKNOWN_FIELDS
+#define AK_GRID_ENC(s) &shapes::ffi::encode_into_##s
+#define AK_GRID_DEC(F) &shapes::ffi::DecRoot<F>::decode
+#define AK_GRID_ENC_WHAT "encode transport"
+#define AK_GRID_DEC_WHAT "decode"
+#else
+#define AK_GRID_ENC(s) &shapes::ffi::encode_into_##s##_unk
+#define AK_GRID_DEC(F) &shapes::ffi::DecRoot<F>::decode_unk
+#define AK_GRID_ENC_WHAT "encode retain transport"
+#define AK_GRID_DEC_WHAT "decode retain"
+#endif
+template <class F, class P>
+static void grid_case(const std::string &id, F (*mk)(void), void (*pbmk)(P *),
+                      intptr_t (*enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &), double elems, bool encode) {
+  F facade = mk();
+  P pbm;
+  pbmk(&pbm);
+  std::string wire;
+  pb_serialize_det(pbm, &wire);
+  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  if (encode) count_enc_transport<F>(id.c_str(), AK_GRID_ENC_WHAT, ctx, enc, facade, elems);
+  F out;
+  count_dec<F>(id.c_str(), AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(F), wire, elems, &out);
+  shapes::ffi::dec_ctx_free(dctx);
+  ak_enc_ctx_free(ctx);
+}
+template <class F>
+static void grid_row(const std::string &id, const std::string &v,
+                     intptr_t (*enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &)) {
+  ak_enc_ctx *ctx = ak_enc_ctx_new();
+  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  F d;
+  count_dec<F>(id.c_str(), AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(F), v, 0, &d);
+  count_enc_transport<F>(id.c_str(), AK_GRID_ENC_WHAT, ctx, enc, d, 0);
+  shapes::ffi::dec_ctx_free(dctx);
+  ak_enc_ctx_free(ctx);
+}
+static int grid_main(const std::string &corpus) {
+  std::printf("counting build (D18 core grid), linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
+  std::printf("One row per timed core-ffi row of CAMPAIGN 4.0's grid. forward = core + host + take: host = ak_enc_reset\n"
+              "(encode) and the one ak_dec_reset_<Root> of a retain decode; take = ak_enc_take_owned + ak_bytes_free\n"
+              "(the transport-ready encode), from the core's RPC counters.\n\n");
+  static const ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1, ak::values::kWide};
+  static const char *setname[3] = {"", "/latin1", "/wide"};
+#define X(id, Root, sroot, pfx, sha, nbytes)                                                        \
+  for (int cs = 0; cs < (std::string(id) == "P2.2" ? 3 : 1); ++cs) {                              \
+    ak::values::ScopedContentSet scope(sets[cs]);                                                  \
+    grid_case<shapes::Root, ns::Root>(std::string(id) + setname[cs], &shapes::build::payload_##pfx, \
+                                      &pbbuild::payload_##pfx, AK_GRID_ENC(sroot), AK_ELEMS_##pfx, true); \
+  }
+  AK_CASES(X)
+#undef X
+  // P7.1: decode only, from its committed vector.
+  {
+    std::ifstream vf((std::string("payloads/") + AK_P71_VECTOR).c_str(), std::ios::binary);
+    std::string v((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
+    if (!v.empty()) {
+      ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
+      shapes::DualResponse out;
+      count_dec<shapes::DualResponse>("P7.1", AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(shapes::DualResponse), v, 0, &out);
+      shapes::ffi::dec_ctx_free(dctx);
+    } else {
+      std::printf("  P7.1   (vector payloads/P7.1.bin not found: run from ffi/schema/generated)\n");
+    }
+  }
+  static const char *const kU[7][3] = {
+      {"U-nested-before", "ListResultsResponse", ""}, {"U-deep-u-repeated", "ListTasksDetailedResponse", ""},
+      {"U-oneof-u-repeated", "ListProbeResponse", ""},
+      {"U-wire-ListTaskSummaryResponse-tasks-as-wt5", "ListTaskSummaryResponse", ""},
+      {"U-wire-UploadResultDataMessage-upload-as-wt5", "UploadResultDataMessage", ""},
+      {"U-wire-ListMetricsResponse-batches-as-wt0", "ListMetricsResponse", ""},
+      {"U-wire-DualResponse-left-as-wt5", "DualResponse", ""}};
+  std::printf("\n-- the 7 U-* rows of CAMPAIGN 4.0 --\n");
+  for (int u = 0; u < 7; ++u) {
+    // the row's vector file, as gen/u_rows.py resolves it: vectors/<id>.bin under the corpus
+    std::ifstream vf((corpus + "/vectors/" + kU[u][0] + ".bin").c_str(), std::ios::binary);
+    std::string v((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
+    if (v.empty()) { std::printf("  %s: vector not found\n", kU[u][0]); return 2; }
+    const std::string root = kU[u][1], id = kU[u][0];
+#define R(Root, sroot) \
+    if (root == #Root) grid_row<shapes::Root>(id, v, AK_GRID_ENC(sroot));
+    AK_ROOTS(R)
+#undef R
+  }
+  return 0;
+}
+#endif
+
+int main(int argc, char **argv) {
+  std::string corpus, rows;
+  for (int i = 1; i + 1 < argc; i += 2) {
+    if (std::string(argv[i]) == "--corpus") corpus = argv[i + 1];
+    else if (std::string(argv[i]) == "--rows") rows = argv[i + 1];
+  }
+#ifdef AK_COUNT_GRID
+  return grid_main(corpus);
+#endif
+  std::printf("counting build, linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
+  std::printf("Per-element columns are forward / reverse. forward = core + host + take (req 19):\n"
+              "host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the\n"
+              "one ak_dec_reset_<Root> of a retain decode (before it; rule 7); take = the timed loop's\n"
+              "ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 8).\n\n");
+#define X(id, Root, sroot, pfx, sha, nbytes)                                        \
+  run_case<shapes::Root, ns::Root>(                                                 \
+      id, &shapes::build::payload_##pfx, &pbbuild::payload_##pfx,                   \
+      &shapes::ffi::encode_into_##sroot, &shapes::ffi::encode_into_##sroot##_zeroed,\
+      &shapes::ffi::encode_into_##sroot##_nobatch, AK_COUNT_ENC_UNK(sroot),         \
+      &shapes::ffi::decode_with_##sroot,                                            \
+      &shapes::native::encode_into_##sroot, &shapes::native::decode_##sroot,        \
+      AK_ELEMS_##pfx);
   AK_CASES(X)
 #undef X
 

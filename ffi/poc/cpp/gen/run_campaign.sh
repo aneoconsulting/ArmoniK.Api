@@ -276,6 +276,16 @@ run_gate() {
     else
       head -10 "$TMPD/diff"; echo ">>> FAIL: crossing counts differ from the committed ones"
     fi
+    # D18 / req. 19: one count row per timed core-ffi row of the core grid (CAMPAIGN 4.0): the
+    # transport-ready encode and the decode, both builds, against logs/cpp/counts-grid*.log.
+    for v in "" _nounk; do
+      want=$FFI/logs/cpp/counts-grid$( [ -n "$v" ] && echo -nounk ).log
+      (cd "$FFI/schema/generated" && "$B/counts_grid$v" --corpus "$FFI/corpus/generated" > "$OUT/counts-grid$v.log" 2>&1) \
+        || echo ">>> FAIL: counts_grid$v exit"
+      if diff <(grep -E '^  [PU]' "$want") <(grep -E '^  [PU]' "$OUT/counts-grid$v.log") > "$TMPD/gd"; then
+        echo "  $(grep -cE '^  [PU]' "$OUT/counts-grid$v.log") core-grid count rows identical to logs/cpp/$(basename "$want")"
+      else head -8 "$TMPD/gd"; echo ">>> FAIL: core-grid crossing counts differ from $(basename "$want")"; fi
+    done
     echo "===== WP5 step 10: the no-unknown build (gen/nounk_gate.sh -> logs/cpp/wp5s10-nounk.log) ====="
     bash gen/nounk_gate.sh "$B"; ngr=$?
     grep -E '^>>> |u-family exports|^nounk_gate' "$FFI/logs/cpp/wp5s10-nounk.log" | sed 's/^/  /'

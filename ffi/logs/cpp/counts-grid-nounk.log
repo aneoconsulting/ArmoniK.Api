@@ -1,0 +1,64 @@
+# cpp slice: the committed crossing counts of the D18 core grid (CAMPAIGN section 4.0), no-unknown build: one row per timed
+# core-ffi row of the grid (both gates compare every '  P'/'  U' row: wp5_gate.sh and run_campaign.sh --suite gate).
+# Taken 2026-10-03 with counts_grid_nounk (links the rpc,count campaign core): the transport-ready encode (end state (ii)):
+# encode_into_* + ak_enc_take_owned + ak_bytes_free (take = those two, from the core's RPC counters), and the decode
+# from the contiguous buffer (decode_with_*); the 16 shapes in ASCII (P7.1 decode only), P2.2 Latin-1 and wide, the 7 U-* rows.
+# New rows against counts-baseline.log: every 'encode ... transport' row (24), the P2.2/latin1 and P2.2/wide decode rows and P7.1's
+# decode (counted nowhere before); the other decode rows
+# equal counts-baseline's (decode retain / decode) for the same payload. Deterministic.
+counting build (D18 core grid), linkage=shared, -std=201703
+One row per timed core-ffi row of CAMPAIGN 4.0's grid. forward = core + host + take: host = ak_enc_reset
+(encode) and the one ak_dec_reset_<Root> of a retain decode; take = ak_enc_take_owned + ak_bytes_free
+(the transport-ready encode), from the core's RPC counters.
+
+  P1.1   encode transport       forward      5  reverse      1  transcode       24   per element  1.250 /  0.250   (core 2 + host 1 + take 2)
+  P1.1   decode                 forward      1  reverse      2  transcode        0   per element  0.250 /  0.500   (core 1 + host 0 + take 0)
+  P1.2   encode transport       forward     11  reverse      1  transcode     6000   per element  0.011 /  0.001   (core 8 + host 1 + take 2)
+  P1.2   decode                 forward      1  reverse      5  transcode        0   per element  0.001 /  0.005   (core 1 + host 0 + take 0)
+  P1.3   encode transport       forward      6  reverse      1  transcode        0   per element  0.020 /  0.003   (core 3 + host 1 + take 2)
+  P1.3   decode                 forward      1  reverse      3  transcode        0   per element  0.003 /  0.010   (core 1 + host 0 + take 0)
+  P2.1   encode transport       forward     10  reverse      6  transcode       35   per element 10.000 /  6.000   (core 7 + host 1 + take 2)
+  P2.1   decode                 forward      1  reverse      8  transcode        0   per element  1.000 /  8.000   (core 1 + host 0 + take 0)
+  P2.2   encode transport       forward   2514  reverse   2501  transcode    17167   per element  5.028 /  5.002   (core 2511 + host 1 + take 2)
+  P2.2   decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002   (core 1 + host 0 + take 0)
+  P2.2/latin1 encode transport       forward   2514  reverse   2501  transcode    17167   per element  5.028 /  5.002   (core 2511 + host 1 + take 2)
+  P2.2/latin1 decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002   (core 1 + host 0 + take 0)
+  P2.2/wide encode transport       forward   2514  reverse   2501  transcode    17167   per element  5.028 /  5.002   (core 2511 + host 1 + take 2)
+  P2.2/wide decode                 forward      1  reverse   3501  transcode        0   per element  0.002 /  7.002   (core 1 + host 0 + take 0)
+  P2.3   encode transport       forward    632  reverse    626  transcode    17792   per element  5.056 /  5.008   (core 629 + host 1 + take 2)
+  P2.3   decode                 forward      1  reverse    876  transcode        0   per element  0.008 /  7.008   (core 1 + host 0 + take 0)
+  P2.4   encode transport       forward    406  reverse    401  transcode    26267   per element  5.075 /  5.013   (core 403 + host 1 + take 2)
+  P2.4   decode                 forward      1  reverse    561  transcode        0   per element  0.013 /  7.013   (core 1 + host 0 + take 0)
+  P2.5   encode transport       forward    105  reverse    101  transcode      640   per element  5.250 /  5.050   (core 102 + host 1 + take 2)
+  P2.5   decode                 forward      1  reverse    141  transcode        0   per element  0.050 /  7.050   (core 1 + host 0 + take 0)
+  P3.1   encode transport       forward      5  reverse      1  transcode      430   per element  0.025 /  0.005   (core 2 + host 1 + take 2)
+  P3.1   decode                 forward      1  reverse      2  transcode        0   per element  0.005 /  0.010   (core 1 + host 0 + take 0)
+  P4.1   encode transport       forward    206  reverse    201  transcode     3467   per element  1.030 /  1.005   (core 203 + host 1 + take 2)
+  P4.1   decode                 forward      1  reverse    601  transcode        0   per element  0.005 /  3.005   (core 1 + host 0 + take 0)
+  P5.1   encode transport       forward      4  reverse      0  transcode        2   per element  4.000 /  0.000   (core 1 + host 1 + take 2)
+  P5.1   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.2   encode transport       forward      4  reverse      0  transcode        2   per element  4.000 /  0.000   (core 1 + host 1 + take 2)
+  P5.2   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.3   encode transport       forward      4  reverse      0  transcode        2   per element  4.000 /  0.000   (core 1 + host 1 + take 2)
+  P5.3   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P5.4   encode transport       forward      4  reverse      0  transcode        2   per element  4.000 /  0.000   (core 1 + host 1 + take 2)
+  P5.4   decode                 forward      1  reverse      1  transcode        0   per element  1.000 /  1.000   (core 1 + host 0 + take 0)
+  P6.1   encode transport       forward   1005  reverse   1001  transcode      200   per element  5.025 /  5.005   (core 1002 + host 1 + take 2)
+  P6.1   decode                 forward      1  reverse   1401  transcode        0   per element  0.005 /  7.005   (core 1 + host 0 + take 0)
+  P7.1   decode                 forward      1  reverse      7  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+
+-- the 7 U-* rows of CAMPAIGN 4.0 --
+  U-nested-before decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-nested-before encode transport       forward      5  reverse      1  transcode        6   per element  0.000 /  0.000   (core 2 + host 1 + take 2)
+  U-deep-u-repeated decode                 forward      1  reverse      8  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-deep-u-repeated encode transport       forward     10  reverse      6  transcode       31   per element  0.000 /  0.000   (core 7 + host 1 + take 2)
+  U-oneof-u-repeated decode                 forward      1  reverse      2  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-oneof-u-repeated encode transport       forward      5  reverse      1  transcode        2   per element  0.000 /  0.000   (core 2 + host 1 + take 2)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode                 forward      1  reverse      7  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode transport       forward      7  reverse      3  transcode       36   per element  0.000 /  0.000   (core 4 + host 1 + take 2)
+  U-wire-UploadResultDataMessage-upload-as-wt5 decode                 forward      1  reverse      1  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-UploadResultDataMessage-upload-as-wt5 encode transport       forward      4  reverse      0  transcode        2   per element  0.000 /  0.000   (core 1 + host 1 + take 2)
+  U-wire-ListMetricsResponse-batches-as-wt0 decode                 forward      1  reverse     15  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-ListMetricsResponse-batches-as-wt0 encode transport       forward     15  reverse     11  transcode        2   per element  0.000 /  0.000   (core 12 + host 1 + take 2)
+  U-wire-DualResponse-left-as-wt5 decode                 forward      1  reverse      3  transcode        0   per element  0.000 /  0.000   (core 1 + host 0 + take 0)
+  U-wire-DualResponse-left-as-wt5 encode transport       forward      6  reverse      2  transcode        4   per element  0.000 /  0.000   (core 3 + host 1 + take 2)

@@ -267,6 +267,14 @@ fi
   grep -E '^  [PU]' "$S/counts_static.log" > "$S/cgot_s"
   if diff "$S/cwant" "$S/cgot" > "$S/cdiff" && diff "$S/cwant" "$S/cgot_s" >> "$S/cdiff"; then echo "  $(wc -l < "$S/cgot") count rows identical (shared and static)"; echo ">>> ok: counts unchanged"
   else head -10 "$S/cdiff"; echo ">>> FAIL: crossing counts differ from the baseline"; FAILS=$((FAILS+1)); fi
+  step "core-grid crossing counts (D18, CAMPAIGN 4.0): counts_grid and counts_grid_nounk against logs/cpp/counts-grid*.log"
+  for v in "" _nounk; do
+    want=$L/counts-grid$( [ -n "$v" ] && echo -nounk ).log
+    (cd "$PAY" && must "counts_grid$v" 0 "$OLDPWD/$B/counts_grid$v" --corpus "$OLDPWD/../../corpus/generated") > "$S/counts-grid$v.log"
+    if diff <(grep -E '^  [PU]' "$want") <(grep -E '^  [PU]' "$S/counts-grid$v.log") > "$S/gdiff"; then
+      echo "  $(grep -cE '^  [PU]' "$S/counts-grid$v.log") core-grid count rows identical to $(basename "$want")"
+    else head -8 "$S/gdiff"; echo ">>> FAIL: core-grid counts differ from $(basename "$want")"; FAILS=$((FAILS+1)); fi
+  done
   if [ -x "$B/rpccounts" ]; then
     step "RPC crossing counts (the binding's ak_init_once before the first RPC)"
     must "rpccounts" 0 env $(cs_env "$B/rpccounts") timeout 120 "$B/rpccounts" 5
