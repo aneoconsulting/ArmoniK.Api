@@ -160,7 +160,8 @@ grep -q 'h2 compiled in: h2-batch-src/' "${TMPDIR:-/tmp}/ak-h2batch-build.$$" ||
 rm -f "${TMPDIR:-/tmp}/ak-h2batch-build.$$"
 H2B="$PWD/target-h2batch/release/deps"
 for b in upload_check rpc_semantics; do
-  LD_LIBRARY_PATH="$H2B" ldd "target/release/$b" | grep -q "$H2B/libak_core.so" || { echo "  $b does not load the h2-batch core"; exit 1; }
+  # captured, not piped into grep -q: under pipefail an early-exiting grep SIGPIPEs ldd and fails the check
+  L=$(LD_LIBRARY_PATH="$H2B" ldd "target/release/$b"); case "$L" in *"$H2B/libak_core.so"*) ;; *) echo "  $b does not load the h2-batch core"; exit 1 ;; esac
 done
 for tr in uds tcp; do
   LD_LIBRARY_PATH="$H2B" AK_CHECK_TRANSPORT=$tr target/release/upload_check 2>/dev/null | tail -1 | grep -q "UPLOAD CHECK PASSED" \

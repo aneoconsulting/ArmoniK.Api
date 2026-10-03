@@ -297,8 +297,9 @@ case "$SUITE" in
       H2B_LIB="$HERE/target-h2batch/release/deps"
       grep -q 'h2 compiled in: h2-batch-src/' "$OUT/h2batch-core.build.log" \
         || { echo "the h2-batch core does not carry the patched h2: $OUT/h2batch-core.build.log" >&2; exit 1; }
-      LD_LIBRARY_PATH="$H2B_LIB" ldd "$RPCB" | grep -q "$H2B_LIB/libak_core.so" \
-        || { echo "rpc_suite does not load $H2B_LIB/libak_core.so under LD_LIBRARY_PATH" >&2; exit 1; }
+      # captured, not piped into grep -q (pipefail: grep's early exit SIGPIPEs ldd)
+      L=$(LD_LIBRARY_PATH="$H2B_LIB" ldd "$RPCB"); case "$L" in *"$H2B_LIB/libak_core.so"*) ;;
+        *) echo "rpc_suite does not load $H2B_LIB/libak_core.so under LD_LIBRARY_PATH" >&2; exit 1 ;; esac
     fi
     serve_start() {  # serve_start TAG -> SOCK_shipped, SOCK_pinned, TCP_ADDR
       local o; o=$(./serve.sh start --out "$SCRATCH/serve-$1")

@@ -4369,3 +4369,15 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   no reference row ever ran framed. Not a defect here.
 - Gate step 12b: TCP upload check (stock core); the h2-batch core build; upload_check
   (UDS and TCP) and rpc_semantics on the h2-batch core. Pre-tested in the tree: all pass.
+
+## 2026-10-03 -- gate on 049cfba75: FAILED at step 12b, a harness defect (fixed)
+
+- The full gate ran from a clean worktree at 049cfba75 for 4,627 s. Every step through 12
+  passed, both builds included. Step 12b failed: "upload_check does not load the h2-batch
+  core".
+- Cause: `ldd ... | grep -q` under `set -o pipefail`. grep -q exits on the first match, ldd
+  gets SIGPIPE, and the pipeline reports failure. The core really was loaded: the same ldd
+  in the worktree resolves to target-h2batch.
+- run_campaign.sh's h2-batch check has the same form. It passed the smoke by luck of timing.
+- Both now capture the ldd output and match it with `case`. Swept: the remaining
+  `| grep -q` uses in gen/ are exploration scripts or read a finished `tail -1`.
