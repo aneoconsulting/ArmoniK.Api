@@ -399,6 +399,14 @@ pub async fn serve_tcp(port: u16, fetch: Vec<u8>, ready: impl FnOnce(u16)) {
     let incoming = tokio_stream::StreamExt::map(tokio_stream::wrappers::TcpListenerStream::new(listener), |r| {
         r.and_then(|s| {
             s.set_nodelay(true)?;
+            // CAMPAIGN 4.0 as amended: Nagle off, READ BACK on the live socket; a socket with
+            // Nagle on refuses the run (the server exits, every client call then fails).
+            let on = s.nodelay()?;
+            eprintln!("# rpc_server: accepted tcp {} -> TCP_NODELAY read back {}", s.peer_addr().map(|a| a.to_string()).unwrap_or_default(), on);
+            if !on {
+                eprintln!("REFUSED: TCP_NODELAY did not stick on an accepted socket");
+                std::process::exit(7);
+            }
             Ok(s)
         })
     });

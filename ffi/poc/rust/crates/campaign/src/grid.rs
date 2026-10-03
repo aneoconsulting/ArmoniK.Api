@@ -479,8 +479,28 @@ pub mod hosted {
     }
 }
 
+/// CAMPAIGN 4.0 as amended (b58543f7b, owner): the core grid's one transport configuration.
+/// When set (rpc_suite, AK_RPC_TRANSPORT=armonik), every tonic channel (cell A; D and F under the
+/// full grid) is dialled by ArmoniK's own Rust channel configuration,
+/// `armonik_transport::connect` with the package defaults (`ClientConfigArgs::default()` and the
+/// endpoint), called directly.
+pub static ARMONIK_CHANNEL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The `ClientConfig` cell A dials with under the `armonik` transport: the package defaults.
+pub fn armonik_config(target: &str) -> armonik_transport::ClientConfig {
+    // ClientConfigArgs is #[non_exhaustive]: the defaults, then the endpoint.
+    let mut args = armonik_transport::ClientConfigArgs::default();
+    args.endpoint = target.to_string();
+    armonik_transport::ClientConfig::from_config_args(args)
+    .expect("armonik-transport ClientConfig from the package defaults")
+}
+
 pub fn tonic_channel(rt: &tokio::runtime::Runtime, target: &str, pinned: bool) -> tonic::transport::Channel {
     let t = target.to_string();
+    if ARMONIK_CHANNEL.load(std::sync::atomic::Ordering::Relaxed) {
+        assert!(!pinned, "the armonik transport has no pinned variant");
+        return rt.block_on(armonik_transport::connect(armonik_config(&t))).expect("armonik_transport::connect");
+    }
     rt.block_on(async move {
         let mut e = tonic::transport::Endpoint::from_shared(t).unwrap();
         if pinned {

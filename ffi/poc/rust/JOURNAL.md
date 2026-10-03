@@ -4324,3 +4324,34 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   - 15 x 96 ms = 1.44 s, so the short default is 1500 ms, not 500.
 - Smoke (smoke/, figures stripped): B/a/k1 warmed 5 ms and B/c/P5.3/k1 warmed 300 ms, as
   criterion's console shows per benchmark. Both values are in the rpc header.
+
+## 2026-10-03 -- D18: core grid, h2-batch Cf, pinned subset, the armonik transport (owner)
+
+- AK_CAMPAIGN_GRID=core|full (default core). Selection helpers live in lib.rs:
+  core_codec_input, core_codec_case, core_rpc_spec, plus CODEC_EXTRAS and RPC_EXTRAS for the
+  headers. Every row carries `grid` and `row` (core | extra).
+- Codec filtering happens before the pre-check, so the in-process pre-check now covers every
+  arm on the 25 timed inputs; the gate still covers the rest.
+- Rust's host-gen arm is core-native. End state (ii):
+  - incumbent-prod: transport-ready-tonic;
+  - core-ffi and core-native: transport-ready-core, the form handed to the core transport by
+    cells Cf and Ef.
+- RPC core cells are the framed -cb cells, Rust's idiomatic delivery (req 16 as amended).
+- h2-batch: gen/h2batch_core.sh builds the core with the patch from THIS workspace's lock.
+  ak-core sits outside the workspace, so `-p ak-core --features` is refused, and the core is
+  built through the campaign's own rpc_suite target so feature resolution matches the stock
+  build (6.6 min). The stock rpc_suite binary then runs on that core via LD_LIBRARY_PATH
+  (ahead of RUNPATH). rpc_suite refuses when AK_H2 disagrees with the h2 path compiled into
+  the mapped core.
+- Transport amendment: cell A calls armonik_transport::connect directly with the package
+  defaults. This adds a path dependency on packages/rust/armonik-transport (read only).
+  - Cargo.lock gains rustls, ring, snafu and similar crates.
+  - Checked with cargo tree: the hyper and hyper-util features in the build are unchanged.
+- Core cells keep ak_client_new; the header lists how they differ from armonik-transport.
+- The transport runs over TCP 127.0.0.1 (D10) through the server's TCP listener.
+- Nagle checks:
+  - read back on the client (the process's live sockets to the server) and on the server
+    (every accepted socket);
+  - a planted Nagle-on socket refused the run.
+- Smoke (logs/rust/d18/): see STATE. Core-grid campaign estimate is ~55 min (48-62),
+  replacing the full-grid ~57 h.

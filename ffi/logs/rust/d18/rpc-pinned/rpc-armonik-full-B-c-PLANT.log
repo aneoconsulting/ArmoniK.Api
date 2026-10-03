@@ -1,0 +1,2 @@
+# alloc: pinned (16 MiB malloc heap)
+ABORT (requirement 18): server warm-up: cell B upload response 0 B, expected 1

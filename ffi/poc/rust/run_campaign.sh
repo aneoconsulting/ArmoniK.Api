@@ -30,6 +30,15 @@
 #                   (codec, rpc criterion clients, calib), never on the shared server; output
 #                   files are labelled alloc-pinned. Each measured process checks the mode at
 #                   start (16 MiB malloc, mallinfo2) and refuses to run on a mismatch.
+#   AK_CAMPAIGN_GRID  core|full (CAMPAIGN section 4.0, D18; default core). core runs exactly section
+#                   4.0's grid: codec 16 shapes + P2.2 Latin-1/wide + 7 U-* rows, arms incumbent-prod,
+#                   core-ffi, host-gen (= core-native in Rust), encode end state (ii) hot + decode-read,
+#                   retain (full build) / no-unknown build; RPC cells A, Bf-cb, Cf-cb-retain, Ef-cb-retain,
+#                   a+read, b, c P5.4, d 16 MiB, k 1 and 8, full build, ONE transport `armonik` (TCP
+#                   127.0.0.1, cell A through packages/rust/armonik-transport, Nagle off read back),
+#                   plus Cf-cb on h2-batch (c, d, k 1 and 8); the pinned allocator pass: rpc A and Cf-cb
+#                   on c and d at k = 1 only (codec and calib skipped). full runs every row (extras
+#                   labelled row = extra), transports shipped and pinned on the Unix socket.
 #   AK_ALLOW_DIRTY=1  run on a dirty tree (recorded in every header; requirement 27 refuses
 #                   a dirty tree, so the campaign never sets it)
 #
@@ -86,6 +95,11 @@ esac
 unset GLIBC_TUNABLES
 export AK_CAMPAIGN_ALLOC=$ALLOC
 
+# ---- CAMPAIGN section 4.0 (D18): the grid ---------------------------------------------
+GRID=${AK_CAMPAIGN_GRID:-core}
+case "$GRID" in core|full) ;; *) echo "refused: AK_CAMPAIGN_GRID=$GRID (core|full)" >&2; exit 2 ;; esac
+export AK_CAMPAIGN_GRID=$GRID
+
 # ---- requirement 27: the header, and the dirty-tree refusal ---------------------------
 REV=$(git rev-parse --short HEAD)
 DIRTY=""
@@ -113,6 +127,7 @@ header() {  # header SUITE [VARIANT]
   echo "# threads    D14: AK_WORKERS=${AK_WORKERS:-8} sizes every pool unless overridden; codec: 1 measuring thread; rpc client: tokio ${AK_HOST_WORKERS:-${AK_WORKERS:-8}} workers per A/D/F and -cb cell runtime (AK_HOST_WORKERS; ct = current-thread), ak_runtime_new(${AK_CORE_WORKERS:-${AK_WORKERS:-8}}) per B/C/E client (AK_CORE_WORKERS), k = 1/8/16 callers; rpc server: tokio ${AK_SERVER_THREADS:-${AK_WORKERS:-8}} workers (AK_SERVER_THREADS); calib: 1 thread"
   echo "# alloc      AK_CAMPAIGN_ALLOC=$ALLOC ran (modes: default = GLIBC_TUNABLES unset, the main figures; pinned = GLIBC_TUNABLES=$PINNED_TUNABLES on the measured client only, never the server, files labelled alloc-pinned); each measured process re-checks it (16 MiB malloc, mallinfo2) and its own header states the readback; rows carry alloc and minflt"
   echo "# rpc warm-up requirement 24 as amended (8c02e7c58), >= 20 calls per calling thread at the cell's payload, same process and threads: criterion's warm-up, set per benchmark (BenchmarkGroup::warm_up_time), AK_RPC_WARMUP_MS for directions a, a+read, b (campaign default 1500 ms) and AK_RPC_WARMUP_LONG_MS for c, d (campaign default 5000 ms), calls the SAME iter_custom routine on the SAME callers as the measurement: blocking cells (B, C, E and framed twins) k host threads created before the warm-up, each making exactly one call per criterion iteration; async cells (A, D, F, -cb) k tokio tasks per iteration on the cell's runtime, created before the warm-up (AK_HOST_WORKERS workers, the same threads; which worker runs which task is tokio's). Criterion doubles 1, 2, 4, 8, 16 iterations until its WALL time exceeds the warm-up, so >= 31 iterations (>= 31 calls per blocking thread) whenever 15 iterations take less than the warm-up. Long (c, d): the slowest, d/16MiB at k = 8, took 125-227 ms median wall per iteration in the container (worst 461 ms), 15 x 300 ms = 4.5 s -> 5000 ms. Short (a, a+read, b): at k = 16, 17.6-60.3 ms median wall per iteration (worst 96 ms; k = 8: 10.3-24.3, worst 63), 15 x 96 ms = 1.44 s -> 1500 ms (500 ms failed: 30 of 87 k = 16 benchmarks over 33 ms). Container figures, logs/rust/req24-warmup/. A time rule, not a count: the per-sample minflt (req 25) is the check on the machine; not met under AK_SMOKE"
+  echo "# grid       AK_CAMPAIGN_GRID=$GRID ran (CAMPAIGN section 4.0, D18; core | full). core: codec = the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 U-* rows, arms incumbent-prod (full build, once), core-ffi (push), host-gen = core-native, encode end state (ii) on the hot input + decode-read, retain in the full build and the no-unknown build for core-ffi/core-native; rpc = A, Bf-cb, Cf-cb-retain, Ef-cb-retain, a+read and b (P2.2), c P5.4, d 16 MiB, k 1 and 8, full build, one transport (armonik, TCP 127.0.0.1), plus Cf-cb-retain on h2-batch for c and d at k 1 and 8 (labelled h2 = h2-batch); allocator pass pinned: rpc A and Cf-cb-retain on c and d at k = 1 only. Extras left out under core (run under full, labelled row = extra): codec: core-ffi-pull, armonik, bare decode, the other encode variants, drop, incumbent and armonik in the no-unknown build, content sets on P1.2 and P2.4, the other U-* rows timed; rpc: B, C, D, E, F, Df, Ff, the reference rows, the blocking deliveries, drop, direction a, k = 16, P5.3, d 4 MiB, the no-unknown build, the shipped and pinned transports (Unix socket), h2-batch on other rows, the pinned allocator pass beyond its subset. Each log's own header lists its suite's extras"
   echo "# runtime    $(rustc --version); $(cargo --version)"
   echo "# incumbent  prost $(awk '/^name = "prost"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic $(awk '/^name = "tonic"$/{getline; print $3}' Cargo.lock | tr -d '"'), tonic-prost $(awk '/^name = "tonic-prost"$/{getline; print $3}' Cargo.lock | tr -d '"'); criterion $(awk '/^name = "criterion"$/{getline; print $3}' Cargo.lock | tr -d '"')"
   echo "# build      cargo --release (opt-level 3, lto off, codegen-units default), core ak-core as a cdylib linked through the dynamic linker, core features $( [ "$variant" = nounk ] && echo "rpc,init-guard WITHOUT unknown-fields (the no-unknown variant, target-nounk/)" || echo "rpc,init-guard,unknown-fields (the full variant, target/)"); harness guard on; transcoder ak_tc_utf8_trusted (a Rust String is UTF-8)"
@@ -200,6 +215,9 @@ case "$SUITE" in
     run_gate ;;
 
   codec)
+    if [ "$GRID" = core ] && [ "$ALLOC" = pinned ]; then
+      echo "codec: not in the core grid's pinned allocator pass (CAMPAIGN 4.0: rpc A and Cf on c and d at k = 1 only); nothing run"; exit 0
+    fi
     cpus_required AK_CPU_CLIENT
     need_gate
     crossings
@@ -262,9 +280,30 @@ case "$SUITE" in
     # per cell.
     export AK_SERVE_STATE="$SCRATCH/serve.state"
     ./serve.sh build > /dev/null
-    serve_start() {  # serve_start TAG -> SOCK_shipped, SOCK_pinned
+    # CAMPAIGN 4.0 (D18) and its transport amendment (b58543f7b): the core grid runs ONE
+    # configuration, armonik, over TCP 127.0.0.1 (the server's TCP listener); the full grid
+    # keeps shipped and pinned on the Unix sockets.
+    if [ "$GRID" = core ]; then
+      TRANSPORTS=${AK_RPC_TRANSPORTS:-armonik}; BUILDS=${AK_RPC_BUILDS:-full}
+      # h2-batch: Cf-cb on c and d (k 1, 8), main allocator pass only
+      [ "$ALLOC" = default ] && H2B=${AK_RPC_H2BATCH:-1} || H2B=0
+    else
+      TRANSPORTS=${AK_RPC_TRANSPORTS:-shipped pinned}; BUILDS=${AK_RPC_BUILDS:-full nounk}; H2B=${AK_RPC_H2BATCH:-0}
+    fi
+    case " $TRANSPORTS " in *" armonik "*) export AK_SERVER_TCP=${AK_SERVER_TCP:-0} ;; esac
+    if [ "$H2B" = 1 ]; then
+      gen/h2batch_core.sh "$HERE/target-h2batch" > "$OUT/h2batch-core.build.log" 2>&1 \
+        || { echo "h2-batch core build FAILED: $OUT/h2batch-core.build.log" >&2; exit 1; }
+      H2B_LIB="$HERE/target-h2batch/release/deps"
+      grep -q 'h2 compiled in: h2-batch-src/' "$OUT/h2batch-core.build.log" \
+        || { echo "the h2-batch core does not carry the patched h2: $OUT/h2batch-core.build.log" >&2; exit 1; }
+      LD_LIBRARY_PATH="$H2B_LIB" ldd "$RPCB" | grep -q "$H2B_LIB/libak_core.so" \
+        || { echo "rpc_suite does not load $H2B_LIB/libak_core.so under LD_LIBRARY_PATH" >&2; exit 1; }
+    fi
+    serve_start() {  # serve_start TAG -> SOCK_shipped, SOCK_pinned, TCP_ADDR
       local o; o=$(./serve.sh start --out "$SCRATCH/serve-$1")
       SOCK_shipped=$(echo "$o" | sed -n 's/^shipped //p'); SOCK_pinned=$(echo "$o" | sed -n 's/^pinned //p')
+      TCP_ADDR=$(echo "$o" | sed -n 's/^tcp //p')
       cp "$SCRATCH/serve-$1/rpc-server.log" "$OUT/rpc-launch$1.server.log" 2>/dev/null || true
     }
     serve_stop() {  # serve_stop TAG
@@ -273,13 +312,11 @@ case "$SUITE" in
     }
     rpc_bench() {  # rpc_bench EXE OUT CRITHOME [NAME=VALUE ...]: one criterion process
       local exe=$1 out=$2 home=$3 sock; shift 3
-      sock=SOCK_$T; sock=${!sock}
-      env AK_RPC_SOCKET="$sock" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
+      sock=SOCK_$T; sock=${!sock:-}
+      env AK_RPC_SOCKET="$sock" AK_RPC_TCP="${TCP_ADDR:-}" AK_RPC_TRANSPORT="$T" AK_OUT="$out" CRITERION_HOME="$home" \
           AK_SAMPLES="$RSAMP" AK_WARMUP_MS="$RWARM" AK_WARMUP_LONG_MS="$RWARML" AK_MEASURE_MS="$RMEAS" "$@" \
           "${ALLOCENV[@]}" taskset -c "$AK_CPU_CLIENT" "$exe"
     }
-    TRANSPORTS=${AK_RPC_TRANSPORTS:-shipped pinned}
-    BUILDS=${AK_RPC_BUILDS:-full nounk}
     # Requirement 18's controls, per client binary and transport, against their own server:
     # a wrong expected length must abort with no sample. Once per send path in the warm-up
     # (A: tonic codec, B: core reference, Bf: core framed, Df: tonic Channel framed) and
@@ -297,22 +334,37 @@ case "$SUITE" in
           echo "rpc $T ($v client, cell $WP, dir $WD): control (planted wrong length) aborted with no output: $(grep -m1 ABORT "$PL")"
         done; done
         PL="$OUT/rpc-$T-$v-bench-PLANT.log"; rm -f "$SCRATCH/plant.jsonl"
-        if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=bench AK_RPC_CELLS=B AK_RPC_SERVER_WARMUP=0 \
-             > "$PL" 2>&1 || [ -e "$SCRATCH/plant.jsonl" ]; then
+        # the bench plant names a cell the grid times (core: Cf-cb; full: B), and must ABORT
+        PC=B; [ "$GRID" = core ] && PC=Cf-cb
+        if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=bench AK_RPC_CELLS=$PC AK_RPC_SERVER_WARMUP=0 \
+             > "$PL" 2>&1 || [ -e "$SCRATCH/plant.jsonl" ] || ! grep -q ABORT "$PL"; then
           echo "CONTROL FAILED: the planted wrong length inside a criterion benchmark did not abort ($T, $v)" >&2; serve_stop plant; exit 1
         fi
         echo "rpc $T ($v client, inside criterion): control aborted with no output: $(grep -m1 ABORT "$PL")"
+        if [ "$T" = armonik ]; then
+          # CAMPAIGN 4.0 as amended: a live socket with Nagle on must refuse the run (exit 7, no output)
+          PL="$OUT/rpc-$T-$v-nagle-PLANT.log"; rm -f "$SCRATCH/plant.jsonl"
+          if rpc_bench "$EXE" "$SCRATCH/plant.jsonl" "$SCRATCH/crit-plant" AK_RPC_PLANT=nagle AK_RPC_CELLS=Cf-cb AK_RPC_SERVER_WARMUP=0 \
+               > "$PL" 2>&1 || [ -e "$SCRATCH/plant.jsonl" ] || ! grep -q 'Nagle ON' "$PL"; then
+            echo "CONTROL FAILED: a socket with Nagle on did not refuse the run ($T, $v)" >&2; serve_stop plant; exit 1
+          fi
+          echo "rpc $T ($v client): control (Nagle switched on) refused with no output: $(grep -m1 REFUSED "$PL")"
+        fi
       done
     done
     serve_stop plant
     rpc_run() {  # rpc_run L VARIANT
-      local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T$ATAG-launch$1.jsonl"
+      local L=$1 v=$2 EXE=$RPCB F="$OUT/rpc-$T$ATAG-launch$1.jsonl" X=()
       [ "$v" = nounk ] && { EXE=$RPCB_NOUNK; F="$OUT/rpc-$T-nounk$ATAG-launch$L.jsonl"; }
+      # h2-batch (CAMPAIGN 4.0): the same full-build binary on the h2-batch core (LD_LIBRARY_PATH,
+      # ahead of its RUNPATH; rpc_suite checks the core it mapped against AK_H2)
+      [ "$v" = h2b ] && { F="$OUT/rpc-$T-h2batch$ATAG-launch$L.jsonl"; X=(LD_LIBRARY_PATH="$H2B_LIB" AK_H2=h2-batch); }
       local C="${F%.jsonl}.criterion.log"
-      header rpc "$v" > "$F.head"
+      header rpc "$( [ "$v" = h2b ] && echo full || echo "$v")" > "$F.head"
+      [ "$v" = h2b ] && echo "# h2         h2-batch core: $(sed -n '2p;3p' "$OUT/h2batch-core.build.log" | tr '\n' ' ')" >> "$F.head"
       # The runner warmed the server (serve.sh warm); any failure discards the launch's
       # output (requirement 18).
-      rpc_bench "$EXE" "$F.body" "$SCRATCH/crit-rpc-$T-$v-$L" AK_LAUNCH="$L" AK_RPC_SERVER_WARMUP=0 > "$C" 2>&1 \
+      rpc_bench "$EXE" "$F.body" "$SCRATCH/crit-rpc-$T-$v-$L" AK_LAUNCH="$L" AK_RPC_SERVER_WARMUP=0 "${X[@]}" > "$C" 2>&1 \
         || { echo "rpc $T launch $L ($v) ABORTED (requirement 18): no figure; $(grep -m1 ABORT "$C")" >&2; serve_stop "$L"; rm -f "$F.head" "$F.body" "$F"; exit 1; }
       { cat "$F.head"; echo "# criterion's console output (its own summary; the samples are in $(basename "$F"))"; cat "$C"; } > "$C.tmp"; mv "$C.tmp" "$C"
       cat "$F.head" "$F.body" > "$F"; rm -f "$F.head" "$F.body"
@@ -323,14 +375,18 @@ case "$SUITE" in
       ./serve.sh warm "$SWARM" > "$OUT/rpc-launch$L.server-warm.log" 2>&1 \
         || { echo "rpc launch $L: the server warm-up failed (requirement 18); see $OUT/rpc-launch$L.server-warm.log" >&2; serve_stop "$L"; exit 1; }
       for T in $TRANSPORTS; do
-        # the two builds' order alternates by launch
-        if [ $((L % 2)) = 1 ]; then ORDER="$BUILDS"; else ORDER=$(echo "$BUILDS" | tr ' ' '\n' | tac | tr '\n' ' '); fi
+        # the processes' order (builds, then h2-batch) alternates by launch
+        VS="$BUILDS"; [ "$H2B" = 1 ] && VS="$VS h2b"
+        if [ $((L % 2)) = 1 ]; then ORDER="$VS"; else ORDER=$(echo "$VS" | tr ' ' '\n' | tac | tr '\n' ' '); fi
         for v in $ORDER; do rpc_run "$L" "$v"; done
       done
       serve_stop "$L"
     done ;;
 
   calib)
+    if [ "$GRID" = core ] && [ "$ALLOC" = pinned ]; then
+      echo "calib: not in the core grid's pinned allocator pass (CAMPAIGN 4.0); nothing run"; exit 0
+    fi
     cpus_required AK_CPU_CLIENT
     need_gate
     crossings

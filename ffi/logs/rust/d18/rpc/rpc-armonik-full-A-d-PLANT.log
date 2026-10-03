@@ -1,0 +1,2 @@
+# alloc: default (16 MiB malloc mmapped)
+ABORT (requirement 18): server warm-up: cell A: the server received 4194304 data bytes, expected 4194305

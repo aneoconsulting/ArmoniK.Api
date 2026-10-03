@@ -701,35 +701,68 @@ ABI); D35 (recursive messages: refused from the C ABI by owner decision, ABI-v1;
 on core-native only, a scope limit listed below); D38, D39, D40 (fixed by their slices,
 FIX-PLAN R-G17); D41 (every slice's generated tree is current: `generate.py --check`).
 
-## Campaign duration estimate (2026-10-03, computed, no benchmark run; container-sized)
+## D18: the campaign grid (CAMPAIGN 4.0, ef26e76d0, and its transport amendment b58543f7b)
 
-Defaults: 3 launches; codec warm-up 500 ms + measurement 2000 ms; RPC warm-up 1500 ms (a, a+read, b) or 5000 ms (c, d) + 2000 ms; 100,000 criterion resamples; 2 transports; no h2 variant in this runner.
-- Criterion's warm-up stops after the doubling step that crosses the setting, so it really takes 1x to 2x the setting (1.5x used).
-- The measurement is max(2 s, 10 x one iteration), the 10-samples x 1-iteration floor. That floor only matters for d/16MiB at k = 8 (~2.0-2.3 s).
-- Analysis is ~45 ms per benchmark: the d9 codec smoke ran 48 benchmarks in 3 s with a 15 ms budget each.
-- Pool cases rebuild a 2 x LLC pool, ~50 ms each.
+The grid switch is `AK_CAMPAIGN_GRID=core|full` (default `core`) in run_campaign.sh, exported to the suites. `full` runs today's grid with every row labelled `row = core | extra`. Every extra stays buildable and runnable under `full`. The headers state the grid that ran and every extra left out.
 
-Benchmarks per process:
-- codec: full build 5,116 (counted, AK_PRECHECK_ONLY); no-unknown ~3,200 (derived: 30 cases per input against 48).
-- rpc: cells x 17 (9 a/a+read/b at k 1/8/16, 4 c, 4 d). Full: 29 cells = 493 (261 short, 232 long). No-unknown: 17 cells = 289 (153 short, 136 long).
+- **Codec, core grid.** The selection is `campaign::core_codec_input` and `core_codec_case`, applied BEFORE the pre-check, so the pre-check covers every arm on every timed input.
+  - **Inputs (25):** the 16 shapes in ASCII (P7.1 decode only), P2.2 Latin-1 and wide, and the 7 named U-* rows.
+  - **Arms:** incumbent-prod (full build only), core-ffi (push), and host-gen.
+  - **host-gen in Rust is `core-native`:** the codec the shared generator writes into Rust, with no C ABI boundary.
+  - **Encode at end state (ii) on the hot input:**
+    - incumbent-prod: transport-ready-tonic, cell A's form;
+    - core-ffi and core-native: transport-ready-core, the form cells Cf and Ef hand the core transport.
+  - **Decode:** decode-read only.
+  - **Modes:** retain in the full build, no-unknown in the no-unknown build.
+  - **Smoke counts:**
+    - full build: 139 benchmarks (pre-check 620 checks); no-unknown build: 98 (359 checks).
+    - incumbent-prod times 21 decode-read and 20 encode rows. prost refuses the four `U-wire-*` rows, which are stated, not timed.
+- **RPC, core grid.** The selection is `core_rpc_spec`.
+  - **Cells:** A, Bf-cb, Cf-cb-retain and Ef-cb-retain, the framed core cells with Rust's idiomatic delivery (req 16 as amended: the callback bridged to async).
+  - **Grid:** a+read and b at P2.2, c at P5.4, d at 16 MiB, each at k = 1 and 8; full build only. That is 32 benchmarks per launch.
+  - **h2-batch:** Cf-cb-retain on c and d at k = 1 and 8 (4 benchmarks), labelled `h2 = h2-batch`, main pass only.
+    - Same rpc_suite binary, loading the h2-batch core through LD_LIBRARY_PATH.
+    - The core is built by `gen/h2batch_core.sh` from this workspace's Cargo.lock, with poc/codec/h2-batch/h2-batch.patch and the campaign crate's own feature resolution.
+    - rpc_suite refuses (`h2_check`, exit 5) when AK_H2 disagrees with the h2 compiled into the core it mapped.
+  - **Pinned allocator pass:** A and Cf-cb-retain on c and d at k = 1. The codec suite and calib are skipped in that pass.
+  - **Bench plant:** names Cf-cb and must print ABORT.
+- **Transport, core grid: ONE configuration, `armonik`, TCP 127.0.0.1** (the server's TCP listener). `shipped` and `pinned` on the Unix sockets stay under `full`.
+  - **Cell A:** calls `packages/rust/armonik-transport` `connect` directly, with ClientConfigArgs::default() plus the endpoint. That gives a hyper-util connector, nodelay true, connect timeout 60 s, no keepalives, hyper-rustls https_or_http (plain HTTP here), and tonic/hyper's default windows. Path dependency, read only; the effective ClientConfig is printed in the header.
+  - **Core cells:** the core's current client (ak_client_new with no options). It differs from armonik-transport in three ways, all stated in the header:
+    - no connect timeout;
+    - tonic's own connector instead of the hyper-rustls wrapper;
+    - no HTTP/1 on the connector.
+  - **Nagle off, read back on both ends:**
+    - client: `campaign::nodelay_readback`, getsockopt TCP_NODELAY on every live TCP socket to the server, before the first benchmark and after the last; refuses with exit 7.
+    - server: rpc_server reads it back on every accepted socket and logs it; exits 7 if it is off.
+    - plant (AK_RPC_PLANT=nagle, Nagle switched on on one live socket) refused with no output.
+- **Smoke** (logs/rust/d18/, AK_SMOKE=1, figures stripped):
+  - main RPC pass: 32 + 4 benchmarks, row = core, Nagle read back on 4 sockets, 17 accepted server sockets all true;
+  - pinned pass: 4 benchmarks, plus the Nagle plant;
+  - codec: 139 + 98 benchmarks; the pinned pass skips the codec suite.
+  - Plants: every req 18 plant aborted, and the Nagle plant refused.
+  - It ran through a copy of the runner with the gate and crossing checks stubbed out (no gate for this unit).
 
-| part | per launch | x3 launches = one allocator pass |
-|---|---|---|
-| codec full (5,116 x ~2.8 s + ~85 s pools + ~90 s startup/precheck) | ~4.0 h (3.6-4.4) | ~12.0 h |
-| codec no-unknown (~3,200 x ~2.8 s + ~2 min) | ~2.5 h (2.3-2.7) | ~7.5 h |
-| rpc full, 2 transports (261 x ~4.3 s + 232 x ~9.65 s, each) | ~1.9 h (1.4-2.3) | ~5.6 h |
-| rpc no-unknown, 2 transports (153 x ~4.3 s + 136 x ~9.65 s, each) | ~1.1 h (0.8-1.3) | ~3.3 h |
-| rpc plants (52 short processes, once per run), server start/warm, process startups | ~0.05 h | ~0.1 h |
-| calib (20M iterations x 5 rounds x 2 arms + perf) and crossing checks | < 0.05 h | ~0.1 h |
-| **one allocator pass** | | **~29 h (25-32)** |
-| **both passes (default + pinned at the same grid)** | | **~57 h (50-64)** |
+## Campaign duration estimate, core grid (2026-10-03, computed; container-sized per-benchmark times)
 
-- Not included: the gate and the release builds, once per tree (not per pass), ~0.5-1 h, estimated, no timed log.
-- Largest contributors, per pass:
-  1. codec measurement, 8,316 benchmarks x 2 s x 3 = ~13.9 h;
-  2. codec warm-up, 8,316 x ~0.75 s x 3 = ~5.2 h;
-  3. RPC c/d warm-up, 368 x 2 transports x 3 x ~7.5 s = ~4.6 h.
-- Container figures for the per-iteration times. The machine's own will differ, but the totals are dominated by fixed criterion times, not by call costs.
+Defaults: 3 launches; codec warm-up 500 ms + measurement 2 s; RPC warm-up 1500 ms (a+read, b) or 5000 ms (c, d) + 2 s; 100,000 resamples.
+- Criterion's doubling makes the warm-up last 1x to 2x its setting (1.5x used).
+- Analysis takes ~45 ms per benchmark.
+- Per benchmark: codec ~2.8 s (2.55-3.05); RPC short ~4.3 s (3.6-5.1); RPC long ~9.65 s (7.2-12.2).
+
+| part | benchmarks | per launch | x3 launches |
+|---|---|---|---|
+| codec, full build | 139 | ~6.8 min (6.2-7.4) incl. ~20 s pre-check | ~20 min |
+| codec, no-unknown build | 98 | ~4.9 min (4.4-5.3) | ~15 min |
+| rpc main, armonik transport, full build | 16 short + 16 long | ~4.0 min (3.1-4.9) | ~12 min |
+| rpc h2-batch (Cf-cb, c and d) | 4 long | ~0.7 min (0.5-0.9) | ~2 min |
+| rpc plants (once), server start and warm, process startups | | ~0.3 min | ~1.5 min |
+| calib and crossing checks | | | ~2 min |
+| **main pass** | | | **~52 min (45-58)** |
+| **pinned allocator pass** (rpc A and Cf-cb on c, d at k = 1) | 4 long | ~0.8 min | **~3 min (2.5-4)** |
+| **campaign total** | | | **~55 min (48-62)** |
+
+Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch core build is part of that: 6.6 min in the container.
 
 ## What is not measured
 

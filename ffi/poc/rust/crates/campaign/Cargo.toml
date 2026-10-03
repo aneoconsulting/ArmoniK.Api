@@ -46,6 +46,9 @@ libc = "0.2"
 # CAMPAIGN req 17 (R-H28): the server's Unix socket listener stream for tonic.
 tokio-stream = { version = "0.1", features = ["net"] }
 criterion = { version = "0.5", default-features = false }
+# CAMPAIGN 4.0 as amended (b58543f7b, owner): cell A dials through ArmoniK's own Rust channel
+# configuration, packages/rust/armonik-transport `connect` with its package defaults (read only).
+armonik-transport = { path = "../../../../../packages/rust/armonik-transport" }
 
 [[bench]]
 name = "codec_suite"

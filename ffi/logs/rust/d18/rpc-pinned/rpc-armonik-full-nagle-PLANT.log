@@ -1,0 +1,2 @@
+# alloc: pinned (16 MiB malloc heap)
+REFUSED (CAMPAIGN 4.0, Nagle off on every socket): 1 TCP sockets to 127.0.0.1:35637 read back, Nagle ON on fds [6]; no sample is taken

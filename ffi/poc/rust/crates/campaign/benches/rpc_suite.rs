@@ -4,7 +4,8 @@
 //! process (`rpc_server`), ONE per launch, serving both builds (started by the runner).
 //!
 //! Configuration (environment; criterion's own argument parser is not used):
-//!   AK_RPC_SOCKET, AK_RPC_TRANSPORT (shipped|pinned), AK_LAUNCH, AK_OUT, CRITERION_HOME
+//!   AK_RPC_SOCKET, AK_RPC_TRANSPORT (shipped|pinned over the Unix socket; armonik over TCP
+//!   AK_RPC_TCP = 127.0.0.1:PORT, CAMPAIGN 4.0 as amended), AK_LAUNCH, AK_OUT, CRITERION_HOME
 //!   AK_SAMPLES (rounds, >= 10), AK_WARMUP_MS, AK_MEASURE_MS, AK_NRESAMPLES   criterion's
 //!   AK_RPC_SERVER_WARMUP  checked calls from each client transport before the first benchmark
 //!   AK_RPC_PLANT=warm     the runner's control: the warm-up expects a wrong length -> exit 3, no output
@@ -164,7 +165,10 @@ struct Spec {
 fn main() {
     // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
     let (alloc, alloc_read) = campaign::alloc_check();
-    let socket: String = std::env::var("AK_RPC_SOCKET").expect("AK_RPC_SOCKET");
+    // CAMPAIGN section 4.0 (D18): the grid, and the h2 variant of the core this process mapped.
+    let grid_sel = campaign::campaign_grid();
+    let (h2, core_so) = campaign::h2_check();
+    let socket: String = std::env::var("AK_RPC_SOCKET").unwrap_or_default();
     let transport: String = env("AK_RPC_TRANSPORT", "shipped".to_string());
     let pinned = transport == "pinned";
     let launch: usize = env("AK_LAUNCH", 1);
@@ -179,7 +183,21 @@ fn main() {
     let server_warm: usize = env("AK_RPC_SERVER_WARMUP", 64);
     let plant: String = env("AK_RPC_PLANT", String::new());
     let (plant_warm, plant_bench) = (plant == "warm", plant == "bench");
-    let target = format!("unix:{socket}");
+    // CAMPAIGN 4.0 as amended (b58543f7b): the core grid's one configuration, `armonik`, over TCP
+    // 127.0.0.1 (D10): cell A through armonik_transport::connect, the core cells through the
+    // core's current client (ak_client_new), Nagle off on every socket, read back below.
+    let armonik = transport == "armonik";
+    let tcp: String = std::env::var("AK_RPC_TCP").unwrap_or_default();
+    if grid_sel == "core" && !armonik {
+        eprintln!("REFUSED: the core grid runs one transport configuration, armonik (AK_RPC_TRANSPORT={transport}); shipped and pinned are full-grid extras");
+        std::process::exit(6);
+    }
+    if armonik && tcp.is_empty() {
+        eprintln!("REFUSED: the armonik transport needs AK_RPC_TCP (127.0.0.1:PORT)");
+        std::process::exit(6);
+    }
+    grid::ARMONIK_CHANNEL.store(armonik, std::sync::atomic::Ordering::Relaxed);
+    let target = if armonik { format!("http://{tcp}") } else { format!("unix:{socket}") };
     let p22 = prost::Message::encode_to_vec(&harness::arms_m2::prost_arm::value(harness::arms_m2::P2_2)).len() as u64;
     let bad = |on: bool| on as u64;
     assert!(harness::generated::binding::ak_init_once() >= 0);
@@ -228,6 +246,13 @@ fn main() {
             }
         }
     }
+    if grid_sel == "core" {
+        specs.retain(|s| campaign::core_rpc_spec(s.cell, s.dir, s.payload, s.k, alloc, h2));
+        if specs.is_empty() {
+            eprintln!("REFUSED: the core grid has no benchmark for this build / allocator / h2 / narrowing; no sample is taken");
+            std::process::exit(6);
+        }
+    }
     campaign::shuffle(&mut specs, launch as u64);
     // One channel per cell for the whole process, opened before the first benchmark.
     let mut conns: std::collections::HashMap<&str, Conn> = Default::default();
@@ -235,6 +260,9 @@ fn main() {
         conns.entry(s.cell).or_insert_with(|| Conn::open(s.cell, &target, pinned));
     }
 
+    // CAMPAIGN 4.0 as amended: Nagle off on every client socket, read back on the live sockets
+    // of this process before any timing (refuses on Nagle on).
+    let nd_before = if armonik { campaign::nodelay_readback(&tcp) } else { 0 };
     let mut c = Criterion::default()
         .with_measurement(ProcessCpu)
         .sample_size(samples)
@@ -281,15 +309,18 @@ fn main() {
         g.finish();
     }
 
+    let nd_after = if armonik { campaign::nodelay_readback(&tcp) } else { 0 };
     let server_threads = std::env::var("AK_SERVER_THREADS").unwrap_or_else(|_| grid::workers_default().to_string());
     let mut f = std::fs::File::create(&out).unwrap();
     for h in campaign::header("rpc", &[
-        ("transport", format!("{transport}: {}", if pinned {
-            "4 MiB stream + connection windows, adaptive off, on tonic, the core client and the server (Nagle does not apply to a Unix socket)"
+        ("transport", format!("{transport}: {}", if armonik {
+            format!("CAMPAIGN 4.0 as amended (b58543f7b): the core grid's one configuration, TCP 127.0.0.1 (D10). Cell A (and D, F under the full grid): packages/rust/armonik-transport `connect`, CALLED DIRECTLY, ClientConfigArgs::default() + the endpoint, so {:?}: hyper-util HttpConnector, nodelay true (tcp_nagle_algorithm false), connect timeout 60 s, no request timeout, no rate limit, no TCP keepalive, no HTTP/2 keepalive, keep_alive_while_idle false, no header-list limit, no user agent, wrapped in hyper-rustls https_or_http (plain http here, TLS never negotiated), http1 + http2 enabled on the connector, tonic Endpoint defaults otherwise (hyper's h2 client windows: 2 MiB stream, 5 MiB connection; adaptive off). Core cells (Bf-cb, Cf-cb, Ef-cb): the core's current client, ak_client_new (no ak_client_opts): tonic Endpoint::from_shared + connect(), tonic's own HttpConnector, TCP_NODELAY true (tonic's default), the same hyper h2 windows, adaptive off. Differences from armonik-transport: no connect timeout (armonik 60 s), tonic's connector instead of the hyper-rustls wrapper (plain TCP either way), HTTP/1 not enabled on the connector (both speak HTTP/2 prior knowledge); everything else equal. Server: rpc_server's TCP listener, the pinned server configuration (4 MiB stream and connection windows, adaptive off), TCP_NODELAY set and read back on every accepted socket (the server log). Nagle read back on this process's live TCP sockets to {tcp}: {nd_before} sockets before the first benchmark and {nd_after} after the last, every one TCP_NODELAY = 1 (a 0 refuses the run)", grid::armonik_config(&target))
+        } else if pinned {
+            "4 MiB stream + connection windows, adaptive off, on tonic, the core client and the server (Nagle does not apply to a Unix socket)".to_string()
         } else {
-            "tonic endpoint defaults, ak_client_new, server defaults"
+            "tonic endpoint defaults, ak_client_new, server defaults".to_string()
         })),
-        ("link", format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2; receive limit {} B (tonic default 4 MiB; P5.4 of direction c is 4,194,390 B)", campaign::server::SERVER_MAX_RECV)),
+        ("link", if armonik { format!("TCP 127.0.0.1 ({tcp}), CAMPAIGN req 17 as amended (D10); server = rpc_server, a separate process, one per launch, pre-serialised P2.2; receive limit {} B", campaign::server::SERVER_MAX_RECV) } else { format!("Unix domain socket {socket} (requirement 17 as amended, R-H28); server = rpc_server, a separate process, one per launch for every cell of both builds, pre-serialised P2.2; receive limit {} B (tonic default 4 MiB; P5.4 of direction c is 4,194,390 B)", campaign::server::SERVER_MAX_RECV) }),
         ("cells", "A prost+tonic, B prost+core, C core-ffi+core, D core-ffi+tonic, E core-native+core, F core-native+tonic; C-F per unknown-field mode (-retain: every decision 11 position armed and u-group encode; -drop: nothing armed; -nounk: the build with unknown-field support compiled out); Bf, Cf, Df, Ef, Ff = the same cells on the FRAMED send path (optimisation T1 option 3, labelled extra cells: rpc::unary_framed, the request message sent as a 5-byte prefix frame and the caller's Bytes, no copy into tonic's buffer; B/C/E via ak_client_set_framed, D/F in the harness; request headers as tonic's Grpc::unary builds them, response via Status::from_header_map + Streaming::new_response; compression off on both paths); -cb = the same B, C, E cells (and framed twins) through the core's CALLBACK delivery bridged to async Rust with a tokio oneshot (CAMPAIGN req 16 as amended 2026-09-28: for Rust the REFERENCE core-transport cells; the blocking B, C, E cells are the labelled row, kept for cross-host comparability); queue deliveries not run in this suite".into()),
         ("delivery", "B-cb, C-cb, E-cb (the reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb (C direction b and c: the context's buffer moved), and for direction d ak_call_open + ak_call_send_cb / ak_call_send_enc_cb (one oneshot per send completion) + ak_call_recv_cb, each completion sent by the core's callback into a tokio oneshot awaited by one of k tokio tasks on the cell's own runtime (AK_HOST_WORKERS workers, as A/D/F); B, C, E (labelled, blocking): the core's blocking ak_call_unary / ak_call_unary_enc / ak_call_send / ak_call_recv from k host threads (a pool created before the warm-up, reused); A, D, F: tonic's idiomatic async unary call from k tokio tasks (packages/rust's shape)".into()),
         ("cell C request", "direction b: the core encode context's output MOVED into the call (ak_call_unary_enc, optimisation R2; since T1 through ak_rt::Enc::take, the buffer recycled through a spare slot); a and a+read: empty request through ak_call_unary. Cell D direction b: the output moved to the host as an owned buffer (ak_enc_take_owned, T1 ffi) wrapped by Bytes::from_owner and released with ak_bytes_free when tonic drops it; cell F direction b: core-native's Enc::take (T1)".into()),
@@ -301,6 +332,9 @@ fn main() {
         ("order", format!("benchmarks registered in a seeded random permutation of every (cell, dir, payload, k) (seed = launch); criterion runs them in registration order; first: {}", specs.iter().take(6).map(|s| s.id.as_str()).collect::<Vec<_>>().join(", "))),
         ("engine", format!("criterion 0.5 (CAMPAIGN req 22a as amended 2026-09-27, WP9): one criterion benchmark per (cell, dir, payload, in-flight k), SamplingMode::Flat, {samples} samples (= rounds, criterion's floor 10), warm-up {warm_ms} ms (directions a, a+read, b; AK_WARMUP_MS) or {warm_long_ms} ms (directions c, d; AK_WARMUP_LONG_MS) and measurement {meas_ms} ms per benchmark (AK_MEASURE_MS); ONE ITERATION = ONE BATCH OF k CALLS IN FLIGHT, counted as k operations (Throughput::Elements(k); `iters` in a row = calls = criterion iterations x k, `batches` = criterion iterations); raw samples exported from criterion's sample.json, none dropped")),
         ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first benchmark (AK_RPC_SERVER_WARMUP); then each benchmark's warm-up is criterion's own ({warm_ms} ms for a, a+read, b; {warm_long_ms} ms for c, d; every call checked); every cell's channel opened once, before the first benchmark, and shared by all its benchmarks (one channel per cell per benchmark process)")),
+        ("grid", format!("AK_CAMPAIGN_GRID={grid_sel} (CAMPAIGN section 4.0, D18; core | full). core: cells A, Bf-cb, Cf-cb-retain, Ef-cb-retain (the framed core cells with Rust's idiomatic delivery, the callback bridged to async, req 16 as amended), full build; a+read and b at P2.2, c at P5.4, d at 16 MiB; k = 1 and 8; the pinned allocator pass: A and Cf-cb-retain on c and d at k = 1; h2-batch: Cf-cb-retain on c and d at k = 1 and 8, labelled h2 = h2-batch. Every row is labelled row = core | extra")),
+        ("extras left out", if grid_sel == "core" { campaign::RPC_EXTRAS.to_string() } else { "none (full grid: extras run, labelled row = extra)".to_string() }),
+        ("h2", format!("{h2} (AK_H2; checked against the core this process mapped: {core_so}); tonic's own h2 (cells A, D, F and the tonic side of every cell) is stock h2 0.4.19 in every process")),
         ("alloc", campaign::alloc_header(alloc, alloc_read)),
         ("clocks", "cpu_ns = process CPU per sample, CLOCK_PROCESS_CPUTIME_ID (criterion Measurement ProcessCpu, the codec suite's); wall_ns = monotonic, measured around the same iterations by the benchmark's own routine (iter_custom) and matched to criterion's samples: criterion keeps one quantity, so wall is a column beside it".into()),
         ("checks", "every call checked (requirement 18): a failed check PANICS inside the benchmark (criterion has no stop-on-error), which aborts the process before any output is written; the runner then discards the launch's output".into()),
@@ -331,6 +365,8 @@ fn main() {
                 "cpu_ns": t, "wall_ns": ww, "iters": it * s.k as u64, "batches": it,
                 "build": build, "send_path": if grid::framed(s.cell) { "framed" } else { "reference" },
                 "ru_nvcsw": ru[0], "ru_nivcsw": ru[1], "ru_minflt": ru[2], "minflt": ru[2], "alloc": alloc,
+                "grid": grid_sel, "h2": h2,
+                "row": if campaign::core_rpc_spec(s.cell, s.dir, s.payload, s.k, alloc, h2) { "core" } else { "extra" },
             });
             o["delivery"] = grid::delivery(s.cell).into();
             if let Some(m) = grid::mode_of(s.cell) {

@@ -1,0 +1,18 @@
+# rpc_server: shipped on unix:/tmp/aksrv.h2aJAj/shipped.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 15025
+# rpc_server: pinned on unix:/tmp/aksrv.h2aJAj/pinned.sock, P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 15025
+# rpc_server: pinned configuration on tcp 127.0.0.1:44099 (TCP_NODELAY set on every accepted socket), P2.2 540422 B pre-serialised, tokio multi-thread 8 workers (shared), receive limit 8388608 B, pid 15025
+# rpc_server: accepted tcp 127.0.0.1:59184 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59196 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59206 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59216 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59218 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59226 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59230 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59246 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59262 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59266 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59282 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59292 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59308 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59322 -> TCP_NODELAY read back true
+# rpc_server: accepted tcp 127.0.0.1:59332 -> TCP_NODELAY read back true

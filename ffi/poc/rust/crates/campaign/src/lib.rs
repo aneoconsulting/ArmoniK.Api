@@ -145,6 +145,160 @@ fn refuse(why: String) -> ! {
     std::process::exit(4);
 }
 
+// ---- CAMPAIGN section 4.0 (D18, owner 2026-10-03): the campaign grid -----------------------
+
+/// `AK_CAMPAIGN_GRID=core|full` (default `core`): `core` runs exactly section 4.0's grid,
+/// `full` runs every row of 4.1 and 4.2, each row labelled `core` or `extra`.
+pub fn campaign_grid() -> &'static str {
+    match std::env::var("AK_CAMPAIGN_GRID").ok().as_deref() {
+        None | Some("") | Some("core") => "core",
+        Some("full") => "full",
+        Some(o) => refuse_grid(o),
+    }
+}
+
+fn refuse_grid(o: &str) -> ! {
+    eprintln!("REFUSED: AK_CAMPAIGN_GRID={o} (want core or full)");
+    std::process::exit(2);
+}
+
+/// Section 4.0's seven timed `U-*` rows, one per ABI root.
+pub const CORE_U_ROWS: [&str; 7] = [
+    "U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+    "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
+    "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5",
+];
+
+/// A codec input of the core grid: the 16 shapes (ASCII), P2.2's Latin-1 and wide sets, the
+/// seven `U-*` rows.
+pub fn core_codec_input(id: &str) -> bool {
+    if id.starts_with("U-") {
+        return CORE_U_ROWS.contains(&id);
+    }
+    !id.contains('/') || id == "P2.2/latin1" || id == "P2.2/wide"
+}
+
+/// A codec case of the core grid. Arms: incumbent-prod (full build only), core-ffi (push)
+/// and host-gen, which in Rust is `core-native` (the codec the shared generator writes into
+/// Rust, no C ABI boundary). Encode: end state (ii), the form the arm's RPC path of the
+/// core grid hands its transport (incumbent: tonic's `Bytes`, cell A; core-ffi and
+/// core-native: the core transport's form, cells Cf and Ef), hot input. Decode: decode-read.
+/// Modes: retain in the full build, no-unknown in the no-unknown build.
+pub fn core_codec_case(arm: &str, dir: &str, mode: &str, end_state: &str, input: &str) -> bool {
+    let full = cfg!(feature = "unknown-fields");
+    let mode_ok = match arm {
+        "incumbent-prod" => full,
+        "core-ffi" | "core-native" => mode == if full { "retain" } else { "no-unknown" },
+        _ => false,
+    };
+    let want_end = if arm == "incumbent-prod" { "transport-ready-tonic" } else { "transport-ready-core" };
+    mode_ok && (dir == "decode-read" || (dir == "encode" && end_state == want_end && input == "hot"))
+}
+
+/// The codec extras the core grid leaves out (header).
+pub const CODEC_EXTRAS: &str = "incumbent-best (none in Rust); core-ffi-pull (pull decode); armonik; bare decode; the other encode variants (reused-buffer hot and pool, transport-ready pool, core-ffi's transport-ready-tonic and core-native's transport-ready-tonic); the drop mode; incumbent-prod and armonik in the no-unknown build; Latin-1 and wide on P1.2 and P2.4; the other U-* rows timed (all stay in the gate and in this process's pre-check of the timed inputs)";
+
+/// An RPC benchmark of the core grid. The core cells are the framed ones with Rust's
+/// idiomatic delivery, the callback bridged to async (req 16 as amended): Bf-cb, Cf-cb, Ef-cb.
+///   main grid (default allocator, stock h2): A, Bf-cb, Cf-cb-retain, Ef-cb-retain;
+///     a+read and b (P2.2), c at P5.4, d at 16 MiB; k = 1 and 8; full build
+///   pinned allocator pass: A and Cf-cb-retain, c and d, k = 1
+///   h2-batch: Cf-cb-retain, c and d, k = 1 and 8
+pub fn core_rpc_spec(cell: &str, dir: &str, payload: &str, k: usize, alloc: &str, h2: &str) -> bool {
+    if !cfg!(feature = "unknown-fields") {
+        return false;
+    }
+    let pay = match dir {
+        "a+read" | "b" => payload == "P2.2",
+        "c" => payload == "P5.4",
+        "d" => payload == "16MiB",
+        _ => false,
+    };
+    let upload = dir == "c" || dir == "d";
+    pay && if h2 == "h2-batch" {
+        cell == "Cf-cb-retain" && upload && (k == 1 || k == 8)
+    } else if alloc == "pinned" {
+        (cell == "A" || cell == "Cf-cb-retain") && upload && k == 1
+    } else {
+        matches!(cell, "A" | "Bf-cb" | "Cf-cb-retain" | "Ef-cb-retain") && (k == 1 || k == 8)
+    }
+}
+
+/// The RPC extras the core grid leaves out (header).
+pub const RPC_EXTRAS: &str = "cells B, C, D, E, F, Df, Ff, the reference (non-framed) rows, the blocking delivery of Bf/Cf/Ef and the reference -cb rows; the drop mode; direction a; k = 16; P5.3; d at 4 MiB; the RPC grid in the no-unknown build; the second transport configuration (pinned windows); h2-batch on other rows; the pinned allocator pass beyond A and Cf-cb on c and d at k = 1";
+
+/// The h2 variant of the loaded core (`AK_H2=stock|h2-batch`, default stock), checked
+/// against the libak_core.so this process mapped: the h2-batch build compiles h2 from
+/// `h2-batch-src` (its panic locations carry the path). Refuses on a mismatch. Returns
+/// (variant, the mapped path).
+pub fn h2_check() -> (&'static str, String) {
+    let want: &'static str = match std::env::var("AK_H2").ok().as_deref() {
+        None | Some("") | Some("stock") => "stock",
+        Some("h2-batch") => "h2-batch",
+        Some(o) => { eprintln!("REFUSED: AK_H2={o} (want stock or h2-batch)"); std::process::exit(5) }
+    };
+    let maps = std::fs::read_to_string("/proc/self/maps").unwrap_or_default();
+    let so = maps.lines().filter_map(|l| l.split_whitespace().nth(5)).find(|p| p.ends_with("/libak_core.so"))
+        .map(String::from).unwrap_or_else(|| { eprintln!("REFUSED: no libak_core.so mapped"); std::process::exit(5) });
+    let bytes = std::fs::read(&so).unwrap_or_default();
+    let needle = b"h2-batch-src/src/codec/framed_write.rs";
+    let got = if bytes.windows(needle.len()).any(|w| w == needle) { "h2-batch" } else { "stock" };
+    if got != want {
+        eprintln!("REFUSED: AK_H2={want} but the mapped core {so} is {got}");
+        std::process::exit(5);
+    }
+    (want, so)
+}
+
+/// CAMPAIGN 4.0 as amended (b58543f7b): Nagle off on every client socket, read back on the live
+/// sockets of THIS process. Every open fd that is a TCP socket connected to `peer` (host:port)
+/// is asked `getsockopt(IPPROTO_TCP, TCP_NODELAY)`; any 0 REFUSES the run (exit 7). Returns the
+/// number of sockets read back (0 also refuses: the transport is TCP, so a timed cell has one).
+pub fn nodelay_readback(peer: &str) -> usize {
+    let mut n = 0usize;
+    let mut bad = Vec::new();
+    for e in std::fs::read_dir("/proc/self/fd").into_iter().flatten().flatten() {
+        let Ok(fd) = e.file_name().to_string_lossy().parse::<i32>() else { continue };
+        let Ok(l) = std::fs::read_link(e.path()) else { continue };
+        if !l.to_string_lossy().starts_with("socket:") {
+            continue;
+        }
+        unsafe {
+            let mut sa: libc::sockaddr_storage = std::mem::zeroed();
+            let mut sl = std::mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
+            if libc::getpeername(fd, &mut sa as *mut _ as *mut libc::sockaddr, &mut sl) != 0 || sa.ss_family as i32 != libc::AF_INET {
+                continue;
+            }
+            let sin = &*(&sa as *const _ as *const libc::sockaddr_in);
+            let ip = std::net::Ipv4Addr::from(u32::from_be(sin.sin_addr.s_addr));
+            let addr = format!("{ip}:{}", u16::from_be(sin.sin_port));
+            if addr != peer {
+                continue;
+            }
+            // The runner's control (AK_RPC_PLANT=nagle): Nagle switched ON on one live socket
+            // first, so the read-back must refuse the run.
+            if n == 0 && std::env::var("AK_RPC_PLANT").map_or(false, |v| v == "nagle") {
+                let off: libc::c_int = 0;
+                libc::setsockopt(fd, libc::IPPROTO_TCP, libc::TCP_NODELAY, &off as *const _ as *const libc::c_void, std::mem::size_of::<libc::c_int>() as libc::socklen_t);
+            }
+            let mut v: libc::c_int = 0;
+            let mut vl = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+            if libc::getsockopt(fd, libc::IPPROTO_TCP, libc::TCP_NODELAY, &mut v as *mut _ as *mut libc::c_void, &mut vl) != 0 {
+                continue;
+            }
+            n += 1;
+            if v == 0 {
+                bad.push(fd);
+            }
+        }
+    }
+    if n == 0 || !bad.is_empty() {
+        eprintln!("REFUSED (CAMPAIGN 4.0, Nagle off on every socket): {n} TCP sockets to {peer} read back, Nagle ON on fds {bad:?}; no sample is taken");
+        std::process::exit(7);
+    }
+    n
+}
+
 /// The header line of requirement 25 (D9), the same in every suite.
 pub fn alloc_header(mode: &str, read: &str) -> String {
     format!("this process ran {mode} (a 16 MiB malloc read back {read}); modes: default = glibc's default allocator, GLIBC_TUNABLES unset (the main figures); pinned = GLIBC_TUNABLES={PINNED_TUNABLES} on the measured client only (the labelled diagnostic, files labelled alloc-pinned); every sample carries alloc and minflt (minor faults over its measured span, read outside the timers)")

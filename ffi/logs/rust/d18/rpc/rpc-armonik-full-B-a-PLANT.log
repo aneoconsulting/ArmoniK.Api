@@ -1,0 +1,2 @@
+# alloc: default (16 MiB malloc mmapped)
+ABORT (requirement 18): server warm-up: cell B response 540422 B, expected 540423

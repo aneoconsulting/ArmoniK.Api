@@ -1,0 +1,19 @@
+# alloc: default (16 MiB malloc mmapped)
+
+Warning: It is not recommended to reduce nresamples below 1000.
+Benchmarking rpc/00000
+Benchmarking rpc/00000: Warming up for 5.0000 ms
+
+thread 'main' (15191) panicked at crates/campaign/benches/rpc_suite.rs:299:25:
+ABORT (requirement 18): Cf-cb-retain/d/16MiB/k1: cell Cf-cb-retain: the server received 16777216 data bytes, expected 16777217
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: criterion::bencher::Bencher<M>::iter_custom
+   3: <criterion::routine::Function<M,F,T> as criterion::routine::Routine<M,T>>::warm_up
+   4: criterion::routine::Routine::sample
+   5: criterion::analysis::common
+   6: criterion::benchmark_group::BenchmarkGroup<M>::bench_function
+   7: rpc_suite::main
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+

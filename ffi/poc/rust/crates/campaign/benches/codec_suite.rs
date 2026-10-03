@@ -69,7 +69,10 @@ fn main() {
     let home = std::env::var("CRITERION_HOME").expect("CRITERION_HOME (the runner sets it per launch)");
 
     let ctx: &'static _ = Box::leak(Box::new(harness::arms::core_ffi_arm::Ctx::new()));
-    let inputs = inputs(&only);
+    // CAMPAIGN section 4.0 (D18): the core grid's inputs only (the pre-check below then covers
+    // every arm on every TIMED input; the gate covers the rest).
+    let grid_sel = campaign::campaign_grid();
+    let inputs: Vec<_> = inputs(&only).into_iter().filter(|i| grid_sel == "full" || campaign::core_codec_input(&i.id)).collect();
     let mut cases = Vec::new();
     let (mut checks, mut fails, mut refused) = (0usize, Vec::new(), Vec::new());
     for inp in &inputs {
@@ -90,7 +93,8 @@ fn main() {
     let narrowed = !(f_arm.is_empty() && f_dir.is_empty() && f_end.is_empty() && f_inp.is_empty());
     cases.retain(|c| keep(&f_arm, c.arm) && keep(&f_dir, c.dir)
         && (c.end_state.is_empty() || (keep(&f_end, c.end_state) && keep(&f_inp, c.input)))
-        && (f_end.is_empty() || !c.end_state.is_empty()));
+        && (f_end.is_empty() || !c.end_state.is_empty())
+        && (grid_sel == "full" || campaign::core_codec_case(c.arm, c.dir, c.unknown_mode, c.end_state, c.input)));
     if narrowed {
         eprintln!("# narrowed: arms [{}] dirs [{}] end states [{}] inputs [{}]: {} cases kept",
                   f_arm.join(","), f_dir.join(","), f_end.join(","), f_inp.join(","), cases.len());
@@ -190,6 +194,8 @@ fn main() {
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
+        ("grid", format!("AK_CAMPAIGN_GRID={grid_sel} (CAMPAIGN section 4.0, D18; core | full). core: the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 U-* rows {}; arms incumbent-prod (full build only, once), core-ffi (push) and host-gen, which in Rust is core-native (the codec the shared generator writes into Rust, no C ABI boundary); encode at end state (ii) (incumbent-prod transport-ready-tonic, cell A's form; core-ffi and core-native transport-ready-core, cells Cf and Ef) on the hot input, and decode-read; retain in the full build, no-unknown in the no-unknown build. Every row is labelled row = core | extra", campaign::CORE_U_ROWS.join(", "))),
+        ("extras left out", if grid_sel == "core" { campaign::CODEC_EXTRAS.to_string() } else { "none (full grid: extras run, labelled row = extra)".to_string() }),
         ("alloc", alloc_header(alloc, alloc_read)),
         ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
         ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
@@ -237,7 +243,8 @@ fn main() {
             let mut o = serde_json::json!({
                 "slice": "rust", "suite": "codec", "arm": cs.arm, "payload": cs.payload,
                 "content": cs.content, "dir": cs.dir, "launch": launch, "round": r + 1,
-                "cpu_ns": t, "iters": it, "minflt": fm, "alloc": alloc,
+                "cpu_ns": t, "iters": it, "minflt": fm, "alloc": alloc, "grid": grid_sel,
+                "row": if campaign::core_codec_input(&cs.payload) && campaign::core_codec_case(cs.arm, cs.dir, cs.unknown_mode, cs.end_state, cs.input) { "core" } else { "extra" },
             });
             if cs.unknown_mode != "default" {
                 o["unknown_mode"] = cs.unknown_mode.into();

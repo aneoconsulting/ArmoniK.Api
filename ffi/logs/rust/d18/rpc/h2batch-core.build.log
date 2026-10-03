@@ -1,0 +1,3 @@
+# ak-core h2-batch (patch sha256 c64ffd965ba5a39a), features as the campaign crate's default build, 2026-10-03T13:20:59Z
+837a9ad4ad0653c7b1b13e89d7fd4e4cfb0a6651e117cc2fe81e34d0aa549081  /home/user/ArmoniK.Api/ffi/poc/rust/target-h2batch/release/deps/libak_core.so
+    h2 compiled in: h2-batch-src/src/codec/framed_write.rs

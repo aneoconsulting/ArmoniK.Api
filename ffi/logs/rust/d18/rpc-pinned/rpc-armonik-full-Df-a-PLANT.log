@@ -1,0 +1,2 @@
+# alloc: pinned (16 MiB malloc heap)
+ABORT (requirement 18): server warm-up: cell Df-retain response 540422 B, expected 540423

@@ -1,0 +1,9 @@
+D18 core-grid smoke (CAMPAIGN 4.0 and its transport amendment b58543f7b), container, AK_SMOKE=1, figures stripped.
+Run through a copy of run_campaign.sh with need_gate and crossings stubbed out (no gate for this unit, owner), on a
+dirty tree (AK_ALLOW_DIRTY=1), AK_CPU_CLIENT=0-1 AK_CPU_SERVER=2-3 (4-CPU container):
+  rpc/          AK_CAMPAIGN_GRID=core (default), default allocator: plants, A/Bf-cb/Cf-cb-retain/Ef-cb-retain x
+                a+read, b, c P5.4, d 16MiB x k 1, 8 (32 benchmarks) on transport armonik (TCP), + Cf-cb-retain on
+                h2-batch (4 benchmarks); h2batch-core.build.log
+  rpc-pinned/   AK_CAMPAIGN_ALLOC=pinned: A and Cf-cb-retain on c and d at k = 1 (4 benchmarks), Nagle plant
+  codec/        default allocator: full build 139 benchmarks, no-unknown build 98 (25 inputs each)
+  codec-pinned.runner.log  the pinned pass skips the codec suite
