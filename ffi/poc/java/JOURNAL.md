@@ -1172,6 +1172,8 @@ path explicitly to its label. The affected runs are the full-grid java RPC smoke
 (WP13, D9, r24). The core grid uses only framed cells, so it is not affected. rpc-counts are
 identical after the fix on both paths, so the counts never showed it.
 
+Gate at 269f9709b (the clean main tree; the first clean-worktree attempt hit the background time limit while building): GATE PASSED, counts identical to the new references (810 / 452 rows), rpc counts (84 / 48), logs/java/campaign-counts/.
+
 **Shared server binary.** It was built from cpp's since-deleted worktree (`cpp-wt`). It
 panicked at start-up because its compiled-in source paths were gone, and a rebuild failed
 because cached build-script outputs pointed there too. I removed those two cached outputs
