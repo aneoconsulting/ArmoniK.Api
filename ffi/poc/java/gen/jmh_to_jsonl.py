@@ -74,6 +74,8 @@ def main():
                     extra["input"] = "hot" if d.endswith("-hot") else ("pool" if cont != "corpus" else "row")
                 extra["row_class"] = row_class(payload, content)
                 extra["alloc"] = alloc
+                if "minflt" in sm:
+                    extra["minflt"] = int(round(sm["minflt"]["rawData"][f][i]))
                 extra["h2"] = "n/a"     # D11: codec cores carry no rpc feature, so no h2
                 rec = {"slice": "java", "suite": "codec", "arm": arm, "payload": payload,
                     "content": cont, "dir": dd, "unknown_mode": mode, "build": build, "coder": coder,

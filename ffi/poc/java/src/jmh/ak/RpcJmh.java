@@ -105,13 +105,13 @@ public class RpcJmh {
   @State(Scope.Thread)
   public static class Totals {
     public long rpcCpuNs, callsMade, rpcTaskClockNs, softirqTicks, minflt;
-    private long irq0, flt0;
+    private long irq0;
     @Setup(Level.Iteration)
-    public void reset() { rpcCpuNs = 0; callsMade = 0; rpcTaskClockNs = 0; irq0 = softirq(); flt0 = minorFaults(); }
+    public void reset() { rpcCpuNs = 0; callsMade = 0; rpcTaskClockNs = 0; minflt = 0; irq0 = softirq(); }
     /** Req 21 as amended: softirq time on the CLIENT CPUs over the iteration (/proc/stat, in
      *  USER_HZ ticks), read outside the timed invocations. */
     @TearDown(Level.Iteration)
-    public void irq() { softirqTicks = softirq() - irq0; minflt = minorFaults() - flt0; }
+    public void irq() { softirqTicks = softirq() - irq0; }
   }
 
   /** The CLIENT CPUs (-Dak.camp.clientcpus, a cpu list like "1-4,11-14"; unset: every CPU). */
@@ -125,18 +125,6 @@ public class RpcJmh {
     }
     return b;
   }
-  /** D9 / req 25 as amended: the process's minor faults (/proc/self/stat field 10). */
-  static long minorFaults() {
-    try {
-      String st = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("/proc/self/stat")),
-          java.nio.charset.StandardCharsets.US_ASCII);
-      String[] f = st.substring(st.lastIndexOf(')') + 2).trim().split(" ");
-      return Long.parseLong(f[7]);   // fields after "(comm)" start at field 3: minflt is field 10
-    } catch (java.io.IOException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
   /** The summed softirq column of /proc/stat's cpuN lines for the CLIENT CPUs. */
   static long softirq() {
     long t = 0;
@@ -175,7 +163,7 @@ public class RpcJmh {
     CampaignRpc.uploads();
     elg = new EpollEventLoopGroup(CampaignRpc.EVENT_LOOPS);
     c = CampaignRpc.cell(cell, sock, elg, transport.equals("pinned"));
-    System.out.println(AllocCheck.verify());        // req 25 / D9: refuse a wrong allocator mode
+    System.out.println(CampaignAlloc.startup());        // req 25 / D9: refuse a wrong allocator mode
     CampaignRpc.precheck(c);
     TaskClock.ensureOpen();                          // req 21 as amended: refuse without it
     String nodelay = CampaignRpc.checkNodelay(sock); // req 17 as amended: on the live sockets
@@ -235,7 +223,7 @@ public class RpcJmh {
 
   @Benchmark
   public void batch(Totals tot, Calls ops, Blackhole bh) throws Throwable {
-    long c0 = Campaign.processCpuNs(), k0 = TaskClock.ns();
+    long c0 = Campaign.processCpuNs(), k0 = TaskClock.ns(), f0 = Native.minorFaults();
     if (k == 1) {
       CampaignRpc.call(c, key, reqs[0]);
     } else {
@@ -248,6 +236,7 @@ public class RpcJmh {
       }
       if (err != null) throw err;
     }
+    tot.minflt += Native.minorFaults() - f0;          // req 25: faults over the measured span
     tot.rpcTaskClockNs += TaskClock.ns() - k0;
     tot.rpcCpuNs += Campaign.processCpuNs() - c0;
     tot.callsMade += k;

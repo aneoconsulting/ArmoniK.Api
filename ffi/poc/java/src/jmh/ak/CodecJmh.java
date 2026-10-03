@@ -57,6 +57,7 @@ public class CodecJmh {
   @State(Scope.Thread)
   public static class Sample {
     public long cpuNs;
+    public long minflt;
     public long iters;
     public long jitMs;
     private long jit0;
@@ -83,7 +84,7 @@ public class CodecJmh {
   @Setup(Level.Trial)
   public void trial() throws Exception {
     Native.ensureBound();          // the process CPU clock is read through the shim (req 21)
-    System.out.println(AllocCheck.verify());   // req 25 / D9: refuse a wrong allocator mode
+    System.out.println(CampaignAlloc.startup());   // req 25 / D9: refuse a wrong allocator mode
     String[] c = cell.split("\\|");
     id = c[2];
     dir = c[4];
@@ -118,9 +119,10 @@ public class CodecJmh {
 
   @Benchmark
   public void sample(Sample s, Blackhole bh) throws Exception {
-    long c0 = Campaign.processCpuNs();
+    long c0 = Campaign.processCpuNs(), f0 = Native.minorFaults();
     if (dir.startsWith("encode")) arm.encode(id, n);
     else arm.decode(id, wire, n, dir.equals("decode-read"));
+    s.minflt = Native.minorFaults() - f0;   // req 25 as amended: faults over the measured span
     s.cpuNs = Campaign.processCpuNs() - c0;
     s.iters = n;
     bh.consume(CampaignCodec.sink);

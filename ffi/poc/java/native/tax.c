@@ -11,7 +11,7 @@
  * processor cannot overlap it with the call. `AK_TAX_N` sets the length; the harness
  * calibrates it to nanoseconds once and prints the mapping.
  */
-#define _DEFAULT_SOURCE           /* clock_gettime, dirfd, sockets under -std=c11 */
+#define _GNU_SOURCE               /* clock_gettime, dirfd, sockets, RUSAGE_THREAD under -std=c11 */
 #define _POSIX_C_SOURCE 200809L
 #include <jni.h>
 #include <stdint.h>
@@ -100,4 +100,39 @@ JNIEXPORT jint JNICALL Java_ak_Native_allocProbe(JNIEnv *e, jclass c) {
    * the one touched page. A heap block is freed (no threshold effect). */
   if (!mmapped) free(p);
   return mmapped ? 1 : 0;
+}
+
+/* Req 25 as amended (mechanics, owner 2026-10-03): the minor faults over a measured span, for
+ * every sample: getrusage(RUSAGE_SELF).ru_minflt, the whole process. */
+#include <sys/resource.h>
+JNIEXPORT jlong JNICALL Java_ak_Native_minorFaults(JNIEnv *e, jclass c) {
+  (void) e; (void) c;
+  struct rusage u;
+  if (getrusage(RUSAGE_SELF, &u) != 0) return -1;
+  return (jlong) u.ru_minflt;
+}
+
+/* Req 25 as amended (mechanics): pre-grow glibc's heap, in both allocator modes, before any
+ * timing. Rounds of malloc(bytes), touch every page, free, each round's minor faults counted
+ * on this thread (getrusage RUSAGE_THREAD), until a round faults nothing, at most `cap`
+ * rounds. Returns (rounds << 32) | last round's faults; rounds = cap with faults > 0 means
+ * the cap was hit. */
+JNIEXPORT jlong JNICALL Java_ak_Native_preGrow(JNIEnv *e, jclass c, jlong bytes, jint cap) {
+  (void) e; (void) c;
+  long long faults = -1;
+  int r;
+  for (r = 1; r <= cap; r++) {
+    struct rusage a, b;
+    getrusage(RUSAGE_THREAD, &a);
+    unsigned char *volatile p = malloc((size_t) bytes);
+    if (!p) return -1;
+    for (jlong i = 0; i < bytes; i += 4096) p[i] = (unsigned char) i;
+    p[bytes - 1] = 1;
+    free(p);
+    getrusage(RUSAGE_THREAD, &b);
+    faults = (long long) (b.ru_minflt - a.ru_minflt);
+    if (faults == 0) break;
+  }
+  if (r > cap) r = cap;
+  return (jlong) (((long long) r << 32) | (faults & 0xffffffffLL));
 }
