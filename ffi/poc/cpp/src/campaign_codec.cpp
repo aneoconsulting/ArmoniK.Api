@@ -996,7 +996,9 @@ int main(int argc, char **argv) {
       return false;
     if (sl.dir == "encode") {
       if (sl.tags.find("end=transport") == std::string::npos || sl.tags.find("input=hot") == std::string::npos) return false;
-    } else if (sl.dir != "decode_read") {
+    } else if (sl.dir != "decode_read" || sl.tags.find("from=") != std::string::npos) {
+      // decode_read from the contiguous buffer the core's transport hands the host (the core
+      // cells' form); from=bytebuffer (grpc++'s ByteBuffer, cell D's form) is an extra
       return false;
     }
     if (sl.tags.find("row=U") != std::string::npos) {
@@ -1015,7 +1017,7 @@ int main(int argc, char **argv) {
                 " decode_read; retain (full) / no-unknown (no-unknown build); 16 shapes ascii, P2.2 latin1 and wide, 7 U rows\","
                 " \"extras_left_out\": \"%s\"}}\n",
                 g_cfg.grid.c_str(), ncore, nall,
-                g_cfg.grid == "core" ? "incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, the other encode"
+                g_cfg.grid == "core" ? "incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, decode from=bytebuffer, the other encode"
                                        " variants (end=reused, input=pool), drop mode, content sets beyond P2.2, the other U rows"
                                      : "none (every row registered, each labelled grid=core or grid=extra)");
   }
