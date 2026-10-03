@@ -1000,3 +1000,13 @@ split `tcp:127.0.0.1:PORT:shipped` on ':' to get the address and the configurati
 
 The runner's printed sample count also counted the 17 meta lines (306); that echo is fixed,
 not re-run.
+
+### J38. D9 roles flipped (owner, ad1a15be5, 2026-10-03)
+
+The RPC main figures now run with glibc's default allocator (`alloc: default`). The pinned
+GLIBC_TUNABLES pass is the labelled diagnostic, behind `AK_D9_PINNED_ALLOC=1`. Every RPC
+sample now carries `alloc` and `minflt`, the process's minor faults over the iteration from
+/proc/self/stat, read outside the timed invocations. Two minimal grouped smokes at 08b30ba25
+(pinned transport, full build, stock h2) each gave 289 samples, labelled default and pinned
+respectively. The smoke runner ran its gate first (PASSED); the pinned pass reused that
+stamp, at the same commit.
