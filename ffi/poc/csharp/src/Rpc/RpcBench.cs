@@ -60,6 +60,17 @@ internal static class RpcCtx
     public static string Sock, Transport, Unit;
     public static string H2 = "unknown";
     public static (int Found, int NoDelay) NoDelaySeen;
+    /// Per case, after its run: "sockets nodelay keepalive reuseport" to the server.
+    public static readonly Dictionary<string, string> After = new Dictionary<string, string>();
+    public static string AfterFields(string key)
+    {
+        string v = null;
+        if (CpuClock.ChildDir != null) { var f = CpuClock.KeyFile(key) + ".conns"; if (File.Exists(f)) v = File.ReadAllText(f).Trim(); }
+        else After.TryGetValue(key, out v);
+        if (v == null) return "";
+        var p = v.Split(' ');
+        return ",\"tcp_sockets_after\":" + p[0] + ",\"tcp_nodelay_after\":" + p[1] + ",\"so_keepalive_after\":" + p[2] + ",\"so_reuseport_after\":" + p[3];
+    }
 
     /// D11: which h2 the loaded core was built with, from the core library itself (the
     /// patched source's path in h2's panic locations), checked against the runner's AK_H2.
@@ -133,7 +144,10 @@ internal static class RpcCtx
         Transport ??= Environment.GetEnvironmentVariable("AK_RPC_BENCH_TRANSPORT");
         Unit ??= Environment.GetEnvironmentVariable("AK_RPC_BENCH_UNIT");
         if (Want == 0) Want = int.Parse(Environment.GetEnvironmentVariable("AK_RPC_BENCH_WANT") ?? "0", CultureInfo.InvariantCulture);
-        AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
+        // The process-wide switch is the worker channel provider's (packages/csharp
+        // GrpcChannelProvider), not the control plane's: under transport armonik it is NOT set.
+        CampaignMain.ArmonikCh = Transport == "armonik";
+        if (!CampaignMain.ArmonikCh) AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", true);
         _rt = AkRpc.ak_runtime_new((uint)Workers);
         if (_rt == IntPtr.Zero) throw new InvalidOperationException("ak_runtime_new");
         _cells = CampaignMain.BuildCells(Sock, Transport == "pinned", _rt, Want, _owned, Chans, extras: true, keep: n => n == Unit || (CoreGrid && n == Partner(Unit)));
@@ -201,7 +215,19 @@ public abstract class RpcBase
     protected Task Batch() => CampaignMain.RunCell(_c, RpcCtx.Pool, K, K);
 
     [GlobalCleanup]
-    public void Cleanup() => CpuClock.DumpChild(Case);
+    public void Cleanup()
+    {
+        // After the case's run: the sockets to the server again (the HTTP/2 connections at this
+        // k, Nagle still off), for the case's first row (a child writes them for the host).
+        if (CampaignMain.IsTcp(RpcCtx.Sock))
+        {
+            var d = NoDelay.Detail(CampaignMain.TcpPort(RpcCtx.Sock));
+            var line = d.Found + " " + d.NoDelay + " " + d.KeepAlive + " " + d.ReusePort;
+            RpcCtx.After[Case] = line;
+            if (CpuClock.ChildDir != null) File.WriteAllText(CpuClock.KeyFile(Case) + ".conns", line);
+        }
+        CpuClock.DumpChild(Case);
+    }
 }
 
 public class RpcK1 : RpcBase { protected override int K => 1; [Benchmark(OperationsPerInvoke = 1)] public Task Run() => Batch(); }
@@ -350,7 +376,7 @@ public sealed class RpcJsonExporter : IExporter
                 sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"engine\":\"bdn\",\"bdn_warmup\":{0},\"invocations\":{1}", warm, m.Operations / int.Parse(f[3], CultureInfo.InvariantCulture)));
                 if (round == 1)
                 {
-                    sb.Append(',').Append(jit).Append(Alloc.RowFields(key));
+                    sb.Append(',').Append(jit).Append(Alloc.RowFields(key)).Append(RpcCtx.AfterFields(key));
                     if (RpcCpuDiagnoser.IrqSpan.TryGetValue(key, out var iq))
                         sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"client_softirq_ticks\":{0},\"client_irq_ticks\":{1}", iq.SoftIrq, iq.Irq));
                 }
@@ -448,15 +474,17 @@ public static class RpcBenchMain
         var old = Console.Out;
         Console.SetOut(sw);
         CampaignMain.Header("rpc", string.Format(CultureInfo.InvariantCulture,
-            "build " + AbiVariant.Name + "; launch {0}; unit {1} (one process per cell, WP9); transport {2} (the client's configuration against the server's {2} socket: Grpc.Net DisableDynamicWindowSizing{3}; server socket {4}; core: ak_client_opts stream {5} connection {6} adaptive 0 nagle {7}); Unix socket {8} (req 17: UDS); in flight {9} (c and d at 1 and 8 only)",
-            launch, RpcCtx.Unit, RpcCtx.Transport, pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set", pinned ? "4 MiB windows, adaptive off (tonic)" : "tonic's defaults",
+            "build " + AbiVariant.Name + "; launch {0}; unit {1} (one process per cell, WP9); transport {2} (the client's configuration: Grpc.Net {3}; server: its TCP listener, {4}; core: ak_client_opts stream {5} connection {6} adaptive 0 nagle {7}); endpoint {8}; in flight {9} (c and d at 1 and 8 only)",
+            launch, RpcCtx.Unit, RpcCtx.Transport,
+            RpcCtx.Transport == "armonik" ? "ArmoniK's channel (packages/csharp GrpcChannelFactory.CreateChannel, package defaults; see '# armonik')" : "DisableDynamicWindowSizing" + (pinned ? " + InitialHttp2StreamWindowSize 4 MiB" : ", no window set"),
+            "the pinned server configuration (4 MiB windows, adaptive off, TCP_NODELAY on accept)",
             o.stream_window, o.connection_window, o.tcp_nagle, RpcCtx.Sock, string.Join("/", RpcCtx.Levels)));
         Console.SetOut(old);
         hdr.AddRange(sw.ToString().TrimEnd('\n').Split('\n'));
         hdr.Add("# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN req 22a as amended 2026-09-27, WP9), toolchain " + (grouped ? "InProcessEmit, GROUPED: every case of this unit in this process (the runner's grouped switch: smoke and small exploration runs only, req 22a as amended e6c909630)" : "BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630)") + ", pinned by the runner, StopOnFirstError; one invocation = one batch of k calls in flight (OperationsPerInvoke = k; `iters` = calls, `invocations` = batches); the benchmark classes RpcK1, RpcK8, RpcK16 hold the k = 1, 8, 16 cases");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# job:            {0} actual iterations (rounds) per case, {1} warm-up iterations (the same for every case) after BDN's jitting stage and pilot, iteration time {2} ms (the pilot picks the invocation count, unroll factor 1), strategy Throughput, EvaluateOverhead=false", rounds, warm, itMs));
         hdr.Add("# clocks:         per iteration, read by the job's clock (CpuClock) at the same iteration boundaries: wall (Stopwatch); cpu_ns = perf task-clock of the WHOLE client process (req 21 as amended 2026-10-01: a counter per thread this process opens itself with perf_event_open, PERF_COUNT_SW_TASK_CLOCK, new threads picked up at the next read; softirq-inclusive while the process runs); proc_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it (misses softirq time with IRQ_TIME_ACCOUNTING); per case, client_softirq_ticks / client_irq_ticks = /proc/stat on the CLIENT CPUs (" + (Environment.GetEnvironmentVariable("AK_CPU_CLIENT") ?? "unset") + ") across the actual stage, USER_HZ ticks; the server is another process");
-        hdr.Add("# network:        " + (CampaignMain.IsTcp(RpcCtx.Sock) ? "TCP 127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock) + " (D10, req 17 as amended): Nagle off on every client socket (Grpc.Net: Socket.NoDelay in the connect callback; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets of the measuring process in each case's setup after one untimed call (getsockopt TCP_NODELAY on every socket to the server; one without it fails the case); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the client side only (shipped: Grpc.Net DisableDynamicWindowSizing and no window, the core's windows at 0; pinned: 4 MiB windows on both client transports)" : "Unix socket " + RpcCtx.Sock + " (not the campaign's transport since D10)"));
+        hdr.Add("# network:        " + (RpcCtx.Transport == "armonik" ? "TCP 127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock) + " (D10; CAMPAIGN 4.0 as amended b58543f7b): transport armonik, the core grid's one configuration (see '# armonik'); Nagle off on every client socket (Grpc.Net: SocketsHttpHandler's default TCP_NODELAY, nothing set by ArmoniK or by this harness; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets before timing (one without it fails the case) and after each case; the server's TCP listener sets TCP_NODELAY on every accepted socket (SERVER.md; not readable from this process)" : CampaignMain.IsTcp(RpcCtx.Sock) ? "TCP 127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock) + " (D10, req 17 as amended): Nagle off on every client socket (Grpc.Net: Socket.NoDelay in the connect callback; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets of the measuring process in each case's setup after one untimed call (getsockopt TCP_NODELAY on every socket to the server; one without it fails the case); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the client side only (shipped: Grpc.Net DisableDynamicWindowSizing and no window, the core's windows at 0; pinned: 4 MiB windows on both client transports)" : "Unix socket " + RpcCtx.Sock + " (not the campaign's transport since D10)"));
         hdr.Add("# grid:           " + (RpcCtx.CoreGrid ? "core (CAMPAIGN section 4.0, D18; AK_CAMPAIGN_GRID=core): cells A, Bf, Cf-retain, Ef-retain, full build, the host's idiomatic delivery; a+read and b (P2.2), c at P5.4, d at 16 MiB, k = 1 and 8; the framed cells' a+read is the reference cell's (B, C-retain, E-retain: a has an empty request, so the send path is the same), run in the framed cell's process under its own name" + (Environment.GetEnvironmentVariable("AK_RPC_ONLY_DIRS") is string od ? "; this process narrowed to directions " + od + (Environment.GetEnvironmentVariable("AK_RPC_ONLY_K") is string ok ? " at k = " + ok : "") : "") + ". Extras left out (AK_CAMPAIGN_GRID=full runs them): cells B, C, D, E, F as cells of their own, Cc, the drop mode, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the second transport configuration, h2-batch beyond Cf on c and d, the pinned allocator pass beyond A and Cf on c and d at k = 1" : "full (AK_CAMPAIGN_GRID=full or unset): today's grid, section 4.0's extras included"));
         hdr.Add("# allocator:      " + Alloc.Label + " (readback at process start: a 16 MiB malloc came from the " + Alloc.Probe() + " (mallinfo2; the block kept, never freed); no heap pre-grow (owner, 2026-10-03): BDN's warm-up runs the real call path on every thread, and minflt per row shows whether it sufficed; under the default toolchain each child probes once, on its case's first row as alloc_probe; GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; the core's buffers and transport allocate through glibc malloc in this process; every row carries `alloc` and `minflt`, the client process's minor page faults over the iteration, so faults per call = minflt / iters)");
         hdr.Add("# h2:             the loaded core's h2 = " + RpcCtx.H2 + " (D11 as amended: read from the core library; the runner's AK_H2 = " + (wantH2 ?? "unset") + "); every row carries it");
@@ -466,6 +494,14 @@ public static class RpcBenchMain
         hdr.Add("# directions:     a empty request, P2.2 response decoded; a+read the same then every field read; b P2.2 request decoded by the server; c unary upload of P5.3 / P5.4 (M5, 1 MB / 4 MB); d the streamed upload, M5 messages of 2 MiB (ids on the first), 4 MiB / 16 MiB (req 14); every call checked: status, response length or the server's byte count (req 18); the upload cells' count and SHA-256 checked once in setup before timing");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# warm-up/thread: CAMPAIGN req 24 as amended 8c02e7c58 (>= 20 calls per calling thread at the cell's payload before the first measured value, same process, same threads): B, C, E (and Bf, Cf, Cc, Ef) call from k dedicated caller threads, created in this process before BDN's first stage and kept to its end (under the default toolchain one case per child process, so the warm-up and the measurement share the process and its threads); one invocation = k calls, one on each caller thread; BDN runs at least 4 invocations per iteration (its minimum invoke count), so the {0} warm-up iteration(s) give every caller thread >= {1} calls at the case's payload, after 1 jitting invocation and >= 4 pilot invocations (checked: d/16 MiB at k = 8, BDN child mode, iteration 100 ms: 1 + 4 + 40 = 45 per thread){2}. A, D, F and the callback/queue extras start k async loops (one call each per invocation) on the .NET thread pool (worker min = max = AK_WORKERS): >= {1} calls per loop, but which pool thread runs a call is not controlled, so the per-thread count is not guaranteed for them", warm, 4 * warm, warm * 4 >= 20 ? "" : " -- BELOW the rule's 20 at this setting"));
         hdr.Add("# delivery:       B, C, E the core's BLOCKING call on k caller threads (a CallerPool created before BDN starts); A, D, F Grpc.Net's idiomatic async call (AsyncUnaryCall / AsyncClientStreamingCall awaited), k concurrent async calls per invocation; the core's cells share one core runtime with " + RpcCtx.Workers + " worker thread(s) (req 16)");
+        if (RpcCtx.Transport == "armonik")
+        {
+            AppContext.TryGetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", out bool dws);
+            AppContext.TryGetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", out bool h2u);
+            var ep = new Uri("http://127.0.0.1:" + CampaignMain.TcpPort(RpcCtx.Sock));
+            var px = System.Net.Http.HttpClient.DefaultProxy.GetProxy(ep);
+            hdr.Add("# armonik:        cell A's channel = packages/csharp ArmoniK.Api.Client GrpcChannelFactory.CreateChannel(new GrpcClient { Endpoint = \"" + ep.ToString().TrimEnd('/') + "\" }), called directly (the assembly built from packages/csharp, unchanged), every other option at its package default: HandlerType Http = HttpClientHandler (SocketsHttpHandler underneath) wrapped in the package's logging DelegatingHandler (logger null), proxy type Undefined (UseProxy true: the system proxy for this endpoint is " + (px == null ? "none (bypassed)" : px.ToString()) + "); GrpcChannelOptions: Credentials Insecure, DisposeHttpClient true, ServiceConfig retry MaxAttempts 5, InitialBackoff 1 s, MaxBackoff 5 s, BackoffMultiplier 1.5 on Unavailable, Aborted, Unknown (so Grpc.Net buffers requests for retry), MaxReceiveMessageSize and MaxSendMessageSize at Grpc.Net's defaults (receive 4 MiB, send unlimited), EnableMultipleHttp2Connections false (the HttpClientHandler default); ServicePointManager.ReusePort = true and ServicePoint SetTcpKeepAlive(true, 30 s, 30 s), MaxIdleTime 5 min, read back on the live sockets per case (so_keepalive_after, so_reuseport_after on each case's first row: 0 = the ServicePoint settings did not reach SocketsHttpHandler's socket); process-wide switches observed: Http2FlowControl.DisableDynamicWindowSizing " + (dws ? "SET" : "not set") + " (the worker channel provider's, not set on the control plane's path), Http2UnencryptedSupport " + (h2u ? "set" : "not set") + " (the factory sets it only for https with AllowUnsafeConnection); Nagle: SocketsHttpHandler's own default sets TCP_NODELAY, read back before timing and after each case (tcp_nodelay_after), the HTTP/2 connections per cell after each case's run on its first row (tcp_sockets_after); the core cells: the core's client configuration of `shipped` (windows at the stack's defaults, adaptive off, tcp_nagle 0)");
+        }
         hdr.Add("# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced); the server's receive limit 8 MiB per message (SERVER.md)");
         foreach (var ch in RpcCtx.Chans) hdr.Add("# channel:        " + ch + " (opened in this process before its first case, kept to its end: one channel per cell per benchmark process)");
         hdr.Add(CampaignMain.ThreadLine("caller threads " + RpcCtx.Levels.Max() + "; core runtime 1, " + RpcCtx.Workers + " worker thread(s)"));

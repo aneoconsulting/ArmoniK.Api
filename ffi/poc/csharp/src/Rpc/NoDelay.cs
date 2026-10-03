@@ -15,7 +15,11 @@ internal static unsafe class NoDelay
     [DllImport("libc", SetLastError = true)] private static extern int getsockopt(int fd, int level, int name, int* val, int* len);
 
     /// (sockets to 127.0.0.1:port found, of them with TCP_NODELAY = 1).
-    public static (int Found, int NoDelay) Check(int port)
+    public static (int Found, int NoDelay) Check(int port) { var d = Detail(port); return (d.Found, d.NoDelay); }
+
+    /// The same, with SO_KEEPALIVE and SO_REUSEPORT read back too (what ArmoniK's ServicePoint
+    /// settings would set, if they reached the socket).
+    public static (int Found, int NoDelay, int KeepAlive, int ReusePort) Detail(int port)
     {
         var inodes = new HashSet<string>();
         string hp = ":" + port.ToString("X4", CultureInfo.InvariantCulture);
@@ -26,7 +30,7 @@ internal static unsafe class NoDelay
             // remote 0100007F:PORT, state 01 (established)
             if (f[2] == "0100007F" + hp && f[3] == "01") inodes.Add(f[9]);
         }
-        int found = 0, nd = 0;
+        int found = 0, nd = 0, ka = 0, rp = 0;
         foreach (var fdp in Directory.EnumerateFiles("/proc/self/fd"))
         {
             string target;
@@ -38,8 +42,12 @@ internal static unsafe class NoDelay
             if (getsockopt(fd, 6 /* IPPROTO_TCP */, 1 /* TCP_NODELAY */, &v, &l) != 0) continue;
             found++;
             if (v != 0) nd++;
+            v = 0; l = sizeof(int);
+            if (getsockopt(fd, 1 /* SOL_SOCKET */, 9 /* SO_KEEPALIVE */, &v, &l) == 0 && v != 0) ka++;
+            v = 0; l = sizeof(int);
+            if (getsockopt(fd, 1 /* SOL_SOCKET */, 15 /* SO_REUSEPORT */, &v, &l) == 0 && v != 0) rp++;
         }
-        return (found, nd);
+        return (found, nd, ka, rp);
     }
 }
 

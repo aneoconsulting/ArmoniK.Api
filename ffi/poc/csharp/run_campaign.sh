@@ -141,7 +141,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# toolchain:     BenchmarkDotNet $([ "$GROUPED" = 1 ] && echo "GROUPED (InProcessEmit, one process per unit: the small-run switch AK_BDN_GROUPED=1, req 22a as amended e6c909630)" || echo "default toolchain, one child process per case (the campaign's isolation, req 22a as amended e6c909630)")"
   echo "# pools:         AK_WORKERS=$AK_WORKERS (D8, D14): the core runtime's workers, the .NET thread pool's worker minimum and maximum (rpc), the server's tokio workers AK_SERVER_THREADS=$AK_SERVER_THREADS"
   if [ "$AK_CAMPAIGN_GRID" = core ]; then
-    echo "# grid:          core (AK_CAMPAIGN_GRID=core; CAMPAIGN section 4.0, D18). codec: incumbent-prod (full build only), core-ffi and host-gen (retain; no-unknown in its build), encode at end state (ii) with a hot input and decode-read, the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, 7 U-* rows. rpc: cells A, Bf, Cf-retain, Ef-retain, full build, transport configuration shipped only, a+read and b, c at P5.4, d at 16 MiB, k = 1 and 8, stock h2; plus Cf-retain on h2-batch for c and d at k = 1 and 8; plus the pinned-allocator pass: A and Cf-retain on c and d at k = 1. Extras left out (AK_CAMPAIGN_GRID=full): incumbent-best, core-ffi-pull, bare decode, the other three encode variants, decode-reencode, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, cells B, C, D, E, F of their own, Cc, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the pinned client configuration, h2-batch on other rows, the pinned allocator pass beyond its subset"
+    echo "# grid:          core (AK_CAMPAIGN_GRID=core; CAMPAIGN section 4.0, D18). codec: incumbent-prod (full build only), core-ffi and host-gen (retain; no-unknown in its build), encode at end state (ii) with a hot input and decode-read, the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, 7 U-* rows. rpc: cells A, Bf, Cf-retain, Ef-retain, full build, ONE transport configuration, armonik (cell A: ArmoniK's C# channel, packages/csharp GrpcChannelFactory.CreateChannel with its package defaults; the core cells: the core's shipped client configuration; Nagle off on every client socket, read back before timing and after each case), a+read and b, c at P5.4, d at 16 MiB, k = 1 and 8, stock h2; plus Cf-retain on h2-batch for c and d at k = 1 and 8; plus the pinned-allocator pass: A and Cf-retain on c and d at k = 1. Extras left out (AK_CAMPAIGN_GRID=full): incumbent-best, core-ffi-pull, bare decode, the other three encode variants, decode-reencode, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, cells B, C, D, E, F of their own, Cc, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the shipped and pinned client configurations, h2-batch on other rows, the pinned allocator pass beyond its subset"
   else
     echo "# grid:          full (AK_CAMPAIGN_GRID=full): every row of CAMPAIGN sections 4.1 and 4.2, section 4.0's labelled extras included"
   fi
@@ -297,7 +297,11 @@ case "$SUITE" in
       # Section 4.0 (core grid): one transport configuration (shipped), the full build, and three
       # runs per launch: stock (A, Bf, Cf-retain, Ef-retain), h2-batch (Cf-retain on c and d), and
       # the pinned-allocator subset (A and Cf-retain on c and d at k = 1, stock h2).
-      if [ "$AK_CAMPAIGN_GRID" = core ]; then TS="shipped"; VARS="stock h2-batch"; [ $PLANT = 0 ] && VARS="stock h2-batch stock-pinned"; fi
+      # Section 4.0 as amended (b58543f7b): the core grid's one transport configuration is
+      # ArmoniK's own (`armonik`: cell A through packages/csharp's GrpcChannelFactory with its
+      # defaults; the core cells keep the core's `shipped` client configuration); the req-18
+      # controls keep `shipped`, where the Nagle plant reaches Grpc.Net's socket.
+      if [ "$AK_CAMPAIGN_GRID" = core ]; then TS="armonik"; VARS="stock h2-batch"; [ $PLANT = 0 ] && VARS="stock h2-batch stock-pinned"; [ $PLANT = 1 ] && TS="shipped"; fi
       if [ $(( l % 2 )) = 1 ]; then HS="$VARS"; else HS="$(echo $VARS | tr ' ' '\n' | tac | tr '\n' ' ')"; fi
       for h2v in $HS; do
       h2="$h2v"; UNITS=""; UENV=(); INF=(); asfx="$ASFX"

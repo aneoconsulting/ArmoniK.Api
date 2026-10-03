@@ -73,3 +73,12 @@ cp "$SLICE/target-core-nounk/layout.json" "$SLICE/target-core-nounk-h2b/layout.j
 for d in target-core target-core-nounk; do
   echo "#   $d: $(nm -D --defined-only "$SLICE/$d/release/libak_core.so" | grep -c ' T ak_uencode_') ak_uencode_* exports"
 done
+# CAMPAIGN section 4.0 as amended (b58543f7b): cell A's channel is ArmoniK's own
+# (packages/csharp GrpcChannelFactory). ArmoniK.Api.Client and ArmoniK.Api.Common are built
+# from packages/csharp at HEAD (git archive, like the core), into this slice's artifacts path:
+# nothing is written under packages/.
+rm -rf "$SCRATCH/snap-pkg" && mkdir -p "$SCRATCH/snap-pkg"
+git -C "$REPO" archive HEAD packages/csharp Protos | tar -x -C "$SCRATCH/snap-pkg"
+dotnet build "$SCRATCH/snap-pkg/packages/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj" -c Release \
+  --artifacts-path "$SLICE/target-armonik-client" > "$SCRATCH/armonik-client.out" 2>&1 || { tail -20 "$SCRATCH/armonik-client.out"; exit 1; }
+echo "# ArmoniK.Api.Client (packages/csharp at HEAD): $(ls "$SLICE/target-armonik-client/bin/ArmoniK.Api.Client/release_netstandard2.0/"*.dll | xargs -n1 basename | tr '\n' ' ')"

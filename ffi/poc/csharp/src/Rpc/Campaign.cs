@@ -239,6 +239,19 @@ public static class CampaignMain
     internal static string CoreUri(string ep) => IsTcp(ep) ? "http://" + ep.Substring(4) : "unix:" + ep;
     internal static int TcpPort(string ep) => IsTcp(ep) ? int.Parse(ep.Substring(ep.LastIndexOf(':') + 1), CultureInfo.InvariantCulture) : -1;
 
+    /// CAMPAIGN section 4.0 as amended (b58543f7b): transport `armonik` = ArmoniK's C# channel,
+    /// built by packages/csharp's own GrpcChannelFactory.CreateChannel with its package defaults
+    /// (GrpcClient: endpoint only; HttpClientHandler wrapped in its logging DelegatingHandler,
+    /// retry ServiceConfig MaxAttempts 5, 1 s / 5 s / 1.5 on Unavailable, Aborted, Unknown,
+    /// DisposeHttpClient, its ServicePoint settings). The core cells keep the core's client
+    /// configuration of `shipped` (windows at the stack's defaults, adaptive off, Nagle off).
+    internal static bool ArmonikCh;
+    internal static GrpcChannel ArmonikChannel(string sock)
+    {
+        if (!IsTcp(sock)) throw new InvalidOperationException("transport armonik needs TCP");
+        return ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel(new ArmoniK.Api.Client.Options.GrpcClient { Endpoint = "http://127.0.0.1:" + TcpPort(sock) });
+    }
+
     private static GrpcChannel NewGrpc(string sock, bool pinned)
     {
         var handler = new SocketsHttpHandler { EnableMultipleHttp2Connections = false, PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan };
@@ -319,7 +332,7 @@ public static class CampaignMain
         }
         CallInvoker GrpcCh(string name)
         {
-            var ch = NewGrpc(sock, pinned);
+            var ch = ArmonikCh ? ArmonikChannel(sock) : NewGrpc(sock, pinned);
             owned.Add(ch);
             chans.Add(name + ": its own GrpcChannel (SocketsHttpHandler, one HTTP/2 connection)");
             return ch.CreateCallInvoker();
