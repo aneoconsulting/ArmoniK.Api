@@ -1,9 +1,9 @@
-# python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31)
-# date:      2026-09-27T20:56:41Z
-# commit:    df029aa0d
+# python slice: RPC crossing counts per call, the rpc counting builds (req 19, R-H31), both h2 variants (WP13), over TCP 127.0.0.1
+# date:      2026-10-03T02:25:54Z
+# commit:    86c141a1c
 # phase:     correctness only; nothing here is a timing
 
-# RPC cells, every ABI call per call (req 19); module _akffi_rpc_count, variant full
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 stock
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
@@ -66,11 +66,11 @@
    rpc d:4MiB       Bf        calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       C-retain  calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cf-retain calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
-   rpc d:4MiB       D-retain  calls    5 resets  1 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-retain  calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cc-retain calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       C-drop    calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cf-drop   calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
-   rpc d:4MiB       D-drop    calls    5 resets  1 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-drop    calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cc-drop   calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       E-retain  calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       Ef-retain calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
@@ -80,19 +80,19 @@
    rpc d:16MiB      Bf        calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      C-retain  calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cf-retain calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
-   rpc d:16MiB      D-retain  calls   23 resets  7 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-retain  calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cc-retain calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      C-drop    calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cf-drop   calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
-   rpc d:16MiB      D-drop    calls   23 resets  7 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-drop    calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cc-drop   calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      E-retain  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      Ef-retain calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      E-drop    calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      Ef-drop   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
 RPC COUNTS: 84 rows
-   rpc full: 84 rows, IDENTICAL to counts/rpc-full.txt
-# RPC cells, every ABI call per call (req 19); module _akffi_rpc_count_nounk, variant no-unknown
+   rpc full h2 stock: 84 rows, IDENTICAL to counts/rpc-full.txt
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 stock
 # resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
 # ak_enc_reset before the encode (steady state); one warm call precedes every counted call
    rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
@@ -131,7 +131,7 @@ RPC COUNTS: 84 rows
    rpc d:4MiB       Bf        calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       C-nounk   calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cf-nounk  calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
-   rpc d:4MiB       D-nounk   calls    5 resets  1 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-nounk   calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       Cc-nounk  calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
    rpc d:4MiB       E-nounk   calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
    rpc d:4MiB       Ef-nounk  calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
@@ -139,9 +139,151 @@ RPC COUNTS: 84 rows
    rpc d:16MiB      Bf        calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      C-nounk   calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cf-nounk  calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
-   rpc d:16MiB      D-nounk   calls   23 resets  7 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-nounk   calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      Cc-nounk  calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
    rpc d:16MiB      E-nounk   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
    rpc d:16MiB      Ef-nounk  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
 RPC COUNTS: 48 rows
-   rpc nounk: 48 rows, IDENTICAL to counts/rpc-nounk.txt
+   rpc nounk h2 stock: 48 rows, IDENTICAL to counts/rpc-nounk.txt
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count.cpython-312-x86_64-linux-gnu.so, variant full, h2 h2-batch
+# resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
+# ak_enc_reset before the encode (steady state); one warm call precedes every counted call
+   rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a            C-retain  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a            D-retain  calls    2 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a            C-drop    calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a            D-drop    calls    2 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a            E-retain  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a            E-drop    calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a+read       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a+read       C-retain  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a+read       D-retain  calls    2 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a+read       C-drop    calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a+read       D-drop    calls    2 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a+read       E-retain  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a+read       E-drop    calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            C-retain  calls 2520 resets  1 rpc fwd   2 rev   0 codec fwd  2517 rev  2501
+   rpc b            D-retain  calls 2519 resets  1 rpc fwd   0 rev   0 codec fwd  2517 rev  2501
+   rpc b            Cc-retain calls 2521 resets  1 rpc fwd   2 rev   0 codec fwd  2517 rev  2501
+   rpc b            C-drop    calls 2514 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            D-drop    calls 2513 resets  1 rpc fwd   0 rev   0 codec fwd  2511 rev  2501
+   rpc b            Cc-drop   calls 2515 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            E-retain  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            E-drop    calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            Cf-retain calls 2520 resets  1 rpc fwd   2 rev   0 codec fwd  2517 rev  2501
+   rpc b            Cf-drop   calls 2514 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            Ef-retain calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            Ef-drop   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       C-retain  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cf-retain calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       D-retain  calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cc-retain calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       C-drop    calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cf-drop   calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       D-drop    calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cc-drop   calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       E-retain  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       Ef-retain calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       E-drop    calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       Ef-drop   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       C-retain  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cf-retain calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       D-retain  calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cc-retain calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       C-drop    calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cf-drop   calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       D-drop    calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cc-drop   calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       E-retain  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       Ef-retain calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       E-drop    calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       Ef-drop   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       B         calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       Bf        calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       C-retain  calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cf-retain calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-retain  calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cc-retain calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       C-drop    calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cf-drop   calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-drop    calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cc-drop   calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       E-retain  calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       Ef-retain calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       E-drop    calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       Ef-drop   calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      B         calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      Bf        calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      C-retain  calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cf-retain calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-retain  calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cc-retain calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      C-drop    calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cf-drop   calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-drop    calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cc-drop   calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      E-retain  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      Ef-retain calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      E-drop    calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      Ef-drop   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+RPC COUNTS: 84 rows
+   rpc full h2 h2-batch: 84 rows, IDENTICAL to counts/rpc-full.txt
+# RPC cells, every ABI call per call (req 19); module /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_count_nounk.cpython-312-x86_64-linux-gnu.so, variant no-unknown, h2 h2-batch
+# resets' place: decode, ak_dec_reset_<R> before the decode (and after it in retain); encode,
+# ak_enc_reset before the encode (steady state); one warm call precedes every counted call
+   rpc a            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a            C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a            D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a            E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a+read       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc a+read       C-nounk   calls    3 resets  0 rpc fwd   2 rev   0 codec fwd     1 rev  3501
+   rpc a+read       D-nounk   calls    1 resets  0 rpc fwd   0 rev   0 codec fwd     1 rev  3501
+   rpc a+read       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            C-nounk   calls 2514 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            D-nounk   calls 2513 resets  1 rpc fwd   0 rev   0 codec fwd  2511 rev  2501
+   rpc b            Cc-nounk  calls 2515 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc b            Cf-nounk  calls 2514 resets  1 rpc fwd   2 rev   0 codec fwd  2511 rev  2501
+   rpc b            Ef-nounk  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       C-nounk   calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cf-nounk  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       D-nounk   calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       Cc-nounk  calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.3       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.3       Ef-nounk  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       B         calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       Bf        calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       C-nounk   calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cf-nounk  calls    4 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       D-nounk   calls    3 resets  1 rpc fwd   0 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       Cc-nounk  calls    5 resets  1 rpc fwd   2 rev   0 codec fwd     1 rev     0
+   rpc c:P5.4       E-nounk   calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc c:P5.4       Ef-nounk  calls    2 resets  0 rpc fwd   2 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       B         calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       Bf        calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       C-nounk   calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cf-nounk  calls   10 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       D-nounk   calls    6 resets  2 rpc fwd   0 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       Cc-nounk  calls   12 resets  2 rpc fwd   6 rev   0 codec fwd     2 rev     0
+   rpc d:4MiB       E-nounk   calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:4MiB       Ef-nounk  calls    6 resets  0 rpc fwd   6 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      B         calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      Bf        calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      C-nounk   calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cf-nounk  calls   28 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      D-nounk   calls   24 resets  8 rpc fwd   0 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      Cc-nounk  calls   36 resets  8 rpc fwd  12 rev   0 codec fwd     8 rev     0
+   rpc d:16MiB      E-nounk   calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+   rpc d:16MiB      Ef-nounk  calls   12 resets  0 rpc fwd  12 rev   0 codec fwd     0 rev     0
+RPC COUNTS: 48 rows
+   rpc nounk h2 h2-batch: 48 rows, IDENTICAL to counts/rpc-nounk.txt

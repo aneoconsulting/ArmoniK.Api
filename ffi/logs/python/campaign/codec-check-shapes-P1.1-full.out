@@ -1,4 +1,4 @@
-# FIGURES STRIPPED (FIX-PLAN WP6); the raw pyperf JSON is not committed
+# FIGURES STRIPPED; the raw pyperf JSON is not committed
 shapes|P1.1|ascii|encode|incumbent-prod|incumbent-default: [stripped]
 shapes|P1.1|ascii|encode|incumbent-best|incumbent-default: [stripped]
 shapes|P1.1|ascii|encode|core-ffi|drop: [stripped]

@@ -10,7 +10,7 @@ labelled.
 
 | | |
 |---|---|
-| **Status** | FIX-PLAN WP9 and WP10 done. The RPC grid runs on pyperf (a worker process per benchmark), against the shared Rust rpc_server started through `poc/rust/serve.sh`; the hand-written RPC sampler, the codec by-hand loop and `camp_server.py` are removed. Gated once from a clean worktree at df029aa0d (both builds, 3.12 and 3.7, `gate exit 0`, `GATE PASSED` with three RPC controls failing as required), then a minimal smoke (settings under "The clean gate"). The owner's scope rule and small-test rule apply |
+| **Status** | FIX-PLAN WP13 done (on WP9 and WP10): every timed RPC cell over TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock as the RPC CPU figure, every pool at AK_WORKERS (8; grpc-core through a sysconf shim), both h2 variants of the rpc core built, gated and labelled, rebuilt on the current core (p1). The rebuild found a shim defect in the first encode on a new context (fixed, 8b87eea10). Gated once from a clean worktree at 86c141a1c (both builds, 3.12 and 3.7, both h2 variants: `gate exit 0`, `GATE PASSED`), then a minimal smoke. D9 is open for the aggregating session |
 | **Target** (owner D1) | CPython 3.12.3; grpcio 1.84.0, protobuf 7.36.2 (upb) |
 | **Floor** (owner D1) | CPython 3.7.5 (Ubuntu 18.04's packages, `fetch_py37.sh`, sha256-pinned); protobuf 4.24.4 (upb) as the incumbent there. The floor runs the correctness gate only |
 | **Incumbent** (R14) | protobuf on upb through gRPC's generated marshaller path (`SerializeToString` / `FromString`); derived from `Protos/V1` by `verify_r14.py` (log 52) |
@@ -65,33 +65,39 @@ mech/                      the crossing-mechanism microbenchmark (no wire rule) 
 
 ## The clean gate
 
-Fresh `git worktree` at **df029aa0d** (WP9 and WP10; `git status` empty), fresh build
-directories. `./fetch_py37.sh`, `mech/build.sh python3.12`, then `./run_campaign.sh --suite
-gate` (gate.sh at 3.12 and 3.7, then the RPC controls). The shared server is built by gate
-step 90 from the snapshot's `poc/rust` and started unpinned (no `AK_CPU_SERVER` in a container).
+Fresh `git worktree` at **86c141a1c** (WP13; `git status` empty), fresh build directories:
+`./fetch_py37.sh`, `mech/build.sh python3.12`, `./run_campaign.sh --suite gate` (gate.sh at 3.12
+and 3.7, the RPC controls, the RPC TCP prechecks). The shared server is built by gate step 90
+from the snapshot's `poc/rust`, started unpinned (no `AK_CPU_SERVER` in a container) with
+`AK_SERVER_TCP=0`.
 
-Result: **`gate exit 0`** and **`GATE PASSED`**. All 24 logs carry `# commit: df029aa0d`; none
-says uncommitted. 103, 98 and 105 identical (counts unchanged: `abi-full` 560, `abi-nounk`
-344, `rpc-full` 84, `rpc-nounk` 48). The three RPC controls fail inside a pyperf benchmark
-with no pyperf JSON (`campaign/gate/rpc-control-{short,count,digest}.out`).
+Result: **`gate exit 0`** and **`GATE PASSED`**. All logs carry `# commit: 86c141a1c`.
+- 91-98, 100-104 as before. The h2-batch steps 106 (conformance on `_akffi_rpc`), 107 (R-D3, 80
+  aborted, 0 timed) and 108 (`_akffi_rpc_nounk`) pass at both levels, each naming the
+  `h2batch/` module and its core.
+- 103 and 98 are identical. 105 is identical on both h2 variants against `counts/rpc-*.txt`, as
+  replaced at 86c141a1c: D's (d) rows have +1 call and +1 reset per call, from the shim fix
+  (J56). `abi-full` 560, `abi-nounk` 344, `rpc-full` 84, `rpc-nounk` 48.
+- The three RPC controls fail inside a pyperf benchmark with no JSON (`campaign/gate/rpc-control-*.out`).
+- The RPC TCP prechecks (`campaign/gate/rpc-tcp-precheck-{full,nounk}-{stock,h2-batch}.out`):
+  every cell on both client configurations; TCP_NODELAY on every live socket to the server
+  (17/17, 18/18 full; 8/8, 9/9 no-unknown); write syscalls per d/16MiB call on Cf at k = 1:
+  stock 1,035-1,038, h2-batch 77-80.
+- An earlier gate at 08053a6c6 failed at 105 only (the count change above), kept as
+  `logs/python/109-wp13-rpc-counts-before-replacing.log`.
 
-**Minimal smoke** (owner's small-test rule, 2026-09-27), same worktree, figures stripped:
-- rpc: `--smoke`, one launch, one round, `AK_CAMPAIGN_RPC_TRANSPORTS=shipped`, both builds,
-  `--warmups 1`, `--loops 2 / 1 / 1` (ab / c / d), `serve.sh warm 8`. Values: full ab 123, c 68,
-  d 68; no-unknown ab 66, c 40, d 40 (every cell, direction, in-flight level, framed and copy
-  twin of the grid on one transport; with both transports these double to the 518 / 292 of
-  the WP9 by-hand run).
-- codec: a check that the suite runs after `camp_codec.main`'s removal: P1.1 only, both builds,
-  `--warmups 1 --min-time 0.002`, `AK_POOL_BYTES=65536`: 38 and 18 benchmarks. The rest of
-  `campaign/` (codec families, calib) is the ccfb08db2 smoke, not rerun.
+**Minimal smoke** (owner's small-test rule), same worktree, figures stripped: rpc `--smoke`,
+one launch and round, `AK_CAMPAIGN_RPC_TRANSPORTS=pinned`, `AK_CAMPAIGN_RPC_BUILDS=full`, both h2
+variants, `--warmups 1`, `--loops 2 / 1 / 1`, `serve.sh warm 8`, AK_WORKERS 8 with the sysconf
+shim. Values per h2 variant: ab 123, c 68, d 68. Every sample carries `h2`; TCP_NODELAY read
+back set on all 4,026 socket reads; every worker's facts show `sysconf_nprocessors_conf` 8,
+`event_engine` 8, `tokio-rt-worker` 8. Codec check: P1.1, full build, 38 benchmarks. Per-sample
+JSON lines are not committed (`ffi/logs/PURGED.md`); each RPC log's header is
+(`campaign/rpc-*-launch1.header.txt`). The rest of `campaign/` (codec families, calib) is an
+older smoke, not rerun.
 
-**Grouping** (owner, CAMPAIGN 22a at e6c909630): nothing is grouped. Both pyperf suites run
-pyperf's native isolation, one worker process per benchmark (one cell or arm, one
-combination), in the campaign and in the smoke alike; the ab / c / d split of the RPC grid is
-only three pyperf invocations with their own `--loops`, not several combinations per worker.
-So there is no grouping switch to add.
-
-The worktree and its builds were deleted after the run.
+**Grouping:** nothing is grouped. Each pyperf benchmark gets its own worker process (22a at
+e6c909630).
 
 ## The RPC grid on pyperf (FIX-PLAN WP9, CAMPAIGN req 22a as amended)
 
@@ -508,11 +514,11 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 - **Content sets** are measured on P2.4 only; P1.2's crossing counts cover ASCII only.
 - **The facade's `_unknown` in the full build** is one slot per object. It is priced only
   through the full build against the no-unknown build.
-- **The campaign smoke** in `logs/python/campaign/`, figures stripped: the RPC grid and the
-  codec check from df029aa0d (settings under "The clean gate": one transport only), and the
-  codec families and calib from ccfb08db2. The `pinned` transport has not run on pyperf
-  against the Rust server in a committed log (the by-hand precheck and the cell check did
-  call it).
+- **The campaign smoke** in `logs/python/campaign/` is the WP13 minimal smoke (pinned client
+  configuration, full build, both h2 variants; headers and stripped pyperf output only). The
+  `shipped` configuration and the no-unknown build have not run on pyperf over TCP in a
+  committed log; the gate's TCP prechecks called every cell of both. Not measured either: the
+  default-allocator pass of D9, and the idle channels' cost in each worker (WP13 item 8).
 - **No reused-buffer encode for the incumbent and host-gen** (req 11 (i)): upb-python has no
   serialise-into entry point, and host-gen appends to a bytearray that CPython reallocates.
 - **RPC counts** are taken on the `shipped` transport, one call at a time.
@@ -538,8 +544,8 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 
 ## Next step
 
-1. If SERVER.md's interface changes (not yet gated by the Rust agent at bed13a6ea), re-point
-   `camp_rpc.py` (paths, messages) and re-gate.
+1. For the aggregating session: D9 for this slice (WP13 item 7), and whether `ak_enc_ctx_new`
+   should lay down its own headroom (item 6).
 2. The owner's campaign run: `./run_campaign.sh --suite gate|calib|codec|rpc --out
    ffi/logs/python/campaign` without `--smoke`, with the CPU sets exported.
 3. Re-render (`gen/generate.py`) and re-gate (`./gate.sh python3.12 build/py37/python3.7`)
@@ -566,6 +572,9 @@ Fixed defects (D1-D14, the NULL module state in `mod_traverse`, the process-wide
 | `102-wp5s10-conformance-rpc-nounk-py3.{12,7}.log` | conformance on `_akffi_rpc_nounk` |
 | `103-wp5s10-counts-drop-vs-nounk.log` | whole-number counts of both builds against `counts/`, and their difference |
 | `105-wp7-rpc-counts.log` | RPC cells B, C, D, E per call on the rpc counting builds, both builds (req 19) |
+| `106-wp13-conformance-rpc-h2batch-py3.{12,7}.log`, `107-wp13-rpc-gate-h2batch-py3.{12,7}.log`, `108-wp13-conformance-rpc-nounk-h2batch-py3.{12,7}.log` | 92, 94 and 102 on the h2-batch rpc cores |
+| `109-wp13-rpc-counts-before-replacing.log` | 105 at 08053a6c6, before `counts/rpc-*.txt` were replaced (D's (d) rows +1 reset) |
+| `campaign/gate/rpc-tcp-precheck-*.out` | the RPC grid over TCP, both builds and h2 variants: TCP_NODELAY read back, write-count marker |
 | `104-wp6-camp-summary-test.log` | camp_summary's two-build test (R-H1) and its twin |
 | `85-conformance-rpc-shim.log` | the pre-port shim's crossing counts (the reference for 98) |
 | `52-r14-baseline.log` | R14 derived from `Protos/V1` |

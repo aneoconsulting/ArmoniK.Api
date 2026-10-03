@@ -1,0 +1,1025 @@
+# python slice: conformance on _akffi_rpc_nounk, h2-batch core (WP13), py3.12
+# date:      2026-10-03T02:24:28Z
+# commit:    86c141a1c
+# phase:     correctness only; nothing here is a timing
+
+# h2-batch module: /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/py3.12/h2batch/_akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so
+# mapped: ['/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/wt-py14/ffi/poc/python/build/cargo-86c141a1c/rpc-nounk-h2batch/release/libak_core.so']
+# python slice, work unit 2: conformance on the COMPOSED arm (README R2)
+# interpreter: 3.12.3
+# baseline:    gRPC's generated marshaller path: Message.SerializeToString on encode and Message.FromString on decode (R14)
+# manifest:    validated against prost 0.14.4 and a second encoder (W2)
+# shim:        _akffi_rpc_nounk (_akffi_rpc_nounk.cpython-312-x86_64-linux-gnu.so)
+# section 9:   present (call_unary, call_unary_q, call_unary_cb)
+# core loaded: poc/python/build/cargo-86c141a1c/rpc-nounk-h2batch/release/libak_core.so
+
+## R1: the generated tree is current with shapes.json
+   guard 2 python backend modules import plans only; a planted IR import is caught
+generated tree is current with the plans (18 files)
+
+## ABI v1 section 10: the core and the shim agree on the group layouts
+   ak_abi_version() = 1, the shim was generated against 1
+   the core exports 240 layout facts; the shim pins 240 (AK_LAYOUT_HOST, rendered
+   from the plan) and compared them all at import -- a mismatch is an ImportError
+   naming the fact (build.sh plants one and watches the import fail).
+
+## encode: byte identity against the validated manifest
+   P1.1      858 bytes  sha 5df5eb5f3f51ae92  (4 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P1.2   218121 bytes  sha eed4817ef84c1f7b  (1000 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P1.3      605 bytes  sha 7634c22567e88be4  (300 elements, all_absent)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.1     1037 bytes  sha 8c8deaf03e8dbdcc  (1 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.2   540422 bytes  sha 8396d3016807731b  (500 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.3   647024 bytes  sha b79d6bbb16da9ccb  (125 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.4   979465 bytes  sha 0dff2944530f5671  (80 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.5    19632 bytes  sha 45b808464f5de225  (20 elements, half_absent)
+        ok*   upb (incumbent)                  legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.
+        ok*   upb, message parsed not built    legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.
+        ok*   upb, deterministic=True          legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P3.1    12097 bytes  sha 40c414645f0570dc  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1    65321 bytes  sha 1d9c1b4bb7d19784  (200 elements)
+        ok*   upb (incumbent)                  legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok*   upb, message parsed not built    legal alternative form: same length, different order: SerializeToString does not sort map entries and the canonical form does. `deterministic=True` is the row that matches.
+        ok    upb, deterministic=True
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1      116 bytes  sha 80ff3288bbc8df48  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2    65620 bytes  sha 66e4ffb4730d0c77  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3  1048660 bytes  sha 694243f8193e54f6  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4  4194390 bytes  sha 349ae77b4d2f934a  (1 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1   123354 bytes  sha 115d4410844a087c  (200 elements)
+        ok    upb (incumbent)
+        ok    upb, message parsed not built
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1       98 bytes  sha 1325822514f15d1f  (6 elements)
+        ok*   upb (incumbent)                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   upb, message parsed not built    a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / plain                  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   pycodec / __slots__              a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / plain                 a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / __slots__             a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / C ext type            a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (python fn)     a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+        ok*   core-ffi / pyacc (C attrgetter)  a permutation: the manifest interleaves two repeated fields and no contiguous writer can; same triples, same message
+
+## decode: re-encode byte identity, and field identity against the incumbent
+   P1.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P1.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P1.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P2.5 
+        ok*   upb (incumbent)  (legal alternative form: 80 bytes longer: upb writes an empty map value as a present zero-length field and the canonical form omits it (an implicit-presence leaf holding the proto zero). CONTRACT.md C3 lists both.)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P3.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P4.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.2 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.3 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P5.4 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P6.1 
+        ok    upb (incumbent)
+        ok    pycodec / plain
+        ok    pycodec / __slots__
+        ok    core-ffi / plain
+        ok    core-ffi / __slots__
+        ok    core-ffi / C ext type
+        ok    core-ffi / pyacc (python fn)
+        ok    core-ffi / pyacc (C attrgetter)
+   P7.1 
+        ok*   upb (incumbent)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   pycodec / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / plain  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / __slots__  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / C ext type  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (python fn)  (a permutation of the same triples; SHAPES.md P7.1)
+        ok*   core-ffi / pyacc (C attrgetter)  (a permutation of the same triples; SHAPES.md P7.1)
+
+## oneof: an undeclared case, and a selected member holding None (R-H14)
+   pycodec / plain            undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+   core-ffi / C ext type      undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+   core-ffi / plain           undeclared case -> code -11 (want -11); selected None member -> empty body, bytes == upb
+
+## no-unknown variant: `_unknown` on the facades
+   0 finding(s) over 38 Plain/Slots classes, 19 C types, 32 decoded objects
+
+## crossing counts, counting build, BOTH halves (README R5)
+#  shim: _akffi_count_nounk; core loaded: poc/python/build/cargo-86c141a1c/count-nounk/release/libak_core.so
+#  The core counts its own crossings and the shim counts what it does to
+#  CPython. Neither half can count the other's, which is why both are here.
+#  'shim' = calls the shim makes INTO CPython (value reads, list access, attribute
+#  get/set, calls into Python), per element. 'core fwd' = host->core ABI calls,
+#  'core rev' = core->host callbacks, per element. Different edges: never add them.
+         dir     backend                per element
+   P1.1  encode  plain                  shim  30.25  core fwd  0.50 rev  0.25  [C-API value read=54, PyList element=4, PyObject_GetAttr/SetAttr=63]
+   P1.1  encode  __slots__              shim  30.25  core fwd  0.50 rev  0.25  [C-API value read=54, PyList element=4, PyObject_GetAttr/SetAttr=63]
+   P1.1  encode  C ext type             shim   7.00  core fwd  0.50 rev  0.25  [C-API value read=24, PyList element=4]
+   P1.1  encode  pyacc (python fn)      shim  30.25  core fwd  0.50 rev  0.25  [C-API value read=54, PyList element=4, call into Python=63]
+   P1.1  encode  pyacc (C attrgetter)   shim  30.25  core fwd  0.50 rev  0.25  [C-API value read=54, PyList element=4, call into Python=63]
+   P1.1  decode  plain                  shim  24.75  core fwd  0.25 rev  0.50  [C-API value read=24, PyList element=4, PyObject_GetAttr/SetAttr=71]
+   P1.1  decode  __slots__              shim  24.75  core fwd  0.25 rev  0.50  [C-API value read=24, PyList element=4, PyObject_GetAttr/SetAttr=71]
+   P1.1  decode  C ext type             shim   7.00  core fwd  0.25 rev  0.50  [C-API value read=24, PyList element=4]
+   P1.1  decode  pyacc (python fn)      shim  24.75  core fwd  0.25 rev  0.50  [C-API value read=24, PyList element=4, call into Python=71]
+   P1.1  decode  pyacc (C attrgetter)   shim  24.75  core fwd  0.25 rev  0.50  [C-API value read=24, PyList element=4, call into Python=71]
+   P1.2  encode  plain                  shim  29.00  core fwd  0.01 rev  0.00  [C-API value read=13002, PyList element=1000, PyObject_GetAttr/SetAttr=15003]
+   P1.2  encode  __slots__              shim  29.00  core fwd  0.01 rev  0.00  [C-API value read=13002, PyList element=1000, PyObject_GetAttr/SetAttr=15003]
+   P1.2  encode  C ext type             shim   7.00  core fwd  0.01 rev  0.00  [C-API value read=6000, PyList element=1000]
+   P1.2  encode  pyacc (python fn)      shim  29.00  core fwd  0.01 rev  0.00  [C-API value read=13002, PyList element=1000, call into Python=15003]
+   P1.2  encode  pyacc (C attrgetter)   shim  29.00  core fwd  0.01 rev  0.00  [C-API value read=13002, PyList element=1000, call into Python=15003]
+   P1.2  decode  plain                  shim  24.00  core fwd  0.00 rev  0.01  [C-API value read=6000, PyList element=1000, PyObject_GetAttr/SetAttr=17003]
+   P1.2  decode  __slots__              shim  24.00  core fwd  0.00 rev  0.01  [C-API value read=6000, PyList element=1000, PyObject_GetAttr/SetAttr=17003]
+   P1.2  decode  C ext type             shim   7.00  core fwd  0.00 rev  0.01  [C-API value read=6000, PyList element=1000]
+   P1.2  decode  pyacc (python fn)      shim  24.00  core fwd  0.00 rev  0.01  [C-API value read=6000, PyList element=1000, call into Python=17003]
+   P1.2  decode  pyacc (C attrgetter)   shim  24.00  core fwd  0.00 rev  0.01  [C-API value read=6000, PyList element=1000, call into Python=17003]
+   P1.3  encode  plain                  shim  21.02  core fwd  0.01 rev  0.00  [C-API value read=2702, PyList element=300, PyObject_GetAttr/SetAttr=3303]
+   P1.3  encode  __slots__              shim  21.02  core fwd  0.01 rev  0.00  [C-API value read=2702, PyList element=300, PyObject_GetAttr/SetAttr=3303]
+   P1.3  encode  C ext type             shim   7.00  core fwd  0.01 rev  0.00  [C-API value read=1800, PyList element=300]
+   P1.3  encode  pyacc (python fn)      shim  21.02  core fwd  0.01 rev  0.00  [C-API value read=2702, PyList element=300, call into Python=3303]
+   P1.3  encode  pyacc (C attrgetter)   shim  21.02  core fwd  0.01 rev  0.00  [C-API value read=2702, PyList element=300, call into Python=3303]
+   P1.3  decode  plain                  shim  16.01  core fwd  0.00 rev  0.01  [C-API value read=1800, PyList element=300, PyObject_GetAttr/SetAttr=2703]
+   P1.3  decode  __slots__              shim  16.01  core fwd  0.00 rev  0.01  [C-API value read=1800, PyList element=300, PyObject_GetAttr/SetAttr=2703]
+   P1.3  decode  C ext type             shim   7.00  core fwd  0.00 rev  0.01  [C-API value read=1800, PyList element=300]
+   P1.3  decode  pyacc (python fn)      shim  16.01  core fwd  0.00 rev  0.01  [C-API value read=1800, PyList element=300, call into Python=2703]
+   P1.3  decode  pyacc (C attrgetter)   shim  16.01  core fwd  0.00 rev  0.01  [C-API value read=1800, PyList element=300, call into Python=2703]
+   P2.1  encode  plain                  shim 153.00  core fwd  7.00 rev  6.00  [C-API value read=67, PyList element=17, PyObject_GetAttr/SetAttr=69]
+   P2.1  encode  __slots__              shim 153.00  core fwd  7.00 rev  6.00  [C-API value read=67, PyList element=17, PyObject_GetAttr/SetAttr=69]
+   P2.1  encode  C ext type             shim  52.00  core fwd  7.00 rev  6.00  [C-API value read=35, PyList element=17]
+   P2.1  encode  pyacc (python fn)      shim 153.00  core fwd  7.00 rev  6.00  [C-API value read=67, PyList element=17, call into Python=69]
+   P2.1  encode  pyacc (C attrgetter)   shim 153.00  core fwd  7.00 rev  6.00  [C-API value read=67, PyList element=17, call into Python=69]
+   P2.1  decode  plain                  shim 136.00  core fwd  1.00 rev  8.00  [C-API value read=35, PyList element=17, PyObject_GetAttr/SetAttr=84]
+   P2.1  decode  __slots__              shim 136.00  core fwd  1.00 rev  8.00  [C-API value read=35, PyList element=17, PyObject_GetAttr/SetAttr=84]
+   P2.1  decode  C ext type             shim  52.00  core fwd  1.00 rev  8.00  [C-API value read=35, PyList element=17]
+   P2.1  decode  pyacc (python fn)      shim 136.00  core fwd  1.00 rev  8.00  [C-API value read=35, PyList element=17, call into Python=84]
+   P2.1  decode  pyacc (C attrgetter)   shim 136.00  core fwd  1.00 rev  8.00  [C-API value read=35, PyList element=17, call into Python=84]
+   P2.2  encode  plain                  shim 146.68  core fwd  5.02 rev  5.00  [C-API value read=32170, PyList element=8500, PyObject_GetAttr/SetAttr=32671]
+   P2.2  encode  __slots__              shim 146.68  core fwd  5.02 rev  5.00  [C-API value read=32170, PyList element=8500, PyObject_GetAttr/SetAttr=32671]
+   P2.2  encode  C ext type             shim  51.67  core fwd  5.02 rev  5.00  [C-API value read=17334, PyList element=8500]
+   P2.2  encode  pyacc (python fn)      shim 146.68  core fwd  5.02 rev  5.00  [C-API value read=32170, PyList element=8500, call into Python=32671]
+   P2.2  encode  pyacc (C attrgetter)   shim 146.68  core fwd  5.02 rev  5.00  [C-API value read=32170, PyList element=8500, call into Python=32671]
+   P2.2  decode  plain                  shim 131.35  core fwd  0.00 rev  7.00  [C-API value read=17334, PyList element=8500, PyObject_GetAttr/SetAttr=39839]
+   P2.2  decode  __slots__              shim 131.35  core fwd  0.00 rev  7.00  [C-API value read=17334, PyList element=8500, PyObject_GetAttr/SetAttr=39839]
+   P2.2  decode  C ext type             shim  51.67  core fwd  0.00 rev  7.00  [C-API value read=17334, PyList element=8500]
+   P2.2  decode  pyacc (python fn)      shim 131.35  core fwd  0.00 rev  7.00  [C-API value read=17334, PyList element=8500, call into Python=39839]
+   P2.2  decode  pyacc (C attrgetter)   shim 131.35  core fwd  0.00 rev  7.00  [C-API value read=17334, PyList element=8500, call into Python=39839]
+   P2.3  encode  plain                  shim 362.73  core fwd  5.03 rev  5.01  [C-API value read=21545, PyList element=15625, PyObject_GetAttr/SetAttr=8171]
+   P2.3  encode  __slots__              shim 362.73  core fwd  5.03 rev  5.01  [C-API value read=21545, PyList element=15625, PyObject_GetAttr/SetAttr=8171]
+   P2.3  encode  C ext type             shim 267.67  core fwd  5.03 rev  5.01  [C-API value read=17834, PyList element=15625]
+   P2.3  encode  pyacc (python fn)      shim 362.73  core fwd  5.03 rev  5.01  [C-API value read=21545, PyList element=15625, call into Python=8171]
+   P2.3  encode  pyacc (C attrgetter)   shim 362.73  core fwd  5.03 rev  5.01  [C-API value read=21545, PyList element=15625, call into Python=8171]
+   P2.3  decode  plain                  shim 347.38  core fwd  0.01 rev  7.01  [C-API value read=17834, PyList element=15625, PyObject_GetAttr/SetAttr=9964]
+   P2.3  decode  __slots__              shim 347.38  core fwd  0.01 rev  7.01  [C-API value read=17834, PyList element=15625, PyObject_GetAttr/SetAttr=9964]
+   P2.3  decode  C ext type             shim 267.67  core fwd  0.01 rev  7.01  [C-API value read=17834, PyList element=15625]
+   P2.3  decode  pyacc (python fn)      shim 347.38  core fwd  0.01 rev  7.01  [C-API value read=17834, PyList element=15625, call into Python=9964]
+   P2.3  decode  pyacc (C attrgetter)   shim 347.38  core fwd  0.01 rev  7.01  [C-API value read=17834, PyList element=15625, call into Python=9964]
+   P2.4  encode  plain                  shim 734.76  core fwd  5.04 rev  5.01  [C-API value read=28670, PyList element=24880, PyObject_GetAttr/SetAttr=5231]
+   P2.4  encode  __slots__              shim 734.76  core fwd  5.04 rev  5.01  [C-API value read=28670, PyList element=24880, PyObject_GetAttr/SetAttr=5231]
+   P2.4  encode  C ext type             shim 639.67  core fwd  5.04 rev  5.01  [C-API value read=26294, PyList element=24880]
+   P2.4  encode  pyacc (python fn)      shim 734.76  core fwd  5.04 rev  5.01  [C-API value read=28670, PyList element=24880, call into Python=5231]
+   P2.4  encode  pyacc (C attrgetter)   shim 734.76  core fwd  5.04 rev  5.01  [C-API value read=28670, PyList element=24880, call into Python=5231]
+   P2.4  decode  plain                  shim 719.41  core fwd  0.01 rev  7.01  [C-API value read=26294, PyList element=24880, PyObject_GetAttr/SetAttr=6379]
+   P2.4  decode  __slots__              shim 719.41  core fwd  0.01 rev  7.01  [C-API value read=26294, PyList element=24880, PyObject_GetAttr/SetAttr=6379]
+   P2.4  decode  C ext type             shim 639.67  core fwd  0.01 rev  7.01  [C-API value read=26294, PyList element=24880]
+   P2.4  decode  pyacc (python fn)      shim 719.41  core fwd  0.01 rev  7.01  [C-API value read=26294, PyList element=24880, call into Python=6379]
+   P2.4  decode  pyacc (C attrgetter)   shim 719.41  core fwd  0.01 rev  7.01  [C-API value read=26294, PyList element=24880, call into Python=6379]
+   P2.5  encode  plain                  shim 128.25  core fwd  5.10 rev  5.05  [C-API value read=1102, PyList element=340, PyObject_GetAttr/SetAttr=1123]
+   P2.5  encode  __slots__              shim 128.25  core fwd  5.10 rev  5.05  [C-API value read=1102, PyList element=340, PyObject_GetAttr/SetAttr=1123]
+   P2.5  encode  C ext type             shim  51.00  core fwd  5.10 rev  5.05  [C-API value read=680, PyList element=340]
+   P2.5  encode  pyacc (python fn)      shim 128.25  core fwd  5.10 rev  5.05  [C-API value read=1102, PyList element=340, call into Python=1123]
+   P2.5  encode  pyacc (C attrgetter)   shim 128.25  core fwd  5.10 rev  5.05  [C-API value read=1102, PyList element=340, call into Python=1123]
+   P2.5  decode  plain                  shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, PyObject_GetAttr/SetAttr=1223]
+   P2.5  decode  __slots__              shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, PyObject_GetAttr/SetAttr=1223]
+   P2.5  decode  C ext type             shim  51.00  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340]
+   P2.5  decode  pyacc (python fn)      shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P2.5  decode  pyacc (C attrgetter)   shim 112.15  core fwd  0.05 rev  7.05  [C-API value read=680, PyList element=340, call into Python=1223]
+   P3.1  encode  plain                  shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  __slots__              shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, PyObject_GetAttr/SetAttr=1281]
+   P3.1  encode  C ext type             shim   5.40  core fwd  0.01 rev  0.01  [C-API value read=880, PyList element=200]
+   P3.1  encode  pyacc (python fn)      shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  encode  pyacc (C attrgetter)   shim  13.40  core fwd  0.01 rev  0.01  [C-API value read=1200, PyList element=200, call into Python=1281]
+   P3.1  decode  plain                  shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  __slots__              shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, PyObject_GetAttr/SetAttr=1361]
+   P3.1  decode  C ext type             shim   3.15  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200]
+   P3.1  decode  pyacc (python fn)      shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P3.1  decode  pyacc (C attrgetter)   shim   9.96  core fwd  0.01 rev  0.01  [C-API value read=430, PyList element=200, call into Python=1361]
+   P4.1  encode  plain                  shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  __slots__              shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, PyObject_GetAttr/SetAttr=4601]
+   P4.1  encode  C ext type             shim  23.00  core fwd  1.01 rev  1.00  [C-API value read=3600, PyList element=1000]
+   P4.1  encode  pyacc (python fn)      shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  encode  pyacc (C attrgetter)   shim  54.01  core fwd  1.01 rev  1.00  [C-API value read=5200, PyList element=1000, call into Python=4601]
+   P4.1  decode  plain                  shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  __slots__              shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, PyObject_GetAttr/SetAttr=5201]
+   P4.1  decode  C ext type             shim  23.00  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000]
+   P4.1  decode  pyacc (python fn)      shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P4.1  decode  pyacc (C attrgetter)   shim  49.01  core fwd  0.01 rev  3.00  [C-API value read=3600, PyList element=1000, call into Python=5201]
+   P5.1  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.1  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.1  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.1  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.1  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.1  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.1  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.2  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.2  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.2  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.2  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.2  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.2  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.3  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.3  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.3  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.3  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.3  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.3  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  encode  plain                  shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  __slots__              shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, PyObject_GetAttr/SetAttr=4]
+   P5.4  encode  C ext type             shim   3.00  core fwd  1.00 rev  0.00  [C-API value read=3]
+   P5.4  encode  pyacc (python fn)      shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  encode  pyacc (C attrgetter)   shim   7.00  core fwd  1.00 rev  0.00  [C-API value read=3, call into Python=4]
+   P5.4  decode  plain                  shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  __slots__              shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, PyObject_GetAttr/SetAttr=5]
+   P5.4  decode  C ext type             shim   3.00  core fwd  1.00 rev  1.00  [C-API value read=3]
+   P5.4  decode  pyacc (python fn)      shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P5.4  decode  pyacc (C attrgetter)   shim   8.00  core fwd  1.00 rev  1.00  [C-API value read=3, call into Python=5]
+   P6.1  encode  plain                  shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  __slots__              shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  encode  C ext type             shim 302.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200]
+   P6.1  encode  pyacc (python fn)      shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  encode  pyacc (C attrgetter)   shim 308.00  core fwd  5.01 rev  5.00  [C-API value read=30200, PyList element=30200, call into Python=1201]
+   P6.1  decode  plain                  shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  __slots__              shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, PyObject_GetAttr/SetAttr=1201]
+   P6.1  decode  C ext type             shim 152.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200]
+   P6.1  decode  pyacc (python fn)      shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P6.1  decode  pyacc (C attrgetter)   shim 158.00  core fwd  0.01 rev  7.00  [C-API value read=200, PyList element=30200, call into Python=1201]
+   P7.1  encode  plain                  shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  __slots__              shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  encode  C ext type             shim   2.00  core fwd  0.50 rev  0.33  [C-API value read=6, PyList element=6]
+   P7.1  encode  pyacc (python fn)      shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  encode  pyacc (C attrgetter)   shim   5.33  core fwd  0.50 rev  0.33  [C-API value read=12, PyList element=6, call into Python=14]
+   P7.1  decode  plain                  shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  __slots__              shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, PyObject_GetAttr/SetAttr=14]
+   P7.1  decode  C ext type             shim   2.00  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6]
+   P7.1  decode  pyacc (python fn)      shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+   P7.1  decode  pyacc (C attrgetter)   shim   4.33  core fwd  0.17 rev  1.17  [C-API value read=6, PyList element=6, call into Python=14]
+
+## core crossings per call, whole numbers (the committed crossing-count files)
+   abs P1.1  encode  plain                  fwd      2 rev      1
+   abs P1.1  encode  __slots__              fwd      2 rev      1
+   abs P1.1  encode  C ext type             fwd      2 rev      1
+   abs P1.1  encode  pyacc (python fn)      fwd      2 rev      1
+   abs P1.1  encode  pyacc (C attrgetter)   fwd      2 rev      1
+   abs P1.1  decode  plain                  fwd      1 rev      2
+   abs P1.1  decode  __slots__              fwd      1 rev      2
+   abs P1.1  decode  C ext type             fwd      1 rev      2
+   abs P1.1  decode  pyacc (python fn)      fwd      1 rev      2
+   abs P1.1  decode  pyacc (C attrgetter)   fwd      1 rev      2
+   abs P1.2  encode  plain                  fwd      8 rev      1
+   abs P1.2  encode  __slots__              fwd      8 rev      1
+   abs P1.2  encode  C ext type             fwd      8 rev      1
+   abs P1.2  encode  pyacc (python fn)      fwd      8 rev      1
+   abs P1.2  encode  pyacc (C attrgetter)   fwd      8 rev      1
+   abs P1.2  decode  plain                  fwd      1 rev      5
+   abs P1.2  decode  __slots__              fwd      1 rev      5
+   abs P1.2  decode  C ext type             fwd      1 rev      5
+   abs P1.2  decode  pyacc (python fn)      fwd      1 rev      5
+   abs P1.2  decode  pyacc (C attrgetter)   fwd      1 rev      5
+   abs P1.3  encode  plain                  fwd      3 rev      1
+   abs P1.3  encode  __slots__              fwd      3 rev      1
+   abs P1.3  encode  C ext type             fwd      3 rev      1
+   abs P1.3  encode  pyacc (python fn)      fwd      3 rev      1
+   abs P1.3  encode  pyacc (C attrgetter)   fwd      3 rev      1
+   abs P1.3  decode  plain                  fwd      1 rev      3
+   abs P1.3  decode  __slots__              fwd      1 rev      3
+   abs P1.3  decode  C ext type             fwd      1 rev      3
+   abs P1.3  decode  pyacc (python fn)      fwd      1 rev      3
+   abs P1.3  decode  pyacc (C attrgetter)   fwd      1 rev      3
+   abs P2.1  encode  plain                  fwd      7 rev      6
+   abs P2.1  encode  __slots__              fwd      7 rev      6
+   abs P2.1  encode  C ext type             fwd      7 rev      6
+   abs P2.1  encode  pyacc (python fn)      fwd      7 rev      6
+   abs P2.1  encode  pyacc (C attrgetter)   fwd      7 rev      6
+   abs P2.1  decode  plain                  fwd      1 rev      8
+   abs P2.1  decode  __slots__              fwd      1 rev      8
+   abs P2.1  decode  C ext type             fwd      1 rev      8
+   abs P2.1  decode  pyacc (python fn)      fwd      1 rev      8
+   abs P2.1  decode  pyacc (C attrgetter)   fwd      1 rev      8
+   abs P2.2  encode  plain                  fwd   2511 rev   2501
+   abs P2.2  encode  __slots__              fwd   2511 rev   2501
+   abs P2.2  encode  C ext type             fwd   2511 rev   2501
+   abs P2.2  encode  pyacc (python fn)      fwd   2511 rev   2501
+   abs P2.2  encode  pyacc (C attrgetter)   fwd   2511 rev   2501
+   abs P2.2  decode  plain                  fwd      1 rev   3501
+   abs P2.2  decode  __slots__              fwd      1 rev   3501
+   abs P2.2  decode  C ext type             fwd      1 rev   3501
+   abs P2.2  decode  pyacc (python fn)      fwd      1 rev   3501
+   abs P2.2  decode  pyacc (C attrgetter)   fwd      1 rev   3501
+   abs P2.3  encode  plain                  fwd    629 rev    626
+   abs P2.3  encode  __slots__              fwd    629 rev    626
+   abs P2.3  encode  C ext type             fwd    629 rev    626
+   abs P2.3  encode  pyacc (python fn)      fwd    629 rev    626
+   abs P2.3  encode  pyacc (C attrgetter)   fwd    629 rev    626
+   abs P2.3  decode  plain                  fwd      1 rev    876
+   abs P2.3  decode  __slots__              fwd      1 rev    876
+   abs P2.3  decode  C ext type             fwd      1 rev    876
+   abs P2.3  decode  pyacc (python fn)      fwd      1 rev    876
+   abs P2.3  decode  pyacc (C attrgetter)   fwd      1 rev    876
+   abs P2.4  encode  plain                  fwd    403 rev    401
+   abs P2.4  encode  __slots__              fwd    403 rev    401
+   abs P2.4  encode  C ext type             fwd    403 rev    401
+   abs P2.4  encode  pyacc (python fn)      fwd    403 rev    401
+   abs P2.4  encode  pyacc (C attrgetter)   fwd    403 rev    401
+   abs P2.4  decode  plain                  fwd      1 rev    561
+   abs P2.4  decode  __slots__              fwd      1 rev    561
+   abs P2.4  decode  C ext type             fwd      1 rev    561
+   abs P2.4  decode  pyacc (python fn)      fwd      1 rev    561
+   abs P2.4  decode  pyacc (C attrgetter)   fwd      1 rev    561
+   abs P2.5  encode  plain                  fwd    102 rev    101
+   abs P2.5  encode  __slots__              fwd    102 rev    101
+   abs P2.5  encode  C ext type             fwd    102 rev    101
+   abs P2.5  encode  pyacc (python fn)      fwd    102 rev    101
+   abs P2.5  encode  pyacc (C attrgetter)   fwd    102 rev    101
+   abs P2.5  decode  plain                  fwd      1 rev    141
+   abs P2.5  decode  __slots__              fwd      1 rev    141
+   abs P2.5  decode  C ext type             fwd      1 rev    141
+   abs P2.5  decode  pyacc (python fn)      fwd      1 rev    141
+   abs P2.5  decode  pyacc (C attrgetter)   fwd      1 rev    141
+   abs P3.1  encode  plain                  fwd      2 rev      1
+   abs P3.1  encode  __slots__              fwd      2 rev      1
+   abs P3.1  encode  C ext type             fwd      2 rev      1
+   abs P3.1  encode  pyacc (python fn)      fwd      2 rev      1
+   abs P3.1  encode  pyacc (C attrgetter)   fwd      2 rev      1
+   abs P3.1  decode  plain                  fwd      1 rev      2
+   abs P3.1  decode  __slots__              fwd      1 rev      2
+   abs P3.1  decode  C ext type             fwd      1 rev      2
+   abs P3.1  decode  pyacc (python fn)      fwd      1 rev      2
+   abs P3.1  decode  pyacc (C attrgetter)   fwd      1 rev      2
+   abs P4.1  encode  plain                  fwd    203 rev    201
+   abs P4.1  encode  __slots__              fwd    203 rev    201
+   abs P4.1  encode  C ext type             fwd    203 rev    201
+   abs P4.1  encode  pyacc (python fn)      fwd    203 rev    201
+   abs P4.1  encode  pyacc (C attrgetter)   fwd    203 rev    201
+   abs P4.1  decode  plain                  fwd      1 rev    601
+   abs P4.1  decode  __slots__              fwd      1 rev    601
+   abs P4.1  decode  C ext type             fwd      1 rev    601
+   abs P4.1  decode  pyacc (python fn)      fwd      1 rev    601
+   abs P4.1  decode  pyacc (C attrgetter)   fwd      1 rev    601
+   abs P5.1  encode  plain                  fwd      1 rev      0
+   abs P5.1  encode  __slots__              fwd      1 rev      0
+   abs P5.1  encode  C ext type             fwd      1 rev      0
+   abs P5.1  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.1  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.1  decode  plain                  fwd      1 rev      1
+   abs P5.1  decode  __slots__              fwd      1 rev      1
+   abs P5.1  decode  C ext type             fwd      1 rev      1
+   abs P5.1  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.1  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.2  encode  plain                  fwd      1 rev      0
+   abs P5.2  encode  __slots__              fwd      1 rev      0
+   abs P5.2  encode  C ext type             fwd      1 rev      0
+   abs P5.2  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.2  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.2  decode  plain                  fwd      1 rev      1
+   abs P5.2  decode  __slots__              fwd      1 rev      1
+   abs P5.2  decode  C ext type             fwd      1 rev      1
+   abs P5.2  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.2  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.3  encode  plain                  fwd      1 rev      0
+   abs P5.3  encode  __slots__              fwd      1 rev      0
+   abs P5.3  encode  C ext type             fwd      1 rev      0
+   abs P5.3  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.3  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.3  decode  plain                  fwd      1 rev      1
+   abs P5.3  decode  __slots__              fwd      1 rev      1
+   abs P5.3  decode  C ext type             fwd      1 rev      1
+   abs P5.3  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.3  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P5.4  encode  plain                  fwd      1 rev      0
+   abs P5.4  encode  __slots__              fwd      1 rev      0
+   abs P5.4  encode  C ext type             fwd      1 rev      0
+   abs P5.4  encode  pyacc (python fn)      fwd      1 rev      0
+   abs P5.4  encode  pyacc (C attrgetter)   fwd      1 rev      0
+   abs P5.4  decode  plain                  fwd      1 rev      1
+   abs P5.4  decode  __slots__              fwd      1 rev      1
+   abs P5.4  decode  C ext type             fwd      1 rev      1
+   abs P5.4  decode  pyacc (python fn)      fwd      1 rev      1
+   abs P5.4  decode  pyacc (C attrgetter)   fwd      1 rev      1
+   abs P6.1  encode  plain                  fwd   1002 rev   1001
+   abs P6.1  encode  __slots__              fwd   1002 rev   1001
+   abs P6.1  encode  C ext type             fwd   1002 rev   1001
+   abs P6.1  encode  pyacc (python fn)      fwd   1002 rev   1001
+   abs P6.1  encode  pyacc (C attrgetter)   fwd   1002 rev   1001
+   abs P6.1  decode  plain                  fwd      1 rev   1401
+   abs P6.1  decode  __slots__              fwd      1 rev   1401
+   abs P6.1  decode  C ext type             fwd      1 rev   1401
+   abs P6.1  decode  pyacc (python fn)      fwd      1 rev   1401
+   abs P6.1  decode  pyacc (C attrgetter)   fwd      1 rev   1401
+   abs P7.1  encode  plain                  fwd      3 rev      2
+   abs P7.1  encode  __slots__              fwd      3 rev      2
+   abs P7.1  encode  C ext type             fwd      3 rev      2
+   abs P7.1  encode  pyacc (python fn)      fwd      3 rev      2
+   abs P7.1  encode  pyacc (C attrgetter)   fwd      3 rev      2
+   abs P7.1  decode  plain                  fwd      1 rev      7
+   abs P7.1  decode  __slots__              fwd      1 rev      7
+   abs P7.1  decode  C ext type             fwd      1 rev      7
+   abs P7.1  decode  pyacc (python fn)      fwd      1 rev      7
+   abs P7.1  decode  pyacc (C attrgetter)   fwd      1 rev      7
+
+## every ABI call per call (req 19): calls, resets among them, core grows, core fwd/rev
+   abi P1.1                       encode  no-unknown plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       encode  no-unknown pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P1.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P1.2                       encode  no-unknown plain                  calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown __slots__              calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown C ext type             calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown pyacc (python fn)      calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       encode  no-unknown pyacc (C attrgetter)   calls     10 resets   1 grows    0 fwd      8 rev      1
+   abi P1.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      5
+   abi P1.3                       encode  no-unknown plain                  calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown __slots__              calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       encode  no-unknown pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      1
+   abi P1.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P1.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi P2.1                       encode  no-unknown plain                  calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown __slots__              calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown pyacc (python fn)      calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       encode  no-unknown pyacc (C attrgetter)   calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi P2.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi P2.2                       encode  no-unknown plain                  calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown __slots__              calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown C ext type             calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown pyacc (python fn)      calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       encode  no-unknown pyacc (C attrgetter)   calls   2513 resets   1 grows    0 fwd   2511 rev   2501
+   abi P2.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev   3501
+   abi P2.3                       encode  no-unknown plain                  calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown __slots__              calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown C ext type             calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown pyacc (python fn)      calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       encode  no-unknown pyacc (C attrgetter)   calls    631 resets   1 grows    0 fwd    629 rev    626
+   abi P2.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    876
+   abi P2.4                       encode  no-unknown plain                  calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown __slots__              calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown C ext type             calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown pyacc (python fn)      calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       encode  no-unknown pyacc (C attrgetter)   calls    405 resets   1 grows    0 fwd    403 rev    401
+   abi P2.4                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.4                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    561
+   abi P2.5                       encode  no-unknown plain                  calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown __slots__              calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown C ext type             calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown pyacc (python fn)      calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       encode  no-unknown pyacc (C attrgetter)   calls    104 resets   1 grows    0 fwd    102 rev    101
+   abi P2.5                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P2.5                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    141
+   abi P3.1                       encode  no-unknown plain                  calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown __slots__              calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown pyacc (python fn)      calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       encode  no-unknown pyacc (C attrgetter)   calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi P3.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P3.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi P4.1                       encode  no-unknown plain                  calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown __slots__              calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown C ext type             calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown pyacc (python fn)      calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       encode  no-unknown pyacc (C attrgetter)   calls    205 resets   1 grows    0 fwd    203 rev    201
+   abi P4.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P4.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev    601
+   abi P5.1                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.2                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.2                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.3                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.3                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       encode  no-unknown plain                  calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown __slots__              calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown pyacc (python fn)      calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       encode  no-unknown pyacc (C attrgetter)   calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi P5.4                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P5.4                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi P6.1                       encode  no-unknown plain                  calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown __slots__              calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown C ext type             calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown pyacc (python fn)      calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       encode  no-unknown pyacc (C attrgetter)   calls   1004 resets   1 grows    0 fwd   1002 rev   1001
+   abi P6.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P6.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev   1401
+   abi P7.1                       encode  no-unknown plain                  calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown __slots__              calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown pyacc (python fn)      calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       encode  no-unknown pyacc (C attrgetter)   calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi P7.1                       decode  no-unknown plain                  calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown __slots__              calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown pyacc (python fn)      calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi P7.1                       decode  no-unknown pyacc (C attrgetter)   calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-deep-all                 encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed32           encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-fixed64           encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-len               encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-msg               encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-packed            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-repeated          encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-deep-u-varint            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-deep-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-all              encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-all              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed32        encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed32        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-fixed64        encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-fixed64        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-len            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-len            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-msg            encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-msg            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-packed         encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-packed         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-repeated       encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-repeated       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-element-u-varint         encode  no-unknown C ext type             calls      9 resets   1 grows    0 fwd      7 rev      6
+   abi U-element-u-varint         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      8
+   abi U-enum-value-127           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-127           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-2147483647    encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-2147483647    decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-999           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-enum-value-999           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-enum-value-packed        encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      6
+   abi U-enum-value-packed        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      4
+   abi U-leaf-all                 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed32           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-fixed64           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-len               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-msg               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-packed            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-repeated          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-leaf-u-varint            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-leaf-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-all               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-all               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-before            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-before            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-group             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-group             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-interleaved       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-interleaved       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed32         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed32         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-fixed64         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-fixed64         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-len             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-len             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-msg             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-msg             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-packed          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-packed          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-repeated        encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-repeated        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-nested-u-varint          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-nested-u-varint          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-all                encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-all                decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-before             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-before             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-group              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-group              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-interleaved        encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-interleaved        decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-after-known encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-after-known decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-alone       encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-alone       decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-member-before-known encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-member-before-known decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed32          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed32          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-fixed64          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-fixed64          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-len              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-len              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-msg              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-msg              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-packed           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-packed           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-repeated         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-repeated         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-oneof-u-varint           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-oneof-u-varint           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-all                 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-all                 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-before              encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-before              decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-group               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-group               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-interleaved         encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-interleaved         decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-max-tag             encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-max-tag             decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed32           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed32           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-fixed64           encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-fixed64           decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-len               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-len               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-msg               encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-msg               decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-packed            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-packed            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-repeated          encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-repeated          decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-root-u-varint            encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-root-u-varint            decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-DualResponse-left-as-wt0 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt1 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-DualResponse-left-as-wt5 encode  no-unknown C ext type             calls      5 resets   1 grows    0 fwd      3 rev      2
+   abi U-wire-DualResponse-left-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      3
+   abi U-wire-ListMetricsResponse-batches-as-wt0 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListMetricsResponse-batches-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListMetricsResponse-batches-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListProbeResponse-probes-as-wt0 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListProbeResponse-probes-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListProbeResponse-probes-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt2 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt2 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-page-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-page-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt0 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt1 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListResultsResponse-results-as-wt5 encode  no-unknown C ext type             calls      4 resets   1 grows    0 fwd      2 rev      1
+   abi U-wire-ListResultsResponse-results-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      2
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 encode  no-unknown C ext type             calls      6 resets   1 grows    0 fwd      4 rev      3
+   abi U-wire-ListTaskSummaryResponse-tasks-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      7
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt2 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-page-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 encode  no-unknown C ext type             calls     14 resets   1 grows    0 fwd     12 rev     11
+   abi U-wire-ListTasksDetailedResponse-tasks-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev     15
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt0 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt1 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 encode  no-unknown C ext type             calls      3 resets   1 grows    0 fwd      1 rev      0
+   abi U-wire-UploadResultDataMessage-upload-as-wt5 decode  no-unknown C ext type             calls      1 resets   0 grows    0 fwd      1 rev      1
+
+ALL CHECKS PASS

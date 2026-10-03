@@ -1595,3 +1595,10 @@ work, so this is now aligned.
   failing log is kept as `logs/python/109-wp13-rpc-counts-before-replacing.log`. Before the
   fix, those first chunks would have gone out 5 bytes short on this core; the (d) digest check
   stops that.
+- **Clean gate at 86c141a1c:** `gate exit 0`, `GATE PASSED`, both levels, both h2 variants.
+  105 is identical on both variants after the replacement. TCP prechecks: TCP_NODELAY on
+  every live socket; write counts stock 1,035-1,038 and h2-batch 77-80. Minimal smoke
+  (pinned, full build, both variants): ab 123, c 68, d 68 values per variant, `h2` on every
+  sample, 4,026 of 4,026 socket reads with TCP_NODELAY set, `event_engine` 8 and
+  `tokio-rt-worker` 8 in every worker. Per-sample JSON lines are no longer committed
+  (PURGED.md); the headers are.
