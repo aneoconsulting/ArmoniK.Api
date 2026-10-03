@@ -1073,3 +1073,23 @@ Kept: AK_CAMPAIGN_ALLOC, the once-per-process check (block kept mapped, refusal 
 mismatch), `alloc` and `minflt` over the measured span on every sample, and the CampaignAlloc
 name.
 Smokes at 6bc18a5d5, one per mode: rpc 289 samples, codec 58/58/14 and 40/40/8, readback mmapped / heap, no pre-grow line (logs/java/campaign-d9). The C# agent's `w24` scratch deletion did not touch this slice's files: the runner keeps its server state in /tmp/akj.*, and no rpc_server of this slice is running.
+
+### J42. Req 24 as amended (8c02e7c58): 20 calls per calling thread before measuring
+
+The rule is at least 20 calls per calling thread at the cell's payload, before the first
+measured value, in the same process on the same threads.
+
+The old campaign defaults did not meet it: 2 warm-up iterations of 1 s. In the container
+smoke, d/16MiB at k=8 took up to about 260 ms per batch, so a fork got about 8 calls per
+thread. The calling threads are the same in warm-up and measurement: JMH's benchmark thread
+plus the k-1 helpers, created at trial setup.
+
+Warm-up is now split by direction (owner) into two JMH invocations per build and transport:
+- a, a+read, b: `AK_RPC_WARM_TIME_DOWN`, 2s;
+- c, d: `AK_RPC_WARM_TIME_UP`, 6s;
+- `AK_WARM` iterations (2) each, about twice the rule on the container's slowest batches.
+
+Each fork prints its warm-up batch count (`RPCJMH-WARM`, = calls per thread), and the
+converter puts it in each meta line. Hand-checked: cell B, 2 x 300 ms, gave 9 batches at a/16
+and 6 at d/16MiB k=8. The runner's two-invocation path has not run end to end. Smoke defaults
+are unchanged, and grouped smokes do not meet the rule.

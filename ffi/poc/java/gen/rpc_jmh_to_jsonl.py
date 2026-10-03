@@ -26,7 +26,7 @@ import sys
 def main():
     res = json.load(open(sys.argv[1]))
     launch = int(sys.argv[3])
-    cells, iters = {}, {}
+    cells, iters, warm = {}, {}, {}
     for line in open(sys.argv[2], encoding="utf-8", errors="replace"):
         line = line.rstrip("\n")
         # JMH prints a forked JVM's output where it stands, e.g. after "# Warmup Iteration 1: ".
@@ -39,6 +39,9 @@ def main():
             cells[f[1]] = {"mode": f[2], "codec": f[3], "send_path": f[4], "kind": f[5],
                            "transport": f[6], "build": f[7], "threads": json.loads(f[8]),
                            "h2": f[9], "nodelay": f[10], "alloc": f[11] if len(f) > 11 else "default"}
+        elif line.startswith("RPCJMH-WARM\t"):
+            f = line.split("\t")
+            warm[f[1]] = int(f[2])
         elif line.startswith("RPCJMH-ITER\t"):
             f = line.split("\t")
             if f[2] == "m":
@@ -64,6 +67,7 @@ def main():
             "jdk": b.get("jdkVersion"), "vm": b.get("vmName", "") + " " + b.get("vmVersion", ""),
             "jvm_args": b.get("jvmArgs"), "threads": cl["threads"], "h2": cl["h2"], "alloc": cl["alloc"],
             "tcp_nodelay_read_back": cl["nodelay"],
+            "warmup_calls_per_thread": warm.get(cell + "|" + combo),
             "cpu_ns": "perf task-clock of the whole process (JVM agent, inherited counter), per invocation summed; process_cpu_ns: CLOCK_PROCESS_CPUTIME_ID beside it; softirq_ticks_client: /proc/stat softirq on the CLIENT CPUs over the iteration, USER_HZ ticks", "combinations": ncombo,
             "order": ("one fork per cell (grouped, AK_RPC_GROUP=1), cells in the order given (rotated per launch); inside the fork JMH iteration i runs combination (i + launch - 1) mod 17, warm-up and measurement counted separately" if combo == "cycle" else "one fork per (cell, combination), JMH's order of the cross product, cells rotated per launch"),
             "ratio_basis": "per-launch medians (CAMPAIGN req 30, R-H24)"}}, separators=(",", ":")))

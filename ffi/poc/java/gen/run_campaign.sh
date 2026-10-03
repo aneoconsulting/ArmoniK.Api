@@ -358,13 +358,24 @@ rpc)
   # groups every combination of a cell in one fork, cycled through JMH iterations: allowed
   # for smoke and small exploration runs, stated in each header.
   GROUP=${AK_RPC_GROUP:-0}; [ "$SMOKE" = 1 ] && GROUP=${AK_RPC_GROUP:-1}
-  WARM=${AK_WARM:-2}; WTIME=${AK_RPC_WARM_TIME:-1s}; RTIME=${AK_RPC_ITER_TIME:-1s}
+  # Req 24 as amended (8c02e7c58): every calling thread gets at least 20 calls at the cell's
+  # payload before the first measured value, in the same process on the same threads. One JMH
+  # batch is one call on each of the k calling threads (JMH's benchmark thread and k-1
+  # persistent helpers, the same threads in warm-up and measurement), so calls per thread =
+  # warm-up batches. Warm-up time per direction (owner): a, a+read, b AK_RPC_WARM_TIME_DOWN
+  # (2s) and c, d AK_RPC_WARM_TIME_UP (6s), AK_WARM (2) iterations each. Sized from the slowest
+  # batch seen in the container smoke (logs/java/campaign-d9, instrumentation): about 80 ms at
+  # k=16 on a, a+read, b and about 260 ms on d/16MiB at k=8, so 4 s and 12 s give about 50
+  # and 46 batches per thread, twice the rule. Each fork prints its warm-up batches
+  # (RPCJMH-WARM), and each meta line carries them (warmup_calls_per_thread).
+  WARM=${AK_WARM:-2}; RTIME=${AK_RPC_ITER_TIME:-1s}
+  WTIME_DOWN=${AK_RPC_WARM_TIME_DOWN:-${AK_RPC_WARM_TIME:-2s}}; WTIME_UP=${AK_RPC_WARM_TIME_UP:-${AK_RPC_WARM_TIME:-6s}}
   SWARM=${AK_RPC_SERVER_WARM:-200}
   if [ "$SMOKE" = 1 ]; then
-    WARM=${AK_SMOKE_WARM:-1}; WTIME=${AK_SMOKE_RPC_WARM_TIME:-20ms}; RTIME=${AK_SMOKE_RPC_ITER_TIME:-20ms}
+    WARM=${AK_SMOKE_WARM:-1}; WTIME_DOWN=${AK_SMOKE_RPC_WARM_TIME:-20ms}; WTIME_UP=$WTIME_DOWN; RTIME=${AK_SMOKE_RPC_ITER_TIME:-20ms}
     SWARM=${AK_SMOKE_RPC_SERVER_WARM:-20}
   fi
-  WARM_NOTE="warm-up (req 24): the server, poc/rust/serve.sh warm AK_RPC_SERVER_WARM (campaign default 200, smoke AK_SMOKE_RPC_SERVER_WARM, default 20): on each socket N checked Fetch, Push and Upload calls and ceil(N/4) UploadStream (4 MiB) calls from a tonic client and from the core's client (SERVER.md), before JMH; each client fork, JMH's warm-up: AK_WARM x $NCOMBO iterations (campaign default 2, smoke AK_SMOKE_WARM, default 1), i.e. every combination AK_WARM times, of AK_RPC_WARM_TIME each (campaign default 1s, smoke 20ms); JMH's measurement: AK_ROUNDS x $NCOMBO iterations of AK_RPC_ITER_TIME (campaign default 1s, smoke 20ms); GC and JIT state between iterations are JMH's defaults (no forced GC, tiered JIT)"
+  WARM_NOTE="warm-up (req 24): the server, poc/rust/serve.sh warm AK_RPC_SERVER_WARM (campaign default 200, smoke AK_SMOKE_RPC_SERVER_WARM, default 20): on each socket N checked Fetch, Push and Upload calls and ceil(N/4) UploadStream (4 MiB) calls from a tonic client and from the core's client (SERVER.md), before JMH; each client fork, JMH's warm-up: AK_WARM x $NCOMBO iterations (campaign default 2, smoke AK_SMOKE_WARM, default 1), i.e. every combination AK_WARM times, of AK_RPC_WARM_TIME_DOWN for a, a+read, b (campaign default 2s) and AK_RPC_WARM_TIME_UP for c, d (campaign default 6s), smoke 20ms for both; req 24 as amended (8c02e7c58): at least 20 calls per calling thread at the cell's payload before the first measured value, same process, same threads -- one batch is one call on each of the k calling threads, the same threads in warm-up and measurement, so calls per thread = warm-up batches, which each fork prints (RPCJMH-WARM) and each meta line carries (warmup_calls_per_thread); the defaults give about 50 (a, a+read, b) and 46 (c, d) batches against the slowest batches seen in the container smoke (about 80 ms at k=16, 260 ms on d/16MiB at k=8), twice the rule; grouped smoke runs do not meet it and are not campaign figures; JMH's measurement: AK_ROUNDS x $NCOMBO iterations of AK_RPC_ITER_TIME (campaign default 1s, smoke 20ms); GC and JIT state between iterations are JMH's defaults (no forced GC, tiered JIT)"
   # Req 18, 22a: on any failure the launch's output is discarded, not kept beside a later one.
   discard() {  # $1 = launch, $2 = why
     local l=$1
@@ -397,7 +408,7 @@ rpc)
     header "$f" "engine=JMH 1.37 AverageTime, -f 1 per (cell, combination), or per cell when grouped (see the grouping line), transport=$tr build=$V launch=$l, cells $CELLS (A and B the incumbent controls, in forks of their own; Bf, Cf-*, Ef-* the framed twins; Cc-* C on the copy path); per fork $NCOMBO combinations: directions a, a+read, b at 1/8/16 in flight, c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8"
     echo "# $WARM_NOTE" >> "$f"
     echo "# $GNOTE" >> "$f"
-    echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $WI -w $WTIME -i $MI -r $RTIME -p cell=<cells> -p combo=<combos|cycle> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
+    echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $WI -w <per invocation, below> -i $MI -r $RTIME -p cell=<cells> -p combo=<combos|cycle> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
     echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns (req 21 as amended 2026-10-01): perf task-clock of the WHOLE client process, softirq included, from one inherited counter the JVM agent build/taskclock/libaktc.so opens on the JVM's main thread before the JVM creates its other threads, read around every invocation and summed per iteration; process_cpu_ns: CLOCK_PROCESS_CPUTIME_ID read the same way, beside it; softirq_ticks_client: /proc/stat softirq time on the CLIENT CPUs (AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset: every CPU}) over each iteration, USER_HZ ticks; all JMH @AuxCounters counters; JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
     echo "# transport (req 17 as amended, D10): TCP 127.0.0.1 ($ST) for every cell, Nagle off on every client socket (grpc-java: Netty ChannelOption.TCP_NODELAY=true; the core: tonic's default nodelay with no options (shipped), tcp_nagle=0 (pinned)), read back with getsockopt(TCP_NODELAY) on every live socket to the port in each fork before timing (RPCJMH-CELL: sockets with NODELAY / sockets, a fork with fewer refuses to run); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the CLIENT side only: shipped = grpc-java's / tonic's client defaults, pinned = 4 MiB windows, BDP / adaptive window off, 8 MiB messages" >> "$f"
     echo "# pools (D8, D14): AK_WORKERS=$AK_WORKERS: the core runtime (ak_runtime_new($AK_WORKERS)), the Netty event loop group ($AK_WORKERS), grpc-java's call executor (a fixed pool of $AK_WORKERS), G1's ParallelGCThreads=$AK_WORKERS; ConcGCThreads and CICompilerCount are the JVM's own (header line 'worker threads'); the server's tokio runtime AK_SERVER_THREADS=$AK_WORKERS; no grpc-core in this slice" >> "$f"
@@ -407,12 +418,24 @@ rpc)
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
     echo "# allocator (D9, req 25 as amended 2026-10-03): AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC for every client fork and sample (alloc) -- default: glibc's default allocator, the MAIN figures (as production); pinned: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${ALLOC_TUNABLES:-unset}; readback: $(alloc_readback "$HERE/build/jnirpc$H2S$SX/libakjni.so"); every fork repeats the check once before timing and refuses on a disagreement; no heap pre-grow (reverted, owner 2026-10-03): JMH's warm-up runs the real call path on every thread, and minflt per sample shows whether it sufficed; minflt per sample: the process's minor faults over the measured span (getrusage RUSAGE_SELF around every invocation, summed), faults per call = minflt / iters" >> "$f"
-    GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
-      -f 1 -foe true -wi "$WI" -w "$WTIME" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$PCOMBO" \
-      -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC ${AK_RPC_PROPS:-}" \
-      -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
-    python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
-      || discard "$l" "conversion ($tr, $V)"
+    # Req 24 as amended: one JMH invocation per direction group, each with its own warm-up
+    # time (grouped: one invocation, every combination in each fork).
+    local parts="all" part combos wt pb
+    [ "$GROUP" != 1 ] && parts="down up"
+    for part in $parts; do
+      case $part in
+        all) combos=$PCOMBO; wt=$WTIME_DOWN; pb=$base ;;
+        down) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(a|a\+read|b)/' | paste -sd,); wt=$WTIME_DOWN; pb=$OUT/rpc-$tr$TAG$H2S-down-launch-$l ;;
+        up) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(c|d):' | paste -sd,); wt=$WTIME_UP; pb=$OUT/rpc-$tr$TAG$H2S-up-launch-$l ;;
+      esac
+      echo "# invocation $part: -p combo=$combos -wi $WI -w $wt -i $MI -r $RTIME" >> "$f"
+      GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+        -f 1 -foe true -wi "$WI" -w "$wt" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$combos" \
+        -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC ${AK_RPC_PROPS:-}" \
+        -rf json -rff "$pb.jmh.json" > "$pb.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V, $part), -foe true"
+      python3 -S gen/rpc_jmh_to_jsonl.py "$pb.jmh.json" "$pb.jmh.txt" "$l" >> "$f" \
+        || discard "$l" "conversion ($tr, $V, $part)"
+    done
     echo "rpc launch $l ($tr, $V): $(grep -c '"process_cpu_ns"' "$f") samples -> $f"
   }
   for l in $(seq 1 "$LAUNCHES"); do

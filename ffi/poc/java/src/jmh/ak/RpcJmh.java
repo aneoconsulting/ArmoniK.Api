@@ -91,6 +91,10 @@ public class RpcJmh {
   String key;
   int k;
   int warmIdx, measIdx;
+  /** Req 24 as amended (8c02e7c58): warm-up batches run before the first measured value;
+   *  each batch is one call on each of the k calling threads (the same threads measure). */
+  long warmBatches;
+  boolean measuring;
   final Object[] reqs = new Object[16];
 
   // helpers 1..15 of a batch
@@ -204,7 +208,11 @@ public class RpcJmh {
 
   @Setup(Level.Iteration)
   public void iteration(IterationParams ip) {
-    int i = ip.getType() == IterationType.MEASUREMENT ? measIdx++ : warmIdx++;
+    boolean m = ip.getType() == IterationType.MEASUREMENT;
+    if (m && measIdx == 0)   // the record the 20-calls-per-thread rule is checked against
+      System.out.println("RPCJMH-WARM\t" + cell + "|" + combo + "\t" + warmBatches);
+    measuring = m;
+    int i = m ? measIdx++ : warmIdx++;
     String[] cb = null;
     if (combo.equals("cycle")) cb = combos.get((i + launch - 1) % combos.size());
     else for (String[] x : combos) if ((x[0] + "/" + x[3]).equals(combo)) cb = x;
@@ -240,6 +248,7 @@ public class RpcJmh {
     tot.rpcTaskClockNs += TaskClock.ns() - k0;
     tot.rpcCpuNs += Campaign.processCpuNs() - c0;
     tot.callsMade += k;
+    if (!measuring) warmBatches++;
     ops.calls += k;
     bh.consume(CampaignRpc.sinkv);
   }
