@@ -96,6 +96,15 @@ H2S="${AK_CAMPAIGN_H2:-stock h2-batch}"
 export AK_CAMPAIGN_ALLOC="${AK_CAMPAIGN_ALLOC:-default}"
 case "$AK_CAMPAIGN_ALLOC" in default|pinned) ;; *) echo "AK_CAMPAIGN_ALLOC must be default or pinned"; exit 2;; esac
 ALLOCS="$AK_CAMPAIGN_ALLOC"
+# CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core (default) runs the campaign
+# grid, about 1 h; `full` runs every row of 4.1 and 4.2 (the rest are labelled extras). Under
+# `core`: codec families shapes and unknown (7 named U-* rows), both builds, default allocator;
+# RPC full build, the `shipped` client configuration only, stock h2 plus Cf on h2-batch for c and
+# d, and the pinned allocator pass on its subset (A and Cf on c and d at k = 1), which the
+# drivers select (camp_pyperf.core_filter, camp_rpc_pyperf.core_keep).
+export AK_CAMPAIGN_GRID="${AK_CAMPAIGN_GRID:-core}"
+case "$AK_CAMPAIGN_GRID" in core|full) ;; *) echo "AK_CAMPAIGN_GRID must be core or full"; exit 2;; esac
+[ "$AK_CAMPAIGN_GRID" = core ] && ALLOCS="default pinned"
 D9_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
 
 need_gate() {
@@ -196,7 +205,9 @@ case "$SUITE" in
       else AE=(env -u GLIBC_TUNABLES AK_CAMPAIGN_ALLOC=default); fi
       # shapes; unknown = the 92 rows at the shapes core's roots (req 7); unknown-corpus = the
       # corpus-schema core, a labelled extra
-      for fam in shapes unknown unknown-corpus; do
+      FAMS="shapes unknown unknown-corpus"; [ "$AK_CAMPAIGN_GRID" = core ] && FAMS="shapes unknown"
+      [ "$AK_CAMPAIGN_GRID" = core ] && [ "$AK_CAMPAIGN_ALLOC" != default ] && { echo "   the core grid's codec suite runs the default allocator only"; exit 2; }
+      for fam in $FAMS; do
         O1="$OUT/codec-$fam$sfx-launch$l"
         rm -rf "$O1.side" "$O1.pyperf.json"
         ONLY=""; [ $fam != shapes ] && ONLY="$ONLY_UNKNOWN"
@@ -243,6 +254,7 @@ case "$SUITE" in
     # AK_CAMPAIGN_RPC_TRANSPORTS: the client transports timed (campaign: shipped,pinned, both;
     # a minimal smoke may name one). The server always serves both.
     TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-shipped,pinned}
+    [ "$AK_CAMPAIGN_GRID" = core ] && TR=${AK_CAMPAIGN_RPC_TRANSPORTS:-shipped}
     AFF="${AK_CPU_CLIENT:-$("$PY" -c 'import os;print(",".join(map(str,sorted(os.sched_getaffinity(0)))))')}"
     discard() {  # discard <launch> <why>
       rm -rf "$OUT"/rpc-launch"$1".* "$OUT"/rpc-nounk-launch"$1".* "$OUT"/rpc-*-launch"$1".*
@@ -254,9 +266,17 @@ case "$SUITE" in
       [ "$h" = h2-batch ] && hs="-h2batch"
       [ "$al" = pinned ] && hs="$hs-allocpinned"
       if [ "$al" = pinned ]; then AE=(env GLIBC_TUNABLES="$D9_TUNABLES" AK_CAMPAIGN_ALLOC=pinned); else AE=(env -u GLIBC_TUNABLES AK_CAMPAIGN_ALLOC=default); fi
+      local n=0 ng
+      for g in ab c d; do
+        ng=$("${AE[@]}" AK_H2="$h" "$PY" camp_rpc_pyperf.py --count --variant "$v" --group $g --transports "$TR" 2>/dev/null | tail -1)
+        n=$((n + ng))
+      done
+      [ "$n" -gt 0 ] || { echo "   rpc ($v, $h, $al) launch $l: no benchmark in this grid"; return 0; }
       "$PY" camp_rpc_pyperf.py --precheck --variant "$v" --h2 "$h" --server "$S" --transports "$TR" > "$OUT/rpc-$v$hs-precheck-launch$l.out" 2>&1 \
         || { tail -3 "$OUT/rpc-$v$hs-precheck-launch$l.out"; return 1; }
       for g in ab c d; do
+        ng=$("${AE[@]}" AK_H2="$h" "$PY" camp_rpc_pyperf.py --count --variant "$v" --group $g --transports "$TR" 2>/dev/null | tail -1)
+        [ "$ng" -gt 0 ] || continue
         case $g in ab) L=$LAB;; c) L=$LC;; d) L=$LD;; esac
         local F="$OUT/rpc-$g$hs-launch$l"; [ "$v" = nounk ] && F="$OUT/rpc-nounk-$g$hs-launch$l"
         # Req 24 as amended (8c02e7c58): in the campaign, every calling (pool) thread makes at
@@ -292,6 +312,7 @@ case "$SUITE" in
       if [ $OK = 1 ]; then
         if [ $((l % 2)) = 1 ]; then ORD="full nounk"; else ORD="nounk full"; fi
         # AK_CAMPAIGN_RPC_BUILDS: the builds timed (campaign: both; a minimal smoke may name one)
+        [ "$AK_CAMPAIGN_GRID" = core ] && ORD="full"
         [ -n "${AK_CAMPAIGN_RPC_BUILDS:-}" ] && ORD="$AK_CAMPAIGN_RPC_BUILDS"
         for v in $ORD; do
           for al in $ALLOCS; do

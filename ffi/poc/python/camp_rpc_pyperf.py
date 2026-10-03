@@ -83,7 +83,7 @@ def grid_names(nounk):
     a = ["A", "B"] + [x for m in mc for x in ("C-" + m, "D-" + m)] + [x for m in mc for x in ("E-" + m, "F-" + m)]
     b = ["A", "B"] + [x for m in mc for x in ("C-" + m, "D-" + m, "Cc-" + m)] + \
         [x for m in mc for x in ("E-" + m, "F-" + m)] + ["Bf"] + ["Cf-" + m for m in mc] + ["Ef-" + m for m in mc]
-    out = {"a": a + ([] if nounk else ["B-queue", "C-queue", "B-callback", "C-callback"]), "a+read": list(a), "b": b}
+    out = {"a": a + ([] if nounk else ["B-queue", "C-queue", "B-callback", "C-callback"]), "a+read": list(a) + ["Bf"] + ["Cf-" + m for m in mc] + ["Ef-" + m for m in mc], "b": b}
     for pid in ("P5.3", "P5.4"):
         out["c:" + pid] = list(fam_up)
     for label in ("4MiB", "16MiB"):
@@ -103,7 +103,37 @@ def send_path(cell):
     return "reference"
 
 
+GRID = os.environ.get("AK_CAMPAIGN_GRID", "core")
+CORE_CELLS = ["A", "Bf", "Cf-retain", "Ef-retain"]
+CORE_EXTRAS = ("cells B, C, D, E, F (the reference send path), Cc, the queue and callback deliveries; the drop "
+               "mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the pinned client "
+               "configuration; h2-batch beyond Cf on c and d; the pinned allocator pass beyond A and Cf on c and d at k = 1")
+
+
+def core_keep(name):
+    """CAMPAIGN section 4.0 (D18): the RPC campaign grid. Main grid: A, Bf, Cf, Ef (full build,
+    retain) on a+read, b, c/P5.4, d/16MiB at k = 1 and 8, stock h2; plus Cf on h2-batch for c and d
+    at k = 1 and 8; the pinned allocator pass: A and Cf on c and d at k = 1, stock h2."""
+    _, build, transport, d, pid, cell, k = name.split("|")
+    if build != "full" or cell not in CORE_CELLS or int(k) not in (1, 8):
+        return False
+    if not ((d in ("a+read", "b")) or (d == "c" and pid == "P5.4") or (d == "d" and pid == "16MiB")):
+        return False
+    h2 = os.environ.get("AK_H2", "stock")
+    alloc = os.environ.get("AK_CAMPAIGN_ALLOC", "default")
+    if alloc == "pinned":
+        return h2 == "stock" and cell in ("A", "Cf-retain") and d in ("c", "d") and int(k) == 1
+    if h2 == "h2-batch":
+        return cell == "Cf-retain" and d in ("c", "d")
+    return True
+
+
 def names_of(group, transports, launch):
+    out = names_of_full(group, transports, launch)
+    return [n for n in out if core_keep(n)] if GRID == "core" else out
+
+
+def names_of_full(group, transports, launch):
     g = grid_names(NOUNK)
     keys = {"ab": ["a", "a+read", "b"], "c": [k for k in g if k.startswith("c:")],
             "d": [k for k in g if k.startswith("d:")]}[group]
@@ -279,6 +309,9 @@ def precheck_main():
 
 
 def main():
+    if "--count" in A:          # the runner's question: how many benchmarks this grid has here
+        print(len(names_of(arg("--group", "ab"), arg("--transports", "shipped,pinned").split(","), 1)))
+        return 0
     if "--precheck" in A:
         return precheck_main()
     own = None

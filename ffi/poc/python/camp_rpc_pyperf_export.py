@@ -112,6 +112,16 @@ def main():
     log.header(engine="pyperf %s (CAMPAIGN req 22a as amended: the RPC grid on the codec suite's framework)"
                % pyperf.__version__, launch=launch, group=opt("--group"), pyperf_args=opt("--pyperf-args", "?"),
                warmup_per_thread=warmup_line(opt("--pyperf-args", "")),
+               grid=("AK_CAMPAIGN_GRID=%s. " % os.environ.get("AK_CAMPAIGN_GRID", "core")) + (
+                   "CAMPAIGN section 4.0 (D18): cells A, Bf, Cf-retain, Ef-retain (full build, retain, blocking "
+                   "delivery, the core cells on the framed send path) on a+read, b, c/P5.4 and d/16MiB at k = 1 and 8, "
+                   "the shipped client configuration only, stock h2; Cf-retain on h2-batch for c and d at k = 1 and 8; "
+                   "the pinned allocator pass: A and Cf-retain on c and d at k = 1. Left out (labelled extras, "
+                   "AK_CAMPAIGN_GRID=full): cells B, C, D, E, F (the reference send path), Cc, the queue and callback "
+                   "deliveries; drop mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the "
+                   "pinned client configuration; h2-batch beyond Cf on c and d; the pinned allocator pass beyond its "
+                   "subset" if os.environ.get("AK_CAMPAIGN_GRID", "core") == "core"
+                   else "every row of section 4.2; rows outside section 4.0 are labelled extras"),
                server="the Rust slice's tonic rpc_server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa; "
                       "poc/rust/SERVER.md), one process per launch started by poc/rust/serve.sh of the snapshot, "
                       "pinned to AK_CPU_SERVER=%s, tokio workers AK_SERVER_THREADS=%s; sockets %s; shipped = tonic's "

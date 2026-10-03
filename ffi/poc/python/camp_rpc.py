@@ -197,8 +197,12 @@ def cells(target, transport, keys=None):
         return chans[cell]
 
     def cli(cell):
+        # The send path follows the label (D18 review): Bf/Cf-*/Ef-* framed, every other core
+        # cell the reference path. Since the core's framed default (e8fe14868) an unset client
+        # is framed, so without this B, C, Cc and E ran framed too, the same work as their twins.
         if cell not in clis:
             clis[cell] = core_client(target, transport)
+            arms._ffi.client_set_framed(clis[cell], cell.startswith(("Bf", "Cf-", "Ef-")))
         return clis[cell]
 
     def need(b, n):
@@ -340,6 +344,16 @@ def cells(target, transport, keys=None):
         out["a+read"] += [("E-" + m, lambda _g=eg, _d=hg_dec[m]: read_fa(_d(_g()))),
                           ("F-" + m, lambda _g=fg: read_fa(_g(b"")))]
         out["b"] += [("E-" + m, lambda _p=ep, _e=hg_enc[m]: _p(_e(fc))), ("F-" + m, lambda _p=fpu: _p(fc))]
+    # a+read on the framed core clients (CAMPAIGN 4.0's cells Bf, Cf, Ef in every direction): the
+    # request is empty, so the path differs from B/C/E only in the client's framed setting
+    bfg = core_get("Bf")
+    out["a+read"].append(("Bf", lambda: read_pb(R.FromString(bfg()))))
+    for m in modes_c:
+        cfg = core_get("Cf-" + m)
+        out["a+read"].append(("Cf-" + m, lambda _g=cfg, _d=cdec[m]: read_fa(_d(_g()))))
+    for m in (["nounk"] if NOUNK else ["retain", "drop"]):
+        efg = core_get("Ef-" + m)
+        out["a+read"].append(("Ef-" + m, lambda _g=efg, _d=hg_dec[m]: read_fa(_d(_g()))))
     if not NOUNK:
         qg, kg = queued_get("B-queue"), callback_get("B-callback")
         qc, kc = queued_get("C-queue"), callback_get("C-callback")

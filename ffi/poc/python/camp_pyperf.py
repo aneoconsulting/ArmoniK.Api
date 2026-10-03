@@ -80,6 +80,32 @@ SHAPES_DIRS = ["encode", "encode-pool", "encode-reused", "encode-pool-reused", "
 CONTENT = ["P1.2", "P2.2", "P2.4"]   # req 7 as amended: Latin-1 and wide on these three
 
 
+# CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core (the default) runs the
+# campaign grid; `full` runs every row of 4.1, the rest being labelled extras.
+GRID = os.environ.get("AK_CAMPAIGN_GRID", "core")
+CORE_U = ["U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+          "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
+          "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5"]
+CORE_DIRS = ["encode", "decode+read"]          # encode: hot input (i), end state (ii) transport-ready
+CORE_ARMS = {"full": [("incumbent-prod", "incumbent-default"), ("core-ffi", "retain"), ("host-gen", "retain")],
+             "nounk": [("core-ffi", "no-unknown"), ("host-gen", "no-unknown")]}
+CORE_EXTRAS = ("incumbent-best; bare decode (the row comparable to upb's lazy FromString, req 9); the "
+               "encode-pool, encode-reused and encode-pool-reused variants; drop mode; core-ffi-attr and "
+               "host-gen-plain; Latin-1 and wide on P1.2 and P2.4; the other 85 U-* rows timed; the incumbent "
+               "in the no-unknown build; the unknown-corpus family")
+
+
+def core_filter(family, rows):
+    """Section 4.0's codec grid: rows of (pid, content, dir, arm, mode)."""
+    if family not in ("shapes", "unknown"):
+        raise SystemExit("AK_CAMPAIGN_GRID=core has no %s family (a labelled extra: AK_CAMPAIGN_GRID=full)" % family)
+    arms = set(CORE_ARMS[VARIANT])
+    return [r for r in rows if r[2] in CORE_DIRS and (r[3], r[4]) in arms
+            and not (r[0] == "P7.1" and r[2] == "encode")     # P7.1 is decode-only (SHAPES.md)
+            and (family != "shapes" or r[1] == "ascii" or r[0] == "P2.2")
+            and (family != "unknown" or r[0] in CORE_U)]
+
+
 def dir_applies(d, arm):
     return not d.endswith("reused") or arm.startswith("core-ffi")
 
@@ -177,6 +203,8 @@ def main():
             for arm, mode in al[r:] + al[:r]:
                 if dir_applies(d, arm):
                     names.append((pid, content, d, arm, mode))
+    if GRID == "core":
+        names = core_filter(args.family, names)
     # The order rotated between launches: launch l starts (l-1)/3 of the way through the list.
     k = ((args.launch - 1) * max(1, len(names) // 3)) % len(names) if names else 0
     names = names[k:] + names[:k]

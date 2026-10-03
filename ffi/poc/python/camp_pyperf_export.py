@@ -79,6 +79,16 @@ def main():
                          "ru_minflt delta of the worker around the value's loops)" % (
                              os.environ.get("AK_CAMPAIGN_ALLOC", "default"), os.environ.get("GLIBC_TUNABLES") or "unset",
                              ", ".join(sorted(RBS))),
+               grid=("AK_CAMPAIGN_GRID=%s. " % os.environ.get("AK_CAMPAIGN_GRID", "core")) + (
+                   "CAMPAIGN section 4.0 (D18): the 16 shapes ASCII, Latin-1 and wide on P2.2 only, the 7 named "
+                   "U-* rows; arms incumbent-prod (full build only), core-ffi push and host-gen, retain in the full "
+                   "build and no-unknown in the no-unknown build; encode (hot input, transport-ready end state) and "
+                   "decode+read. Left out (labelled extras, AK_CAMPAIGN_GRID=full): incumbent-best; bare decode, "
+                   "which is the row comparable to upb's lazy FromString (req 9); the encode-pool, encode-reused and "
+                   "encode-pool-reused variants; drop mode; core-ffi-attr and host-gen-plain; Latin-1 and wide on "
+                   "P1.2 and P2.4; the other 85 U-* rows timed; the incumbent in the no-unknown build; the "
+                   "unknown-corpus family" if os.environ.get("AK_CAMPAIGN_GRID", "core") == "core"
+                   else "every row of section 4.1; rows outside section 4.0 are labelled extras"),
                h2="none: the codec suite's cores are built without the rpc feature and carry no h2 (D11 labels "
                   "the RPC samples)",
                pyperf_args=opt("--pyperf-args", "?"),
