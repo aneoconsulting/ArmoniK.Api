@@ -88,9 +88,20 @@ case "$ALLOC" in
   *) echo "AK_CAMPAIGN_ALLOC: default or pinned" >&2; exit 2 ;;
 esac
 export AK_ALLOC_MODE=$ALLOC AK_CAMPAIGN_ALLOC=$ALLOC   # the binaries check it against a 16 MiB malloc (alloc_check.h)
-# The owner's small-test rule (2026-09-27): a smoke may run one transport and one build.
-TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}   # rpc: client configurations run
-BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec and rpc: full | no-unknown | both
+# D18 (CAMPAIGN section 4.0, 2026-10-03): AK_CAMPAIGN_GRID=core (default) runs exactly the
+# campaign grid; full runs every row of sections 4.1 and 4.2, the extras labelled grid=extra.
+GRID=${AK_CAMPAIGN_GRID:-core}
+case "$GRID" in core|full) ;; *) echo "AK_CAMPAIGN_GRID: core or full" >&2; exit 2 ;; esac
+# The owner's small-test rule (2026-09-27): a smoke may run one transport and one build. The
+# core grid has ONE transport configuration (shipped) and runs the RPC grid in the full build.
+if [ "$GRID" = core ]; then TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped}; else TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}; fi
+BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec (and rpc under full): full | no-unknown | both
+# The core grid's RPC selections (CAMPAIGN 4.0): A, Bf, Cf, Ef (full build, retain; the core
+# cells blocking on the framed path), a+read and b (P2.2), c (P5.4), d (16 MiB), k = 1 and 8;
+# Cf on the h2-batch core for c and d; the pinned allocator pass A and Cf, c and d, k = 1.
+CORE_RPC="--cells A,Bf,Cf-retain,Ef-retain, --dirs rbcd --payloads P2.2,P5.4,16MiB --inflight 1,8"
+CORE_RPC_H2B="--cells Cf-retain, --dirs cd --payloads P5.4,16MiB --inflight 1,8"
+CORE_RPC_PINNED="--cells A,Cf-retain, --dirs cd --payloads P5.4,16MiB --inflight 1"
 SRVWARM_D=$((SRVWARM / 10 > 0 ? SRVWARM / 10 : 1))
 CITERS=${AK_CAMPAIGN_CALIB_ITERS:-100000000}
 # req. 11: the encode suite's beyond-cache input pool, in encoded bytes: 2 x the machine's
@@ -203,6 +214,7 @@ h = {
  "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
              "workers": $WORKERS, "rpc_client": "D14: the core's runtime workers = AK_WORKERS ($WORKERS); caller threads = the in-flight level (1, 8, 16: one blocking call each, req. 15/16, so this is not a worker pool), created before any benchmark; grpc-core (grpc++'s A, D, F) has no public setting for its pollers or EventEngine threads: it sizes itself from sysconf(_SC_NPROCESSORS_CONF) (EventEngine Clamp(n, 4, 16)), recorded with the thread classes in each client header, not set to AK_WORKERS", "rpc_server_threads": "the shared tokio server's runtime: AK_SERVER_THREADS = AK_WORKERS ($WORKERS)",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
+ "grid": {"mode": "$GRID", "rule": "D18, CAMPAIGN section 4.0 (AK_CAMPAIGN_GRID=core|full; every sample carries grid=core|extra)", "codec_core": "16 shapes (P7.1 decode only), ascii; latin1 and wide on P2.2; 7 U rows (U-nested-before, U-deep-u-repeated, U-oneof-u-repeated, U-wire-ListTaskSummaryResponse-tasks-as-wt5, U-wire-UploadResultDataMessage-upload-as-wt5, U-wire-ListMetricsResponse-batches-as-wt0, U-wire-DualResponse-left-as-wt5); arms incumbent-prod (full build only), core-ffi (push), host-gen; encode end=transport input=hot, decode_read; retain (full build), no-unknown (no-unknown build)", "rpc_core": "cells A, Bf, Cf-retain, Ef-retain (full build; B, C, E blocking on the framed path, A grpc++ sync); a+read and b (P2.2), c (P5.4), d (16 MiB); k = 1 and 8; transport shipped only; stock h2, plus Cf-retain on the h2-batch core for c and d at k = 1 and 8 (h2=h2-batch); pinned allocator pass: A and Cf-retain, c and d, k = 1", "extras_left_out": "$( [ "$GRID" = core ] && echo "codec: incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, end=reused and input=pool encodes, drop mode, content sets on P1.2 and P2.4 and the extra payloads, the other 85 U rows; rpc: cells B, C, D, E, F and their -q / p twins, the non-framed references, direction a, k = 16, P5.3, d 4 MiB, the no-unknown client, the pinned transport, h2-batch on other rows, the pinned allocator pass beyond its subset; the second grpc++ version (AK_INCUMBENT_PREFIX)" || echo "none: every row runs, labelled")", "grpcpp_versions": "one, the machine's (the second, ArmoniK's v1.54.0 through AK_INCUMBENT_PREFIX, is an extra)"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "malloc": {"mode": "$ALLOC", "main_figures": "default: glibc's default allocator, as production (req. 25, D9 amended 2026-10-03)", "diagnostic": "pinned (AK_CAMPAIGN_ALLOC=pinned): GLIBC_TUNABLES=$TUNABLES on the measured client processes, files alloc-pinned-*", "this_run_glibc_tunables": "$( [ "$ALLOC" = pinned ] && echo "$TUNABLES" || echo none)", "server": "never pinned", "minor_faults": "every sample: ru_minflt per repetition and per call (RPC minflt_per_call) or per operation (codec minflt_per_op)"}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
  "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_a_b": $RPCWARM, "rpc_google_benchmark_min_warmup_time_s_c_d": $RPCWARML, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s_a_b": 1.5, "rpc_min_warmup_time_s_c_d": 2.5, "rpc_server_calls": 200}, "rpc_warmup_rule": "req. 24 as amended (8c02e7c58): >= 20 calls per calling thread at the cell's payload before its first measured value, same process, same threads. Google Benchmark's warm-up runs before a benchmark's first repetition on the same k pre-created caller threads as the measurement (one call per thread per iteration) and stops on wall time (UseRealTime) once one attempt alone lasts its MinWarmUpTime, so calls per thread >= warm-up / batch wall. c, d: 2.5 s against the slowest c/d batch measured on the campaign machine, d/16MiB k=8 C-retain, 79 ms (logs/cpp/opt/physical-probe/main/tables.md): >= 31; c/P5.4 k=8 there 21 to 77 ms: >= 32. a, a+read, b: 1.5 s against the slowest a/b batch of one small container run (a+read k=16 Bf-q, 61 ms; the probe tables have no a/b rows; a container over-estimates the campaign machine): >= 24; the earlier 0.5 s gave about 8. The smoke's 0.01 s meets neither and is not a campaign figure", "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s_a_b": 0.01, "rpc_min_warmup_time_s_c_d": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
  "sample": {"codec_min_time_s_per_repetition": $MINT, "codec_pool_bytes": $POOL, "llc_bytes": $LLC, "rpc_min_time_s_per_repetition": $RPCMINT, "calib_iters": $CITERS,
@@ -379,12 +391,21 @@ gb_samples() {  # gb_samples FILE: the samples a Google Benchmark output would g
   python3 "$SLICE/gen/gbench_to_jsonl.py" "$1" 0 full rpc 2>/dev/null | grep -c '^{'
   rm -f "$1"
 }
-rpc_launch_file() {
-  local f=$1 l=$2 t=$3 extra=${4:-} rb rc
+rpc_launch_file() {  # FILE LAUNCH TRANSPORT [EXTRA_ARGS [H2_VARIANT]]
+  local f=$1 l=$2 t=$3 extra=${4:-} h2=${5:-stock} rb rc h2env=""
   if [ $((l % 2)) = 1 ]; then RBS="campaign_rpc campaign_rpc_nounk"; else RBS="campaign_rpc_nounk campaign_rpc"; fi
   [ "$BUILDS" = full ] && RBS=campaign_rpc; [ "$BUILDS" = no-unknown ] && RBS=campaign_rpc_nounk
+  [ "$GRID" = core ] && RBS=campaign_rpc   # CAMPAIGN 4.0: the RPC grid in the full build only
+  if [ "$h2" = h2-batch ]; then
+    # D11 / D18: the same executable with the h2-batch core (same exports; LD_LIBRARY_PATH
+    # precedes RUNPATH), checked to resolve before any call.
+    [ -f "$H2B_CORE/libak_core.so" ] || { echo "no h2-batch core at $H2B_CORE" >&2; rm -f "$f"; return 1; }
+    LD_LIBRARY_PATH=$H2B_CORE ldd "$B/campaign_rpc" | grep -q "$H2B_CORE/libak_core.so" \
+      || { echo "campaign_rpc does not resolve the h2-batch core" >&2; rm -f "$f"; return 1; }
+    h2env="LD_LIBRARY_PATH=$H2B_CORE"
+  fi
   for rb in $RBS; do
-    env $ALLOCENV $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
+    env $ALLOCENV $h2env AK_H2_VARIANT=$h2 $(cs_env "$B/$rb") timeout 7200 taskset -c "$AK_CPU_CLIENT" "$B/$rb" --target "$(sock_of $t)" --expect "$EXP" \
       --transport "$t" --launch "$l" --rounds "$ROUNDS" --min-time-s "$RPCMINT" --warmup-s "$RPCWARM" --warmup-long-s "$RPCWARML" $extra \
       --gbench-out "$TMPD/rpc.gbench.json" > "$TMPD/client.out" 2>&1; rc=$?
     if [ $rc != 0 ]; then
@@ -394,11 +415,11 @@ rpc_launch_file() {
     # WP9: the samples are Google Benchmark's JSON, converted to section 7's lines; a
     # benchmark with error_occurred refuses the whole file (the launch is discarded).
     local bld=full; [ "$rb" = campaign_rpc_nounk ] && bld=no-unknown
-    if ! python3 "$SLICE/gen/gbench_to_jsonl.py" "$TMPD/rpc.gbench.json" "$l" "$bld" rpc > "$TMPD/client.jsonl" 2>/dev/null; then
+    if ! AK_H2_VARIANT=$h2 python3 "$SLICE/gen/gbench_to_jsonl.py" "$TMPD/rpc.gbench.json" "$l" "$bld" rpc > "$TMPD/client.jsonl" 2>/dev/null; then
       echo "rpc client $rb ($t): the Google Benchmark output was refused" >&2; rm -f "$f"; return 1
     fi
-    { echo "# client $rb"; grep '^#' "$TMPD/client.out"; cat "$TMPD/client.jsonl"; } >> "$f"
-    cp "$TMPD/rpc.gbench.json" "${f%.jsonl}-$t-$bld.gbench.json"
+    { echo "# client $rb (h2 $h2)"; grep '^#' "$TMPD/client.out"; cat "$TMPD/client.jsonl"; } >> "$f"
+    cp "$TMPD/rpc.gbench.json" "${f%.jsonl}-$t-$bld-$h2.gbench.json"
     rm -f "$TMPD/rpc.gbench.json"
   done
   return 0
@@ -428,6 +449,7 @@ calib_one() {
 # windows, adaptive off); warmed by `serve.sh warm $SRVWARM` (SERVER.md: N checked a, b and c
 # calls and ceil(N/4) d calls per socket, from a tonic client and from the core's client).
 SERVE=$FFI/poc/rust/serve.sh
+H2B_CORE=""   # the h2-batch core's directory, read from the build's CMake cache in the rpc suite
 export AK_SERVE_STATE=$TMPD/serve.state   # this runner's own server, never another's
 EXP=""; SOCK_shipped=""; SOCK_pinned=""; SERVED=""
 sock_of() { [ "$1" = pinned ] && echo "unix:$SOCK_pinned" || echo "unix:$SOCK_shipped"; }
@@ -474,7 +496,7 @@ case "$SUITE" in
       gb=$OUT/${APFX}codec-${tag}launch$l.gbench.json
       { header codec "$l"
         (cd "$FFI/schema/generated" && env $ALLOCENV $(cs_env "$B/$cb") taskset -c "$AK_CPU_CLIENT" "$B/$cb" --launch "$l" \
-           --rounds "$ROUNDS" --min-time-s "$MINT" --warmup-s "$WARM" --corpus "$FFI/corpus/generated" \
+           --rounds "$ROUNDS" --min-time-s "$MINT" --warmup-s "$WARM" --grid "$GRID" --corpus "$FFI/corpus/generated" \
            --rows "$ROWS" --gbench-out "$gb" --pool-bytes "$POOL" > "$TMPD/gb.console" 2>&1; echo $? > "$TMPD/gb.rc")
         grep '^#' "$TMPD/gb.console"
         python3 "$SLICE/gen/gbench_to_jsonl.py" "$gb" "$l" "$([ "$cb" = campaign_codec_nounk ] && echo no-unknown || echo full)"; } > "$f" 2>/dev/null
@@ -487,6 +509,12 @@ case "$SUITE" in
     done ;;
   rpc)
     ensure_gate || exit 1
+    H2B_CORE="$(sed -n 's/^AK_CORE_TGT:[A-Z]*=//p' "$B/CMakeCache.txt")/target-camp-h2batch/release"
+    if [ "$GRID" = core ] && [ "$ALLOC" = default ] && [ ! -f "$H2B_CORE/libak_core.so" ]; then
+      # the h2-batch core, built on request, one at a time (CMakeLists: it rewrites Cargo.lock)
+      cmake --build "$B" --target core_camp_h2batch -j1 > "$TMPD/h2b.log" 2>&1 \
+        || { tail -20 "$TMPD/h2b.log"; echo "the h2-batch core did not build" >&2; exit 1; }
+    fi
     for l in $(seq 1 "$LAUNCHES"); do
       f=$OUT/${APFX}rpc-launch$l.jsonl
       header rpc "$l" > "$f"
@@ -498,7 +526,12 @@ case "$SUITE" in
       { echo "# server: poc/rust rpc_server (tonic; SERVER.md), one process for the launch, pinned to $AK_CPU_SERVER, sockets $SOCK_shipped (shipped: tonic defaults) and $SOCK_pinned (pinned: 4 MiB windows, adaptive off), warmed by serve.sh warm $SRVWARM"; server_lines; } >> "$f"
       warm_server "$f" || { stop_server; rm -f "$f"; exit 1; }
       for t in $TRANSPORTS; do
-        rpc_launch_file "$f" "$l" "$t"; rc=$?
+        if [ "$GRID" = full ]; then rpc_launch_file "$f" "$l" "$t"; rc=$?
+        elif [ "$ALLOC" = pinned ]; then rpc_launch_file "$f" "$l" "$t" "$CORE_RPC_PINNED"; rc=$?
+        else
+          rpc_launch_file "$f" "$l" "$t" "$CORE_RPC"; rc=$?
+          [ $rc = 0 ] && { rpc_launch_file "$f" "$l" "$t" "$CORE_RPC_H2B" h2-batch; rc=$?; }
+        fi
         [ $rc = 0 ] || { stop_server; echo "rpc launch $l ($t) failed: no file kept" >&2; exit 1; }
       done
       stop_server

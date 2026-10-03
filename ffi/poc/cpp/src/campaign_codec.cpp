@@ -141,6 +141,7 @@ struct Cfg {
   // are gone. `bytes` stays only as the gate's minimum input size (--bytes, unused by timing).
   double bytes = 1;
   double min_time_s = 0.5;
+  std::string grid = "core";  // D18 (CAMPAIGN 4.0): core = the campaign grid; full = every row, extras labelled
   double warmup_s = 0.5;
   std::vector<std::string> only;
   std::string corpus, payloads, rows;
@@ -801,6 +802,7 @@ int main(int argc, char **argv) {
     else if (a == "--bytes") g_cfg.bytes = std::atof(v);
     else if (a == "--warmup-s") g_cfg.warmup_s = std::atof(v);
     else if (a == "--min-time-s") g_cfg.min_time_s = std::atof(v);
+    else if (a == "--grid") g_cfg.grid = v;
     else if (a == "--warmup") {}  // obsolete (the harness warm-up is Google Benchmark's now)
     else if (a == "--corpus") g_cfg.corpus = v;
     else if (a == "--payloads") g_cfg.payloads = v;
@@ -974,6 +976,49 @@ int main(int argc, char **argv) {
               g_cfg.launch, g_cfg.rounds, g_cfg.min_time_s, g_cfg.warmup_s, cpus.c_str(), AK_GBENCH_VERSION,
               g_cfg.pool_bytes, proc_threads());
 
+  // ---- D18 (CAMPAIGN section 4.0): the campaign's codec grid ----------------------------
+  // Arms incumbent-prod (full build only), core-ffi (push) and host-gen; encode with end
+  // state (ii) (end=transport) and hot input, and decode-read; retain in the full build, the
+  // no-unknown mode in the no-unknown build; the 16 shapes in ASCII, Latin-1 and wide on P2.2
+  // only, and seven named U-* rows. Everything else is a labelled extra (--grid full).
+  auto core_grid = [](const Slot &sl, const Group &g) -> bool {
+    static const char *const kU[] = {"U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+                                     "U-wire-ListTaskSummaryResponse-tasks-as-wt5",
+                                     "U-wire-UploadResultDataMessage-upload-as-wt5",
+                                     "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5"};
+#ifdef AK_NO_UNKNOWN_FIELDS
+    const bool nounk = true;
+#else
+    const bool nounk = false;
+#endif
+    if (sl.arm != "incumbent-prod" && sl.arm != "core-ffi" && sl.arm != "host-gen") return false;
+    if (sl.arm == "incumbent-prod" ? (nounk || sl.mode != "default") : (sl.mode != (nounk ? "no-unknown" : "retain")))
+      return false;
+    if (sl.dir == "encode") {
+      if (sl.tags.find("end=transport") == std::string::npos || sl.tags.find("input=hot") == std::string::npos) return false;
+    } else if (sl.dir != "decode_read") {
+      return false;
+    }
+    if (sl.tags.find("row=U") != std::string::npos) {
+      for (const char *u : kU) if (g.payload == u) return true;
+      return false;
+    }
+    return g.content == "ascii" || (g.payload == "P2.2" && (g.content == "latin1" || g.content == "wide"));
+  };
+  if (g_cfg.grid != "core" && g_cfg.grid != "full") { std::fprintf(stderr, "--grid core|full\n"); return 2; }
+  {
+    size_t ncore = 0, nall = 0;
+    for (size_t gi = 0; gi < groups.size(); ++gi)
+      for (size_t s2 = 0; s2 < groups[gi].slots.size(); ++s2) { ++nall; ncore += core_grid(groups[gi].slots[s2], groups[gi]); }
+    std::printf("# {\"campaign_codec_grid\": {\"grid\": \"%s\", \"core_benchmarks\": %zu, \"all_benchmarks\": %zu,"
+                " \"core\": \"CAMPAIGN 4.0: incumbent-prod (full build), core-ffi push, host-gen; encode end=transport input=hot,"
+                " decode_read; retain (full) / no-unknown (no-unknown build); 16 shapes ascii, P2.2 latin1 and wide, 7 U rows\","
+                " \"extras_left_out\": \"%s\"}}\n",
+                g_cfg.grid.c_str(), ncore, nall,
+                g_cfg.grid == "core" ? "incumbent-best, incumbent-arena, core-ffi-borrow, core-ffi-pull, bare decode, the other encode"
+                                       " variants (end=reused, input=pool), drop mode, content sets beyond P2.2, the other U rows"
+                                     : "none (every row registered, each labelled grid=core or grid=extra)");
+  }
   // ---- timing: Google Benchmark (CAMPAIGN.md requirement 22a, owner 2026-09-25) ----
   // One benchmark per slot, name "arm|payload|content|dir|unknown_mode". Iterations chosen by
   // Google Benchmark (--benchmark_min_time), `rounds` repetitions, every
@@ -989,8 +1034,11 @@ int main(int argc, char **argv) {
       const long n = 0;  // unused: the framework chooses the iterations
       for (size_t s = 0; s < g.slots.size(); ++s) {
         Slot *sl = &g.slots[s];
+        const bool in_core = core_grid(*sl, g);
+        if (g_cfg.grid == "core" && !in_core) continue;
+        const std::string tags = sl->tags + (sl->tags.empty() ? "" : ",") + (in_core ? "grid=core" : "grid=extra");
         regs.push_back(std::make_pair(sl->arm + "|" + g.payload + "|" + g.content + "|" + sl->dir + "|" + sl->mode +
-                                          "|" + sl->tags,
+                                          "|" + tags,
                                       std::make_pair(sl, n)));
       }
     }

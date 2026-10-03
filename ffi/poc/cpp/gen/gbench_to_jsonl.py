@@ -25,6 +25,21 @@ import sys
 # req. 25 (D9 as amended 2026-10-03): the allocator mode of the run, on every sample: "default"
 # (the main figures) or "pinned" (the GLIBC_TUNABLES diagnostic pass), set by the runner.
 ALLOC = os.environ.get("AK_ALLOC_MODE", "default")
+# D18: the h2 variant of the core the client loaded ("stock" or "h2-batch"), set by the runner.
+H2 = os.environ.get("AK_H2_VARIANT", "stock")
+
+
+def rpc_core_grid(cell, direction, payload, k, transport, build):
+    """CAMPAIGN section 4.0 (D18): cells A, Bf, Cf, Ef (full build, retain, the core cells
+    blocking on the framed path), a+read and b on P2.2, c on P5.4, d on 16 MiB, k = 1 and 8,
+    one transport (shipped); stock h2 everywhere, plus Cf on h2-batch for c and d."""
+    if k not in (1, 8) or transport != "shipped" or build != "full":
+        return False
+    if (direction, payload) not in (("a+read", "P2.2"), ("b", "P2.2"), ("c", "P5.4"), ("d", "16MiB")):
+        return False
+    if H2 == "h2-batch":
+        return cell == "Cf-retain" and direction in ("c", "d")
+    return cell in ("A", "Bf", "Cf-retain", "Ef-retain")
 
 SCALE = {"ns": 1.0, "us": 1e3, "ms": 1e6, "s": 1e9}
 
@@ -59,6 +74,8 @@ def main(path, launch, build="full", suite="codec"):
             if "ru_minflt" in ru:
                 ru["minflt_per_call"] = round(ru["ru_minflt"] / float(it * k), 3)
             ru["alloc"] = ALLOC
+            ru["h2"] = H2
+            ru["grid"] = "core" if rpc_core_grid(arm, direction, payload, k, tags.get("transport"), build) else "extra"
             print(json.dumps({"slice": "cpp", "suite": "rpc", "build": build, "cell": arm, "unknown_mode": mode,
                               "payload": payload, "dir": direction, "socket": "uds", "inflight": k,
                               "launch": int(launch), "round": int(b.get("repetition_index", 0)), "order_pos": n,
