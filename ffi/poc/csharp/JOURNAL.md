@@ -2133,3 +2133,66 @@ Gate from a fresh worktree at `d1a3a3b` (both builds, net8.0 and net6.0): GATE P
 controls failing as required (`logs/csharp/wp10b-gate.log`). Minimal smoke through the runner,
 grouped switch on (`logs/csharp/campaign/wp10b-smoke/`): full build, shipped, 21 units, 283
 samples, 0 failed; 19 plant controls, every one aborted with 0 samples.
+
+## 65. FIX-PLAN WP13: TCP, task-clock, pools, both h2 variants, D9
+
+On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
+
+- **TCP (D10).** Every timed cell runs against the shared server's TCP listener
+  (`AK_SERVER_TCP=0`, `tcp 127.0.0.1:PORT` from serve.sh); `--sock tcp:127.0.0.1:PORT`.
+  Grpc.Net: a TCP socket with `NoDelay = true` in the connect callback, address
+  `http://127.0.0.1:PORT`; the core: `ak_client_opts.tcp_nagle = 0`, URI `http://127.0.0.1:PORT`.
+  Readback (`src/Rpc/NoDelay.cs`): after one untimed call in each case's setup, every socket of
+  the process to 127.0.0.1:PORT in state ESTABLISHED (/proc/self/net/tcp, inode to
+  /proc/self/fd) is read with getsockopt TCP_NODELAY; none found, or one without it, fails the
+  case. The upload check (gate) does the same. The listener runs the pinned server
+  configuration only, so shipped and pinned differ on the client side only (stated in both
+  headers). New control `AK_CAMPAIGN_PLANT=nagle` (Nagle left on in both client transports):
+  A (Grpc.Net) and B (the core) each failed with "TCP_NODELAY read back: 0 of 1" / "0 of 2
+  sockets" and 0 samples; the upload check with it reported 0 of 33 and failed. It is in the
+  gate (one control more) and in `run_campaign.sh --plant` (A and B per transport and build).
+- **Client CPU (req 21 as amended).** `cpu_ns` = perf task-clock of the whole process: one
+  perf_event_open counter (SOFTWARE / TASK_CLOCK) per thread of /proc/self/task, new threads
+  picked up at each read, read by the job's clock at the same iteration boundaries as the
+  wall time; `proc_cpu_ns` = CLOCK_PROCESS_CPUTIME_ID beside it; a case without a task-clock
+  per iteration writes no sample. Works under both toolchains (the child reads it; checked on
+  Bf, process toolchain, 2 rounds: 10 samples). `client_softirq_ticks` / `client_irq_ticks`:
+  /proc/stat summed over AK_CPU_CLIENT's CPUs across each case's actual run (USER_HZ ticks),
+  on the round-1 row.
+- **Pools (D8, D14).** AK_WORKERS (campaign.machine; default 8): the core runtime
+  (`ak_runtime_new(AK_WORKERS)`), the .NET thread pool worker minimum and maximum
+  (SetMinThreads / SetMaxThreads), the server's tokio workers (AK_SERVER_THREADS defaults to
+  AK_WORKERS). The caller pool stays at the in-flight level (k dedicated caller threads, not a
+  worker pool); grpc-core is not used (Grpc.Net is managed). In the runner and unit headers.
+- **h2 variants (D11 as amended).** `gen/build_core.sh` builds the h2-batch source with
+  `poc/codec/h2-batch/build.sh` and four more cores (`target-core[-count][-nounk]-h2b`) with
+  `--config patch.crates-io.h2.path`; it prints the h2 compiled into each of the 8 transport
+  cores (from the source path strings in the .so). Each akrpc process reads the loaded core's
+  h2 from the library, writes it on every row (`h2`), and aborts if it differs from AK_H2
+  (checked: AK_H2=h2-batch with the stock core, exit 3, no sample). `gen/gate.sh` takes
+  AK_H2; the runner loops the rpc suite over AK_H2_VARIANTS (default "stock h2-batch",
+  reversed on even launches), one gate per variant (`gate.log`, `gate.h2-batch.log`), file
+  names `rpc-<transport>-<h2>-launch<N>[.nounk].jsonl`. Codec rows carry `h2: stock` (no
+  transport call).
+- **D9.** No native shim of its own; the shared core in the .NET process allocates its
+  buffers with Rust's global allocator (glibc malloc), so the trim and mmap thresholds govern
+  those buffers; managed objects are on the GC heap. The runner states GLIBC_TUNABLES in the
+  header and does not set it.
+- **A defect the second gate exposed (in scope: it blocks the runner).** The first pair of
+  gates from a fresh worktree at `2f9ce48`: stock PASSED, then h2-batch FAILED at step 3, the
+  net48 floor build (`HarnessFloor.csproj`) failing with CS0111 on `DualResponse`: its linked
+  `../Harness/**/*.cs` glob did not exclude `obj-count*/` and `bin-count*/`, so the generated
+  Shapes.cs of the counting builds made by the first gate's step 9 were compiled twice. Latent
+  since WP7, harmless with one gate per tree; the runner now runs one gate per h2 variant in
+  one tree. Fixed in `ea02da5` (both exclude lists); log kept as
+  `logs/csharp/wp13-gate-h2-batch-FAILED-2f9ce48.log`.
+- Gates at `ea02da5`, run by the runner's smoke from a fresh worktree, one per variant in the
+  same tree: both GATE PASSED, 30 controls failing as required in each
+  (`logs/csharp/wp13-gate-stock.log`, `wp13-gate-h2-batch.log`). Core at `59a96f8` (p1).
+- Minimal smoke (`logs/csharp/campaign/wp13-smoke/`, grouped, TCP, pinned client
+  configuration, full build, both variants): 21 units and 283 samples per variant, 0 failed;
+  every row `net: tcp`, its variant's `h2`, `cpu_ns` and `proc_cpu_ns`. Runner `--plant`
+  (stock, pinned, full): 21 controls, every one aborted with 0 samples, Nagle on included.
+- Out of scope, not fixed (one line): the per-unit `# build ...` header line still says
+  "server's pinned socket" and "Unix socket tcp:... (req 17: UDS)" over TCP (D45); the
+  `# network` line beside it is right.

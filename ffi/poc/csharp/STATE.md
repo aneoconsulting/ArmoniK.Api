@@ -4,14 +4,14 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-58); this file states what is true now.
+65); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
-| **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir |
+| **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
 | **Machine** | a container, 4 vCPU Intel Xeon, Linux 6.18.44; nothing in this file depends on it |
 
 ## What exists
@@ -92,15 +92,49 @@ src/HarnessFloor/           net48, compile only (the binding; the host half is c
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
 
-## Gate (WP10 and req 22a's toolchain): clean checkout
+## Gate (WP13): clean checkout, one per h2 variant
 
-`logs/csharp/wp10b-gate.log`: **GATE PASSED** at commit `d1a3a3b` (the toolchain switch, on WP10's
-`76ac71e`), a fresh worktree, net8.0 and net6.0, both builds; 0 step failures, 29 planted
-controls failing as required. The RPC server of every gate step is the Rust slice's
-rpc_server, built and started through poc/rust/serve.sh (step 6: the R-D9 error path against
-it, Fetch OK and StatusU13 non-OK; step 9: the counts, 1,044 / 544 codec and 105 / 62 RPC rows,
-equal, and the upload check, 68 / 40 cells, with its two plants failing). WP10's own gate at
-`76ac71e`: `logs/csharp/wp10-gate.log`, passed. Earlier: `wp9-gate.log`, `wp8b-gate.log`.
+`logs/csharp/wp13-gate-stock.log` and `logs/csharp/wp13-gate-h2-batch.log`: **GATE PASSED** for
+each, at commit `ea02da5`, run by `run_campaign.sh --suite rpc --smoke` from a fresh worktree
+(one gate per variant, in the same tree, as the campaign runs them); net8.0 and net6.0, both
+builds; 0 step failures; 30 planted controls failing as required in each (WP10's 29 plus the
+Nagle-on control). The core is `ffi/poc/codec` at `59a96f8` (p1, the spare ring); the gate's
+RPC steps run over TCP against the shared server's listener (`AK_SERVER_TCP=0`), the upload
+check reading TCP_NODELAY back on 33 of 33 (full) and 17 of 17 (no-unknown) sockets; in the
+h2-batch gate every transport core placed is a `-h2b` build (the gate log names the h2 in
+each). Earlier the same day at `2f9ce48`: stock passed, h2-batch FAILED on a second gate in
+one tree (`wp13-gate-h2-batch-FAILED-2f9ce48.log`: the net48 floor build compiled the counting
+builds' generated Shapes.cs; fixed in `ea02da5`, JOURNAL 65). Before WP13: `wp10b-gate.log`.
+
+## WP13 (FIX-PLAN, 2026-10-03)
+
+- **TCP (D10, req 17 as amended).** Every timed cell runs over TCP 127.0.0.1 against the shared
+  server's TCP listener (`AK_SERVER_TCP=0`; serve.sh prints `tcp 127.0.0.1:PORT`), in the runner
+  and in the gate's RPC steps (`--sock tcp:127.0.0.1:PORT`). Nagle off: Grpc.Net `Socket.NoDelay`
+  in the connect callback; the core `ak_client_opts.tcp_nagle = 0`. Read back in each case's
+  setup after one untimed call (`src/Rpc/NoDelay.cs`: every ESTABLISHED socket of the process
+  to the port, getsockopt TCP_NODELAY; none found or one without it fails the case) and in the
+  upload check. The listener runs the PINNED server configuration only, so `shipped` and
+  `pinned` differ on the client side only (stated in the runner and unit headers). Control
+  `AK_CAMPAIGN_PLANT=nagle`: in the gate (upload check) and in `--plant` (A and B).
+- **Client CPU (req 21 as amended).** `cpu_ns` = perf task-clock of the whole process (one
+  perf_event_open SOFTWARE/TASK_CLOCK counter per thread, new threads picked up at each read),
+  `proc_cpu_ns` = CLOCK_PROCESS_CPUTIME_ID beside it, both per BDN iteration at the same
+  boundaries; `client_softirq_ticks` / `client_irq_ticks` from /proc/stat over AK_CPU_CLIENT
+  per case (round-1 row). Both toolchains.
+- **Pools (D8, D14).** AK_WORKERS (campaign.machine, default 8): the core runtime
+  (`ak_runtime_new`), the .NET thread pool worker min and max, the server's tokio workers
+  (AK_SERVER_THREADS defaults to it). Caller threads = the in-flight level k (not a worker
+  pool); grpc-core not used. In every header.
+- **h2 (D11 as amended).** Stock and h2-batch cores built and gated (`AK_H2=stock|h2-batch
+  gen/gate.sh`); the runner loops the rpc suite over `AK_H2_VARIANTS` (default both), one gate
+  each (`gate.log`, `gate.h2-batch.log`); every akrpc process reads the loaded core's h2, puts
+  `h2` on every row and aborts if it differs from AK_H2. Codec rows carry `h2: stock`.
+- **D9.** This slice has no native shim of its own. The shared core it loads allocates its
+  buffers with Rust's global allocator (glibc malloc) inside the .NET process, so glibc's trim
+  and mmap thresholds do govern those buffers; managed objects are on the .NET GC heap. The
+  runner states GLIBC_TUNABLES in every header and does not set it.
+- **Runner settings for small tests:** `AK_RPC_TRANSPORTS`, `AK_RPC_BUILDS`, `AK_H2_VARIANTS`.
 
 ## Register H (WP6) and WP7
 
@@ -124,6 +158,7 @@ itself does not specify.
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the core-ffi host half has no net48 form (needs delegate thunks rooted for the vtable's lifetime) |
 | D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
+| D45 | `src/Rpc/RpcBench.cs` unit header | the per-unit `# build ...` line still says "the server's pinned socket" and "Unix socket tcp:127.0.0.1:PORT (req 17: UDS)" over TCP; the `# network` line beside it is right. Wording only, out of scope (JOURNAL 65), not fixed |
 
 ## Campaign readiness (design/CAMPAIGN.md at 3210f28; section 10 checklist)
 
@@ -174,7 +209,7 @@ hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 | 1 | one machine, slices sequential | not applicable in the container: the machine is the owner's; the runner runs one measured process at a time |
 | 2 | governor, turbo, SMT | not applicable in the container: set by the owner; recorded in every header (sysfs) |
 | 3 | isolation | not applicable in the container: set by the owner; isolcpus/nohz_full and the cgroup cpuset recorded |
-| 4 | three disjoint CPU sets, fixed sizes, thread counts | met: `AK_CPU_CLIENT` / `AK_CPU_SERVER` from the environment (ffi/campaign.sh exports ffi/campaign.machine's) or, run alone outside a smoke, read from ffi/campaign.machine; a set whose size is not `AK_SET_SIZE` is refused; `taskset` per process; the header names the source. Worker thread counts in every header: .NET thread pool min/max and current, caller threads, the core runtime's workers (the codec suite creates none), the server's |
+| 4 | three disjoint CPU sets, fixed sizes, thread counts | met (D8, D14: every pool at AK_WORKERS, see WP13): `AK_CPU_CLIENT` / `AK_CPU_SERVER` from the environment (ffi/campaign.sh exports ffi/campaign.machine's) or, run alone outside a smoke, read from ffi/campaign.machine; a set whose size is not `AK_SET_SIZE` is refused; `taskset` per process; the header names the source. Worker thread counts in every header: .NET thread pool min/max and current, caller threads, the core runtime's workers (the codec suite creates none), the server's |
 | 5 | floors gated for correctness | net6.0: met (the gate, both builds). .NET Framework 4.8: **not met**: compiled only, needs a Windows machine (owner decision: provide one, or record that the floor was not run) |
 | 6 | build flags printed | met: Release, net8.0, core features (init-guard on), shared `libak_core.so`, build variant, JIT and GC settings, in every header; the core's cargo profile (`lto = false`) is stated here, not printed |
 | 7 | payloads | met as amended: 16 payloads; Latin-1 and wide on P1.2, P2.2 and P2.4 (R-H26); the 92 accepted, non-disputed U-* rows at the shapes core's 7 ABI roots through the timed shapes core in encode (`encode-hot`: the arm's own decode of the row, untimed, re-encoded), decode and decode-read, every arm including incumbent-best (R-H27); decode-reencode a labelled extra |
@@ -183,20 +218,20 @@ hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 | 10 | unknown fields, three modes | met: core-ffi and host-gen in retain and drop (full build; `Codec` and `CodecRetain`) and no-unknown (its own build and core, no facade member, R-H22); core-ffi-pull in drop and no-unknown; incumbent default (retains); `unknown_mode` and `build` on every sample |
 | 11 | serialised once per iteration; encode variants | met as amended (R-H29): `encode` (pool + reused buffer), `encode-hot` (one graph + reused buffer), `encode-transport` (pool + the Grpc.Net form), `encode-transport-hot`; rows carry `enc_end`, `enc_input`, `pool_graphs`, `pool_bytes`. Reused buffer: the incumbent's BufWriter, host-gen's Enc, the core's encode buffer. Transport form: the serializer cells A, F, D run (shared code) into a frame built as Grpc.Net.Client 2.71's GrpcCallSerializationContext builds it (checked by reflection); on the core's transport (C, E) the form is the buffer row, stated; incumbent-best has no transport row. Pool: retained heap >= 2 x AK_LLC_BYTES (13.75 MB default), measured and topped up; a hot input is a pool of one (same per-call step); graph construction always in the case's setup. Google.Protobuf keeps no size memo |
 | 12 | cells A-F, modes | met as amended (R-H35): full client A, B, C-retain, C-drop, D-retain, D-drop, E-retain, E-drop, F-retain, F-drop (+ labelled B/C callback and queue rows); no-unknown client A, B, C-nounk, D-nounk, E-nounk, F-nounk |
-| 13 | server: separate, pre-serialised, one per launch, warmed; one channel per cell | met as amended (R-H33): one server process per launch (two Kestrel hosts in it: shipped and pinned sockets, since Kestrel's windows are per host), serving both builds; before any client, 2,000 calls per direction from each client transport (Grpc.Net, the core's) per socket, every call checked (logged; the server prints what it served); every cell its own channel for the whole launch, opened and warmed in the client's warm-up; P2.2 pre-serialised; direction b decoded by the incumbent |
+| 13 | server: separate, pre-serialised, one per launch, warmed; one channel per cell | met as amended (WP10, WP13): the Rust slice's tonic rpc_server through poc/rust/serve.sh, one process per launch pinned to AK_CPU_SERVER, AK_SERVER_THREADS = AK_WORKERS, its TCP listener serving every h2 variant, build and client configuration; warmed by serve.sh warm (2,000 campaign / 100 smoke checked calls per direction, on its sockets and its TCP listener) before any client; one channel per cell per benchmark process; P2.2 pre-serialised |
 | 14 | directions a, a+read, b, c, d | met as amended (R-H36; 2026-09-27): a and a+read, b; c = unary upload of P5.3 and P5.4; d = the streamed upload (M5 messages of 2 MiB, ids on the first only, 4 MiB and 16 MiB, the server checking the count on every call, count and SHA-256 once per cell before timing), every cell and mode, at 1 and 8 in flight; B/C/E through the core's client streaming (ak_call_open, ak_call_send / ak_call_send_enc, ak_call_recv), A/D/F through Grpc.Net's AsyncClientStreamingCall; the core's framed send path beside its reference as Bf, Cf-*, Ef-* on b, c and d (a has an empty request). C runs the MOVE path (ak_call_unary_enc on b and c, ak_call_send_enc on d), its copy path kept as the labelled extra Cc-*; D copies (Grpc.Net's serializer can only write into the call's own buffer, so ak_enc_take_owned would not remove the copy; stated); ak_call_opts not used |
 | 15 | 1/8/16 in flight | met |
 | 16 | delivery | met as amended (R-H30): B, C, E the core's blocking call on caller threads created before the warm-up; A, D, F Grpc.Net's idiomatic `await CallInvoker.AsyncUnaryCall` (as Grpc.Tools' generated client does), k in flight = k async loops on the thread pool, stated in the header; callback and queue rows labelled extras, awaited |
-| 17 | shipped and pinned, UDS | met: UDS; shipped = packages/csharp's UDS client configuration and Kestrel defaults; pinned = 4 MiB stream and connection windows, adaptive off, Nagle off (no effect on UDS, stated) |
+| 17 | shipped and pinned, TCP 127.0.0.1 | met as amended (D10, WP13): TCP 127.0.0.1 against the server's TCP listener, which runs the pinned server configuration only; shipped and pinned are the client's configuration (shipped: Grpc.Net DisableDynamicWindowSizing and no window, the core's windows at 0; pinned: 4 MiB windows on both client transports); Nagle off on every client socket, read back per case |
 | 18 | every call checked, abort | met: status (a non-OK gRPC status is AK_ERR_RPC_STATUS on the core's transport, an RpcException on Grpc.Net) and length or count on every call, the server warm-up's included; a retained decode that leaves a buffer undelivered fails its call; the `--plant` controls, per build and transport, a wrong expected length on a, c and d and a wrong SHA-256 on d, each on A, B, Bf and D one cell at a time, all abort with no sample |
 | 19 | crossing counts gate | met as amended (R-H31, 2026-09-26 geometric grow): every exported entry point the timed code calls, counted by name in a counting build, resets included and placed (one per decode, before it: decision 11 rule 7 as amended), retain with no pre-placed buffer and the timed build's geometric grow; per codec case (`gen/counts*.txt`) and per call of the RPC cells (`gen/rpc-counts*.txt`, B to E and the framed twins, A and F listed, directions a to d); gated in step 9 with a must-differ control (exact-size grow). The R5 counts (`gen/crossings*.txt`) are gated too and checked before calib |
 | 20 | crossing cost fwd/rev, perf stat | **not met here**: calib has a forward row (ak_noop) and a forward-and-reverse row; `perf stat` runs when installed and is not installed in this container (owner: install perf on the campaign machine) |
-| 21 | CPU is process CPU per round | met as amended (R-H25): codec, CLOCK_PROCESS_CPUTIME_ID per BDN iteration (the job's clock, read at the same iteration boundaries as the wall time; a case without one value per iteration fails); rpc, getrusage(RUSAGE_SELF) of the client per sample beside wall; calib (the crossing benchmark, req 20) keeps CLOCK_THREAD_CPUTIME_ID of its one loop thread |
+| 21 | CPU is process CPU per round | met as amended (R-H25): codec, CLOCK_PROCESS_CPUTIME_ID per BDN iteration (the job's clock, read at the same iteration boundaries as the wall time; a case without one value per iteration fails); rpc (as amended, WP13), perf task-clock of the whole client process per BDN iteration (`cpu_ns`), CLOCK_PROCESS_CPUTIME_ID beside it (`proc_cpu_ns`), softirq and irq ticks on the CLIENT CPUs per case; calib (the crossing benchmark, req 20) keeps CLOCK_THREAD_CPUTIME_ID of its one loop thread |
 | 22 | order randomised where the framework allows | met: codec, the unit order of a launch and the case order in each BDN process are seeded shuffles, seeds in the headers; builds alternate by launch; rpc, the cell order of every round a seeded shuffle; transports and builds alternated by launch |
 | 22a | benchmark engine | met as amended 2026-09-27: BenchmarkDotNet for the codec suite and the RPC grid (InProcessEmit, pinned by the runner, StopOnFirstError for RPC, raw measurements exported, warm-up and tier recorded; what the framework forces and the custom pieces are listed above) |
 | 23 | 5 rounds x 3 launches | met (defaults) |
 | 24 | warm-up stated, identical; GC/JIT defaults stated; every warm-up a runner parameter | met (amended 85cfd4826): every warm-up is a runner parameter with the campaign default in the header and a short smoke default (run_campaign.sh's AK_RPC_WARM_*, AK_RPC_SERVER_WARM, AK_BDN_WARMUP / _ROUNDS / _ITERATION_MS / _PREWARM_*; JOURNAL 61). codec, per BDN process a pre-warm to JIT quiescence (the job's clock included) and 2 unexported prime cases, then per case BDN's jitting, pilot and a fixed warm-up count; the JIT tier read back per case, `jit check: FAIL` fails the unit. rpc: warm-up rounds of 64 calls per cell, direction and level until a round compiles nothing (at most 10); `jit_in_window` per sample. GC and JIT between blocks at the framework defaults, stated |
-| 25 | allocator/GC warm, GC stated | met: warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row) |
+| 25 | allocator/GC warm, GC stated | met: warm-up per arm, workstation concurrent GC stated, GC counts and pause per BDN case (summary row). D9: GLIBC_TUNABLES stated in every header, not set by the runner; the rule's mechanism reaches the core's buffers in this process (see WP13) |
 | 26 | correctness before timing | met: the runner requires the gate passed at identical content (both builds, counts included); every BDN process re-checks byte identity of every encode arm and variant (transport frames and pooled graphs included) and every U-* row's encode and re-encode forms before timing |
 | 27 | header | met: commit (dirty tree refused), machine, CPU sets and their source, runtime and incumbent versions, build flags and variant, core features, transport, threads, warm-up and repeats |
 | 28 | JSON lines, raw | met: one line per BDN iteration and per rpc/calib sample, section 7's fields plus `build` and the encode-variant fields; the per-case BDN summary row carries `row: case-summary` and no `cpu_ns`/`wall_ns` |
@@ -206,6 +241,17 @@ hand-written pre-warm loop, its settle wait and knobs are removed (JOURNAL 62).
 | 32 | smoke run | see **Smoke** below |
 
 **Smoke** (the owner's small-test rule; figures stripped; container instrumentation):
+- `logs/csharp/campaign/wp13-smoke/` at `ea02da5`, through the runner from the gate's worktree,
+  grouped switch on (the smoke default): TCP 127.0.0.1, client configuration `pinned` only,
+  full build only (AK_RPC_TRANSPORTS=pinned, AK_RPC_BUILDS=full), both h2 variants, one launch,
+  BDN 1 round, 1 warm-up, 20 ms iterations; the Rust server started with AK_SERVER_TCP=0 and 8
+  workers and warmed (100) by serve.sh: per variant all 21 units, 283 samples, 0 failed cases;
+  every row `net: tcp`, `h2` equal to the variant, with `cpu_ns` and `proc_cpu_ns`, and
+  `client_softirq_ticks`. `plant-controls.log` (stock, pinned, full): 21 controls (WP10's 19 and
+  Nagle on, on A and B), every one aborting with 0 samples. The raw .jsonl and .bdn.log are not
+  committed (logs/PURGED.md); `*.stripped.log` keep every header line and per-cell counts.
+- Not run in the smoke: `shipped`, the no-unknown RPC client, calib, the codec suite, the
+  default toolchain (checked on one RPC unit, Bf, with task-clock: 10 samples, JOURNAL 65).
 - `logs/csharp/campaign/wp10b-smoke/` at `d1a3a3b`, through the runner, with the grouped switch
   on (the smoke default): full build, `shipped` only (AK_RPC_TRANSPORTS=shipped,
   AK_RPC_BUILDS=full), one launch, BDN 1 round, 1 warm-up, 2 ms iterations; the Rust server
@@ -228,6 +274,8 @@ campaign's codec suite is correspondingly longer.
 - **No timing in this slice is a result.** Every figure is container instrumentation.
 - Anything on .NET Framework 4.8 (compiled only); no floor runs the RPC suite or BDN.
 - `perf stat` cycles and instructions (not installed here), so req 20's per-iteration counts.
+- The JIT tier under the default toolchain (open since JOURNAL 64).
+- GLIBC_TUNABLES set for this slice's processes (stated, not set; D9).
 - Thread CPU time under BenchmarkDotNet (the campaign's figure is process CPU, req 21).
 - Cell B's encode form (incumbent into a span for the core's transport) as a codec-suite row.
 - U-* rows with a pool input or a transport end state (encode-hot only).
@@ -247,16 +295,19 @@ campaign's codec suite is correspondingly longer.
 
 ## Next step
 
-1. The aggregating session reads WP9 and WP10 (JOURNAL 62, 63) and pushes; this slice changes nothing further
+1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
 3. The campaign itself is the owner's: `run_campaign.sh` (through `ffi/campaign.sh`) on the
-   campaign machine.
+   campaign machine; it runs one gate per h2 variant and the rpc suite once per variant.
 
 ## Log index
 
 | Log | What it establishes |
 |---|---|
+| `wp13-gate-stock.log`, `wp13-gate-h2-batch.log` | the clean-checkout gates of WP13 at `ea02da5`, one per h2 variant (see Gate) |
+| `wp13-gate-h2-batch-FAILED-2f9ce48.log` | the second gate in one tree failing on the floor build before the fix (JOURNAL 65) |
+| `campaign/wp13-smoke/` | the WP13 minimal smoke: TCP, pinned, full build, both h2 variants, stripped; the plant controls with Nagle on |
 | `campaign/wp8c-warmup-knobs/` | the RPC client's warm-up knobs in smoke mode, one transport, full build (req 24 as amended) |
 | `wp10b-gate.log`, `wp10-gate.log` | the clean-checkout gates after the toolchain switch (`d1a3a3b`) and WP10 (`76ac71e`) |
 | `campaign/wp10b-smoke/`, `campaign/wp10-smoke/` | the minimal smokes against the Rust server, grouped, one transport, full build, with plant controls |
