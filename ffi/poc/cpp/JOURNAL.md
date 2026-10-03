@@ -2282,3 +2282,12 @@ changes.
   block kept mapped, refusal on mismatch), alloc and the minor faults on every sample.
 - Smoke per mode (RPC A, E-drop, d 16 MiB; codec P1.1): readbacks mmapped / heap, ok true, rc 0, no
   heap_pregrow line.
+
+## 2026-10-03, req 24 amended: >= 20 warm-up calls per calling thread
+
+- Google Benchmark's warm-up runs before a benchmark's first repetition on the same k caller threads (one call
+  per thread per iteration) and stops on wall time once one attempt lasts min_warmup_time, so calls per thread
+  >= min_warmup_time / batch wall. Slowest batch on the campaign machine: d/16MiB k=8 C-retain, 9.85 ms per call
+  x 8 = 79 ms (logs/cpp/opt/physical-probe/main/tables.md): 0.5 s gave about 6 calls per thread, below the rule.
+  Campaign default raised to 2.5 s (>= 31 calls per thread); smoke stays 0.01 s. Header key rpc_warmup_rule.
+  No other code; no smoke.
