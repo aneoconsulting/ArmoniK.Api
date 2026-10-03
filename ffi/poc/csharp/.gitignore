@@ -27,3 +27,7 @@ bin-count/
 obj-count/
 bin-count-nounk/
 obj-count-nounk/
+target-core-h2b/
+target-core-count-h2b/
+target-core-nounk-h2b/
+target-core-count-nounk-h2b/

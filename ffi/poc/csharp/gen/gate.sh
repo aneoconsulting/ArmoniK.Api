@@ -56,13 +56,22 @@ control() {
   if [ $rc -eq 0 ]; then echo "GATE: control $name PASSED -- the gate is blind to it"; FAILS=$((FAILS+1));
   else echo "control $name: failed, as required"; fi
 }
+# D11 as amended (2026-10-03): AK_H2=stock (default) or h2-batch selects the core variant of
+# every core with the transport (target-core, -count, -nounk, -count-nounk -> their -h2b twins,
+# gen/build_core.sh); the corpus cores have no transport and no twin.
+AK_H2="${AK_H2:-stock}"
 core() {  # dir variant  -- put a core build next to a harness
-  cp "$SLICE/$2/release/libak_core.so" "$1/libak_core.so"
+  local v="$2"
+  if [ "$AK_H2" = h2-batch ] && [ -d "$SLICE/$2-h2b" ]; then v="$2-h2b"; fi
+  cp "$SLICE/$v/release/libak_core.so" "$1/libak_core.so"
+  echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $v ($(sha256sum "$1/libak_core.so" | cut -c1-16); h2: $(strings "$1/libak_core.so" | grep -o '[^/]*/src/codec/framed_write\.rs' | sort -u | head -1))"
+  return 0
   echo "# core in $(basename "$(dirname "$1")")/$(basename "$1"): $2 ($(sha256sum "$1/libak_core.so" | cut -c1-16))"
 }
 
 echo "# csharp slice gate (FIX-PLAN WP5 to WP8). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "# h2 variant:  $AK_H2 (D11 as amended: every core with the transport is the $AK_H2 build)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
 echo "# corpus:      ffi/corpus at $(git -C "$REPO" log -1 --format=%h -- ffi/corpus), $(python3 -S -c 'import json;print(len(json.load(open("'"$REPO"'/ffi/corpus/generated/manifest.json"))["vectors"]))') vectors"
@@ -123,8 +132,10 @@ step "6. akrpc (net8.0): the generated RPC binding"
 SERVE="$REPO/ffi/poc/rust/serve.sh"
 export AK_SERVE_STATE="$SCRATCH/ak-rpc-server.state"
 run "the campaign server (serve.sh build)" "$SERVE" build
-"$SERVE" start --out "$SCRATCH/srv" > "$SCRATCH/srv.start" 2>&1 || cat "$SCRATCH/srv.start"
-SOCK=$(sed -n 's/^shipped //p' "$SCRATCH/srv.start")
+# D10: the RPC checks run over TCP 127.0.0.1, the timed transport (the server's TCP listener,
+# AK_SERVER_TCP=0: any free port, pinned server configuration, TCP_NODELAY on accept).
+AK_SERVER_TCP=0 "$SERVE" start --out "$SCRATCH/srv" > "$SCRATCH/srv.start" 2>&1 || cat "$SCRATCH/srv.start"
+SOCK="tcp:$(sed -n 's/^tcp //p' "$SCRATCH/srv.start")"
 trap '"$SERVE" stop > /dev/null 2>&1' EXIT
 echo "# the campaign server: $(cat "$SCRATCH/srv.start" | tr '\n' ' ')"
 core "$R8" target-core-count
@@ -230,6 +241,9 @@ run "upload check, full build (c and d, every cell and framed twin)" dotnet "$R8
 run "upload check, no-unknown build" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 AK_CAMPAIGN_PLANT=digest control "upload check with a planted wrong SHA-256" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 AK_CAMPAIGN_PLANT=len AK_CAMPAIGN_PLANT_DIR=d control "upload check with a planted wrong byte count" dotnet "$RN8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+# D10 (WP13): the TCP_NODELAY readback is live: with Nagle left ON in both client transports
+# (Grpc.Net's socket and the core's ak_client_opts.tcp_nagle) it must fail.
+AK_CAMPAIGN_PLANT=nagle control "upload check with Nagle left on (the TCP_NODELAY readback must fail)" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 "$SERVE" stop
 echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
 

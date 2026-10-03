@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Runtime;
@@ -231,17 +232,32 @@ public static class CampaignMain
         return m;
     }
 
+    /// CAMPAIGN req 17 as amended (D10, 2026-10-01): the endpoint is `tcp:127.0.0.1:PORT` (the
+    /// timed transport: TCP over loopback, Nagle off on every client socket) or a Unix socket
+    /// path (history, and the gate's checks).
+    internal static bool IsTcp(string ep) => ep.StartsWith("tcp:", StringComparison.Ordinal);
+    internal static string CoreUri(string ep) => IsTcp(ep) ? "http://" + ep.Substring(4) : "unix:" + ep;
+    internal static int TcpPort(string ep) => IsTcp(ep) ? int.Parse(ep.Substring(ep.LastIndexOf(':') + 1), CultureInfo.InvariantCulture) : -1;
+
     private static GrpcChannel NewGrpc(string sock, bool pinned)
     {
         var handler = new SocketsHttpHandler { EnableMultipleHttp2Connections = false, PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan };
         if (pinned) handler.InitialHttp2StreamWindowSize = Window;
+        bool tcp = IsTcp(sock);
         handler.ConnectCallback = async (c, ct) =>
         {
+            if (tcp)
+            {
+                // D10: Nagle off on the client socket (read back on the live sockets, NoDelay.cs).
+                var t = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = !PlantNagle };
+                await t.ConnectAsync(new IPEndPoint(IPAddress.Loopback, TcpPort(sock)), ct);
+                return new NetworkStream(t, true);
+            }
             var s = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
             await s.ConnectAsync(new UnixDomainSocketEndPoint(sock), ct);
             return new NetworkStream(s, true);
         };
-        return GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions
+        return GrpcChannel.ForAddress(tcp ? "http://127.0.0.1:" + TcpPort(sock) : "http://localhost", new GrpcChannelOptions
         {
             HttpHandler = handler, MaxReceiveMessageSize = 64 << 20, MaxSendMessageSize = 64 << 20, Credentials = ChannelCredentials.Insecure,
         });
@@ -252,8 +268,12 @@ public static class CampaignMain
     internal static ak_client_opts CoreOpts(bool pinned) => new ak_client_opts
     {
         stream_window = pinned ? (uint)Window : 0, connection_window = pinned ? (uint)Window : 0,
-        adaptive_window = 0, max_recv_message = 64u << 20, max_send_message = 64u << 20, tcp_nagle = pinned ? 0 : -1,
+        adaptive_window = 0, max_recv_message = 64u << 20, max_send_message = 64u << 20,
+        tcp_nagle = PlantNagle ? 1 : 0,   // D10: Nagle off on every client socket, shipped and pinned alike
     };
+    /// The control of the NODELAY readback: AK_CAMPAIGN_PLANT=nagle leaves Nagle ON in both client
+    /// transports; the readback must fail every case (gen/gate.sh, run_campaign.sh --plant).
+    internal static bool PlantNagle => Environment.GetEnvironmentVariable("AK_CAMPAIGN_PLANT") == "nagle";
 
     /// One cell of the grid in one direction: a blocking call (B, C, E: the core's blocking
     /// delivery) or an async one (A, D, F: Grpc.Net's idiomatic `await` of the call; the core's
@@ -291,7 +311,7 @@ public static class CampaignMain
 
         CoreChannel CoreCh(string name, bool queue = false)
         {
-            var ch = new CoreChannel(rt, "unix:" + sock, CoreOpts(pinned));
+            var ch = new CoreChannel(rt, CoreUri(sock), CoreOpts(pinned));
             if (queue) ch.StartQueue();
             owned.Add(ch);
             chans.Add(name + ": its own core channel" + (queue ? " + completion queue drainer" : ""));
@@ -641,6 +661,7 @@ public static class CampaignMain
         var vwhy = AbiVariant.CheckLoadedCore();
         if (vwhy != null) { Console.WriteLine("# ABORT: core variant mismatch: " + vwhy); Console.WriteLine("# no samples written"); return 1; }
         var sock = Opt(a, "--sock", null);
+        _ep = sock;
         var transport = Opt(a, "--transport", "shipped");
         bool pinned = transport == "pinned";
         bool counts = a.Contains("--counts");
@@ -683,6 +704,7 @@ public static class CampaignMain
 
     /// The gate's upload check (req 18/26, WP8): every c cell once, every d cell once through
     /// StreamCheck (count and SHA-256), both send paths of the core's transport; nothing timed.
+    private static string _ep;
     private static async Task<int> UploadCheck(List<Cell> cells)
     {
         int n = 0;
@@ -696,6 +718,13 @@ public static class CampaignMain
             }
         }
         catch (Exception e) { Console.WriteLine("# ABORT: {0}: {1}", e.GetType().Name, e.Message); return 1; }
+        if (IsTcp(_ep))
+        {
+            // D10: Nagle off read back on every live socket of this process to the server.
+            var (found, nd) = NoDelay.Check(TcpPort(_ep));
+            Console.WriteLine("TCP_NODELAY read back: {0} of {1} sockets to the server", nd, found);
+            if (found == 0 || nd != found) return 1;
+        }
         Console.WriteLine("upload check ({0} build): {1} upload cells, every c call accepted, every d stream's count and SHA-256 as received equal to the client's", AbiVariant.Name, n);
         return n > 0 ? 0 : 1;
     }

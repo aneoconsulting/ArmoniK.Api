@@ -23,6 +23,52 @@ public static unsafe class ProcCpu
     public static long Wall() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1e9 / System.Diagnostics.Stopwatch.Frequency));
 }
 
+/// CAMPAIGN req 21 as amended 2026-10-01 (RPC cells over TCP): perf `task-clock` of the WHOLE
+/// process, a counter the process opens itself. perf_event_open(PERF_TYPE_SOFTWARE,
+/// PERF_COUNT_SW_TASK_CLOCK) counts one thread, and an inherited counter folds a child
+/// thread's count in only when it exits, so this opens one counter per thread
+/// (/proc/self/task) and, at every read, opens counters for threads it has not seen yet (a
+/// thread born during an iteration is counted from the next read on: stated). The sum
+/// includes the softirq time spent on the process's CPUs while its threads run, which the
+/// process clock misses on a kernel with IRQ_TIME_ACCOUNTING (findings/physical-probe.md).
+/// Enabled by AK_TASK_CLOCK=1 (the RPC grid; inherited by BDN's child processes).
+public static unsafe class TaskClock
+{
+    [DllImport("libc", SetLastError = true)] private static extern long syscall(long n, void* attr, int pid, int cpu, int group, ulong flags);
+    [DllImport("libc", SetLastError = true)] private static extern long read(int fd, long* buf, ulong n);
+    public static readonly bool Enabled = Environment.GetEnvironmentVariable("AK_TASK_CLOCK") == "1";
+    private static readonly Dictionary<int, int> _fds = new Dictionary<int, int>();
+    public static int Threads => _fds.Count;
+    public static int Failed;
+
+    private static void Scan()
+    {
+        foreach (var d in System.IO.Directory.EnumerateDirectories("/proc/self/task"))
+        {
+            if (!int.TryParse(System.IO.Path.GetFileName(d), out int tid) || _fds.ContainsKey(tid)) continue;
+            var attr = stackalloc byte[128];
+            for (int i = 0; i < 128; i++) attr[i] = 0;
+            *(uint*)attr = 1;            // PERF_TYPE_SOFTWARE
+            *(uint*)(attr + 4) = 128;    // size
+            *(ulong*)(attr + 8) = 1;     // PERF_COUNT_SW_TASK_CLOCK
+            long fd = syscall(298, attr, tid, -1, -1, 8 /* PERF_FLAG_FD_CLOEXEC */);
+            if (fd < 0) { Failed++; _fds[tid] = -1; continue; }
+            _fds[tid] = (int)fd;
+        }
+    }
+
+    /// The task-clock of every thread seen so far, nanoseconds (an exited thread's counter keeps
+    /// its final value).
+    public static long Ns()
+    {
+        Scan();
+        long sum = 0, v;
+        foreach (var fd in _fds.Values)
+            if (fd >= 0 && read(fd, &v, 8) == 8) sum += v;
+        return sum;
+    }
+}
+
 /// CAMPAIGN req 21 inside BenchmarkDotNet: the job's clock. The engine calls GetTimestamp at
 /// an iteration's start and at its end (IClock.Start / StartedClock.GetElapsed); while the
 /// diagnoser has recording on (the actual stage), each call also reads the process CPU clock:
@@ -37,6 +83,9 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     public static bool Recording;
     public static readonly List<long> Cpu = new List<long>(64);
     public static readonly List<long> Wall = new List<long>(64);
+    /// task-clock beside the process clock at every read (AK_TASK_CLOCK=1), else empty.
+    public static readonly List<long> Tc = new List<long>(64);
+    public static void Reset() { Cpu.Clear(); Wall.Clear(); Tc.Clear(); }
     /// BDN's default toolchain (one child process per case, req 22a as amended e6c909630): the
     /// clock runs in the CHILD, the diagnoser in the host, so the child records every read and
     /// writes them to AK_CPU_CHILD_DIR at its GlobalCleanup (DumpChild); the host pairs the
@@ -48,8 +97,16 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     {
         if (!Recording) return System.Diagnostics.Stopwatch.GetTimestamp();
         long t;
-        if ((Cpu.Count & 1) == 0) { Cpu.Add(ProcCpu.Ns()); t = System.Diagnostics.Stopwatch.GetTimestamp(); }
-        else { t = System.Diagnostics.Stopwatch.GetTimestamp(); Cpu.Add(ProcCpu.Ns()); }
+        if ((Cpu.Count & 1) == 0)
+        {
+            if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
+            Cpu.Add(ProcCpu.Ns()); t = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+        else
+        {
+            t = System.Diagnostics.Stopwatch.GetTimestamp(); Cpu.Add(ProcCpu.Ns());
+            if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
+        }
         Wall.Add(t);
         return t;
     }
@@ -64,15 +121,19 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     {
         if (ChildDir == null) return;
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append('\n');
+        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append('\n');
         System.IO.File.WriteAllText(FileOf(key), sb.ToString());
     }
 
     /// The child's reads for the case's actual iterations (2 per iteration), or null when they
     /// cannot be paired: fewer reads than iterations, or a pair whose wall span differs from
     /// BDN's measurement of that iteration by more than 2 percent plus 20 us.
-    public static long[] FromChild(string key, IList<double> actualNs)
+    public static long[] FromChild(string key, IList<double> actualNs) => FromChild(key, actualNs, out _);
+
+    /// The same, with the task-clock reads (null when the child did not record them).
+    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc)
     {
+        tc = null;
         if (ChildDir == null) return null;
         var f = FileOf(key);
         if (!System.IO.File.Exists(f)) return null;
@@ -80,14 +141,18 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         int n = actualNs.Count;
         if (rows.Length < 2 * n || (rows.Length & 1) != 0) return null;
         var o = new long[2 * n];
+        var t = new long[2 * n];
+        bool hasTc = true;
         double tick = 1e9 / System.Diagnostics.Stopwatch.Frequency;
         for (int i = 0; i < n; i++)
         {
             var a = rows[rows.Length - 2 * n + 2 * i].Split(' '); var b = rows[rows.Length - 2 * n + 2 * i + 1].Split(' ');
             o[2 * i] = long.Parse(a[0]); o[2 * i + 1] = long.Parse(b[0]);
+            if (a.Length > 2 && b.Length > 2 && a[2] != "-1" && b[2] != "-1") { t[2 * i] = long.Parse(a[2]); t[2 * i + 1] = long.Parse(b[2]); } else hasTc = false;
             double span = (long.Parse(b[1]) - long.Parse(a[1])) * tick;
             if (Math.Abs(span - actualNs[i]) > 0.02 * actualNs[i] + 20000) return null;
         }
+        if (hasTc) tc = t;
         return o;
     }
 }

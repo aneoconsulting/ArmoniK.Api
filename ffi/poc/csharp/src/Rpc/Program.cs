@@ -60,7 +60,7 @@ public static class Program
 
     private static async Task<int> ErrorPath(string sock, int n)
     {
-        using var cc = new CoreChannel("unix:" + sock, 2);
+        using var cc = new CoreChannel(Armonik.Ffi.Campaign.CampaignMain.CoreUri(sock), 2);
         // The queue's drainer polls `ak_queue_next` with a 200 ms timeout, and
         // every poll is a forward crossing, so it is started only for the queue
         // rows (a running drainer put 2.02 on a blocking row), and the check

@@ -66,7 +66,7 @@ public sealed class CpuDiagnoser : IDiagnoser
             _t1 = DateTime.UtcNow;
             _heap = GC.GetTotalMemory(false); _p0 = GC.GetTotalPauseDuration(); _g0 = GC.CollectionCount(0); _g1 = GC.CollectionCount(1); _g2 = GC.CollectionCount(2);
             _w0 = ProcCpu.Wall(); _c0 = ProcCpu.Ns();
-            CpuClock.Cpu.Clear(); CpuClock.Recording = true;
+            CpuClock.Reset(); CpuClock.Recording = true;
         }
         else if (signal == HostSignal.AfterActualRun)
         {
@@ -121,6 +121,7 @@ public sealed class JsonLinesExporter : IExporter
         sb.Append(",\"arm\":\"").Append(c.Arm).Append("\",\"payload\":\"").Append(c.Payload).Append("\",\"content\":\"").Append(c.Content)
           .Append("\",\"dir\":\"").Append(c.Dir).Append("\",\"unknown_mode\":\"").Append(c.Mode).Append('"');
         sb.Append(",\"build\":\"").Append(Armonik.Ffi.Harness.AbiVariant.Name).Append('"');   // R-H6
+        sb.Append(",\"h2\":\"stock\"");   // D11: the codec suite loads the stock core and makes no transport call
         sb.Append(",\"launch\":").Append(launch).Append(",\"round\":").Append(round);
         if (summary) sb.Append(",\"row\":\"case-summary\",\"span_cpu_ns\":").Append(cpu).Append(",\"span_wall_ns\":").Append(wall);
         else sb.Append(",\"cpu_ns\":").Append(cpu).Append(",\"wall_ns\":").Append(wall);
