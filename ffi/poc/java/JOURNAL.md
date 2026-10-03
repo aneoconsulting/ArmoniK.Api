@@ -950,3 +950,53 @@ with combo=a/8 and d:1/1 gave two forks, labels and iters (8 per batch at k = 8)
 stopped a stale JVM of mine, running since WP10: the no-unknown count client's first
 attempt, blocked on the grpc-java authority error.
 Gate at d9467f77f from a clean worktree, outside smoke (campaign.machine sourced, the server unpinned): GATE PASSED, G6 closed. Grouped smoke: pinned, full build, 289 samples (logs/java/campaign-wp9g).
+
+### J37. FIX-PLAN WP13: the WP12 contract (2026-10-03)
+
+Applied D8 to D11 and req 21's amendment to the java slice.
+
+**TCP (D10).** Every cell dials the shared server's TCP listener (`AK_SERVER_TCP=0`). grpc-java
+goes over Netty's epoll socket channel with `ChannelOption.TCP_NODELAY` set. The core goes
+through `http://127.0.0.1:PORT`: tonic's default nodelay when shipped, `tcp_nagle = 0` when
+pinned. `Native.tcpNodelay` (tax.c) reads TCP_NODELAY back on every socket of the process
+connected to the port: 17/17 in the upload check, 1/1 per fork.
+
+**Client CPU (req 21 as amended).** `cpu_ns` is now perf task-clock of the whole process.
+A JVM agent opens one task-clock counter with inherit in `Agent_OnLoad`, on the JVM's main
+thread before its other threads exist; a probe in C showed that a read includes live
+inherited threads. `process_cpu_ns` sits beside it, and `softirq_ticks_client` comes from
+/proc/stat.
+
+**Pools (D14).** Every pool is sized to AK_WORKERS=8:
+- the core runtime;
+- the Netty event loops;
+- grpc-java's executor, now a fixed pool;
+- G1 ParallelGCThreads;
+- the server's tokio runtime.
+
+**h2 variants (D11).** I built h2-batch RPC cores and shims. The full rpc core goes through
+poc/codec/h2-batch/build.sh; the no-unknown and counting ones reuse its patched source
+through the same `--config`, because the script passes `--features` only.
+`build/h2-compiled.txt` shows h2-0.4.19 in the four stock cores and h2-batch-src in the four
+h2-batch ones. `AK_H2` selects the variant, and the gate stamps per variant.
+
+**Allocator (D9).** It applies to the core cells: glibc malloc in the JVM process. The RPC
+forks run under the D9 tunables, and `AK_D9_DEFAULT_ALLOC=1` gives the default-allocator
+pass.
+
+**Checked by hand.** Over TCP against the server:
+- the upload check passes on stock and on h2-batch;
+- h2-batch rpc counts are identical to the reference;
+- a short h2-batch JMH run of Cf-drop and A labels every sample `h2-batch` / `tcp`, with
+  task-clock at or above the process clock (container instrumentation).
+Gate runs. The first clean worktree (`wt13`) vanished mid-build: another session used the
+same scratchpad name. The second run, at 2f9ce4823, failed only its upload checks: the gate
+split `tcp:127.0.0.1:PORT:shipped` on ':' to get the address and the configuration. Fixed in
+88fa071e2, which passes them apart. At 88fa071e2, from a clean worktree, outside smoke:
+- stock: GATE PASSED;
+- h2-batch: GATE PASSED, with the RPC cores' h2 checked (h2-0.4.19 / h2-batch-src), the
+  counts identical, the upload checks at 17/17 and 10/10 NODELAY sockets, and both plants;
+- grouped smoke on h2-batch: 289 samples, every one labelled h2-batch / tcp.
+
+The runner's printed sample count also counted the 17 meta lines (306); that echo is fixed,
+not re-run.

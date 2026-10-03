@@ -1,0 +1,71 @@
+# JMH version: 1.37
+# VM version: JDK 17.0.20.1, OpenJDK 64-Bit Server VM, 17.0.20.1+1-1-24.04-Ubuntu
+# VM invoker: /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+# VM options: -Xmx2g -agentpath:/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-wp13-wt/ffi/poc/java/build/taskclock/libaktc.so -Dak.taskclock.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-wp13-wt/ffi/poc/java/build/taskclock/libaktc.so -Dak.workers=8 -Dak.camp.clientcpus=1-4,11-14 -Dak.camp.h2=h2-batch -Dak.lib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-wp13-wt/ffi/poc/java/build/jnirpc-h2b/libakjni.so -Dak.rpclib=/tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/java-wp13-wt/ffi/poc/java/build/jnirpc-h2b/libakjni.so -Dak.camp.socket=tcp:127.0.0.1:43377 -Dak.camp.transport=pinned -Dak.camp.plant=1
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: <none>
+# Measurement: 17 iterations, 10 ms each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: ak.RpcJmh.batch
+# Parameters: (cell = C-retain, combo = cycle)
+
+# Run progress: 0.00% complete, ETA 00:00:00
+# Fork: 1 of 1
+Iteration   1: <failure>
+
+java.lang.IllegalStateException: req 18: C-retain/c: response 0 B, want 1
+	at ak.CampaignRpc.fail(CampaignRpc.java:306)
+	at ak.CampaignRpc$CoreCell.callC(CampaignRpc.java:611)
+	at ak.CampaignRpc.precheck(CampaignRpc.java:719)
+	at ak.RpcJmh.trial(RpcJmh.java:166)
+	at ak.jmh_generated.RpcJmh_batch_jmhTest._jmh_tryInit_f_rpcjmh0_G(RpcJmh_batch_jmhTest.java:1045)
+	at ak.jmh_generated.RpcJmh_batch_jmhTest.batch_AverageTime(RpcJmh_batch_jmhTest.java:333)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+	at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+
+
+Benchmark had encountered error, and fail on error was requested
+ERROR: org.openjdk.jmh.runner.RunnerException: Benchmark caught the exception
+	at org.openjdk.jmh.runner.Runner.runBenchmarks(Runner.java:572)
+	at org.openjdk.jmh.runner.Runner.internalRun(Runner.java:309)
+	at org.openjdk.jmh.runner.Runner.run(Runner.java:208)
+	at org.openjdk.jmh.Main.main(Main.java:71)
+Caused by: org.openjdk.jmh.runner.BenchmarkException: Benchmark error during the run
+	at org.openjdk.jmh.runner.BenchmarkHandler.runIteration(BenchmarkHandler.java:440)
+	at org.openjdk.jmh.runner.BaseRunner.runBenchmark(BaseRunner.java:283)
+	at org.openjdk.jmh.runner.BaseRunner.runBenchmark(BaseRunner.java:233)
+	at org.openjdk.jmh.runner.BaseRunner.doSingle(BaseRunner.java:138)
+	at org.openjdk.jmh.runner.BaseRunner.runBenchmarksForked(BaseRunner.java:75)
+	at org.openjdk.jmh.runner.ForkedRunner.run(ForkedRunner.java:72)
+	at org.openjdk.jmh.runner.ForkedMain.main(ForkedMain.java:86)
+	Suppressed: java.lang.IllegalStateException: req 18: C-retain/c: response 0 B, want 1
+		at ak.CampaignRpc.fail(CampaignRpc.java:306)
+		at ak.CampaignRpc$CoreCell.callC(CampaignRpc.java:611)
+		at ak.CampaignRpc.precheck(CampaignRpc.java:719)
+		at ak.RpcJmh.trial(RpcJmh.java:166)
+		at ak.jmh_generated.RpcJmh_batch_jmhTest._jmh_tryInit_f_rpcjmh0_G(RpcJmh_batch_jmhTest.java:1045)
+		at ak.jmh_generated.RpcJmh_batch_jmhTest.batch_AverageTime(RpcJmh_batch_jmhTest.java:333)
+		at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+		at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+		at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+		at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+		at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:527)
+		at org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call(BenchmarkHandler.java:504)
+		at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+		at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+		at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+		at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+		at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+		at java.base/java.lang.Thread.run(Thread.java:840)

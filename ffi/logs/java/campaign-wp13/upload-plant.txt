@@ -1,0 +1,1 @@
+CAMPAIGN ABORT (no figure written): req 18: A/c: response 0 B, want 1

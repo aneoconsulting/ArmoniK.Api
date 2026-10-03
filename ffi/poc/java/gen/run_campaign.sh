@@ -397,7 +397,7 @@ rpc)
       -rf json -rff "$base.jmh.json" > "$base.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V), -foe true"
     python3 -S gen/rpc_jmh_to_jsonl.py "$base.jmh.json" "$base.jmh.txt" "$l" >> "$f" \
       || discard "$l" "conversion ($tr, $V)"
-    echo "rpc launch $l ($tr, $V): $(grep -c '"cpu_ns"' "$f") samples -> $f"
+    echo "rpc launch $l ($tr, $V): $(grep -c '"process_cpu_ns"' "$f") samples -> $f"
   }
   for l in $(seq 1 "$LAUNCHES"); do
     server_up "$l"
