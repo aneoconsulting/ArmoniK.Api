@@ -693,6 +693,33 @@ wp5_gate (C++17, C++14, C++11), ASan, the campaign gate and the queue checks, on
 on h2-batch, and any check counting the frames sent after a cancel (D16). Still open: item 5
 (`campaign.sh`, `campaign.machine`) and D14.
 
+### WP13. C#, Java and Python on the WP12 contract (owner, 2026-10-03)
+
+The physical-probe decisions were applied in the Rust and C++ slices only. Each of C#,
+Java and Python:
+
+1. **TCP 127.0.0.1** for every timed cell (D10, CAMPAIGN req 17), Nagle off on every
+   client socket, read back on the live sockets (`getsockopt TCP_NODELAY`); the shared
+   server started with `AK_SERVER_TCP=0` (`poc/rust/SERVER.md`). The server's TCP listener
+   runs the pinned server configuration only, so `shipped` and `pinned` differ on the
+   client side.
+2. **RPC client CPU** = perf `task-clock` of the whole process, the process clock beside
+   it, softirq time on the CLIENT CPUs recorded (req 21 as amended).
+3. **D8 / D14:** CPU sets from `campaign.machine` (4 cores with both SMT threads each), and
+   every pool sized to `AK_WORKERS` (8): the core runtime, the host stack's pools, and
+   grpc-core where the slice uses it (it sizes itself from `_SC_NPROCESSORS_CONF`; state
+   how it is set). Stated in every header.
+4. **Both h2 variants** (D11 as amended): build the stock and the `h2-batch` core
+   (`poc/codec/h2-batch/`), gate both, and label every sample with the variant.
+5. **Rebuild on the current core** (p1, the spare ring) and re-gate.
+6. The allocator rule (D9, req 25) applies to native slices; state whether a slice's
+   native shim is affected.
+
+Small tests (owner): one clean-checkout gate per variant, one minimal smoke.
+
+**Runner (aggregating session, done 2026-10-03):** `campaign.machine` and `campaign.sh`
+encode D8 and D14 (sets of 8 CPUs, whole cores, `AK_WORKERS`=8); WP12 item 5 closed.
+
 ## 3. What this plan deliberately does not do
 
 - It does not re-take any timing in a container.
@@ -777,10 +804,10 @@ Facts that bear on the design constraints and are not in `README.md`:
 | D8 | CPU sets and SMT | CLIENT 1-4,11-14, SERVER 5-8,15-18 (both SMT threads of 4 cores each), OS 0,9,10,19; every pool sized to 8 workers (2026-09-29) |
 | D9 | Rust A's allocator mode | main figures with the glibc trim and mmap thresholds pinned for every cell, plus one default-allocator pass per comparison (2026-09-30) |
 | D10 | Transport | TCP 127.0.0.1 only, Nagle off, from 2026-10-01; Unix-socket results are history |
-| D11 | h2 | two core variants for the rest of the POC: stock h2 0.4.19 and h2-batch (#903 port + p4); nothing reported upstream for now |
+| D11 | h2 | two core variants for the rest of the POC: stock h2 0.4.19 and h2-batch (#903 port + p4); nothing reported upstream for now. **Amended 2026-10-03: every slice** builds, gates and times both variants |
 | D12 | Zero copy | not pursued: does not fit the ABI and the managed hosts, complex tradeoffs |
 | D13 | Other core patches | p1 kept; p2, p3, p5, p8, p9 dropped |
-| D14 | Core worker count | decided after the TCP worker sweep (WP12 item 3) |
+| D14 | Core worker count | **8 (2026-10-03)**, the number of threads in each set's taskset (D8); every pool the same, `AK_WORKERS` in `campaign.machine` |
 | D15 | Other tenants | Docker's few, mostly idle containers stay running; netfilter is recorded as a machine condition |
 | D17 | Backward encoding | tried as a patch with hosts delivering repeated fields last to first, and dropped: mixed timings (P2.4 faster, P6.1 slower) and a silent host-contract change; learned widths stay (`logs/rust/opt/patches/backward-encode/`, ABI-v1 section 6) (2026-10-02) |
 | D16 | h2-batch divergences | the patch is kept as is: data after a local reset (up to 15 more DATA frames before RST_STREAM) and untested control frames mid-burst are documented, not fixed (`poc/codec/h2-batch/README.md`, ABI-v1 section 9) (2026-10-02) |

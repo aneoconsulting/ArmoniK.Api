@@ -108,7 +108,7 @@ knobs_of() {
 if [ "$SMOKE" != 1 ] && [ -f "$FFI/campaign.machine" ]; then
   # shellcheck source=/dev/null
   . "$FFI/campaign.machine"
-  export AK_CPU_CLIENT AK_CPU_SERVER
+  export AK_CPU_CLIENT AK_CPU_SERVER AK_SET_SIZE AK_WORKERS
 fi
 
 # expand a cpu list such as "1-4,9" into one cpu per line
@@ -136,11 +136,17 @@ check_sets() {
     echo "campaign.sh: CLIENT and SERVER share a core or SMT siblings (CAMPAIGN req 4)" >&2
     return 1
   fi
-  # two cpus of one set on the same core would put the measured threads on siblings
-  if [ "$(for c in $(cpus_of "$AK_CPU_CLIENT"); do siblings_of "$c" | head -1; done | sort -u | wc -l)" -ne "$n_c" ]; then
-    echo "campaign.sh: CLIENT holds two SMT siblings of one core (CAMPAIGN req 4)" >&2
-    return 1
-  fi
+  # D8: a set holds whole cores, both SMT threads of each (half a core in a set would let
+  # the OS or the other set run on its sibling)
+  local sib
+  for c in $(cpus_of "$AK_CPU_CLIENT") $(cpus_of "$AK_CPU_SERVER"); do
+    for sib in $(siblings_of "$c"); do
+      if ! { cpus_of "$AK_CPU_CLIENT"; cpus_of "$AK_CPU_SERVER"; } | grep -qx "$sib"; then
+        echo "campaign.sh: CPU $c's sibling $sib is in no set; each set holds whole cores (CAMPAIGN req 4, D8)" >&2
+        return 1
+      fi
+    done
+  done
   return 0
 }
 

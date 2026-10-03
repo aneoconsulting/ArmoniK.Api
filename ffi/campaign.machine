@@ -7,16 +7,18 @@
 # siblings 10-19; campaign.sh checks the sibling layout from sysfs, so a different
 # numbering is caught, not silently accepted.
 #
-#   core 0     OS and the runner (with its sibling)
-#   cores 1-4  CLIENT (the measured process)
-#   cores 5-8  SERVER (the RPC server)
-#   core 9     spare
+# CAMPAIGN req 4 as amended by the owner 2026-09-29 (D8): each set is 4 cores WITH BOTH
+# SMT threads, and every pool (server, host runtimes, core runtime, grpc-core) is sized to
+# the set's 8 threads (D14, 2026-10-03).
 #
-# With SMT on, the siblings of CLIENT and SERVER cores (11-14, 15-18) are left idle:
-# isolate them with the measured CPUs and do not schedule on them.
+#   cores 1-4  CLIENT  CPUs 1-4,11-14  (the measured process)
+#   cores 5-8  SERVER  CPUs 5-8,15-18  (the RPC server)
+#   cores 0,9  OS      CPUs 0,9,10,19  (everything else, the runner included)
 
 AK_MACHINE_NAME="${AK_MACHINE_NAME:-i9-7900X}"
-AK_CPU_CLIENT="${AK_CPU_CLIENT:-1-4}"
-AK_CPU_SERVER="${AK_CPU_SERVER:-5-8}"
-# CAMPAIGN req 4 (R-H34): set sizes are fixed for the whole campaign.
-AK_SET_SIZE="${AK_SET_SIZE:-4}"
+AK_CPU_CLIENT="${AK_CPU_CLIENT:-1-4,11-14}"
+AK_CPU_SERVER="${AK_CPU_SERVER:-5-8,15-18}"
+# CAMPAIGN req 4 (R-H34, D8): set sizes are fixed for the whole campaign, in CPUs (threads);
+# every pool is sized to it (D14).
+AK_SET_SIZE="${AK_SET_SIZE:-8}"
+AK_WORKERS="${AK_WORKERS:-$AK_SET_SIZE}"

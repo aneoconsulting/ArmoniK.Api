@@ -53,9 +53,9 @@ in its container shows it executes (section 9).
    threads** (`CLIENT` 1-4,11-14, `SERVER` 5-8,15-18, `OS` 0,9,10,19 on the reference
    machine), and every pool is sized to 8 workers: the server, the host runtimes, the
    core runtime, and grpc-core (which sizes itself from `_SC_NPROCESSORS_CONF`, not
-   from the affinity mask, so a slice states how it sizes it). `campaign.sh` and
-   `campaign.machine` still encode the earlier rule (no two siblings in one set,
-   FIX-PLAN WP12).
+   from the affinity mask, so a slice states how it sizes it). **The pool size is 8,
+   the number of threads in each set** (owner, 2026-10-03, D14; `AK_WORKERS` in
+   `campaign.machine`). `campaign.sh` and `campaign.machine` encode this (2026-10-03).
 
 ## 3. Runtimes and versions (owner's levels)
 
@@ -201,6 +201,9 @@ in its container shows it executes (section 9).
     sockets of each timed process (`getsockopt TCP_NODELAY`). Reason: over TCP the
     stacks do not keep their Unix-socket ordering (`findings/physical-probe.md`
     section 4), and TCP is closer to the target. Unix-socket figures are history.
+    The shared server's TCP listener runs the pinned server configuration only
+    (`poc/rust/SERVER.md`), so over TCP `shipped` and `pinned` differ on the client
+    side; stated in every header.
 18. **Every call is checked**: status OK and response length equal to the
     expected payload; one failure aborts the run and produces no figure.
 
