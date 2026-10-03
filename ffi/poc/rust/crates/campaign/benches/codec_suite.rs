@@ -128,10 +128,6 @@ fn main() {
         return;
     }
 
-    // Owner (2026-10-03): pre-grow the heap to the largest payload of this run, after the
-    // allocator check and the pre-check, before criterion starts.
-    let pg_bytes = inputs.iter().map(|i| i.bytes.len()).max().unwrap_or(0);
-    let (pg_rounds, pg_last) = campaign::pregrow(pg_bytes);
     let order = arm_order(launch);
     let mut c = Criterion::default()
         .with_measurement(ProcessCpu)
@@ -195,7 +191,6 @@ fn main() {
     let mut f = std::fs::File::create(&out_path).unwrap();
     for h in header("codec", &[
         ("alloc", alloc_header(alloc, alloc_read)),
-        ("pre-grow", campaign::pregrow_header(pg_bytes, "the largest input payload of this run, wire bytes", pg_rounds, pg_last)),
         ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
         ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
         ("encode variants", format!("every encode arm x mode in 4 rows, core-native and core-ffi in 6 (requirement 11): end_state reused-buffer | transport-ready-tonic | transport-ready-core (core arms only) ({}) x input hot (one graph) | pool (distinct graphs cloned until the heap they hold, measured with glibc mallinfo2, reaches AK_POOL_BYTES; at least 2, at most 2^20; built before the case's warm-up and freed after; each pool row records pool_graphs and pool_heap_bytes; AK_POOL_BYTES = {}, AK_LLC_BYTES = {})", TRANSPORT_FORMS, pool_bytes(), llc_bytes())),

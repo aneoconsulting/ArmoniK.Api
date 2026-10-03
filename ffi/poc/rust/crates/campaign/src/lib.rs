@@ -140,44 +140,6 @@ pub fn alloc_check() -> (&'static str, &'static str) {
 
 static PROBE: std::sync::atomic::AtomicPtr<u8> = std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
 
-/// The pre-grow round cap (owner, 2026-10-03).
-pub const PREGROW_CAP: u32 = 8;
-
-/// Owner's pre-grow (both allocator modes), after `alloc_check` and before any timing:
-/// malloc a block of `bytes` (the largest payload the run uses), write one byte per 4 KiB
-/// page, free it; repeat until one round causes zero minor faults (getrusage). Returns the
-/// rounds taken and the last round's fault count. Hitting PREGROW_CAP REFUSES the run.
-pub fn pregrow(bytes: usize) -> (u32, u64) {
-    let mut last = 0;
-    for r in 1..=PREGROW_CAP {
-        let f0 = minflt();
-        unsafe {
-            let p = libc::malloc(bytes.max(1)) as *mut u8;
-            assert!(!p.is_null(), "pre-grow malloc of {bytes} B");
-            let mut o = 0;
-            while o < bytes {
-                std::ptr::write_volatile(p.add(o), 1);
-                o += 4096;
-            }
-            if bytes > 0 {
-                std::ptr::write_volatile(p.add(bytes - 1), 1);
-            }
-            libc::free(p as *mut libc::c_void);
-        }
-        last = minflt() - f0;
-        if last == 0 {
-            eprintln!("# pregrow: {bytes} B, {r} rounds, last round {last} minor faults");
-            return (r, last);
-        }
-    }
-    refuse(format!("pre-grow of {bytes} B still faulted after {PREGROW_CAP} rounds (last round {last} minor faults)"))
-}
-
-/// The header line of the pre-grow, the same in every suite.
-pub fn pregrow_header(bytes: usize, what: &str, rounds: u32, last: u64) -> String {
-    format!("after the allocator check and before any timing, malloc + touch every 4 KiB page + free of {bytes} B ({what}), repeated until a round causes zero minor faults (cap {PREGROW_CAP}, refused at the cap): {rounds} rounds, last round {last} minor faults; the 16 MiB probe block of the allocator check stays allocated for the life of the process")
-}
-
 fn refuse(why: String) -> ! {
     eprintln!("REFUSED (CAMPAIGN req 25, D9): {why}; no sample is taken");
     std::process::exit(4);

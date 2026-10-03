@@ -1,0 +1,18 @@
+# FIGURES STRIPPED (CAMPAIGN req 32): cpu_ns and wall_ns removed from every sample; labels kept
+# slice: rust   suite: calib
+# INSTRUMENTATION unless run on the campaign machine (CAMPAIGN.md section 2); a container figure is not a result
+# incumbent: prost 0.14 / tonic 0.14 (tonic-prost), as pinned in poc/rust/Cargo.lock
+# build: release profile, core ak-core cdylib (shared, linked by the dynamic linker), features rpc,init-guard; harness guard on
+# rustc: see run header
+# decode UTF-8 check (the core's, utf8="reject"): simdutf8::basic (ak-rt; optimisation C2 made simdutf8 the default)
+# alloc: this process ran pinned (a 16 MiB malloc read back heap); modes: default = glibc's default allocator, GLIBC_TUNABLES unset (the main figures); pinned = GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432 on the measured client only (the labelled diagnostic, files labelled alloc-pinned); every sample carries alloc and minflt (minor faults over its measured span, read outside the timers)
+# arms: forward = ak_noop; forward-reverse = ak_noop_reverse (reverse = the difference)
+# launch: 1
+# order: forward,forward-reverse
+# rounds: 1
+# iterations per round: 100000
+# warm-up: 10000 iterations of each arm
+# clock: CLOCK_PROCESS_CPUTIME_ID (process CPU, requirement 21 as amended 2026-09-26)
+# threads: 1 measuring thread, no runtime
+{"alloc": "pinned", "arm": "forward", "figures": "stripped", "iters": 100000, "launch": 1, "minflt": 1, "round": 1, "slice": "rust", "suite": "calib"}
+{"alloc": "pinned", "arm": "forward-reverse", "figures": "stripped", "iters": 100000, "launch": 1, "minflt": 0, "round": 1, "slice": "rust", "suite": "calib"}

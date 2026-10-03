@@ -1,0 +1,2 @@
+# alloc: default (16 MiB malloc mmapped)
+# criterion's console output removed: its figures are stripped (CAMPAIGN req 32)

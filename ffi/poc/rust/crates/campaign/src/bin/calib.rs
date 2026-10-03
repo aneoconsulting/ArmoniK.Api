@@ -53,9 +53,6 @@ fn main() {
     }
     // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
     let (alloc, alloc_read) = campaign::alloc_check();
-    // Owner (2026-10-03): pre-grow to the largest payload; calib carries none (ak_noop and
-    // ak_noop_reverse pass a u64), so the pre-grow is of 0 B.
-    let (pg_rounds, pg_last) = campaign::pregrow(0);
     let launch: usize = arg("--launch").map(|v| v.parse().unwrap()).unwrap_or(1);
     let rounds: usize = arg("--rounds").map(|v| v.parse().unwrap()).unwrap_or(5);
     let out = arg("--out").expect("--out");
@@ -82,7 +79,6 @@ fn main() {
     let mut f = std::fs::File::create(&out).unwrap();
     for h in campaign::header("calib", &[
         ("alloc", campaign::alloc_header(alloc, alloc_read)),
-        ("pre-grow", campaign::pregrow_header(0, "calib carries no payload: ak_noop / ak_noop_reverse pass a u64", pg_rounds, pg_last)),
         ("arms", "forward = ak_noop; forward-reverse = ak_noop_reverse (reverse = the difference)".into()),
         ("launch", launch.to_string()),
         ("order", order.iter().map(|&i| arms[i].0).collect::<Vec<_>>().join(",")),

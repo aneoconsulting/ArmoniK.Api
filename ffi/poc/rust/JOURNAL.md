@@ -4274,3 +4274,16 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
     threads (k mpsc sends and k recvs) for the blocking cells, or one block_on with k
     tokio::spawn and joins for the async cells, plus requirement 18's per-call length check.
     rusage is read outside the span.
+
+## 2026-10-03 -- D9: heap pre-grow reverted (owner)
+
+- Removed `pregrow`, `pregrow_header`, their calls in codec_suite, rpc_suite and calib, and
+  the `pre-grow` header line (added in b6e604f25). Reason: a pre-grow on one thread cannot
+  reach the other threads' malloc arenas; C++ found its first benchmark still faulting
+  through the core's worker threads. Criterion's own warm-up runs the real call path on every
+  thread, and the per-sample `minflt` shows whether it was enough.
+- Kept: AK_CAMPAIGN_ALLOC; the startup check (once per process, the 16 MiB block never
+  freed, refusal on mismatch); `alloc` and `minflt` on every sample.
+- Smoke, per mode (logs/rust/d9-revert/, figures stripped): codec P1.1, rpc B/a/k1 and calib.
+  All exited 0. No log mentions a pre-grow. The check read mmapped in default and heap in
+  pinned. Every row carries alloc and minflt.

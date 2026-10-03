@@ -1,0 +1,2 @@
+# alloc: pinned (16 MiB malloc heap)
+# criterion's console output removed: its figures are stripped (CAMPAIGN req 32)
