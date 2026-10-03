@@ -103,7 +103,7 @@ def send_path(cell):
     return "reference"
 
 
-GRID = os.environ.get("AK_CAMPAIGN_GRID", "core")
+GRID = arg("--grid") or os.environ.get("AK_CAMPAIGN_GRID", "core")   # passed to workers as --grid
 CORE_CELLS = ["A", "Bf", "Cf-retain", "Ef-retain"]
 CORE_EXTRAS = ("cells B, C, D, E, F (the reference send path), Cc, the queue and callback deliveries; the drop "
                "mode; direction a; k = 16; c at P5.3; d at 4 MiB; the no-unknown build; the shipped and pinned "
@@ -272,7 +272,8 @@ def add_args(cmd, args):
         cmd.extend(["--only", args.only])
     if os.environ.get("AK_CAMP_PLANT"):
         cmd.extend(["--plant", os.environ["AK_CAMP_PLANT"]])
-    cmd.extend(["--h2", os.environ.get("AK_H2", "stock"), "--alloc", os.environ.get("AK_CAMPAIGN_ALLOC", "default")])
+    cmd.extend(["--h2", os.environ.get("AK_H2", "stock"), "--alloc", os.environ.get("AK_CAMPAIGN_ALLOC", "default"),
+                "--grid", GRID])
 
 
 def precheck_main():
@@ -363,12 +364,15 @@ def main():
     ap.add_argument("--plant", default="")
     ap.add_argument("--h2", default="stock", choices=["stock", "h2-batch"])
     ap.add_argument("--alloc", default="default", choices=["default", "pinned"])
+    ap.add_argument("--grid", default="core", choices=["core", "full"])
     args = runner.parse_args()
     os.makedirs(args.side, exist_ok=True)
     names = names_of(args.group, args.transports.split(","), args.launch)
     if args.only:
         keep = set(args.only.split(","))
         names = [n for n in names if n in keep]
+        if not names:   # a named benchmark outside this grid must not pass as an empty, successful run
+            raise SystemExit("--only %s: no such benchmark in AK_CAMPAIGN_GRID=%s" % (args.only, GRID))
     try:
         for name in names:
             k = int(name.rsplit("|", 1)[1])

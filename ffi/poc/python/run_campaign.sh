@@ -129,7 +129,8 @@ case "$SUITE" in
     rpc_control() {  # rpc_control <plant> <group> <benchmark> <grep for the reason>
       local P=$1 G=$2 B=$3 WHY=$4 F="$OUT/gate/rpc-control-$1"
       rm -rf "$F".*
-      if AK_CAMP_PLANT="$P" PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py \
+      # the controls' benchmarks belong to the full grid (direction a, the shipped configuration)
+      if AK_CAMPAIGN_GRID=full AK_CAMP_PLANT="$P" PYTHONPATH="$HERE/build/pyperf" "$PY" camp_rpc_pyperf.py \
            --variant full --group "$G" --launch 1 --side "$F.side" --transports shipped \
            --only "$B" -o "$F.json" --processes 1 --values 1 --warmups 1 --loops 64 \
            --quiet > "$F.out" 2>&1; then
