@@ -364,18 +364,44 @@ public final class CampaignCodec {
 
   /** The cell list, one per line, arms rotated by `ak.camp.launch` inside each
    *  (payload, content, dir) block (req 22: arm order rotated between launches). */
+  /** CAMPAIGN section 4.0 (D18, owner 2026-10-03): `ak.camp.grid=core` (the runner's
+   *  AK_CAMPAIGN_GRID, default core) lists exactly the campaign grid; `full` the grid of 4.1,
+   *  every other row a labelled extra. */
+  static final boolean CORE = !"full".equals(System.getProperty("ak.camp.grid", "core"));
+  /** Core grid arms: incumbent-prod once (full build), core-ffi push and host-gen in retain
+   *  (full build) or no-unknown (no-unknown build). */
+  static final java.util.Set<String> CORE_ARMS = new java.util.HashSet<String>(Arrays.asList(
+      "incumbent-prod|default", "core-ffi|retain", "host-gen|retain", "core-ffi|no-unknown", "host-gen|no-unknown"));
+  /** Core grid U-* rows: one per ABI root, the lower-median wire size of its accepted rows. */
+  static final java.util.Set<String> CORE_U = new java.util.HashSet<String>(Arrays.asList(
+      "U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
+      "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
+      "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5"));
+  static List<String> gridArms() {
+    List<String> a = new ArrayList<String>();
+    for (String x : ARMS) {
+      if (CORE && (!CORE_ARMS.contains(x) || (!ak.Variant.UNKNOWN_FIELDS && x.startsWith("incumbent")))) continue;
+      a.add(x);   // the incumbent runs once, in the full build (core grid)
+    }
+    return a;
+  }
+
   public static void main(String[] args) {
     String[] ids = System.getProperty("ak.camp.ids", String.join(",", Arms.IDS)).split(",");
     String[] sets = System.getProperty("ak.camp.sets", "0,1,2").split(",");
     int launch = Campaign.LAUNCH;
-    List<String> arms = new ArrayList<String>(Arrays.asList(ARMS));
+    List<String> arms = gridArms();
     StringBuilder sb = new StringBuilder();
     for (String id : ids)
       for (String c : sets) {
         int cs = Integer.parseInt(c.trim());
         if (!Arms.encodable(id) && cs != Values.ASCII) continue;
-        for (String dir : new String[] {"encode", "encode-hot", "encode-transport", "encode-transport-hot",
-                                        "decode", "decode-read"}) {
+        // Core grid: Latin-1 and wide on P2.2 only; encode end state (ii) with hot input, and
+        // decode-read.
+        if (CORE && cs != Values.ASCII && !id.equals("P2.2")) continue;
+        String[] dirs = CORE ? new String[] {"encode-transport-hot", "decode-read"}
+            : new String[] {"encode", "encode-hot", "encode-transport", "encode-transport-hot", "decode", "decode-read"};
+        for (String dir : dirs) {
           if (dir.startsWith("encode") && !Arms.encodable(id)) continue;
           for (String a : Campaign.rotate(arms, launch - 1)) {
             if (dir.startsWith("encode") && a.startsWith("core-ffi-pull")) continue;
@@ -564,7 +590,7 @@ public final class CampaignCodec {
             java.nio.charset.Charset.forName("UTF-8")))).get("vectors");
     java.util.Set<String> abi = new java.util.HashSet<String>(Arrays.asList(
         shapes ? ak.shapes.Dispatch.ABI : ak.corpus.Dispatch.ABI));
-    List<String> arms = new ArrayList<String>(Arrays.asList(ARMS));
+    List<String> arms = gridArms();
     for (java.util.Map.Entry<String, Object> e : new java.util.TreeMap<String, Object>(vs).entrySet()) {
       @SuppressWarnings("unchecked")
       java.util.Map<String, Object> r = (java.util.Map<String, Object>) e.getValue();
@@ -572,9 +598,10 @@ public final class CampaignCodec {
         continue;
       String root = (String) r.get("root");
       if (shapes && (!"accept".equals(r.get("expect")) || !abi.contains(root))) continue;
+      if (CORE && !CORE_U.contains(e.getKey())) continue;
       boolean pb;
       try { Class.forName("ak.pb." + root); pb = true; } catch (ClassNotFoundException x) { pb = false; }
-      for (String dir : new String[] {"encode", "decode", "decode-read"})
+      for (String dir : CORE ? new String[] {"encode", "decode-read"} : new String[] {"encode", "decode", "decode-read"})
         for (String a : Campaign.rotate(arms, launch - 1)) {
           if (a.startsWith("incumbent") && !pb) continue;
           if (a.startsWith("core-ffi") && !abi.contains(root)) continue;

@@ -102,6 +102,12 @@ AK_WORKERS=${AK_WORKERS:-8}
 # Each measured process checks it before timing (ak.CampaignAlloc: GLIBC_TUNABLES and a 16 MiB
 # malloc read back through mallinfo2) and refuses on a disagreement; the header records the
 # readback, and every sample carries `alloc`.
+# CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core (default) runs exactly
+# the campaign grid; full runs the grid of 4.1 and 4.2, every row beyond 4.0 a labelled extra.
+AK_CAMPAIGN_GRID=${AK_CAMPAIGN_GRID:-core}
+case "$AK_CAMPAIGN_GRID" in core|full) ;; *) echo "AK_CAMPAIGN_GRID must be core or full"; exit 2 ;; esac
+GRID_NOTE_CODEC="grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID; core = the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 named U-* rows through the shapes core, arms incumbent-prod (full build only), core-ffi push and host-gen in retain (full build) and no-unknown (no-unknown build), encode end state (ii) with one hot graph (encode-transport-hot) and decode-read, compact strings on every row and -XX:-CompactStrings on the content-set rows (P2.2 Latin-1 and wide) only; extras left out under core: incumbent-best, pull decode, bare decode, the other three encode variants, the drop mode, content sets on P1.2 and P2.4, the other 85 U-* rows timed, the corpus-core U-* invocation, utf16 on ASCII rows"
+GRID_NOTE_RPC="grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID; core = cells A, Bf, Cf-retain, Ef-retain (full build, framed core cells, idiomatic delivery), a+read and b, c at P5.4, d at 16 MiB, each at k = 1 and 8, transport shipped only, stock h2 everywhere plus Cf-retain on h2-batch for c and d at k = 1 and 8 (labelled h2), the default allocator, plus the pinned allocator pass on A and Cf-retain for c and d at k = 1 (labelled alloc); one fork per (cell, combination) even under smoke; extras left out under core: cells B, C, D, E, F, Cc, the drop mode, the non-framed reference rows, direction a, k = 16, P5.3, d at 4 MiB, the no-unknown build, the pinned transport configuration, h2-batch on other rows, the pinned allocator beyond its subset"
 AK_CAMPAIGN_ALLOC=${AK_CAMPAIGN_ALLOC:-default}
 case "$AK_CAMPAIGN_ALLOC" in
   default) ALLOC_TUNABLES= ;;
@@ -158,7 +164,8 @@ header() {  # $1 = file, $2 = suite description
     echo "#   governor=$(sysf /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) no_turbo=$(sysf /sys/devices/system/cpu/intel_pstate/no_turbo) boost=$(sysf /sys/devices/system/cpu/cpufreq/boost) kernel=$(uname -r)"
     echo "#   isolation=\"${AK_ISOLATION:-not stated}\" isolated_cpus=$(sysf /sys/devices/system/cpu/isolated) numa_nodes=$(ls -d /sys/devices/system/node/node* 2>/dev/null | wc -l)"
     echo "#   AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset} AK_CPU_SERVER=${AK_CPU_SERVER:-unset} (taskset; OS = the rest)"
-    echo "# h2 variant of the RPC cores (D11): $AK_H2; pools AK_WORKERS=$AK_WORKERS (D14); allocator AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC${AK_ALLOC_PLANT:+ (PLANT: GLIBC_TUNABLES withheld)}"
+    echo "# grid (CAMPAIGN 4.0, D18): AK_CAMPAIGN_GRID=$AK_CAMPAIGN_GRID (core: the campaign grid; full: 4.1 and 4.2 with every extra)"
+    echo "# h2 variant of the RPC cores (D11): $AK_H2 (the core grid's RPC suite runs stock and, for its labelled rows, h2-batch; each RPC file names its own); pools AK_WORKERS=$AK_WORKERS (D14); allocator AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC${AK_ALLOC_PLANT:+ (PLANT: GLIBC_TUNABLES withheld)}"
     echo "# runtime: target $("$J17/bin/java" -version 2>&1 | head -1)   floor (gated only) $("$J8/bin/java" -version 2>&1 | head -1)"
     echo "# incumbent: $(echo "$CP" | tr ':' '\n' | grep -oE 'protobuf-java-[0-9.]+\.jar|grpc-(api|netty-shaded|protobuf)-[0-9.]+\.jar' | sort -u | tr '\n' ' ')"
     echo "# build: $(cat build/core-rev.txt 2>/dev/null | sed 's/^ *//')"
@@ -278,6 +285,10 @@ run_gate() {
 
 if [ "$SUITE" = gate ]; then run_gate; exit $?; fi
 gate_ok || run_gate || exit 1
+# The core grid's RPC suite also runs h2-batch cores (Cf on c and d): their gate too.
+if [ "$SUITE" = rpc ] && [ "$AK_CAMPAIGN_GRID" = core ] && [ -z "$H2S" ] && [ ! -f "$OUT/gate-$GKEY-h2b.ok" ]; then
+  AK_H2=h2-batch AK_CAMPAIGN_NO_BUILD=1 bash "$HERE/gen/run_campaign.sh" --suite gate --out "$OUT" || exit 1
+fi
 
 JAVA="$J17/bin/java $JVM_FLAGS -cp build/cls17:$CP -Dak.camp.rounds=$ROUNDS"
 
@@ -304,12 +315,21 @@ codec)
   codec_run() {  # $1 = launch, $2 = full|nounk
     local l=$1 V=$2 SX= TAG= BUILD=full
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; BUILD=no-unknown; }
-    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" \
+    CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" -Dak.camp.grid="$AK_CAMPAIGN_GRID" \
             ${AK_SMOKE_UROWS:+-Dak.camp.urows=$AK_SMOKE_UROWS} ${AK_CODEC_PROPS:-} ak.CampaignCodec | tr '\n' ',' | sed 's/,$//')
+    local ALLCELLS=$CELLS
     for coder in compact utf16; do
+      CELLS=$ALLCELLS
+      # Core grid (req 24 as narrowed by 4.0): the second string-coder state on the content-set
+      # rows only.
+      if [ "$AK_CAMPAIGN_GRID" = core ] && [ $coder = utf16 ]; then
+        CELLS=$(echo "$ALLCELLS" | tr ',' '\n' | grep -E '\|(latin1|wide)\|' | paste -sd,)
+      fi
+      [ -n "$CELLS" ] || continue
       f="$OUT/codec$TAG-$coder-launch-$l.jsonl"; base="$OUT/codec$TAG-$coder-launch-$l"
       header "$f" "engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up $WARM iteration(s) + $ROUNDS measurement iteration(s) per cell, build=$V coder=$coder launch=$l, $(echo "$CELLS" | tr ',' '\n' | wc -l) cells"
       echo "# $WARM_NOTE" >> "$f"
+      echo "# $GRID_NOTE_CODEC" >> "$f"
       CF=""; [ "$coder" = utf16 ] && CF="-XX:-CompactStrings"
       echo "# command: $PIN_C java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi $WARM -i $ROUNDS -foe true -jvmArgs '$JVM_FLAGS $CF ...'" >> "$f"
       echo "# cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read inside the benchmark method, exported by JMH as an @AuxCounters counter per iteration; wall_ns: JMH's raw per-iteration time; jit_ms_during: the JVM's JIT compile time between the iteration's setup and teardown (an @AuxCounters counter)" >> "$f"
@@ -323,6 +343,8 @@ codec)
         || { echo "codec$TAG launch $l ($coder): conversion FAILED; no figure"; exit 1; }
       echo "codec$TAG launch $l ($coder): $(grep -c '"cpu_ns"' "$f") samples -> $f"
     done
+    # Core grid (4.0): the corpus-core U-* invocation is an extra.
+    [ "$AK_CAMPAIGN_GRID" = core ] && return 0
     # Req 7 (amended): every corpus U-* row of class unknown, not disputed, whose root the
     # slice implements, through the corpus description and the corpus core's shim; compact
     # strings only (the rows exercise unknown-field handling, not the String coder).
@@ -393,45 +415,56 @@ rpc)
     bash "$SERVE" warm "$SWARM" > "$OUT/rpc-server-warm-launch-$l.txt" 2>&1 \
       || discard "$l" "the server warm-up (serve.sh warm $SWARM) failed"
   }
-  rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk
-    local l=$1 tr=$2 V=$3 SX= TAG=
+  rpc_run() {  # $1 = launch, $2 = transport, $3 = full|nounk, then optional (the core grid):
+    # $4 = h2 (stock|h2-batch), $5 = allocator (default|pinned), $6 = cells (comma list, empty:
+    # every cell of the build), $7 = combinations (comma list, empty: all 17), $8 = file label
+    local l=$1 tr=$2 V=$3 SX= TAG= RH2=${4:-$AK_H2} RAL=${5:-$AK_CAMPAIGN_ALLOC} RCELLS=${6:-} RCOMBOS=${7:-} LBL=${8:-}
+    local RH2S= RTUN=
+    [ "$RH2" = h2-batch ] && RH2S=-h2b
+    [ "$RAL" = pinned ] && RTUN=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432
+    [ "${AK_ALLOC_PLANT:-0}" = 1 ] && RTUN=
     [ "$V" = nounk ] && { SX=-nounk; TAG=-nounk; }
-    local f="$OUT/rpc-$tr$TAG$H2S-launch-$l.jsonl" base="$OUT/rpc-$tr$TAG$H2S-launch-$l" sock=$ST
+    local f="$OUT/rpc-$tr$TAG$RH2S$LBL-launch-$l.jsonl" base="$OUT/rpc-$tr$TAG$RH2S$LBL-launch-$l" sock=$ST
     local CELLS
     CELLS=$("$J17/bin/java" -cp "build/cls17$SX:$CP" -Dak.camp.launch="$l" ak.CampaignRpc --list)
+    # The core grid's subset, in the launch's rotated order.
+    [ -n "$RCELLS" ] && CELLS=$(echo "$CELLS" | tr ',' '\n' | grep -xF -f <(echo "$RCELLS" | tr ',' '\n') | paste -sd,)
     local PCOMBO=cycle WI=$((WARM * NCOMBO)) MI=$((ROUNDS * NCOMBO)) GNOTE
     GNOTE="grouping (req 22a): AK_RPC_GROUP=1, GROUPED -- one fork per cell runs all $NCOMBO combinations, cycled through JMH iterations (smoke and exploration only, not the campaign's configuration)"
-    if [ "$GROUP" != 1 ]; then
+    if [ "$GROUP" != 1 ] || [ -n "$RCOMBOS" ]; then
       PCOMBO=$("$J17/bin/java" -cp "build/cls17$SX:$CP" ak.CampaignRpc --combos); WI=$WARM; MI=$ROUNDS
+      [ -n "$RCOMBOS" ] && PCOMBO=$(echo "$PCOMBO" | tr ',' '\n' | grep -xF -f <(echo "$RCOMBOS" | tr ',' '\n') | paste -sd,)
       GNOTE="grouping (req 22a): AK_RPC_GROUP=0, JMH's own isolation -- one fork per (cell, combination), -p combo=$PCOMBO, each fork opening its own channel or client"
     fi
     header "$f" "engine=JMH 1.37 AverageTime, -f 1 per (cell, combination), or per cell when grouped (see the grouping line), transport=$tr build=$V launch=$l, cells $CELLS (A and B the incumbent controls, in forks of their own; Bf, Cf-*, Ef-* the framed twins; Cc-* C on the copy path); per fork $NCOMBO combinations: directions a, a+read, b at 1/8/16 in flight, c (unary upload P5.3, P5.4) and d (client-streamed upload, 4 MiB and 16 MiB in 2 MiB chunks) at 1/8"
     echo "# $WARM_NOTE" >> "$f"
     echo "# $GNOTE" >> "$f"
+    echo "# $GRID_NOTE_RPC; this file: h2=$RH2 alloc=$RAL cells=$CELLS" >> "$f"
     echo "# command: $PIN_C java org.openjdk.jmh.Main ak.RpcJmh.batch -f 1 -foe true -wi $WI -w <per invocation, below> -i $MI -r $RTIME -p cell=<cells> -p combo=<combos|cycle> -jvmArgs '$JVM_FLAGS ...'" >> "$f"
     echo "# one invocation = one batch of k calls in flight (k = the combination's in-flight level: call 0 on JMH's thread, 1..k-1 on persistent helper threads), counted as k calls (iters); wall_ns: JMH's per-iteration score (ns per invocation) x invocations; cpu_ns (req 21 as amended 2026-10-01): perf task-clock of the WHOLE client process, softirq included, from one inherited counter the JVM agent build/taskclock/libaktc.so opens on the JVM's main thread before the JVM creates its other threads, read around every invocation and summed per iteration; process_cpu_ns: CLOCK_PROCESS_CPUTIME_ID read the same way, beside it; softirq_ticks_client: /proc/stat softirq time on the CLIENT CPUs (AK_CPU_CLIENT=${AK_CPU_CLIENT:-unset: every CPU}) over each iteration, USER_HZ ticks; all JMH @AuxCounters counters; JMH's own summary score averages unlike combinations and is not a figure" >> "$f"
     echo "# transport (req 17 as amended, D10): TCP 127.0.0.1 ($ST) for every cell, Nagle off on every client socket (grpc-java: Netty ChannelOption.TCP_NODELAY=true; the core: tonic's default nodelay with no options (shipped), tcp_nagle=0 (pinned)), read back with getsockopt(TCP_NODELAY) on every live socket to the port in each fork before timing (RPCJMH-CELL: sockets with NODELAY / sockets, a fork with fewer refuses to run); the server's TCP listener runs the PINNED server configuration only, so shipped and pinned differ on the CLIENT side only: shipped = grpc-java's / tonic's client defaults, pinned = 4 MiB windows, BDP / adaptive window off, 8 MiB messages" >> "$f"
     echo "# pools (D8, D14): AK_WORKERS=$AK_WORKERS: the core runtime (ak_runtime_new($AK_WORKERS)), the Netty event loop group ($AK_WORKERS), grpc-java's call executor (a fixed pool of $AK_WORKERS), G1's ParallelGCThreads=$AK_WORKERS; ConcGCThreads and CICompilerCount are the JVM's own (header line 'worker threads'); the server's tokio runtime AK_SERVER_THREADS=$AK_WORKERS; no grpc-core in this slice" >> "$f"
-    echo "# h2 (D11 as amended): the RPC cores of this run are the $AK_H2 variant ($(grep -E "^target-rpc${H2S}${SX} " build/h2-compiled.txt | cut -d' ' -f2-)); every sample carries h2" >> "$f"
+    echo "# h2 (D11 as amended): the RPC cores of this run are the $RH2 variant ($(grep -E "^target-rpc${RH2S}${SX} " build/h2-compiled.txt | cut -d' ' -f2-)); every sample carries h2" >> "$f"
     echo "# order (req 22): JMH runs the (cell, combination) cross product in its own order, cells rotated one step per launch, and cannot randomise across forks; when grouped, inside a fork JMH iteration i runs combination (i + launch - 1) mod $NCOMBO (warm-up and measurement counted separately), so every round visits every combination, interleaved; the two builds alternate by launch" >> "$f"
     echo "# server (req 13 as amended at 9f6d579fa, FIX-PLAN WP10; TCP listener 127.0.0.1, pinned configuration, AK_SERVER_TCP=0): the Rust slice's tonic rpc_server, the one RPC server of every slice, via poc/rust/serve.sh (interface poc/rust/SERVER.md; poc/rust at $(cd "$TOP" && git rev-parse --short HEAD:ffi/poc/rust)$(cd "$TOP" && git status --porcelain -- ffi/poc/rust | grep -qv '^??' && echo ', DIRTY')), ONE process for launch $l pinned to AK_CPU_SERVER=${AK_CPU_SERVER:-unset}, serving every cell of both builds on two Unix sockets: shipped = tonic's server defaults, pinned = 4 MiB stream and connection windows, adaptive window off; receive limit 8 MiB; service armonik.ffi.campaign.v1.Grid (Fetch a: P2.2 pre-serialised once; Push b, Upload c: decoded with prost, empty answer; UploadStream d: every message decoded, the byte count answered); $(head -2 "$OUT/rpc-server-launch-$l/rpc-server.log" | tr '\n' ' ')" >> "$f"
     echo "# delivery (req 16): B, C, E the core's blocking call and, in d, the core's blocking client stream (ak_call_open, ak_call_send / ak_call_send_enc for C, ak_call_recv); A, D, F grpc-java's ClientCalls.blockingUnaryCall (a generated blocking stub's call; packages/java's clients use blocking stubs) and, in d, ClientCalls.asyncClientStreamingCall with a StreamObserver (the async stub's call: client streaming has no blocking stub); Bf, Cf, Ef the same cells on the core's framed send path (ak_client_set_framed), grpc-java has no second send path; C (and Cf) sends its request with ak_call_unary_enc / ak_call_send_enc (the encode context's output moved), Cc-* is C with take() + ak_call_unary (the copy path, labelled extra); D and F hand grpc-java a byte[] (take() / Enc.toBytes()): grpc-java's send path copies every message through an OutputStream into its own buffers, so an owned native buffer (ak_enc_take_owned) would still be copied, through a heap array, and D keeps take()" >> "$f"
     echo "# limits (D44): server 8 MiB receive on both sockets (P5.4 is 4,194,390 B), send unlimited (tonic's default); core client shipped tonic's defaults (4 MiB received, unlimited sent: every response here is below 1 MiB), pinned 8 MiB both ways; grpc-java client defaults (4 MiB inbound, no send limit)" >> "$f"
-    echo "# allocator (D9, req 25 as amended 2026-10-03): AK_CAMPAIGN_ALLOC=$AK_CAMPAIGN_ALLOC for every client fork and sample (alloc) -- default: glibc's default allocator, the MAIN figures (as production); pinned: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${ALLOC_TUNABLES:-unset}; readback: $(alloc_readback "$HERE/build/jnirpc$H2S$SX/libakjni.so"); every fork repeats the check once before timing and refuses on a disagreement; no heap pre-grow (reverted, owner 2026-10-03): JMH's warm-up runs the real call path on every thread, and minflt per sample shows whether it sufficed; minflt per sample: the process's minor faults over the measured span (getrusage RUSAGE_SELF around every invocation, summed), faults per call = minflt / iters" >> "$f"
+    echo "# allocator (D9, req 25 as amended 2026-10-03): AK_CAMPAIGN_ALLOC=$RAL for every client fork and sample (alloc) -- default: glibc's default allocator, the MAIN figures (as production); pinned: GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432, the labelled diagnostic; this run: GLIBC_TUNABLES=${RTUN:-unset}; readback: $(AK_CAMPAIGN_ALLOC=$RAL ALLOC_TUNABLES=$RTUN alloc_readback "$HERE/build/jnirpc$RH2S$SX/libakjni.so"); every fork repeats the check once before timing and refuses on a disagreement; no heap pre-grow (reverted, owner 2026-10-03): JMH's warm-up runs the real call path on every thread, and minflt per sample shows whether it sufficed; minflt per sample: the process's minor faults over the measured span (getrusage RUSAGE_SELF around every invocation, summed), faults per call = minflt / iters" >> "$f"
     # Req 24 as amended: one JMH invocation per direction group, each with its own warm-up
     # time (grouped: one invocation, every combination in each fork).
     local parts="all" part combos wt pb
-    [ "$GROUP" != 1 ] && parts="down up"
+    { [ "$GROUP" != 1 ] || [ -n "$RCOMBOS" ]; } && parts="down up"
     for part in $parts; do
       case $part in
         all) combos=$PCOMBO; wt=$WTIME_DOWN; pb=$base ;;
-        down) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(a|a\+read|b)/' | paste -sd,); wt=$WTIME_DOWN; pb=$OUT/rpc-$tr$TAG$H2S-down-launch-$l ;;
-        up) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(c|d):' | paste -sd,); wt=$WTIME_UP; pb=$OUT/rpc-$tr$TAG$H2S-up-launch-$l ;;
+        down) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(a|a\+read|b)/' | paste -sd,); wt=$WTIME_DOWN; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-down-launch-$l ;;
+        up) combos=$(echo "$PCOMBO" | tr ',' '\n' | grep -E '^(c|d):' | paste -sd,); wt=$WTIME_UP; pb=$OUT/rpc-$tr$TAG$RH2S$LBL-up-launch-$l ;;
       esac
+      [ -n "$combos" ] || continue
       echo "# invocation $part: -p combo=$combos -wi $WI -w $wt -i $MI -r $RTIME" >> "$f"
-      GLIBC_TUNABLES=$ALLOC_TUNABLES $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
+      GLIBC_TUNABLES=$RTUN $PIN_C "$J17/bin/java" -Xmx512m -cp "build/jmh17$SX:build/cls17$SX:$CP:$JMHCP" org.openjdk.jmh.Main 'ak.RpcJmh.batch' \
         -f 1 -foe true -wi "$WI" -w "$wt" -i "$MI" -r "$RTIME" -p cell="$CELLS" -p combo="$combos" \
-        -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$H2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$AK_CAMPAIGN_ALLOC ${AK_RPC_PROPS:-}" \
+        -jvmArgs "$JVM_FLAGS $RPC_FLAGS -Dak.lib=$HERE/build/jnirpc$RH2S$SX/libakjni.so -Dak.rpclib=$HERE/build/jnirpc$RH2S$SX/libakjni.so -Dak.camp.socket=$sock -Dak.camp.transport=$tr -Dak.camp.launch=$l -Dak.camp.alloc=$RAL -Dak.camp.h2=$RH2 ${AK_RPC_PROPS:-}" \
         -rf json -rff "$pb.jmh.json" > "$pb.jmh.txt" 2>&1 || discard "$l" "JMH ($tr, $V, $part), -foe true"
       python3 -S gen/rpc_jmh_to_jsonl.py "$pb.jmh.json" "$pb.jmh.txt" "$l" >> "$f" \
         || discard "$l" "conversion ($tr, $V, $part)"
@@ -440,6 +473,16 @@ rpc)
   }
   for l in $(seq 1 "$LAUNCHES"); do
     server_up "$l"
+    if [ "$AK_CAMPAIGN_GRID" = core ]; then
+      # CAMPAIGN section 4.0: shipped, full build, retain; the main grid on stock h2 and the
+      # default allocator, then Cf on h2-batch for c and d, then the pinned allocator pass.
+      rpc_run "$l" shipped full stock default "A,Bf,Cf-retain,Ef-retain" \
+        "a+read/1,a+read/8,b/1,b/8,c:1/1,c:1/8,d:1/1,d:1/8" ""
+      rpc_run "$l" shipped full h2-batch default "Cf-retain" "c:1/1,c:1/8,d:1/1,d:1/8" ""
+      rpc_run "$l" shipped full stock pinned "A,Cf-retain" "c:1/1,d:1/1" "-allocpinned"
+      serve_stop
+      continue
+    fi
     # AK_RPC_TRANSPORTS / AK_RPC_BUILDS (default both): a small exploration run may take one.
     for tr in ${AK_RPC_TRANSPORTS:-shipped pinned}; do
       BS=${AK_RPC_BUILDS:-full nounk}
