@@ -1,5 +1,5 @@
 # campaign log, java slice (design/CAMPAIGN.md W11 draft)  suite=codec  engine=JMH 1.37 SingleShotTime, -f 1 per cell, warm-up 1 iteration(s) + 1 measurement iteration(s) per cell, build=full coder=compact launch=1, 58 cells
-# commit 2892e207b   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
+# commit 65947226c   (dirty tree refused unless AK_CAMPAIGN_ALLOW_DIRTY=1)
 # SMOKE RUN (req 32): 1 launch, 1 round, reduced iterations. EVERY FIGURE BELOW IS CONTAINER INSTRUMENTATION, NOT A RESULT.
 # machine: cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 smt=0
 #   governor=n/a no_turbo=n/a boost=n/a kernel=6.18.44-fc-v64
@@ -8,7 +8,7 @@
 # h2 variant of the RPC cores (D11): stock; pools AK_WORKERS=8 (D14); allocator AK_CAMPAIGN_ALLOC=pinned
 # runtime: target openjdk version "17.0.20.1" 2026-08-18   floor (gated only) openjdk version "1.8.0_504"
 # incumbent: grpc-api-1.74.0.jar grpc-netty-shaded-1.74.0.jar grpc-protobuf-1.74.0.jar protobuf-java-3.25.5.jar 
-# build: core snapshot: ffi/poc/codec at 2892e207b, tree key tree-f785d45a435221e8
+# build: core snapshot: ffi/poc/codec at 65947226c, tree key tree-f785d45a435221e8
 #   core cargo profile release, features ["default", "init-guard", "unknown-fields"]  (shared library, cdylib); shim gcc -O2 -std=c11
 #   JVM: -Xms2g -Xmx2g -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=8 (tiered JIT on, default thresholds)
 # worker threads (req 4, R-H34), as the pinned JVM sizes them: CICompilerCount=3 ConcGCThreads=2 ParallelGCThreads=8 (JVM); codec: 1 benchmark thread (JMH); rpc: Netty event loops, core runtime workers and grpc-java's executor in each rpc log's meta line and the server's THREADS line
@@ -18,10 +18,11 @@
 # warm-up (req 24): AK_WARM, campaign default 5 JMH warm-up iterations per cell; under smoke AK_SMOKE_WARM, default 1
 # command:  java org.openjdk.jmh.Main ak.CodecJmh.sample -f 1 -wi 1 -i 1 -foe true -jvmArgs '-Xms2g -Xmx2g -XX:+UseG1GC -Xss8m -XX:ParallelGCThreads=8  ...'
 # cpu_ns: the process CPU clock (CLOCK_PROCESS_CPUTIME_ID) read inside the benchmark method, exported by JMH as an @AuxCounters counter per iteration; wall_ns: JMH's raw per-iteration time; jit_ms_during: the JVM's JIT compile time between the iteration's setup and teardown (an @AuxCounters counter)
-# allocator (D9, req 25 as amended): AK_CAMPAIGN_ALLOC=pinned, GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; readback: ALLOC-CHECK alloc=pinned GLIBC_TUNABLES='glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432' 16MiB-malloc=heap; every fork repeats the check before timing
+# allocator (D9, req 25 as amended): AK_CAMPAIGN_ALLOC=pinned, GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432; readback and pre-grow (rounds of malloc, touch, free of the suite's largest canonical payload until a round faults nothing, cap 8, else refuse): ALLOC-CHECK alloc=pinned GLIBC_TUNABLES='glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432' 16MiB-malloc=heap | PREGROW bytes=4194534 rounds=2 last_round_faults=0; every fork repeats both once before timing; minflt on every sample: the process's minor faults over the measured span (getrusage)
 ## samples (figures stripped; the raw .jsonl is not committed, logs/PURGED.md):
   alloc=pinned core-ffi: 18 samples
   alloc=pinned core-ffi-pull: 4 samples
   alloc=pinned host-gen: 18 samples
   alloc=pinned incumbent-best: 9 samples
   alloc=pinned incumbent-prod: 9 samples
+## samples carrying minflt: 58

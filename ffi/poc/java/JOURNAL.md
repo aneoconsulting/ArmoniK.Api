@@ -1034,3 +1034,27 @@ Smokes at 2892e207b:
 - pinned: the same counts, readback "heap";
 - plant (`AK_ALLOC_PLANT=1` under pinned): every fork refused, the launch discarded, no
   sample.
+
+### J40. Heap pre-grow (owner, req 25 mechanics, 2026-10-03)
+
+Every measured fork now pre-grows glibc's heap once, after the alloc check and before any
+timing (`Native.preGrow`, through the shim). Each round mallocs the run's largest payload
+(RPC 16 MiB; codec 4,194,534 B, the largest canonical payload), touches every page and frees
+it, counting the round's minor faults with getrusage RUSAGE_THREAD. Rounds repeat until one
+faults nothing, with a cap of 8; hitting the cap refuses the run. Rounds and last-round faults
+go in the headers.
+
+`minflt` now covers the measured span on every sample: getrusage RUSAGE_SELF read with the
+CPU clocks around each codec sample and each RPC invocation. Before, it was RPC only and
+spanned the whole iteration.
+
+AllocCheck became CampaignAlloc. Its pre-grow size comes from CampaignCodec, which the Java 8
+floor build excludes, as it does every Campaign* class.
+
+Smokes at 65947226c, one per mode: rpc 289 samples, codec 58/58/14 and 40/40/8. Pre-grow took
+3 rounds in default mode and 2 in pinned, the last round faulting 0.
+
+The default mode takes 3 rounds because its first block is mmapped: freeing it raises glibc's
+dynamic mmap threshold, and the trim threshold with it, so after the pre-grow a default-mode
+process serves blocks up to that size from the heap. The probe's own block stays mapped and
+does not do this.
