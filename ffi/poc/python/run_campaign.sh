@@ -259,7 +259,15 @@ case "$SUITE" in
       for g in ab c d; do
         case $g in ab) L=$LAB;; c) L=$LC;; d) L=$LD;; esac
         local F="$OUT/rpc-$g$hs-launch$l"; [ "$v" = nounk ] && F="$OUT/rpc-nounk-$g$hs-launch$l"
-        local PP="--processes 1 --values $ROUNDS --warmups $RW --loops $L"
+        # Req 24 as amended (8c02e7c58): in the campaign, every calling (pool) thread makes at
+        # least 20 calls at the cell's payload before the first measured value. One warm-up value
+        # is L batches, one call per pool thread each, so a group's warm-up count is raised to
+        # ceil(20 / L) when AK_CAMPAIGN_RPC_WARMUPS gives fewer: with the defaults ab 3 x 25 = 75,
+        # c 3 x 8 = 24, d 7 x 3 = 21 calls per thread (d raised from 3, which gave 9). The smoke
+        # keeps its short warm-up (stated in the header).
+        local W=$RW
+        [ -z "$SMOKE" ] && [ $((W * L)) -lt 20 ] && W=$(( (20 + L - 1) / L ))
+        local PP="--processes 1 --values $ROUNDS --warmups $W --loops $L"
         rm -rf "$F.side" "$F.pyperf.json"
         # grpc-core sized to AK_WORKERS through the sysconf shim (D14), preloaded into the pyperf
         # processes (--copy-env carries it into every worker)

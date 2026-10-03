@@ -39,6 +39,19 @@ def unknown_mode(cell):
     return "incumbent-default"
 
 
+def warmup_line(pa):
+    """Req 24 as amended (8c02e7c58): the calls each calling thread makes before the first value."""
+    a = pa.split()
+    w = int(a[a.index("--warmups") + 1]) if "--warmups" in a else 0
+    loops = int(a[a.index("--loops") + 1]) if "--loops" in a else 0
+    return ("%d calls per calling thread before the first measured value: %d pyperf warm-up values x %d loops, "
+            "each loop one batch in which every pool thread makes one call at the cell's payload (plus the "
+            "setup's checked call on the main thread). Same process and same threads: the k-thread pool is "
+            "created once in the worker's setup, and pyperf's warm-up values and the measured values call the "
+            "same time_func on it. Req 24 as amended asks for at least 20 in the campaign (%s)"
+            % (w * loops, w, loops, "met" if w * loops >= 20 else "NOT met: a smoke or exploration run"))
+
+
 def main():
     launch = int(opt("--launch", "1"))
     variant = opt("--variant", "full")
@@ -98,6 +111,7 @@ def main():
             bad.append(name)
     log.header(engine="pyperf %s (CAMPAIGN req 22a as amended: the RPC grid on the codec suite's framework)"
                % pyperf.__version__, launch=launch, group=opt("--group"), pyperf_args=opt("--pyperf-args", "?"),
+               warmup_per_thread=warmup_line(opt("--pyperf-args", "")),
                server="the Rust slice's tonic rpc_server (FIX-PLAN WP10, req 13 as amended at 9f6d579fa; "
                       "poc/rust/SERVER.md), one process per launch started by poc/rust/serve.sh of the snapshot, "
                       "pinned to AK_CPU_SERVER=%s, tokio workers AK_SERVER_THREADS=%s; sockets %s; shipped = tonic's "

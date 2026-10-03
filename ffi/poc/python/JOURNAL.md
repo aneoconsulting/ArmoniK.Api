@@ -1715,3 +1715,17 @@ work, so this is now aligned.
   not measured), and the campaign machine's spacing.
 - One-line fix, not applied: warm each RPC benchmark for several calls on its own pool thread
   before the first value.
+
+### J63. Req 24 as amended (8c02e7c58): 20 calls per calling thread before the first value
+
+- The check: one pyperf warm-up value is `loops` batches, and each batch gives every pool thread
+  one call. With the campaign defaults (warm-ups 3; loops ab 25, c 8, d 3), the calls per
+  thread were ab 75, c 24 and d 9. So d/16MiB at every k was below 20. The setup's checked call
+  runs on the main thread and does not count.
+- Same threads: yes. The k-thread pool is created once in the worker's setup, and pyperf's
+  warm-up values and the measured values run in the same worker on that pool.
+- Change: in the campaign (not the smoke), a group's warm-up count is raised to
+  ceil(20 / loops) when the default gives fewer. d now gets 7 warm-ups x 3 loops = 21 calls; ab
+  and c are unchanged. Every RPC log states its per-thread count (`warmup_per_thread`). The
+  header line was checked by re-exporting an earlier smoke with the campaign arguments. No gate,
+  no smoke.
