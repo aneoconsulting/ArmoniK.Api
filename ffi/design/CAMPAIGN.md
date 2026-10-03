@@ -107,10 +107,20 @@ and run on demand, never in the campaign by default.
 - Cells: **A, Bf, Cf, Ef**, the core cells on the framed path (the default) with the
   host's idiomatic delivery (req 16); full build, `retain`.
 - Directions: `a+read` and `b`, `c` at P5.4, `d` at 16 MiB, each at **k = 1 and 8**.
-- Transport: **one configuration**, ArmoniK's own client configuration
-  (`packages/<lang>`) with **Nagle off** on every socket (D10); where ArmoniK
-  differs from the library's defaults is listed per language beside it (to be
-  added). Server: the one Rust server, as req 13.
+- Transport: **one configuration** (owner, 2026-10-03). Cell A uses **ArmoniK's
+  own channel configuration for that language**, as `packages/<lang>` builds it
+  with its package defaults: C++ `ChannelArguments.cpp` (retry service config,
+  366-day deadline, 30 s keepalive, local subchannel pool); C# `GrpcChannelFactory.cs`
+  (its own `HttpClientHandler`, retry service config); Java `GrpcChannelBuilder.java`
+  (8 MiB inbound, 1 MiB metadata); Python `channel.py` (no options); Rust
+  `armonik-transport` `connect.rs` (hyper defaults, its own connector). The core
+  cells keep the core's current client configuration, which is close to
+  `armonik-transport`'s; any difference is stated. **Nagle is off on every client
+  and server socket, without exception**, read back on the live socket before timing
+  (a socket with Nagle on refuses the run). Each slice records the settings in
+  effect (read back where the stack allows) in the header. The core has no retry
+  policy where C++ and C# have one; that asymmetry is production's and is stated
+  beside the figures. Server: the one Rust server, as req 13.
 - h2: **stock h2 0.4.19** in every core cell, plus **Cf on h2-batch for `c` and
   `d`** (k = 1 and 8), labelled.
 - Allocator (req 25): the main grid on the default allocator; the **pinned
