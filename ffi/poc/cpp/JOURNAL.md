@@ -2263,3 +2263,12 @@ changes.
   round, 0 faults, in both modes (the payload set-up, 16 MiB of stream data and P5.4, had already grown the heap).
   Pinned: the first benchmark in run order now 0.07 faults per call (C-drop 16 MiB), against 70 (E-drop 16 MiB)
   before; the highest row 2.2 (A 4 MiB, second in order); default 0 to 0.18. The 70 is gone in this run.
+
+## 2026-10-03, pre-grow size for d = the whole upload
+
+- campaign_rpc: direction d's pre-grow size is every chunk's wire summed (owner rule; Rust and Python do the same).
+  Pinned smoke, d 16 MiB only (A, C-drop, D-drop, E-drop, k 1, 0.3 s): heap_pregrow bytes 16777319, 2 rounds,
+  last round 0 faults. The first benchmark in run order (E-drop 16 MiB) still shows 102.8 minor faults per call;
+  the others 0 to 0.17. As far as this run shows: the pre-grow runs on the main thread and grows its arena only,
+  while the core's runtime workers (ak_call_send copies each 2 MiB chunk) allocate from their own per-thread
+  arenas, which the first benchmark grows. Inference from one run; not fixed (owner: the check only).

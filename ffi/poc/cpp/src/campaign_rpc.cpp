@@ -2383,13 +2383,17 @@ int main(int argc, char **argv) {
     w.jobs = keep;
   }
   // req. 25 (ii): pre-grow the heap to the run's largest message (a/b: the P2.2 response or
-  // request; c: P5.3 / P5.4; d: one 2 MiB M5 chunk), before any timing, in both modes.
+  // request; c: P5.3 / P5.4; d: the whole upload, chunks x 2 MiB), before any timing, in both modes.
   {
     size_t big = w.expect_a;
     for (size_t i = 0; i < w.jobs.size(); ++i) {
       const Job &j = w.jobs[i];
       if (j.dir == 'c' && w.wire_up[j.pi].size() > big) big = w.wire_up[j.pi].size();
-      if (j.dir == 'd' && !w.st[j.pi].wire.empty() && w.st[j.pi].wire[0].size() > big) big = w.st[j.pi].wire[0].size();
+      if (j.dir == 'd') {  // the whole upload (owner, 2026-10-03): every chunk's wire, so 16 MiB+ at the largest
+        size_t all = 0;
+        for (size_t k = 0; k < w.st[j.pi].wire.size(); ++k) all += w.st[j.pi].wire[k].size();
+        if (all > big) big = all;
+      }
     }
     std::printf("# %s\n", akalloc::pregrow_or_exit(big).c_str());
   }
