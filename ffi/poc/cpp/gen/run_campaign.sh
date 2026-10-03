@@ -63,6 +63,11 @@ WARM=${AK_CAMPAIGN_WARMUP_S:-$W_CODEC}
 RPCMINT=${AK_CAMPAIGN_RPC_MIN_TIME_S:-$T_RPC}
 RPCWARM=${AK_CAMPAIGN_RPC_WARMUP_S:-$W_RPC}
 SRVWARM=${AK_CAMPAIGN_SERVER_WARMUP:-$W_SRV}
+# D14 (2026-10-03): every pool is AK_WORKERS (campaign.machine via campaign.sh: the 8 threads of
+# a set's taskset, D8), default 8: the client's core runtime (campaign_rpc reads AK_WORKERS) and
+# the shared server's tokio runtime (serve.sh's AK_SERVER_THREADS).
+WORKERS=${AK_WORKERS:-8}
+export AK_WORKERS=$WORKERS
 # The owner's small-test rule (2026-09-27): a smoke may run one transport and one build.
 TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}   # rpc: client configurations run
 BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec and rpc: full | no-unknown | both
@@ -176,7 +181,7 @@ h = {
  "variants": {"full": "ak-core default features (unknown-fields: decision 11), binaries campaign_codec / campaign_rpc: core-ffi drop and retain, C/D-retain and -drop",
               "no-unknown": "ak-core --no-default-features (unknown fields compiled out; plan relowered with unknown=drop), nounk/include/ak_abi.h, binaries campaign_codec_nounk (codec-nounk-launch*.jsonl) / campaign_rpc_nounk: core-ffi and host-gen no-unknown (the facade without unknown_fields, R-H22), C/D-nounk; A, B and the incumbents run there too"},
  "threads": {"codec": "one benchmark thread; the core starts none for codec calls (each codec log's own line has the process thread count)",
-             "rpc_client": "caller threads = the in-flight level (1, 8, 16), created before round 1; the core's runtime workers = 2 (campaign_rpc --workers default); grpc-core sizes its own pollers and executor, counted in each client's process_threads_after_warmup line",
+             "workers": $WORKERS, "rpc_client": "D14: the core's runtime workers = AK_WORKERS ($WORKERS); caller threads = the in-flight level (1, 8, 16: one blocking call each, req. 15/16, so this is not a worker pool), created before any benchmark; grpc-core (grpc++'s A, D, F) has no public setting for its pollers or EventEngine threads: it sizes itself from sysconf(_SC_NPROCESSORS_CONF) (EventEngine Clamp(n, 4, 16)), recorded with the thread classes in each client header, not set to AK_WORKERS", "rpc_server_threads": "the shared tokio server's runtime: AK_SERVER_THREADS = AK_WORKERS ($WORKERS)",
              "rpc_server": "grpc++ callback server, grpc-core's own threads; the server's thread count at start and at exit is in the rpc log"},
  "repeats": {"launches": $LAUNCHES, "rounds": $ROUNDS}, "ran": {"transports": "$TRANSPORTS", "builds": "$BUILDS"},
  "warmup": {"codec_google_benchmark_min_warmup_time_s_per_benchmark": $WARM, "rpc_google_benchmark_min_warmup_time_s_per_benchmark": $RPCWARM, "rpc_server": "poc/rust/serve.sh warm N: N checked a, b, c calls and ceil(N/4) d calls per socket, tonic and core clients", "rpc_server_n": $SRVWARM, "campaign_defaults": {"codec_min_warmup_time_s": 0.5, "rpc_min_warmup_time_s": 0.5, "rpc_server_calls": 200}, "smoke_defaults": {"codec_min_warmup_time_s": 0.01, "rpc_min_warmup_time_s": 0.01, "rpc_server_calls": 20}, "allocator": "every benchmark runs the framework's warm-up before its first repetition"},
@@ -408,7 +413,7 @@ EXP=""; SOCK_shipped=""; SOCK_pinned=""; SERVED=""
 sock_of() { [ "$1" = pinned ] && echo "unix:$SOCK_pinned" || echo "unix:$SOCK_shipped"; }
 start_server() {
   [ -n "$SERVED" ] || { bash "$SERVE" build > "$TMPD/serve-build.log" 2>&1 || { cat "$TMPD/serve-build.log"; echo "serve.sh build failed"; exit 1; }; SERVED=1; }
-  AK_CPU_SERVER=$AK_CPU_SERVER bash "$SERVE" start --out "$TMPD/srv" > "$TMPD/srv.out" 2>&1 \
+  AK_CPU_SERVER=$AK_CPU_SERVER AK_SERVER_THREADS=$WORKERS bash "$SERVE" start --out "$TMPD/srv" > "$TMPD/srv.out" 2>&1 \
     || { cat "$TMPD/srv.out"; echo "the server did not start"; exit 1; }
   SOCK_shipped=$(awk '$1=="shipped"{print $2}' "$TMPD/srv.out"); SOCK_pinned=$(awk '$1=="pinned"{print $2}' "$TMPD/srv.out")
   EXP=$(sed -n 's/.*P2.2 \([0-9]*\) B.*/\1/p' "$TMPD/srv/rpc-server.log" | head -1)

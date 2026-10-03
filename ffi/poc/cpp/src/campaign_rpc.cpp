@@ -245,7 +245,7 @@ struct Cfg {
                             // target (TCP: grpc++ `ipv4:127.0.0.1:P`, the core `http://127.0.0.1:P`)
   std::string plant;     // test only (req. 18 controls): c-len | d-count | d-sha
   std::vector<int> inflight = {1, 8, 16};
-  int launch = 0, rounds = 5, calls = 96, workers = 2;
+  int launch = 0, rounds = 5, calls = 96, workers = 8;  // D14: AK_WORKERS, default 8
   int fail_after = -1;   // test only: abort after this many samples (the gate's R-H4 control)
   double warmup_s = 0.5; // Google Benchmark's min warm-up time per benchmark (req. 24)
   double min_time_s = 0.5; // Google Benchmark's min time per repetition (its iteration control)
@@ -2340,8 +2340,8 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "usage: campaign_rpc --target unix:PATH --expect BYTES --transport shipped|pinned ...\n");
     return 2;
   }
-  // AK_WORKERS (the Cf-q attribution, an arm knob of gen/core_ab.sh): the core runtime's worker
-  // count, overriding --workers
+  // D14 (2026-10-03): the core runtime's worker count is AK_WORKERS (campaign.machine: the set's
+  // 8 threads), overriding --workers; default 8
   if (const char *wv = std::getenv("AK_WORKERS")) c.workers = std::atoi(wv);
   w.rt = ak_runtime_new((uint32_t)c.workers);
   pbbuild::payload_p2_2(&w.pb_req);

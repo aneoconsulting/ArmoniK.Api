@@ -2218,3 +2218,14 @@ changes.
   now configures it with run_campaign's pinned build. header.txt's AK_H2_COALESCE column used grep -x on strings
   output and read "absent" for every core; corrected after the run (present in the six twins only), driver fixed.
 - Not run: the Rust slice's gate (the Rust agent runs it); the gates on grpc++ 1.80 / protobuf 34.
+
+## 2026-10-03, D14 (8 workers)
+
+- Already there: campaign_rpc read AK_WORKERS for the core runtime, but defaulted to 2, and the runner
+  neither exported it nor sized the shared server (serve.sh default 4). Now: default 8; the runner
+  exports AK_WORKERS (default 8) and starts the server with AK_SERVER_THREADS=AK_WORKERS; the header
+  states both. Caller threads stay the in-flight level (1, 8, 16: blocking calls, not a pool).
+  grpc-core has no public setting: it sizes from sysconf(_SC_NPROCESSORS_CONF) (EventEngine
+  Clamp(n, 4, 16)); not set, recorded in each client header with the thread classes.
+- Minimal smoke: server log "tokio multi-thread 8 workers", client header core_runtime_workers 8,
+  one short client run (A, B, C-drop, dir a, k 1 and 8) rc 0. No gated path changed.
