@@ -2239,3 +2239,16 @@ changes.
 - Minimal smoke, both modes: RPC A/C-drop dirs a and d (default: allocator default, minflt 0 on a; pinned: d
   256 minor faults per call), codec P1.1 pinned (allocator pinned, minflt_per_op recorded), header renders both.
   No gated path changed; no gate run.
+
+## 2026-10-03, D9 startup check (C#'s, every measured C++ process)
+
+- src/alloc_check.h: one 16 MiB malloc, mallinfo2 hblks before/after; default must read mmapped, pinned heap;
+  exit 4, no sample, if the readback disagrees with AK_CAMPAIGN_ALLOC or AK_CAMPAIGN_ALLOC with GLIBC_TUNABLES;
+  the readback printed as a header line. The runner exports AK_CAMPAIGN_ALLOC.
+- Small run (RPC A, C-drop, D-drop, E-drop, dir d, k 1, min time 0.3 s, warm-up 0.2 s): default reads mmapped;
+  pinned reads heap, so the tunables take effect in the C++ clients. Minor faults per call, pinned: 0.0 in 7 of
+  8 rows; E-drop 16 MiB 70, the first benchmark in run order (the heap's first growth to hold 16 MiB). Default:
+  C-drop 11.5 (4 MiB) and 25 (16 MiB), others 0 to 0.16. The earlier 256 per call (pinned, d) was one
+  iteration after a 0.01 s warm-up: the first growth, not grpc++. Codec P1.1 reads mmapped / heap as expected.
+- Planted: pinned without tunables, default with tunables, tunables overridden to a 1 MiB mmap threshold
+  (readback mmapped under pinned), codec pinned without tunables: each exit 4, no output file.

@@ -100,6 +100,7 @@
 #include "bb_bytes.h"
 #include "owned_holder.h"
 #include "sha256.h"
+#include "alloc_check.h"
 #include "campaign_grid.grpc.pb.h"
 #ifndef AK_COUNTING
 #include <benchmark/benchmark.h>
@@ -2301,6 +2302,8 @@ void make_stream(Stream *st, int chunks) {
 }  // namespace
 
 int main(int argc, char **argv) {
+  // req. 25 / D9 (2026-10-03): the allocator mode is checked before anything else runs.
+  std::printf("# %s\n", akalloc::check_or_exit().c_str());
   akrpc::init_core_or_die();
   World w;
   Cfg &c = w.cfg;

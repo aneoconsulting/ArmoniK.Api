@@ -52,6 +52,7 @@
 //                  [--corpus DIR --rows TSV] [--payloads DIR] [--gbench-out FILE]
 //                  [--pool-bytes N]
 #include <benchmark/benchmark.h>
+#include "alloc_check.h"
 #include <sys/resource.h>
 #ifndef AK_GBENCH_VERSION
 #define AK_GBENCH_VERSION "unknown"
@@ -790,6 +791,8 @@ std::vector<CorpusRow> corpus_rows(const std::string &rows) {
 }  // namespace
 
 int main(int argc, char **argv) {
+  // req. 25 / D9 (2026-10-03): the allocator mode is checked before anything else runs.
+  std::printf("# %s\n", akalloc::check_or_exit().c_str());
   for (int i = 1; i + 1 < argc; i += 2) {
     std::string a = argv[i];
     const char *v = argv[i + 1];

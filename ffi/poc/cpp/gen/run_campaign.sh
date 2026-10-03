@@ -84,7 +84,7 @@ case "$ALLOC" in
   pinned) ALLOCENV="GLIBC_TUNABLES=$TUNABLES"; APFX="alloc-pinned-" ;;
   *) echo "AK_CAMPAIGN_ALLOC: default or pinned" >&2; exit 2 ;;
 esac
-export AK_ALLOC_MODE=$ALLOC
+export AK_ALLOC_MODE=$ALLOC AK_CAMPAIGN_ALLOC=$ALLOC   # the binaries check it against a 16 MiB malloc (alloc_check.h)
 # The owner's small-test rule (2026-09-27): a smoke may run one transport and one build.
 TRANSPORTS=${AK_CAMPAIGN_TRANSPORTS:-shipped pinned}   # rpc: client configurations run
 BUILDS=${AK_CAMPAIGN_BUILDS:-both}                      # codec and rpc: full | no-unknown | both
