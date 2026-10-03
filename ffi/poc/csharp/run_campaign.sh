@@ -17,6 +17,8 @@
 #   rpc subset  AK_RPC_TRANSPORTS "shipped pinned", AK_RPC_BUILDS "full nounk" (small runs only)
 #   h2          AK_H2_VARIANTS "stock h2-batch" (D11 as amended): the rpc suite runs once per
 #               h2 variant of the core, each with its own gate; every row carries `h2`
+#   allocator   AK_ALLOC default / pinned (req 25, D9 as amended 2026-10-03): default = the main
+#               figures (GLIBC_TUNABLES unset); pinned = the labelled diagnostic pass
 #   pools       AK_WORKERS (campaign.machine; default 8): the core runtime, the .NET thread pool
 #               and the server's workers (D8, D14)
 #   codec (BDN) AK_BDN_WARMUP 10 / 1   AK_BDN_ITERATION_MS 100 / 2   AK_BDN_ROUNDS = --rounds
@@ -89,6 +91,15 @@ fi
 export AK_WORKERS="${AK_WORKERS:-8}" AK_CPU_CLIENT
 export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}"
 H2_VARIANTS="${AK_H2_VARIANTS:-stock h2-batch}"
+# CAMPAIGN req 25 / D9 as amended 2026-10-03: the main figures on glibc's default allocator;
+# AK_ALLOC=pinned runs the labelled diagnostic pass with the trim and mmap thresholds pinned.
+PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
+export AK_ALLOC="${AK_ALLOC:-default}"
+case "$AK_ALLOC" in
+  default) unset GLIBC_TUNABLES; ASFX="" ;;
+  pinned) export GLIBC_TUNABLES="$PINNED_TUNABLES"; ASFX=".alloc-pinned" ;;
+  *) echo "AK_ALLOC must be default or pinned" >&2; exit 2 ;;
+esac
 # CAMPAIGN req 11 (R-H29): the pool input is sized from the last-level cache (2 x AK_LLC_BYTES
 # of retained graphs; default 13.75 MB, the reference i9-7900X). A smoke run uses a small pool.
 export AK_LLC_BYTES="${AK_LLC_BYTES:-14417920}"
@@ -119,7 +130,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a} ($(ncpus "$AK_CPU_CLIENT") and $([ -n "${AK_CPU_SERVER:-}" ] && ncpus "$AK_CPU_SERVER" || echo 0) CPUs; set size fixed at ${AK_SET_SIZE:-unset}); from $CPUSRC; pinning by taskset"
   echo "# toolchain:     BenchmarkDotNet $([ "$GROUPED" = 1 ] && echo "GROUPED (InProcessEmit, one process per unit: the small-run switch AK_BDN_GROUPED=1, req 22a as amended e6c909630)" || echo "default toolchain, one child process per case (the campaign's isolation, req 22a as amended e6c909630)")"
   echo "# pools:         AK_WORKERS=$AK_WORKERS (D8, D14): the core runtime's workers, the .NET thread pool's worker minimum and maximum (rpc), the server's tokio workers AK_SERVER_THREADS=$AK_SERVER_THREADS"
-  echo "# allocator:     GLIBC_TUNABLES=${GLIBC_TUNABLES:-unset} (D9, req 25 as amended: stated, not set by this runner; this slice has no native shim of its own; the shared core libak_core.so in this process allocates its buffers through Rust's global allocator, glibc malloc, so the trim and mmap thresholds govern the core's buffers; managed objects are on the .NET GC heap, not glibc malloc)"
+  echo "# allocator:     $AK_ALLOC (AK_ALLOC; GLIBC_TUNABLES=${GLIBC_TUNABLES:-unset} for every client process). CAMPAIGN req 25 / D9 as amended 2026-10-03: the MAIN figures run glibc's default allocator, as production does (AK_ALLOC=default, GLIBC_TUNABLES unset); AK_ALLOC=pinned is the labelled diagnostic pass (GLIBC_TUNABLES=$PINNED_TUNABLES), its files suffixed .alloc-pinned. The core's buffers and transport allocate through glibc malloc in this slice's process (no shim of its own); managed objects are on the .NET GC heap. Every row carries alloc and minflt (minor page faults of the process over the iteration; per call = minflt / iters), each process refuses to run if its GLIBC_TUNABLES does not match AK_ALLOC. The RPC server runs the default allocator in both passes (started with GLIBC_TUNABLES unset)"
   echo "# llc:           AK_LLC_BYTES=$AK_LLC_BYTES; pool input >= ${AK_POOL_BYTES:-$((2 * AK_LLC_BYTES))} bytes of retained graphs (req 11)"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
   echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"
@@ -183,12 +194,12 @@ case "$SUITE" in
     # A smoke run keeps 6 of the U-* rows (spread evenly), every direction and arm of each.
     [ $SMOKE = 1 ] && export AK_BDN_UROWS="${AK_BDN_UROWS:-6}"
     for l in $(seq 1 "$LAUNCHES"); do
-      f="$OUT/codec-launch$l.jsonl"
+      f="$OUT/codec-launch$l$ASFX.jsonl"
       { header "rpc,init-guard (full) and rpc,init-guard without unknown-fields (no-unknown)"; echo "$GATE"; echo "# builds, in this launch's order: $(builds_of "$l") (WP5 step 10; each process checks its core is its variant)"; echo "# h2:            stock (target-core*; the codec suite makes no transport call, so the h2 variant is not a dimension of it; rows carry h2=stock)"; } > "$f"
       for bld in $(builds_of "$l"); do
         if [ "$bld" = full ]; then BX="$B8"; else BX="$BN8"; fi
         for u in $(dotnet "$BX/BenchDotNet.dll" --launch "$l" --list-units); do
-          ul="$OUT/codec-launch$l.${u/:/-}.bdn.log"
+          ul="$OUT/codec-launch$l$ASFX.${u/:/-}.bdn.log"
           # R-H19: BDN's console log carries figures; a smoke's is headed as instrumentation.
           { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
           # R-H18: a unit whose JIT check fails exits non-zero, so the launch stops here.
@@ -211,7 +222,7 @@ case "$SUITE" in
     cp "$SLICE/target-core/release/libak_core.so" "$R8/"
     ITERS=10000000; [ $SMOKE = 1 ] && ITERS=100000
     for l in $(seq 1 "$LAUNCHES"); do
-      f="$OUT/calib-launch$l.jsonl"
+      f="$OUT/calib-launch$l$ASFX.jsonl"
       { header "rpc,init-guard"; echo "$GATE"; echo "# crossing counts: equal to gen/crossings.txt (calib-crossing-counts.log) and, no-unknown build, to gen/crossings-nounk.txt (calib-crossing-counts-nounk.log)"; } > "$f"
       if command -v perf > /dev/null; then
         # Requirement 20: cycles and instructions per iteration, from perf stat, per process.
@@ -256,7 +267,7 @@ case "$SUITE" in
       # FIX-PLAN WP13 (D10): every timed cell over TCP 127.0.0.1. The server's TCP listener
       # (AK_SERVER_TCP=0, any free port) runs its PINNED configuration only, so "shipped" and
       # "pinned" are the CLIENT's configuration against that one listener.
-      AK_SERVER_TCP=0 "$SERVE" start --out "$sdir" > "$sdir/start.out" 2>&1 || { cat "$sdir/start.out"; exit 1; }
+      env -u GLIBC_TUNABLES AK_SERVER_TCP=0 "$SERVE" start --out "$sdir" > "$sdir/start.out" 2>&1 || { cat "$sdir/start.out"; exit 1; }
       TL=$(sed -n 's/^tcp //p' "$sdir/start.out"); SPID=$(sed -n 's/^pid //p' "$sdir/start.out")
       [ -n "$TL" ] || { echo "the server printed no TCP listener ($sdir/start.out)" >&2; "$SERVE" stop; exit 1; }
       slog="$sdir/rpc-server.log"
@@ -278,8 +289,8 @@ case "$SUITE" in
       for t in $TS; do
         for bld in ${AK_RPC_BUILDS:-$(builds_of "$l")}; do
           if [ "$bld" = full ]; then RX="$R8"; sfx=""; else RX="$RN8"; sfx=".nounk"; fi
-          f="$OUT/rpc-$t-$h2-launch$l$sfx.jsonl"
-          [ $PLANT = 1 ] && f="$OUT/rpc-$t-$h2-launch$l$sfx.PLANT.jsonl"
+          f="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.jsonl"
+          [ $PLANT = 1 ] && f="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.PLANT.jsonl"
           { header "rpc,init-guard$([ "$bld" = nounk ] && echo ' without unknown-fields (no-unknown build)')$([ "$h2" = h2-batch ] && echo ', h2 patched to h2-batch (poc/codec/h2-batch)')"; echo "${GATES[$h2]}";
             echo "# client build: $bld (WP5 step 10); h2 $h2 (D11 as amended); this launch's order: h2 $HS, transports $TS, builds $(builds_of "$l")";
             echo "# network:       TCP 127.0.0.1 ($TL), the server's TCP listener (D10, FIX-PLAN WP13): it runs the PINNED server configuration only (4 MiB windows, adaptive off, TCP_NODELAY on accept), so shipped and pinned differ on the CLIENT side only; Nagle off on every client socket, read back in each process (see the '# network' line of each unit)";
@@ -315,7 +326,7 @@ case "$SUITE" in
             continue
           fi
           for u in $(dotnet "$RX/akrpc.dll" bench --launch "$l" --list-units); do
-            ul="$OUT/rpc-$t-$h2-launch$l$sfx.$u.bdn.log"
+            ul="$OUT/rpc-$t-$h2-launch$l$sfx$ASFX.$u.bdn.log"
             { [ $SMOKE = 1 ] && echo "# SMOKE RUN in a container: EVERY FIGURE IN THIS LOG IS INSTRUMENTATION, NOT A RESULT (README 1.1)"; } > "$ul"
             taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "$sock" --transport "$t" --unit "$u" --launch "$l" --out "$f" "${BDNARGS[@]}" >> "$ul" 2>&1; rc=$?
             if [ $rc -ne 0 ]; then

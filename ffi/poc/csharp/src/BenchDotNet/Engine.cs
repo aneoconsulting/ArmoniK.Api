@@ -73,6 +73,7 @@ public sealed class CpuDiagnoser : IDiagnoser
             CpuClock.Recording = false;
             long c1 = ProcCpu.Ns(), w1 = ProcCpu.Wall();
             IterCpu[parameters.BenchmarkCase.Parameters["Case"].ToString()] = CpuClock.Cpu.ToArray();
+            CpuClock.IterMf[parameters.BenchmarkCase.Parameters["Case"].ToString()] = CpuClock.Mf.ToArray();
             Times[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (_t0, _t1, DateTime.UtcNow);
             Stage[parameters.BenchmarkCase.Parameters["Case"].ToString()] = (c1 - _c0, w1 - _w0,
                 GC.CollectionCount(0) - _g0, GC.CollectionCount(1) - _g1, GC.CollectionCount(2) - _g2, _heap,
@@ -121,7 +122,8 @@ public sealed class JsonLinesExporter : IExporter
         sb.Append(",\"arm\":\"").Append(c.Arm).Append("\",\"payload\":\"").Append(c.Payload).Append("\",\"content\":\"").Append(c.Content)
           .Append("\",\"dir\":\"").Append(c.Dir).Append("\",\"unknown_mode\":\"").Append(c.Mode).Append('"');
         sb.Append(",\"build\":\"").Append(Armonik.Ffi.Harness.AbiVariant.Name).Append('"');   // R-H6
-        sb.Append(",\"h2\":\"stock\"");   // D11: the codec suite loads the stock core and makes no transport call
+        sb.Append(",\"h2\":\"stock\"");
+        sb.Append(",\"alloc\":\"").Append(Alloc.Label).Append('"');   // req 25 as amended (D9)   // D11: the codec suite loads the stock core and makes no transport call
         sb.Append(",\"launch\":").Append(launch).Append(",\"round\":").Append(round);
         if (summary) sb.Append(",\"row\":\"case-summary\",\"span_cpu_ns\":").Append(cpu).Append(",\"span_wall_ns\":").Append(wall);
         else sb.Append(",\"cpu_ns\":").Append(cpu).Append(",\"wall_ns\":").Append(wall);
@@ -151,8 +153,16 @@ public sealed class JsonLinesExporter : IExporter
             int warm = all.Count(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Warmup);
             var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
             // req 21: the process CPU of each actual iteration, paired from CpuClock's reads.
+            long[] mf = null;
             if (!CpuDiagnoser.IterCpu.TryGetValue(c.Key, out var ic) || ic.Length != 2 * act.Count)
-                ic = CpuClock.FromChild(c.Key, act.Select(m => m.Nanoseconds).ToList());   // the default toolchain's child
+                ic = CpuClock.FromChild(c.Key, act.Select(m => m.Nanoseconds).ToList(), out _, out mf);   // the default toolchain's child
+            else CpuClock.IterMf.TryGetValue(c.Key, out mf);
+            if (mf == null || mf.Length != ic?.Length)
+            {
+                o.Add("# FAILED CASE (minor faults per iteration not recorded, req 25 as amended): " + c.Key);
+                CpuPairFailed++;
+                continue;
+            }
             if (ic == null || ic.Length != 2 * act.Count)
             {
                 o.Add("# FAILED CASE (process CPU per iteration not paired: " + (ic == null ? "no clock reads" : ic.Length + " clock reads for " + act.Count + " actual iterations") + "): " + c.Key);
@@ -170,9 +180,9 @@ public sealed class JsonLinesExporter : IExporter
             int round = 0;
             foreach (var m in act)
             {
-                long cpu = ic[2 * round + 1] - ic[2 * round];
+                long cpu = ic[2 * round + 1] - ic[2 * round], flt = mf[2 * round + 1] - mf[2 * round];
                 o.Add(J(c, _launch, ++round, cpu, (long)Math.Round(m.Nanoseconds), m.Operations,
-                    string.Format(CultureInfo.InvariantCulture, "\"engine\":\"bdn\",\"bdn_warmup\":{0}", warm) + variant));
+                    string.Format(CultureInfo.InvariantCulture, "\"minflt\":{0},\"engine\":\"bdn\",\"bdn_warmup\":{1}", flt, warm) + variant));
             }
             // Every stage BDN ran for this case, as mode/stage: count, ops, ns (requirement 24).
             var stages = string.Join(",", all.GroupBy(m => m.IterationMode + "/" + m.IterationStage)

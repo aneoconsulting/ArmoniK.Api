@@ -20,6 +20,15 @@ public static unsafe class ProcCpu
         if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t) != 0) throw new InvalidOperationException("clock_gettime(CLOCK_PROCESS_CPUTIME_ID)");
         return t.Sec * 1_000_000_000L + t.Nsec;
     }
+    [DllImport("libc")] private static extern int getrusage(int who, long* usage);
+    /// This process's minor page faults so far (getrusage(RUSAGE_SELF).ru_minflt; CAMPAIGN req
+    /// 25 as amended, D9: the minor faults beside every allocator gap).
+    public static long MinFlt()
+    {
+        long* u = stackalloc long[18];
+        if (getrusage(0, u) != 0) throw new InvalidOperationException("getrusage");
+        return u[8];   // two timevals (4 longs), maxrss, ixrss, idrss, isrss, then minflt
+    }
     public static long Wall() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1e9 / System.Diagnostics.Stopwatch.Frequency));
 }
 
@@ -69,6 +78,23 @@ public static unsafe class TaskClock
     }
 }
 
+/// CAMPAIGN req 25 as amended 2026-10-03 (D9): the allocator mode of this process. The main
+/// figures run glibc's default allocator (GLIBC_TUNABLES unset, as production); the pinned
+/// pass, a labelled diagnostic, runs with Pinned. Read from this process's own environment
+/// (glibc applies GLIBC_TUNABLES at load), so the label is what the process ran under.
+public static class Alloc
+{
+    public const string Pinned = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432";
+    public static readonly string Tunables = Environment.GetEnvironmentVariable("GLIBC_TUNABLES");
+    public static string Label => string.IsNullOrEmpty(Tunables) ? "default" : Tunables == Pinned ? "pinned" : "other";
+    /// The runner's AK_ALLOC, when set, must equal the label (a mismatch is refused by the mains).
+    public static string Mismatch()
+    {
+        var want = Environment.GetEnvironmentVariable("AK_ALLOC");
+        return want == null || want == Label ? null : "AK_ALLOC=" + want + " but GLIBC_TUNABLES=" + (Tunables ?? "unset") + " (" + Label + ")";
+    }
+}
+
 /// CAMPAIGN req 21 inside BenchmarkDotNet: the job's clock. The engine calls GetTimestamp at
 /// an iteration's start and at its end (IClock.Start / StartedClock.GetElapsed); while the
 /// diagnoser has recording on (the actual stage), each call also reads the process CPU clock:
@@ -85,7 +111,11 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     public static readonly List<long> Wall = new List<long>(64);
     /// task-clock beside the process clock at every read (AK_TASK_CLOCK=1), else empty.
     public static readonly List<long> Tc = new List<long>(64);
-    public static void Reset() { Cpu.Clear(); Wall.Clear(); Tc.Clear(); }
+    /// minor page faults of the process at every read (req 25 as amended, D9).
+    public static readonly List<long> Mf = new List<long>(64);
+    public static void Reset() { Cpu.Clear(); Wall.Clear(); Tc.Clear(); Mf.Clear(); }
+    /// Per case, the minor faults at each actual iteration's start and end (grouped mode).
+    public static readonly Dictionary<string, long[]> IterMf = new Dictionary<string, long[]>();
     /// BDN's default toolchain (one child process per case, req 22a as amended e6c909630): the
     /// clock runs in the CHILD, the diagnoser in the host, so the child records every read and
     /// writes them to AK_CPU_CHILD_DIR at its GlobalCleanup (DumpChild); the host pairs the
@@ -99,6 +129,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         long t;
         if ((Cpu.Count & 1) == 0)
         {
+            Mf.Add(ProcCpu.MinFlt());
             if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
             Cpu.Add(ProcCpu.Ns()); t = System.Diagnostics.Stopwatch.GetTimestamp();
         }
@@ -106,6 +137,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         {
             t = System.Diagnostics.Stopwatch.GetTimestamp(); Cpu.Add(ProcCpu.Ns());
             if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
+            Mf.Add(ProcCpu.MinFlt());
         }
         Wall.Add(t);
         return t;
@@ -121,7 +153,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     {
         if (ChildDir == null) return;
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append('\n');
+        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append(' ').Append(i < Mf.Count ? Mf[i] : -1).Append('\n');
         System.IO.File.WriteAllText(FileOf(key), sb.ToString());
     }
 
@@ -131,9 +163,12 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     public static long[] FromChild(string key, IList<double> actualNs) => FromChild(key, actualNs, out _);
 
     /// The same, with the task-clock reads (null when the child did not record them).
-    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc)
+    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc) => FromChild(key, actualNs, out tc, out _);
+
+    /// The same, with the minor-fault reads too (null when absent).
+    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc, out long[] mf)
     {
-        tc = null;
+        tc = null; mf = null;
         if (ChildDir == null) return null;
         var f = FileOf(key);
         if (!System.IO.File.Exists(f)) return null;
@@ -142,17 +177,20 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         if (rows.Length < 2 * n || (rows.Length & 1) != 0) return null;
         var o = new long[2 * n];
         var t = new long[2 * n];
-        bool hasTc = true;
+        var q = new long[2 * n];
+        bool hasTc = true, hasMf = true;
         double tick = 1e9 / System.Diagnostics.Stopwatch.Frequency;
         for (int i = 0; i < n; i++)
         {
             var a = rows[rows.Length - 2 * n + 2 * i].Split(' '); var b = rows[rows.Length - 2 * n + 2 * i + 1].Split(' ');
             o[2 * i] = long.Parse(a[0]); o[2 * i + 1] = long.Parse(b[0]);
             if (a.Length > 2 && b.Length > 2 && a[2] != "-1" && b[2] != "-1") { t[2 * i] = long.Parse(a[2]); t[2 * i + 1] = long.Parse(b[2]); } else hasTc = false;
+            if (a.Length > 3 && b.Length > 3 && a[3] != "-1" && b[3] != "-1") { q[2 * i] = long.Parse(a[3]); q[2 * i + 1] = long.Parse(b[3]); } else hasMf = false;
             double span = (long.Parse(b[1]) - long.Parse(a[1])) * tick;
             if (Math.Abs(span - actualNs[i]) > 0.02 * actualNs[i] + 20000) return null;
         }
         if (hasTc) tc = t;
+        if (hasMf) mf = q;
         return o;
     }
 }

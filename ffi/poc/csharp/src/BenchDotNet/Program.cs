@@ -60,6 +60,8 @@ public static class Program
         // WP5 step 10: the build's unknown-field variant, and the loaded core must be the same.
         var vwhy = Armonik.Ffi.Harness.AbiVariant.CheckLoadedCore();
         if (vwhy != null) { Console.Error.WriteLine("core variant mismatch: " + vwhy); return 3; }
+        var awhy = Alloc.Mismatch();
+        if (awhy != null) { Console.Error.WriteLine("allocator mode mismatch: " + awhy); return 3; }
         int checks = Cases.Verify();
         // Requirement 24, the tier: a process-level pre-warm before BDN starts. Every case of
         // this process is called 64 times per round, rounds 0.5 s apart, until a round causes
@@ -73,6 +75,7 @@ public static class Program
         var hdr = new[]
         {
             "# engine:         BenchmarkDotNet " + typeof(BenchmarkRunner).Assembly.GetName().Version + " (CAMPAIGN.md 22a), toolchain " + (Grouped ? "InProcessEmit, GROUPED: every case of this unit in this process (the runner's grouped switch: smoke and small exploration runs only, req 22a as amended e6c909630); the JIT tier is read back per case" : "BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630); process CPU per iteration from the child's clock reads, each pair checked against BDN's wall measurement; the JIT tier is NOT read back (the children's JIT events are not visible here), so the jit check below is vacuous in this mode") + ", pinned by the runner",
+            "# allocator:      " + Alloc.Label + " (GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; every row carries `alloc` and `minflt`, the process's minor page faults over the iteration (getrusage, read by the job's clock beside the CPU clock), so faults per call = minflt / iters)",
             "# runtime:        " + RuntimeInformation.FrameworkDescription + "; TieredCompilation=" + Env("DOTNET_TieredCompilation") + " TieredPGO=" + Env("DOTNET_TieredPGO") + " (net8.0 defaults unless set); GC server=" + GCSettings.IsServerGC + ", concurrent (default)",
             "# incumbent:      Google.Protobuf " + Ver(typeof(Google.Protobuf.MessageParser)),
             "# build:          " + Armonik.Ffi.Harness.AbiVariant.Name + " (WP5 step 10; the loaded core checked to be the same variant by its u-family exports)",
