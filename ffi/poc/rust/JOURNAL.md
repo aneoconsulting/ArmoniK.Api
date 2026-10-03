@@ -4287,3 +4287,25 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
 - Smoke, per mode (logs/rust/d9-revert/, figures stripped): codec P1.1, rpc B/a/k1 and calib.
   All exited 0. No log mentions a pre-grow. The check read mmapped in default and heap in
   pinned. Every row carries alloc and minflt.
+
+## 2026-10-03 -- req 24 as amended (8c02e7c58): >= 20 calls per calling thread in the RPC warm-up
+
+- Checked criterion 0.5's warm-up (routine.rs). It calls the routine with 1, 2, 4, ...
+  iterations until the summed WALL time (Instant) exceeds warm_up_time; the ProcessCpu
+  measurement plays no part. In rpc_suite one iteration is one call on each of the k callers.
+  The callers are created before bench_function and shared by warm-up and measurement:
+  - blocking cells use k host threads, exactly one call per thread per iteration;
+  - async cells spawn k tokio tasks per iteration on the cell's pre-created runtime, so the
+    worker threads are the same but tokio decides which worker runs each task.
+- Sizing run (logs/rust/req24-warmup/, container instrumentation): every cell of the full
+  build at d/16MiB and c/P5.4, k = 8. d/16MiB is the slowest:
+  - median wall per iteration 125-227 ms (D-drop and B at the top), worst single 461 ms;
+  - c/P5.4 at most 97 ms median.
+- At the old 500 ms, the slowest cell got about 3 calls per thread (1 + 2 iterations). The
+  rule is NOT met.
+- 20 calls need 15 iterations, 1 + 2 + 4 + 8, to finish inside the warm-up. 15 x ~300 ms is
+  4.5 s, so the runner's campaign default AK_RPC_WARMUP_MS is raised to 5000 ms (smoke
+  stays 5 ms). A header line states how the rule is met.
+- Cost: about +4.5 s per RPC benchmark for every cell, cheap cells included. A per-benchmark
+  warm-up (criterion's group warm_up_time set per spec, by payload and k) would cost only
+  the large cells; it is not done (owner: no code beyond the default).
