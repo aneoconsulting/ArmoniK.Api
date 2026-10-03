@@ -1556,3 +1556,42 @@ work, so this is now aligned.
   values, no-unknown 66 / 40 / 40; codec P1.1 check 38 / 18 benchmarks.
 - **Grouping check** (CAMPAIGN 22a at e6c909630): nothing to change. Both pyperf suites already
   run one worker process per benchmark; no worker holds several combinations.
+
+### J56. The WP12 contract (FIX-PLAN WP13, owner 2026-10-03)
+
+- **TCP.** The shared server now starts with `AK_SERVER_TCP=0`, and every timed cell dials
+  127.0.0.1. The precheck read TCP_NODELAY back on every live socket to the server: 17 of 17
+  (shipped) and 18 of 18 (pinned). grpc-core and tonic both set it without being asked.
+- **Task-clock.** The perf_event_open software counter opened from Python through ctypes works
+  in this container (paranoid 2). A first version read it with `os.pread` and failed with
+  ESPIPE; a perf fd is read with `read`. Inheritance checked: three spinning threads summed,
+  exited threads included.
+- **grpc-core sizing.** grpcio's cygrpc calls libc's sysconf through the PLT, so the C++
+  slice's LD_PRELOAD shim works in Python: `event_engine` 8 threads with AK_SHIM_NCPUS=8 (4
+  without it in this 4-CPU container). `tokio-rt-worker` 8.
+- **h2 variants.** The h2-batch build of the full rpc core goes through the shared script. The
+  no-unknown and counting rpc cores are built by hand with the same `--config`, because the
+  script takes features only. The write-count marker in the precheck (d/16MiB, Cf, k = 1):
+  stock 1,034-1,037, h2-batch 76-80 per call, the same as the Rust slice's figures. That shows
+  the variant named is the variant running.
+- **A defect in the encode path, found on the rebuild (affects every timed core-ffi encode's
+  correctness, so in scope).** Conformance failed at byte 0 ("30 vs 0a"), and the RPC precheck
+  failed on the first P5.3 encode ("C-retain (c) P5.3 does not encode to the reference").
+  A small reproduction pinned it to the first encode on a fresh context in drop mode, 5 bytes
+  short. Every later encode was correct. Cause: the framed default (e8fe14868, landed after my
+  WP10 gate) gives `ak_enc_ctx_new` 5 bytes of headroom (`e.head`) without writing them; only
+  `ak_enc_reset` resizes the buffer to the headroom. The shim reset only a reused context.
+  Fixed in `py_capi.py` (8b87eea10): a new context, temporary ones included, is reset before
+  use. Conformance passes again. The core-side question (should `ak_enc_ctx_new` lay down its
+  own headroom?) is reported, not changed here.
+- **D9.** It applies to this process: the core's and CPython's large buffers both come from
+  glibc's arena. The runner records GLIBC_TUNABLES and does not set it. Left open.
+- **The first clean gate at 08053a6c6 failed at 105:** every other step passed, at both levels
+  and on both variants (106-108 included). 105 differed only on the D rows of (d) (full: 4
+  rows, no-unknown: 2): one more call and one more reset per call, on both h2 variants
+  alike. Cause: the shim fix above. A D or F stream encodes on a fresh grpcio thread each call,
+  so a fresh context per call; that context is now reset before use, and the reset is counted
+  (context creation itself is not). Reviewed and replaced in `counts/rpc-{full,nounk}.txt`. The
+  failing log is kept as `logs/python/109-wp13-rpc-counts-before-replacing.log`. Before the
+  fix, those first chunks would have gone out 5 bytes short on this core; the (d) digest check
+  stops that.

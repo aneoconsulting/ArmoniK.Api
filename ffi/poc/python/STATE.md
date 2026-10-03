@@ -206,6 +206,104 @@ grid and the codec suite); it is stated here, not changed.
 - **Counts:** `rpc_counts.py` (gate 105) against the Rust server gives `counts/rpc-full.txt`
   (84 rows) and `rpc-nounk.txt` (48) unchanged.
 
+## The WP12 contract (FIX-PLAN WP13, owner 2026-10-03; D8-D11, D14; reqs 4, 17, 21, 25 as amended)
+
+1. **TCP 127.0.0.1 for every timed cell (D10).**
+   - The shared server is started with `AK_SERVER_TCP=0`: any free port, the PINNED server
+     configuration, TCP_NODELAY on accept (SERVER.md).
+   - Every cell dials `127.0.0.1:PORT` (grpcio target) or `http://127.0.0.1:PORT` (core
+     client), whatever its client configuration.
+   - So over TCP, `shipped` and `pinned` differ on the client side only:
+     - grpcio channel options. shipped: only the default authority. pinned: 4 MiB
+       lookahead, BDP probe off, 16 MiB limits.
+     - The core client. shipped: `ak_client_new`, tonic's defaults. pinned: `ak_client_opts`
+       with 4 MiB windows, adaptive off, tcp_nagle 0.
+   - This is stated in every RPC header (`transport_net`). The server keeps its Unix sockets
+     open; no cell dials them.
+2. **Nagle off, read back.**
+   - Every worker reads TCP_NODELAY with getsockopt on every live socket of its process that
+     is connected to the server (`camp_meas.nodelay_summary`). It reads after its setup and
+     after every value.
+   - One socket without TCP_NODELAY fails the benchmark.
+   - grpc-core sets it on its client sockets (grpc_set_socket_low_latency); tonic's Endpoint
+     sets it by default. The read-back is what gets recorded. In the smoke every socket had it
+     set, and the count is in the header.
+   - The precheck reads it back too.
+3. **RPC client CPU = perf task-clock (req 21 as amended).**
+   - `camp_meas.task_clock_open()` opens a PERF_COUNT_SW_TASK_CLOCK counter on the process
+     (pid 0, inherit) when the worker imports it, before any thread exists. So the pool, the
+     core runtime's workers and grpc-core's threads are all counted, and threads that have
+     exited are summed on read.
+   - The time_func returns task-clock. That is pyperf's value, and `cpu_ns` in the export.
+   - Recorded beside it, around the same batches:
+     - `process_cpu_ns` (CLOCK_PROCESS_CPUTIME_ID);
+     - over the worker's affinity set (the CLIENT CPUs): /proc/stat's irq and softirq ticks,
+       and /proc/softirqs' NET_RX and NET_TX (`client_softirq_ticks` and the related fields).
+   - A worker whose perf_event_open is refused fails. In this container perf_event_paranoid
+     is 2, and the open is allowed.
+4. **Pools at AK_WORKERS (D8, D14).** The runner reads `AK_WORKERS` (8) from campaign.machine
+   and sizes three pools with it:
+   - the core runtime: `ak_runtime_new(AK_WORKERS)`. `AK_CORE_WORKERS` still overrides the
+     core's pool on its own;
+   - the server: `AK_SERVER_THREADS=AK_WORKERS`;
+   - grpc-core. It sizes itself from `sysconf(_SC_NPROCESSORS_CONF)`, not from the affinity
+     mask, and grpcio has no setting for it. So the runner LD_PRELOADs `build/ncpus_shim.so`
+     with `AK_SHIM_NCPUS=AK_WORKERS` into the RPC grid's pyperf processes. The shim's source
+     is `native/ncpus_shim.c`, a copy of the C++ slice's.
+
+   Checked in the smoke's workers: 8 `event_engine` threads and 8 `tokio-rt-worker` threads.
+   Without the shim, this 4-CPU container gives 4 `event_engine` threads.
+   - grpcio's Python client has no executor of its own; a ThreadPoolExecutor exists on servers
+     only.
+   - Every worker records its CPU facts and its threads by name; the header quotes them
+     (`pools`).
+   - The precheck and the gate's controls run without the shim, because they check
+     correctness only.
+5. **Both h2 variants (D11 as amended).**
+   - **Build.** `build.sh` builds the h2-batch variant of every core that carries h2: rpc,
+     rpc-nounk, rpc-count and rpc-count-nounk.
+     - The full rpc core goes through `poc/codec/h2-batch/build.sh`.
+     - The other three are built by hand with the same `--config` and the same patched
+       source. The script takes features only, and the no-unknown cores need
+       `--no-default-features`.
+   - **Source check.** The compiled-in h2 source of all eight rpc cores is checked: stock
+     cores must show `h2-0.4.19`, h2-batch cores `h2-batch-src`.
+   - **Loading.** The h2-batch shims keep the same module names, in `build/<tag>/h2batch/`.
+     `AK_H2=h2-batch` (or `--h2`) puts that directory first on the path (arms.py). The
+     codec-only cores have no h2 and are shared by both variants.
+   - **Gate.**
+     - Steps 92, 94 and 102 run on stock. Steps 106-108 are the same three on h2-batch; each
+       log names the module file and the core it mapped.
+     - Step 105 runs on both variants.
+     - The RPC grid's precheck runs over TCP for both builds and both variants. It includes a
+       write-count marker: write syscalls per d/16MiB call on the framed core cell at k = 1.
+       Stock gives about 1,035 and h2-batch about 76-80, matching the Rust slice's 1,030 and
+       73-78. A count on the wrong side of 400 fails.
+   - **Labels.** Every RPC sample carries `h2`. Codec samples carry `h2: "none"`, because the
+     codec cores have no rpc feature. `camp_summary` keys both the groups and the cell-A
+     baselines on `h2`.
+6. **Rebuilt on the current core** (p1, the ring of 6 spare buffers).
+   - On this core, the python shim's first encode on each thread came out 5 bytes short.
+   - Cause: since the framed default (e8fe14868), `ak_enc_ctx_new` sets 5 bytes of headroom
+     that only `ak_enc_reset` lays down, and the shim reset only a reused context.
+   - Symptoms: conformance failed at byte 0, and the RPC precheck failed on the first P5.3
+     encode.
+   - Fix: `py_capi.py` now resets a new context as well (8b87eea10).
+   - Open for the aggregating session: whether `ak_enc_ctx_new` should lay down its own
+     headroom. Any host that encodes before a first reset would hit the same thing.
+7. **D9 (glibc trim, req 25).** It applies to this process.
+   - The C extension allocates nothing large of its own beyond small fixed structures.
+   - Its large buffers come from the core (Rust's global allocator, which is glibc malloc in
+     this process) and from CPython (bytes objects go through glibc malloc above 512 B). Both
+     land in glibc's arena, which is the mechanism D9 names.
+   - The runner does NOT set `GLIBC_TUNABLES`. Every RPC header records its value
+     (`allocator`). `allocator.py`'s mallopt(M_TOP_PAD, 8 MiB) is unchanged.
+   - Open for the aggregating session: whether this slice's main figures run under D9's
+     tunables.
+8. **Unchanged, and stated:** each benchmark worker builds every cell of its direction key.
+   So idle grpcio channels and a core runtime exist in every worker beside the timed cell.
+   WP11 item 4 measured this for C++; it is not measured here.
+
 ## What was checked, and the log that carries it
 
 Full build, logs 90-98:
@@ -313,7 +411,7 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 1 | met | the suites run one after another. The machine and its tenancy are the owner's |
 | 2 | met | governor, turbo and SMT are read from /sys into every header. Setting them is the owner's |
 | 3 | met | `AK_ISOLATION`, or isolcpus/nohz_full from /proc/cmdline, in every header |
-| 4 | met | the CPU sets come from `ffi/campaign.machine` (sizes 4 and 4), exported by `ffi/campaign.sh`, and read by `run_campaign.sh` from that file when unset; the client pins itself to `AK_CPU_CLIENT` and the server to `AK_CPU_SERVER` before any thread; the affinity in force is logged. Worker thread counts in every campaign log header: codec and calib 1 (no gRPC stack, no core runtime); RPC (WP9), per benchmark worker: a client pool of k threads, the core runtime's workers (`AK_CORE_WORKERS`, 2) where the cell uses the core, grpcio's own threads where it uses grpcio; the server's grpcio executor workers (32) and its threads. NUMA and SMT siblings are checked by campaign.sh, not by this runner |
+| 4 | met | the CPU sets and `AK_WORKERS` (8, D8/D14) come from `ffi/campaign.machine`; the client pins itself to `AK_CPU_CLIENT`, the server to `AK_CPU_SERVER`; every pool at AK_WORKERS: core runtime, server tokio workers, grpc-core through the sysconf shim (WP13 item 4); each worker's affinity, sysconf counts and threads by name in every RPC header; codec and calib 1 thread |
 | 5 | met | 3.7 runs the gate (corpus, byte identity) and no timing suite |
 | 6 | met | `buildinfo.json` in every header: cc, CFLAGS, shared linkage, core profile (lto off), the features of every core of both builds; GC stated |
 | 7 | met | 16 payloads; Latin-1 and wide on P1.2, P2.2 and P2.4 (R-H26); family `unknown` = the 92 accepted U-* rows at the shapes core's 7 roots, encode, decode and decode+read, through the timed `_akffi` / `_akffi_nounk` (R-H27); family `unknown-corpus` (the corpus-schema core, 311 rows) is a labelled extra |
@@ -326,16 +424,16 @@ reverse (counted by the core). Whole-number totals per call are in `counts/`.
 | 14 | met | (a) as `a` and `a+read`; (b); (c) a unary upload of P5.3 / P5.4, decoded by prost on the server, empty answer; (d) the client-streamed upload of 2 MiB M5 chunks (ids on the first), 4 MiB and 16 MiB, the server answering the data byte count on UploadStream, checked on every call, and the count and SHA-256 on UploadStreamCheck, checked once per cell before timing (WP10). c and d at 1 and 8 in flight in every cell, d with a third of the calls. B, C and E stream through ak_call_open / ak_call_send / ak_call_recv; A, D and F through grpcio's stream_unary. The server's receive limit is 8 MiB per message for both configurations (covers P5.4 and a 2 MiB chunk); the core's limits are its defaults (shipped: 4 MiB received) or 16 MiB (pinned), enforced (D44) |
 | 15 | met | 1, 8 and 16 in flight |
 | 16 | met | B, C and E use the core's blocking delivery; queue and callback are labelled extras, direction (a) only; A uses the generated stub's blocking unary multicallable (`GridStub`, registered methods, WP10); D and F make the same registered call with another codec; A, D and F stream through grpcio's stream_unary (registered). Stated in the header |
-| 17 | met | shipped and pinned, the same switch for every cell, each dialling the shared server's socket of the same name (WP10); the socket is a Unix domain socket for every cell (grpcio `unix:` targets with `grpc.default_authority=localhost`, which the server's h2 needs; the core dials `unix:` through tonic). grpcio has no connection-window argument; Nagle has no meaning on a Unix socket; both stated in the header |
+| 17 | met | WP13 (D10): TCP 127.0.0.1 for every cell, the shared server's TCP listener (pinned server configuration), so shipped and pinned differ on the client side only (grpcio options; ak_client_new against ak_client_opts), stated in every header; TCP_NODELAY read back on every live socket to the server after every setup and value, a socket without it fails the benchmark |
 | 18 | met | every call checked (status; (a) the length, A by its stub's FromString and task count; (b), (c) the empty answer; (d) the server's byte count; a non-OK gRPC status is AK_ERR_RPC_STATUS and fails the call); (d)'s digest through UploadStreamCheck once per cell before timing (precheck, worker setup); the server checks every request; a failure fails the pyperf worker, and the runner discards the whole launch (`rpc-launchN.ABORTED`) and stops; three planted controls, selected on the client (the server is shared), fail inside a pyperf benchmark in the gate suite with no pyperf JSON: FetchShort and a wrong (d) count in the timed loop, a wrong digest in the setup check |
 | 19 | met | the counting builds count every ABI call the timed call makes, resets apart (the shim's macros), after one warm call, context creation and destruction excepted (per thread, not per call); the resets' place is stated (decode: one before, in both modes; encode: before). The counting build grows geometrically, as the timed one does (req 19 as amended, WP8). Committed and gated: `counts/abi-full.txt` (drop and retain, 16 payloads x 5 backends and the 92 U-* rows; retain with no pre-placed buffer and exact-size grow), `counts/abi-nounk.txt`, `counts/rpc-full.txt` / `rpc-nounk.txt` (RPC cells B, C, D, E per call in each build's modes, E-nounk included, on the rpc counting builds, gate 105), and the older `counts/crossings-{drop,nounk}.txt`; calib stops on a difference from `counts_expected.txt`; gate 98 against log 85 |
 | 20 | not met | host forward and forward+reverse are measured separately, and the rust slice's crossing benchmark is built and run pinned. `perf stat` is implemented, but `perf` is absent in this container, so cycles and instructions have never been read |
-| 21 | met | process CPU, CLOCK_PROCESS_CPUTIME_ID: codec and rpc are pyperf time_funcs that return it per value (rpc: over `loops` batches of k calls), calib around its C loop; wall (perf_counter) beside every one, from a side file for the two pyperf suites (R-H25) |
+| 21 | met | codec: CLOCK_PROCESS_CPUTIME_ID per pyperf value; RPC (WP13, as amended): perf task-clock of the whole worker process, opened before its first thread and inherited, as pyperf's value and `cpu_ns`, with `process_cpu_ns` and the CLIENT CPUs' irq / softirq ticks and NET_RX / NET_TX beside it; calib around its C loop; wall beside every one |
 | 22 | met | pyperf cannot interleave (not a defect, owner 2026-09-26). codec: blocks of (payload, content, direction), the arms inside a block rotated by one per launch, the whole list rotated by a third per launch. rpc (WP9): blocks of (transport, direction, payload, k), the cells rotated by one per launch inside a block, the list rotated by a third per launch. Both stated in every header |
 | 22a | met | pyperf 2.10.0 for both codec and rpc. codec: `--processes 1 --values ROUNDS --warmups 3 --min-time 0.1 --affinity`. rpc (WP9): one invocation per build and group (ab, c, d), `--processes 1 --values ROUNDS --warmups 3 --loops 25 / 8 / 3 --affinity --copy-env`, one batch of k calls in flight per loop (`inner_loops = k`); the hand-written sampler and the codec by-hand loop are removed. Every raw value and warm-up exported by the two exporters, the raw pyperf JSON beside it (the committed smoke has its figures stripped and omits that JSON). What pyperf forces that differs from before: section "The RPC grid on pyperf" |
 | 23 | met | defaults 5 rounds x 3 launches; every sample written (smoke: 1 x 1) |
 | 24 | met | every warm-up a runner parameter, in every header: codec, pyperf's warm-up values and loop calibration (`AK_CAMPAIGN_PYPERF_WARMUPS`, `AK_CAMPAIGN_PYPERF_MIN_TIME`); rpc, pyperf's warm-up values per worker (`AK_CAMPAIGN_RPC_WARMUPS`, 3; smoke 1) and the server warm-up (`AK_CAMPAIGN_SERVER_WARMUP`, 64; smoke 8) |
-| 25 | met | M_TOP_PAD before any allocation; GC on, `gc.collect()` before every sample |
+| 25 | met, D9 open | M_TOP_PAD before any allocation; GC on, `gc.collect()` before every sample. D9: the process's large buffers are glibc's (the core's and CPython's), so the trim mode applies; GLIBC_TUNABLES is not set by the runner and is recorded in every RPC header; open for the aggregating session ("The WP12 contract" item 7) |
 | 26 | met | codec, rpc and calib each call `need_gate` and refuse to time without a `gate.ok` for the trees they read (calib added, R-H19); the gate covers every codec arm in both unknown-field modes and the no-unknown build (101) |
 | 27 | met | header: commit (a dirty tree refused unless `--allow-dirty`, smoke only), machine, CPU sets, versions, build, transport, warm-up, repeats |
 | 28 | met | one JSON object per raw measurement with the listed fields; rpc rows carry cell, payload, dir, transport, inflight, build, unknown_mode, send_path (move, copy, framed, grpcio, reference), launch, round, phase (warmup or value), cpu_ns, wall_ns, iters = loops x k |
