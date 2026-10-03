@@ -17,7 +17,7 @@
 #   rpc subset  AK_RPC_TRANSPORTS "shipped pinned", AK_RPC_BUILDS "full nounk" (small runs only)
 #   h2          AK_H2_VARIANTS "stock h2-batch" (D11 as amended): the rpc suite runs once per
 #               h2 variant of the core, each with its own gate; every row carries `h2`
-#   allocator   AK_ALLOC default / pinned (req 25, D9 as amended 2026-10-03): default = the main
+#   allocator   AK_CAMPAIGN_ALLOC default / pinned (req 25, D9 as amended 2026-10-03): default = the main
 #               figures (GLIBC_TUNABLES unset); pinned = the labelled diagnostic pass
 #   pools       AK_WORKERS (campaign.machine; default 8): the core runtime, the .NET thread pool
 #               and the server's workers (D8, D14)
@@ -92,13 +92,13 @@ export AK_WORKERS="${AK_WORKERS:-8}" AK_CPU_CLIENT
 export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}"
 H2_VARIANTS="${AK_H2_VARIANTS:-stock h2-batch}"
 # CAMPAIGN req 25 / D9 as amended 2026-10-03: the main figures on glibc's default allocator;
-# AK_ALLOC=pinned runs the labelled diagnostic pass with the trim and mmap thresholds pinned.
+# AK_CAMPAIGN_ALLOC=pinned runs the labelled diagnostic pass with the trim and mmap thresholds pinned.
 PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
-export AK_ALLOC="${AK_ALLOC:-default}"
-case "$AK_ALLOC" in
+export AK_CAMPAIGN_ALLOC="${AK_CAMPAIGN_ALLOC:-default}"
+case "$AK_CAMPAIGN_ALLOC" in
   default) unset GLIBC_TUNABLES; ASFX="" ;;
   pinned) export GLIBC_TUNABLES="$PINNED_TUNABLES"; ASFX=".alloc-pinned" ;;
-  *) echo "AK_ALLOC must be default or pinned" >&2; exit 2 ;;
+  *) echo "AK_CAMPAIGN_ALLOC must be default or pinned" >&2; exit 2 ;;
 esac
 # CAMPAIGN req 11 (R-H29): the pool input is sized from the last-level cache (2 x AK_LLC_BYTES
 # of retained graphs; default 13.75 MB, the reference i9-7900X). A smoke run uses a small pool.
@@ -130,7 +130,7 @@ header() {  # requirement 27: the machine and the build, in every log
   echo "# cpu sets:      CLIENT=$AK_CPU_CLIENT SERVER=${AK_CPU_SERVER:-n/a} ($(ncpus "$AK_CPU_CLIENT") and $([ -n "${AK_CPU_SERVER:-}" ] && ncpus "$AK_CPU_SERVER" || echo 0) CPUs; set size fixed at ${AK_SET_SIZE:-unset}); from $CPUSRC; pinning by taskset"
   echo "# toolchain:     BenchmarkDotNet $([ "$GROUPED" = 1 ] && echo "GROUPED (InProcessEmit, one process per unit: the small-run switch AK_BDN_GROUPED=1, req 22a as amended e6c909630)" || echo "default toolchain, one child process per case (the campaign's isolation, req 22a as amended e6c909630)")"
   echo "# pools:         AK_WORKERS=$AK_WORKERS (D8, D14): the core runtime's workers, the .NET thread pool's worker minimum and maximum (rpc), the server's tokio workers AK_SERVER_THREADS=$AK_SERVER_THREADS"
-  echo "# allocator:     $AK_ALLOC (AK_ALLOC; GLIBC_TUNABLES=${GLIBC_TUNABLES:-unset} for every client process). CAMPAIGN req 25 / D9 as amended 2026-10-03: the MAIN figures run glibc's default allocator, as production does (AK_ALLOC=default, GLIBC_TUNABLES unset); AK_ALLOC=pinned is the labelled diagnostic pass (GLIBC_TUNABLES=$PINNED_TUNABLES), its files suffixed .alloc-pinned. The core's buffers and transport allocate through glibc malloc in this slice's process (no shim of its own); managed objects are on the .NET GC heap. Every row carries alloc and minflt (minor page faults of the process over the iteration; per call = minflt / iters), each process refuses to run if its GLIBC_TUNABLES does not match AK_ALLOC. The RPC server runs the default allocator in both passes (started with GLIBC_TUNABLES unset)"
+  echo "# allocator:     $AK_CAMPAIGN_ALLOC (AK_CAMPAIGN_ALLOC; GLIBC_TUNABLES=${GLIBC_TUNABLES:-unset} for every client process). CAMPAIGN req 25 / D9 as amended 2026-10-03: the MAIN figures run glibc's default allocator, as production does (AK_CAMPAIGN_ALLOC=default, GLIBC_TUNABLES unset); AK_CAMPAIGN_ALLOC=pinned is the labelled diagnostic pass (GLIBC_TUNABLES=$PINNED_TUNABLES), its files suffixed .alloc-pinned. The core's buffers and transport allocate through glibc malloc in this slice's process (no shim of its own); managed objects are on the .NET GC heap. Every row carries alloc and minflt (minor page faults of the process over the iteration; per call = minflt / iters), each process refuses to run if its GLIBC_TUNABLES does not match AK_CAMPAIGN_ALLOC. The RPC server runs the default allocator in both passes (started with GLIBC_TUNABLES unset)"
   echo "# llc:           AK_LLC_BYTES=$AK_LLC_BYTES; pool input >= ${AK_POOL_BYTES:-$((2 * AK_LLC_BYTES))} bytes of retained graphs (req 11)"
   echo "# runtime:       .NET $(dotnet --list-runtimes | awk '/NETCore.App/{print $2}' | tr '\n' ' ')(SDK $(dotnet --version)); target net8.0, Release; tiering and PGO at their net8.0 defaults unless DOTNET_* is set: TieredCompilation=${DOTNET_TieredCompilation:-default} TieredPGO=${DOTNET_TieredPGO:-default}; workstation GC, concurrent (default)"
   echo "# core:          libak_core.so shared, cargo --release, features $1 (init-guard ON, as in every gate), built from git archive HEAD ffi/poc/codec"

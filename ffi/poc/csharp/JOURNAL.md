@@ -2200,7 +2200,7 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
 ## 66. Req 25 / D9 as amended (ad1a15be5): default allocator for the main figures, pinned pass a switch
 
 - The owner's amendment covers this slice (the core's buffers and transport use glibc malloc
-  in the .NET process). Runner: `AK_ALLOC=default` (GLIBC_TUNABLES unset; the main figures)
+  in the .NET process). Runner: `AK_CAMPAIGN_ALLOC=default` (GLIBC_TUNABLES unset; the main figures)
   or `pinned` (the labelled diagnostic, trim 256 MiB / mmap 32 MiB; files `.alloc-pinned`);
   the server is started with GLIBC_TUNABLES unset in both. Rows: `alloc`, `minflt` (getrusage
   ru_minflt read by the job's clock at each iteration boundary, carried from the child under
@@ -2210,9 +2210,10 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
   pinned value on its own). So each process now reads the mode back at start: one 16 MiB
   malloc and mallinfo2().hblks around it. Default: "mmapped"; pinned: "heap" (also checked in
   python against the same glibc 2.39). A pinned process whose readback is not "heap" refuses
-  to run, as does one whose AK_ALLOC disagrees with its GLIBC_TUNABLES (control: exit 3, no
+  to run, as does one whose AK_CAMPAIGN_ALLOC disagrees with its GLIBC_TUNABLES (control: exit 3, no
   sample).
 - Smoke (`logs/csharp/wp13-d9-alloc-smoke/`, stripped): C-drop RPC unit and the codec unit
   core-ffi:retain in both modes, 0 failed, every row labelled and with minflt; Bf under the
   default toolchain, pinned: 10 rows with minflt. No gate (owner); the runner was not run end
   to end for this change.
+- Renamed (owner, one name for every slice): the switch is `AK_CAMPAIGN_ALLOC=default|pinned` (was AK_ALLOC) in the runner, the processes' refusal and the headers; the startup readback is unchanged. Planted mismatch re-checked under the new name. The committed smoke logs (`wp13-d9-alloc-smoke/`) predate the rename and still say AK_ALLOC.

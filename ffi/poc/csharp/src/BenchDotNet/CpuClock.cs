@@ -87,12 +87,12 @@ public static class Alloc
     public const string Pinned = "glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432";
     public static readonly string Tunables = Environment.GetEnvironmentVariable("GLIBC_TUNABLES");
     public static string Label => string.IsNullOrEmpty(Tunables) ? "default" : Tunables == Pinned ? "pinned" : "other";
-    /// The runner's AK_ALLOC, when set, must equal the label, and under the pinned mode the
+    /// The runner's AK_CAMPAIGN_ALLOC, when set, must equal the label, and under the pinned mode the
     /// readback must show the pinned mmap threshold in effect (a mismatch is refused by the mains).
     public static string Mismatch()
     {
-        var want = Environment.GetEnvironmentVariable("AK_ALLOC");
-        if (want != null && want != Label) return "AK_ALLOC=" + want + " but GLIBC_TUNABLES=" + (Tunables ?? "unset") + " (" + Label + ")";
+        var want = Environment.GetEnvironmentVariable("AK_CAMPAIGN_ALLOC");
+        if (want != null && want != Label) return "AK_CAMPAIGN_ALLOC=" + want + " but GLIBC_TUNABLES=" + (Tunables ?? "unset") + " (" + Label + ")";
         if (Label == "pinned" && Probe() != "heap") return "GLIBC_TUNABLES is pinned but a 16 MiB malloc was mmapped (the pinned mmap_threshold is not in effect)";
         return null;
     }
