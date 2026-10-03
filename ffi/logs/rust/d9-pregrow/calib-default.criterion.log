@@ -1,0 +1,3 @@
+# alloc: default (16 MiB malloc mmapped)
+# pregrow: 0 B, 1 rounds, last round 0 minor faults
+# criterion's console output removed: its figures are stripped (CAMPAIGN req 32)

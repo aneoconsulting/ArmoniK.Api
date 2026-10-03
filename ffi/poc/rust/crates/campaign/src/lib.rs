@@ -105,7 +105,9 @@ pub fn minflt() -> u64 {
 /// produce it, and what glibc actually does with one 16 MiB malloc (mallinfo2's mmapped-block
 /// count before and after: `mmapped` under the default 128 KiB..32 MiB dynamic threshold,
 /// `heap` under the pinned 32 MiB threshold). Any disagreement REFUSES the run: exit 4, no
-/// sample. Returns the mode and the readback for the header.
+/// sample. Returns the mode and the readback for the header. Probed ONCE per process and the
+/// block is KEPT (owner, after java 2892e207b): freeing a mmapped block raises glibc's
+/// dynamic mmap threshold, so a freed probe would change the mode it verifies.
 pub fn alloc_check() -> (&'static str, &'static str) {
     let mode: &'static str = match std::env::var("AK_CAMPAIGN_ALLOC").ok().as_deref() {
         None | Some("") | Some("default") => "default",
@@ -124,7 +126,8 @@ pub fn alloc_check() -> (&'static str, &'static str) {
         assert!(!p.is_null(), "16 MiB malloc");
         std::ptr::write_volatile(p as *mut u8, 1);
         let after = libc::mallinfo2().hblks;
-        libc::free(p);
+        // never freed: see above
+        PROBE.store(p as *mut u8, std::sync::atomic::Ordering::Relaxed);
         if after > before { "mmapped" } else { "heap" }
     };
     let want = if mode == "default" { "mmapped" } else { "heap" };
@@ -133,6 +136,46 @@ pub fn alloc_check() -> (&'static str, &'static str) {
     }
     eprintln!("# alloc: {mode} (16 MiB malloc {read})");
     (mode, read)
+}
+
+static PROBE: std::sync::atomic::AtomicPtr<u8> = std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// The pre-grow round cap (owner, 2026-10-03).
+pub const PREGROW_CAP: u32 = 8;
+
+/// Owner's pre-grow (both allocator modes), after `alloc_check` and before any timing:
+/// malloc a block of `bytes` (the largest payload the run uses), write one byte per 4 KiB
+/// page, free it; repeat until one round causes zero minor faults (getrusage). Returns the
+/// rounds taken and the last round's fault count. Hitting PREGROW_CAP REFUSES the run.
+pub fn pregrow(bytes: usize) -> (u32, u64) {
+    let mut last = 0;
+    for r in 1..=PREGROW_CAP {
+        let f0 = minflt();
+        unsafe {
+            let p = libc::malloc(bytes.max(1)) as *mut u8;
+            assert!(!p.is_null(), "pre-grow malloc of {bytes} B");
+            let mut o = 0;
+            while o < bytes {
+                std::ptr::write_volatile(p.add(o), 1);
+                o += 4096;
+            }
+            if bytes > 0 {
+                std::ptr::write_volatile(p.add(bytes - 1), 1);
+            }
+            libc::free(p as *mut libc::c_void);
+        }
+        last = minflt() - f0;
+        if last == 0 {
+            eprintln!("# pregrow: {bytes} B, {r} rounds, last round {last} minor faults");
+            return (r, last);
+        }
+    }
+    refuse(format!("pre-grow of {bytes} B still faulted after {PREGROW_CAP} rounds (last round {last} minor faults)"))
+}
+
+/// The header line of the pre-grow, the same in every suite.
+pub fn pregrow_header(bytes: usize, what: &str, rounds: u32, last: u64) -> String {
+    format!("after the allocator check and before any timing, malloc + touch every 4 KiB page + free of {bytes} B ({what}), repeated until a round causes zero minor faults (cap {PREGROW_CAP}, refused at the cap): {rounds} rounds, last round {last} minor faults; the 16 MiB probe block of the allocator check stays allocated for the life of the process")
 }
 
 fn refuse(why: String) -> ! {

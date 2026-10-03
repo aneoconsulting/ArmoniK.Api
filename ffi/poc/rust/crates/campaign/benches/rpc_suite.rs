@@ -232,6 +232,16 @@ fn main() {
         conns.entry(s.cell).or_insert_with(|| Conn::open(s.cell, &target, pinned));
     }
 
+    // Owner (2026-10-03): pre-grow the heap to the largest payload of this run (P2.2, direction
+    // c's M5 request, direction d's whole upload), after the allocator check, the server
+    // warm-up and the channel opening, before criterion starts.
+    let man = harness::manifest::Manifest::load();
+    let pg_bytes = specs.iter().map(|s| match s.dir {
+        "c" => man.row(s.payload).bytes,
+        "d" => s.chunks * grid::CHUNK,
+        _ => p22 as usize,
+    }).max().unwrap_or(0);
+    let (pg_rounds, pg_last) = campaign::pregrow(pg_bytes);
     let mut c = Criterion::default()
         .with_measurement(ProcessCpu)
         .sample_size(samples)
@@ -297,6 +307,7 @@ fn main() {
         ("engine", format!("criterion 0.5 (CAMPAIGN req 22a as amended 2026-09-27, WP9): one criterion benchmark per (cell, dir, payload, in-flight k), SamplingMode::Flat, {samples} samples (= rounds, criterion's floor 10), warm-up {warm_ms} ms and measurement {meas_ms} ms per benchmark (AK_WARMUP_MS, AK_MEASURE_MS); ONE ITERATION = ONE BATCH OF k CALLS IN FLIGHT, counted as k operations (Throughput::Elements(k); `iters` in a row = calls = criterion iterations x k, `batches` = criterion iterations); raw samples exported from criterion's sample.json, none dropped")),
         ("warm-up", format!("server: {server_warm} checked Fetch calls from each client transport (tonic, core) before the first benchmark (AK_RPC_SERVER_WARMUP); then each benchmark's warm-up is criterion's own ({warm_ms} ms, every call checked); every cell's channel opened once, before the first benchmark, and shared by all its benchmarks (one channel per cell per benchmark process)")),
         ("alloc", campaign::alloc_header(alloc, alloc_read)),
+        ("pre-grow", campaign::pregrow_header(pg_bytes, "the largest payload of this run: P2.2 response, direction c request (manifest bytes), direction d upload (chunks x 2 MiB)", pg_rounds, pg_last)),
         ("clocks", "cpu_ns = process CPU per sample, CLOCK_PROCESS_CPUTIME_ID (criterion Measurement ProcessCpu, the codec suite's); wall_ns = monotonic, measured around the same iterations by the benchmark's own routine (iter_custom) and matched to criterion's samples: criterion keeps one quantity, so wall is a column beside it".into()),
         ("checks", "every call checked (requirement 18): a failed check PANICS inside the benchmark (criterion has no stop-on-error), which aborts the process before any output is written; the runner then discards the launch's output".into()),
         ("worker threads", format!("client: tokio {} per A/D/F and -cb cell runtime (AK_HOST_WORKERS; mtN = multi-thread N workers, ct = current-thread; default AK_WORKERS = mt{}); ak_runtime_new({}) per B/C/E core client (AK_CORE_WORKERS; default AK_WORKERS = {}); k = 1/8/16 caller threads (B/C/E) or tasks (A/D/F); server: tokio multi-thread {server_threads} workers (AK_SERVER_THREADS; default AK_WORKERS). D14 (owner, 2026-10-03): every pool is AK_WORKERS workers, default 8", grid::host_rt_label(), grid::workers_default(), grid::core_workers(), grid::workers_default())),

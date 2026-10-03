@@ -4238,3 +4238,39 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
 - Not a defect, noted: in default mode glibc's dynamic mmap threshold rises after the first
   large free. The startup readback therefore describes the process start, not the
   steady state.
+
+## 2026-10-03 -- D9 follow-up: keep the probe, pre-grow the heap (owner)
+
+- alloc_check no longer frees its 16 MiB probe; the block stays for the life of the process.
+  As java found (2892e207b), freeing a mmapped block raises glibc's dynamic mmap threshold,
+  so a freed probe would change the mode it verifies.
+- campaign::pregrow(bytes) runs in codec_suite (after the pre-check), rpc_suite (after the
+  server warm-up and the channel opening) and calib, always before criterion or the timed
+  rounds. Each round mallocs the block, touches every 4 KiB page and frees it. It stops at
+  the first round with zero minor faults, caps at 8 rounds, and refuses at the cap (exit 4).
+  The header line `pre-grow` records the rounds and the last round's faults.
+- Smoke (logs/rust/d9-pregrow/, figures stripped):
+  - rpc B/d/16MiB/k1: default 3 rounds and pinned 2, last round 0 faults in both. In
+    default, the first free raises the threshold and the second round grows the heap; in
+    pinned, the heap grows once.
+  - codec P1.1 (858 B) and calib (0 B, no payload): 1 round each.
+- The cap refusal was not planted. No knob forces a payload over 32 MiB, the size that would
+  never settle in default mode.
+- Timed span, re-read:
+  - Codec (iter_custom): the timed span runs from the first CLOCK_PROCESS_CPUTIME_ID read to
+    the second. Inside it are the loop counter and, per iteration, one indirect call to the
+    case's Box<dyn FnMut> op, plus black_box on its u64. The op itself contains:
+    - decode: the measured decode, the drop (free) of the decoded value, a Bytes::clone of a
+      static Bytes (prost and armonik arms), and the touch on decode-read;
+    - encode: the measured encode, plus for pool inputs `i += 1` and a modulo index;
+      reused-buffer rows also run BytesMut clear or reserve;
+    - transport-ready rows: split().freeze() (incumbent and armonik), Enc::take (native), or
+      ak_enc_take_owned (ffi), and the drop of that Bytes;
+    - core-ffi: the `.expect` on the status.
+    minflt is read before the first clock read and after the second; the record push comes
+    after the span.
+  - rpc: the process CPU span (all threads of the client process) also holds one
+    Instant::now. Per iteration it holds the hand-off of k jobs to the pre-created caller
+    threads (k mpsc sends and k recvs) for the blocking cells, or one block_on with k
+    tokio::spawn and joins for the async cells, plus requirement 18's per-call length check.
+    rusage is read outside the span.

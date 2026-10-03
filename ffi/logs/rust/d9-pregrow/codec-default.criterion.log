@@ -1,0 +1,5 @@
+# alloc: default (16 MiB malloc mmapped)
+# precheck: 56 checks, 0 failures, 1 inputs, 48 cases
+# pregrow: 858 B, 1 rounds, last round 0 minor faults
+# wrote 480 sample rows to /tmp/claude-0/-home-user-ArmoniK-Api/a9b299e7-f65c-59ca-906f-064c4c7b1f48/scratchpad/d9b/codec-default.jsonl
+# criterion's console output removed: its figures are stripped (CAMPAIGN req 32)
