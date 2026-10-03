@@ -339,7 +339,7 @@ about 2.8 s; c at P5.4, k = 8 about 4.2 s; d at 16 MiB, k = 8 about 11 s at BDN'
 | codec: 5 units, 245 cases + 10 primes | 255 x 3.25 to 4.35 s + 5 x 27 s build: 16 to 21 min | 48 to 62 min |
 | rpc: 4 stock units x 8 cases, Cf h2-batch 4 cases, pinned A + Cf 4 cases: 40 cases, 7 unit processes | ~161 s of cases + 7 x 27 s build + server start and 2,000-call warm (~2 min): ~8 min | ~24 min |
 | calib | < 1 min | ~3 min |
-| **timed total** | | **~75 to 90 min** |
+| **timed total** | | **~75 to 90 min with one BDN run per unit; ~60 to 75 min with the merged runs (about 5 min saved per launch, measured)** |
 | gates (stock and h2-batch, before the run; reused while the content is unchanged) | | ~45 min |
 
 **BDN runs merged (owner, 2026-10-03; done).** Under the core grid the runner makes one BDN run
