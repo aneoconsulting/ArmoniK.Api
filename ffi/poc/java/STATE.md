@@ -132,6 +132,35 @@ time (`-r`) rather than a call count, for c and d as for a, a+read and b; JMH's 
 score per benchmark averages unlike combinations and is not a figure (the raw per-iteration
 data is).
 
+### Campaign duration estimate (2026-10-03, sizing only, from container figures)
+
+Campaign defaults, one fork per (cell, combination). Per-fork overheads and per-operation
+times come from this container's smokes (`logs/java/campaign-r24/`, `campaign-d9/`): an RPC
+fork's JVM start and setup is about 1.9 s; a codec fork's is about 0.5 s; a P2.2 codec
+operation took about 3 ms cold. These are container figures, used only to size the run.
+
+| part | forks per launch | per fork | per launch | x 3 launches (one allocator pass) |
+|---|---|---|---|---|
+| codec cells, full build, compact + utf16 | 3,564 x 2 = 7,128 | ~2.5 s (0.5 start, 10 SingleShot iterations of 32 MiB, pool prepare) | ~5.0 h | ~14.9 h |
+| codec cells, no-unknown build, compact + utf16 | 2,468 x 2 = 4,936 | ~2.5 s | ~3.4 h | ~10.3 h |
+| codec U-* rows (full 5,668, no-unknown 3,784) | 9,452 | ~0.8 s | ~2.1 h | ~6.3 h |
+| RPC a, a+read, b (27 cells x 9 combos x 2 transports x 2 h2) | 972 | 1.9 + 2 x 2 s warm-up + 5 x 1 s = ~10.9 s | ~2.9 h | ~8.8 h |
+| RPC c, d (27 cells x 8 combos x 2 transports x 2 h2) | 864 | 1.9 + 2 x 6 s + 5 x 1 s = ~18.9 s | ~4.5 h | ~13.6 h |
+| server start and warm (1 per launch) | | | ~2 min | ~0.1 h |
+| **one allocator pass** | | | | **~54 h** |
+
+- Both allocator passes (default plus the pinned diagnostic): about 108 h.
+- Add once: the gate per h2 variant, about 2 x 17 min, and calib, about 15 min. Total about
+  109 h, roughly 4.5 days.
+- Range: 80 to 150 h, since the per-fork codec times are guesses from cold container
+  operations.
+- The codec suite has no h2 dependency, so the h2 variants multiply the RPC grid only.
+- The three largest contributors, per pass:
+  1. the codec cells: 12,064 forks per launch, about 25 h;
+  2. RPC c and d warm-up: 2,592 forks x 12 s, about 8.6 h;
+  3. RPC measurement: 5,508 forks x 5 s, about 7.7 h.
+  The codec U-* rows follow at about 6.3 h.
+
 ## Correctness (results)
 
 **Clean gate, both builds** (`logs/java/wp6-h/gate-3f17fcaaba99996f.log`, `counts-8339265cb.txt`, `counts-nounk-8339265cb.txt`, `build-8339265cb.log`; the previous one, at d2cd0b02f, is `logs/java/wp6-clean/`): a fresh

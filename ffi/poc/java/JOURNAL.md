@@ -1093,3 +1093,18 @@ Each fork prints its warm-up batch count (`RPCJMH-WARM`, = calls per thread), an
 converter puts it in each meta line. Hand-checked: cell B, 2 x 300 ms, gave 9 batches at a/16
 and 6 at d/16MiB k=8. The runner's two-invocation path has not run end to end. Smoke defaults
 are unchanged, and grouped smokes do not meet the rule.
+Split run (owner request). The grouped smoke cannot exercise the two-invocation path,
+because grouped mode is one invocation. I ran it once in per-(cell, combination) mode with
+smoke defaults: `AK_RPC_GROUP=0`, pinned transport, full build, default allocator, from a
+clean worktree at c8d319a08.
+
+Both invocations ran and converted:
+- down: 153 forks;
+- up: 136 forks;
+- together 289 samples, matching the earlier 289;
+- every fork printed RPCJMH-WARM, and every meta line carries `warmup_calls_per_thread`
+  (1 to 13 with the smoke's single 20 ms warm-up);
+- the header names AK_RPC_WARM_TIME_DOWN / UP.
+
+Summary in logs/java/campaign-r24/. A campaign-duration estimate is in STATE: about 109 h at
+the defaults, both allocator passes.
