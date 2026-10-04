@@ -2490,3 +2490,78 @@ previous step's commit), the baseline's settings (client CPUs 0,1, codec 25 x 40
   296 s, h2-batch 56 s, pinned 44 s, no-unknown client 108 s: 1,168 s of benchmark wall plus build
   13 s and server warm-up 46 s; every case's process saw 2 CPUs; 0 failed. Many rows carry one
   slow round (` *`), more than in the baseline run.
+
+## 75. Steps 5 (D20), 5b (static decode vtable) and 6 (D21, the string encode paths); the quiet decode re-measure (2026-10-04)
+
+Every figure below is container instrumentation: process CPU per op, median over 2 reps x 6
+rounds [min-max], client on CPUs 0,1, a quiet wait before each process (load1 < 0.5, no other
+process above 10 % CPU). Logs under `ffi/logs/csharp/opt/`.
+
+- **Quiet decode re-measure** (`s1-s4-decode-quiet/`, `9488342d`, no code change): decode-read
+  after steps 1 to 4 with the cores rebuilt from HEAD (D19 in), sha256 in the header; the
+  numbers there replace the decode-read columns of `s1-s4/` for that comparison.
+- **Step 5 (D20).** Tried: every utf8_skip bit set (push vtables, pull via
+  ak_dec_set_pvt_<Root>, called in EnsureDec) and G.Str strict (UTF8Encoding(false, true)),
+  DecoderFallbackException mapped to AK_ERR_TRANSCODE at the four callback catch sites and in
+  the pull replay. Cores rebuilt (the ones at 9488342d were pre-D20). The malformed-UTF-8 rows
+  stay rejected with -6 through the host's check; the planted lossy decoder makes the T-dec-*
+  rows pass and the corpus fail (the check is live). First check run failed on the delivery
+  counts: ak_dec_set_pvt_ appeared once in a delivery cell (an inline continuation's first
+  context on a new thread); filtered by name with the other first-use calls (`a79c14be`).
+  Measured (`s5/ab/table.md`, before = bits 0 + lossy GetString, after = bits all + strict):
+  string-dense decode rows 10 to 15 % lower, e.g. P2.2 retain 2637 -> 2239 us, drop 2594 ->
+  2200, no-unknown 2245 -> 1970; P4.1 393 -> 333; P2.3, P2.4, P2.5 similar. P5.2 to P5.4 are
+  bimodal across reps (spread larger than any shift); P6.1 (no strings) 332 -> 357 us drop,
+  inside its spread but flagged; P1.3 (the absent path) no-unknown 18.1 -> 20.0 us, flagged;
+  P1.2, P2.2/latin1 and P2.4 no-unknown each carry one slow rep that lifts the median.
+- **Step 5b.** The per-decode `var vt = new ak_dvt_<Root>{...}` and the pvt moved to
+  NativeMemory once per root (`static readonly` pointers). Why not a static struct: a static
+  field of struct type is stored in a boxed object on the GC heap, which compaction may move;
+  the core keeps the pvt pointer across calls. Counts unchanged. Measured (`s5b/ab/table.md`,
+  P1.1, P5.1, P7.1, the 7 U-* rows, retain/drop/no-unknown): every row inside the overlap of
+  the two variants' spreads (e.g. P5.1 retain 0.224 -> 0.233 us, no-unknown 0.198 -> 0.193).
+- **Step 6 (D21).** Built: AK_STR_ENC = E0 | E1 | E2 | ETH:<n> (STATE, Optimisation pass, item
+  6). Defect found on the way: E2's first form set ak_str.data = index + 1, so the first string
+  had data == 1 == AK_STR_DIRECT and the core treated it as a direct string (0 bytes written);
+  Cases.Verify caught it; data is now 0x10000 + index (ABI v1 section 8 reserves small values).
+  Liveness of the paths: the corpus under E1 and E2 with a planted short string fails 424 rows
+  each (`s6/corpus-strpaths.log`); in the A/B, E1's and E2's columns differ from E0's on every
+  row (a path that was not running would measure equal).
+  - **Sweep** (`s6/sweep/sweep.md`, 4..16 Ki; `s6/sweep-fine/sweep.md`, 64..512): one process,
+    one UploadResultDataMessage with one string, paths interleaved and rotated. Pin alone is
+    about 40 ns (38 to 51). E1 is under E0 for wide content from 96 code units (209 vs 196 ns)
+    and for Latin-1 from 224 (242 vs 218; at 192 they tie, 206 vs 208); at 256 E1 is under E0
+    on Latin-1 and wide in both sweep processes (255/249 vs 234/229; 438/437 vs 274/283). On
+    ASCII E1 is above E0 at every length (16 Ki: 1145 vs 1171), on astral content too (16 Ki:
+    24551 vs 26341; 256: 434 vs 538). E2 sits 0 to about 40 ns above E0 up to 1 Ki and below
+    E0 at 16 Ki on every content (ASCII 949 vs 1145, astral 23427 vs 24551).
+  - **Threshold read from it: 256 code units**, the smallest length at which E1 was under E0
+    for both Latin-1 and wide content in both sweep processes (224 was under in the one fine
+    process only). It is a length test: above it ASCII strings cost about 50 ns more (E1 vs E0
+    at 256 to 1 Ki) and astral strings about 20 to 25 % more, and below it wide strings of 96
+    to 255 units keep E0's higher cost. What a content-aware split would give is not measured.
+  - **Census** (`s6/strlen-census.txt`): every string of the step-6 grid rows is under 48 code
+    units (GUIDs and short ids); ETH:256 pins 0 strings on every row of both builds. So the
+    grid's ETH column measures the length test only, and its E1 column measures E1 on short
+    strings, the region the sweep already puts above E0.
+  - **Codec A/B** (`s6/ab/table.md`, `compact.md`; P1.2, P2.2 + Latin-1 + wide, P2.3, P2.4,
+    P2.5, P4.1, the 7 U-* rows; core-ffi encode-core-hot, retain/drop/no-unknown; 16 processes,
+    1,223 s of benchmark plus the quiet waits): E0 vs E1 vs E2 vs ETH:256, e.g. P2.2 retain 869
+    [860-902] / 2941 [2912-3150] / 1282 [1215-1497] / 906 [885-944] us; P1.2 retain 214 / 794 /
+    318 / 218; P2.4 retain 896 / 4327 / 1249 / 851; U-wire-UploadResultData retain 0.125 /
+    0.244 / 0.158 / 0.117. Per string (median differences / strings per encode): E1 about +100 to
+    +136 ns on the large payloads and +55 to +84 on the U-* rows; E2 +13 to +29 ns. ETH within
+    E0's spread on every row. E1 also shows minor faults on the large payloads (0.1 to 9 per
+    op, 0 for the others) and 0 B/op managed (GCHandles are not GC allocations).
+  - **Not explained:** E1 at payload scale (thousands of strings pinned at once, freed after
+    the call) costs 2.5 to 3 times the sweep's one-string figure (about 45 ns over E0 at 36
+    code units); the minor faults point at the GC handle table, not investigated.
+  - **RPC A/B** (`s6/ab-rpc/table.md`, Cf-retain b, P2.2, 2 reps, 220 s): task-clock us/call
+    E0 2825 [2186-5865] / ETH:256 3597 [2050-6288] / E1 6136 [5410-14560] at k 1; at k 8 2753
+    [2138-4366] / 2857 [2118-4122] / 7495 [6542-9398]. ETH's spread covers E0's at both k
+    (it pins nothing on P2.2); E1 2.2 to 2.7 times E0, with 4 minor faults per call and, at
+    k 8, 81 context switches per call against 32.
+  - Refuted: that E1 helps the grid's encode rows (all strings are short); that E2's reverse
+    call is free (13 to 29 ns per string on the grid, about 30 ns in the sweep).
+  - Time: the codec A/B ran over the 10-minute target (four variants x two builds x two reps,
+    about 100 s per full-build process); the quiet waits added about 20 min.

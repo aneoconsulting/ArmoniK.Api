@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-74); this file states what is true now.
+75); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | 2026-10-04: optimisation pass steps 1 to 4 implemented and measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) and 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) implemented and measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -106,6 +106,40 @@ run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req
   4. D7 (`07bbafa1`): delivery cells <cell>.callback / .callback-inline / .queue for Bf,
      Cf-retain, Ef-retain (src/Rpc/Deliveries.cs), `akrpc --delivery-semantics` in the gate,
      gen/rpc-delivery-counts*.txt, `csw` per RPC row. `s4/`.
+  5. D20 (`75d48a23`, `a79c14be`): core-ffi sets every utf8_skip bit (push vtables; pull
+     through ak_dec_set_pvt_<Root>) and decodes strings with a strict UTF8Encoding(false, true):
+     DecoderFallbackException -> AK_ERR_TRANSCODE (ak_fail in the callbacks, the pull replay's
+     return). Gate control: the corpus's T-dec-* rows with a lossy decoder planted
+     (AK_GATE_PLANT_LOSSY) must fail. Counts unchanged (the delivery-cell filter drops the
+     setter's first-use call). `s5/`.
+  5b. (`3ef0c330`): the push decode vtable and the pull pvt are built once per root in native
+     memory (NativeMemory.AllocZeroed, `static readonly ak_dvt_<Root>*`), not a stack local per
+     decode; a struct static field would live in a boxed object on the GC heap, which
+     compaction may move, so its address cannot be handed to the core. Counts unchanged. `s5b/`.
+  6. D21 (`44f4f304`, `df00f287`, `032b819a`): the core-ffi string encode path is chosen per
+     process by AK_STR_ENC (cs_host.py Stage): **E0** (default, unchanged) .NET UTF-8 into the
+     native staging + ak_tc_bytes; **E1** the string pinned (a GCHandle per string, freed when
+     the codec call returns) + ak_tc_utf16 (simdutf); **E2** ak_str.data = 0x10000 + an index
+     into a thread-static string table and `tc` = TcManaged ([UnmanagedCallersOnly]: UTF-8
+     written by .NET into the core's buffer, grow when the worst case does not fit; one reverse
+     call per non-empty string); **ETH:<n>** E1 for a string of at least n UTF-16 code units,
+     E0 below. Byte identity: Cases.Verify runs every payload, content set and U-* row under
+     E0, E1, E2 and ETH:16 in every BDN process (2716 / 1944 pre-timing checks); the corpus
+     passes under E1, E2 and ETH:16 (`s6/corpus-strpaths.log`); a planted one-unit / one-byte
+     short string (AK_GATE_PLANT_STR) fails the corpus under E1 and under E2 (424 rows each),
+     and the gate now runs these. Counts: gen/counts.txt and counts-nounk.txt unchanged under
+     E0; gen/counts-str-{e1,e2,eth256}[-nounk].txt: E2's rows are the base rows with `tc N`
+     added to rev (641 full / 324 no-unknown rows with tc > 0); E1's and ETH's carry `pin N`
+     (strings handed pinned, no boundary call). Length census (`s6/strlen-census.txt`): every
+     string of the step-6 grid rows is under 48 UTF-16 code units, so ETH:256 pins none
+     (`pin 0` on every row of both builds). Sweep (`s6/sweep/`, `s6/sweep-fine/`, one process,
+     one string per encode): E1 under E0 from about 96 code units on wide (CJK) content and
+     from about 224 on Latin-1; on ASCII and astral (surrogate-pair) content E1 is above E0 at
+     every length swept (4 to 16 Ki); E2 is at or above E0 (0 to about 40 ns) up to 1 Ki on
+     every content and below it at 16 Ki on every content (above E1 there on Latin-1 and wide).
+     Grid rows (`s6/ab/compact.md`): E1 adds about 100 to 135 ns per string on the large
+     payloads and 55 to 85 on the U-* rows, E2 about 13 to 29, ETH:256 within E0's spread. The threshold run as ETH is 256 (`s6/` JOURNAL 75 states how it was read
+     from the sweep); it is a length test only and does not see content.
 - **Final combined run:** `logs/csharp/opt/s1-s4/` (gen/opt_bench.sh with OPT_DROP=1: the core
   grid plus the drop units and the RPC no-unknown client, labelled extras), tables.md.
 - **Harness defect fixed on the way (`2610f847`):** under BDN's default toolchain the children of
@@ -114,10 +148,18 @@ run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req
   ran the full build's code in drop mode. Every process now checks its build and core against
   the host's (BuildCheck) and the no-unknown job passes the property.
 - **Counts regenerated:** gen/counts*.txt (step 1: encode-core rows added; step 3: fwd -2 per
-  core-ffi decode), gen/rpc-counts*.txt (step 3), gen/rpc-delivery-counts*.txt (step 4, new).
+  core-ffi decode), gen/rpc-counts*.txt (step 3), gen/rpc-delivery-counts*.txt (step 4, new);
+  steps 5, 5b, 6: unchanged; step 6 adds gen/counts-str-*.txt (per string path).
 - **Quick checks:** `AK_GATE_LEVELS=8 AK_GATE_KEEP_CORE=1 gen/gate.sh` (net8.0 only, cores not
   rebuilt; prints "CHECKS PASSED ... NOT the gate"). The full gate has not been run since
-  step 1 (owner: no gate yet).
+  step 1 (owner: no gate yet). Step 6's quick checks ran at `44f4f304`; the gate's new D21 lines
+  (corpus under E1/E2, the planted controls, the per-path counts) were added after and run by
+  hand with the same commands (`s6/corpus-strpaths.log`, the count files), not yet through
+  gate.sh itself.
+- **Harness:** gen/opt_ab.sh and gen/opt_ab_rpc.sh take per-variant environment
+  (`NAME=DIR@K=V,...`) and wait for a quiet machine (load1 < 0.5, no other process above 10 %
+  CPU, the RPC server excluded) before every timed process; `BenchDotNet --strsweep` (one-process
+  length x content sweep of the string paths).
 
 ## Optimisation baseline (2026-10-04; JOURNAL 73; container instrumentation, NOT gated)
 
@@ -427,6 +469,12 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 - Cell B's encode form (incumbent into a span for the core's transport) as a codec-suite row.
 - U-* rows with a pool input or a transport end state (encode-hot only).
 - A lossy-UTF-8 codec (the plan's alternative option) is not generated.
+- D21: no grid payload carries a string of 48 code units or more, so the ETH arm's E1 side is
+  exercised by the sweep and the corpus only, not by a timed grid row; E1 measured with many
+  strings pinned at once costs 2 to 3 times its one-string sweep figure (JOURNAL 75), not
+  explained. Not built: a UTF-16 copy into the native staging (the existing AK_UTF16=1 Stage
+  form) as a no-pin E1 variant; a content-aware split (needs a scan of the string); E2 for
+  pull (it is push encode only).
 - Unknown fields inside a map entry, in either codec: the facade map has no bag.
 - Decision 11's placement paths other than grow through this host: pre-allocated pools,
   in-place refill between deliveries, the oneof buffer move, AK_ERR_CAPACITY with no grow.
@@ -442,8 +490,9 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
-0. Optimisation pass: steps 1 to 4 are in; the aggregating session reads `logs/csharp/opt/s1-s4/`
-   and the per-step logs. The full gate (both h2 variants) is due before any campaign use. D46
+0. Optimisation pass: steps 1 to 6 (with 5b) are in; the aggregating session reads
+   `logs/csharp/opt/s1-s4/` and the per-step logs (`s5/`, `s5b/`, `s6/`). The string path's
+   default stays E0 until the owner decides; gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) is due before any campaign use. D46
    (the grouped-mode JIT check's blind spot) is open.
 1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
@@ -456,6 +505,9 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 | Log | What it establishes |
 |---|---|
 | `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
+| `opt/s5/`, `opt/s5b/` | D20 (utf8_skip all bits + strict host decode) and the static decode vtable: checks (`checks.log`, the lossy-decoder control) and decode-read A/B (`ab/`, before/after, retain/drop/no-unknown) |
+| `opt/s6/` | D21 string encode paths: `sweep/`, `sweep-fine/` (one-process length x content sweep), `strlen-census.txt`, `checks.log` (quick checks at 44f4f304), `corpus-strpaths.log` (corpus under E1/E2/ETH:16 and the planted controls), `ab/` (codec encode-core-hot E0/E1/E2/ETH:256, table.md, compact.md), `ab-rpc/` (Cf-retain b, k 1 and 8, E0/ETH:256/E1) |
+| `opt/s1-s4-decode-quiet/` | the quiet re-measure of decode-read after steps 1 to 4 (core rebuilt with D19, load checked per process) |
 | `opt/s1-s4/` | the combined core-grid run after step 4 (with the drop and no-unknown RPC extras), tables.md |
 | `opt/baseline/` | the optimisation pass's short baseline, core grid, client on 2 CPUs (not gated; tables.md, codec.tsv, rpc.tsv) |
 | `opt/baseline-1cpu-VOID/` | the first baseline run, client on 1 CPU: VOID for the managed arms (tier 0), kept |
