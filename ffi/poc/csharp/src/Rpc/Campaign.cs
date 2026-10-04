@@ -929,10 +929,10 @@ public static class CampaignMain
                 // Global counters, every cell's channel built in this run: the drainers of the
                 // OTHER queue cells poll ak_queue_next while idle, and a continuation's first use of
                 // a thread-pool thread creates that thread's codec contexts (ak_enc_ctx_new,
-                // ak_dec_ctx_new_*, ak_tc_*): neither is this call's. Dropped by name; the queue
+                // ak_dec_ctx_new_*, ak_dec_set_pvt_* (D20), ak_tc_*): neither is this call's. Dropped by name; the queue
                 // cell's own pops are its channel's count (pops=N).
                 e = e.Where(x => x.Name != "ak_queue_next" && !x.Name.StartsWith("ak_enc_ctx_new", StringComparison.Ordinal)
-                    && !x.Name.StartsWith("ak_dec_ctx_new", StringComparison.Ordinal) && !x.Name.StartsWith("ak_tc_", StringComparison.Ordinal)).ToList();
+                    && !x.Name.StartsWith("ak_dec_ctx_new", StringComparison.Ordinal) && !x.Name.StartsWith("ak_dec_set_pvt_", StringComparison.Ordinal) && !x.Name.StartsWith("ak_tc_", StringComparison.Ordinal)).ToList();
                 long pops = (c.Dc?.Pops ?? 0) - pops0;
                 if (pops > 0) e.Add(("ak_queue_next", pops));
                 e = e.OrderBy(x => x.Name, StringComparer.Ordinal).ToList();
