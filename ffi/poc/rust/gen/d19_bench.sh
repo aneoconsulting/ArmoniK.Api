@@ -20,7 +20,7 @@ L=$(ldd "$B" | grep -o '/[^ ]*libak_core.so')
 # sources the crate compiles.
 SU=$(ls -d "${CARGO_HOME:-$HOME/.cargo}"/registry/src/*/simdutf-0.7.0/cpp | head -1)
 T=$(mktemp -d)
-printf '#include "simdutf.h"\n#include <cstdio>\nint main(){auto*i=simdutf::get_active_implementation();std::printf("%%s (%%s)\\n",i->name().c_str(),i->description().c_str());}\n' > "$T/k.cpp"
+printf '#include "simdutf.h"\n#include <cstdio>\nint main(){std::printf("%%s (%%s)\\n",simdutf::get_active_implementation()->name().c_str(),simdutf::get_active_implementation()->description().c_str());}\n' > "$T/k.cpp"
 g++ -O1 -std=c++11 -I"$SU" "$T/k.cpp" "$SU/simdutf.cpp" -o "$T/k"
 {
   echo "# D19 tc16_bench, container instrumentation; $(date -u +%FT%TZ)"
