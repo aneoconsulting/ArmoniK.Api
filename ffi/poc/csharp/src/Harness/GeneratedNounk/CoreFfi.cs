@@ -710,8 +710,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_ListResultsResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_ListResultsResponse { utf8_skip = AkUtf8Skip.ListResultsResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_ListResultsResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_ListResultsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListResultsResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -724,6 +723,24 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListResultsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_ListResultsResponse* Vt = MakeVt();
+    private static ak_dvt_ListResultsResponse* MakeVt()
+    {
+        var v = (ak_dvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListResultsResponse));
+        v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->add_results = &Add_results;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_ListResultsResponse* Pvt = MakePvt();
+    private static ak_pvt_ListResultsResponse* MakePvt() { var v = (ak_pvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListResultsResponse)); v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
@@ -748,14 +765,8 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_ListResultsResponse
-                {
-                    utf8_skip = AkUtf8Skip.ListResultsResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    add_results = &Add_results,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -1269,8 +1280,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_ListTasksDetailedResponse { utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTasksDetailedResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -1283,6 +1293,30 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_ListTasksDetailedResponse* Vt = MakeVt();
+    private static ak_dvt_ListTasksDetailedResponse* MakeVt()
+    {
+        var v = (ak_dvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListTasksDetailedResponse));
+        v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->new_tasks = &New_tasks;
+        v->apply_tasks = &Apply_tasks;
+        v->add_tasks_parent_task_ids = &Add_tasks_parent_task_ids;
+        v->add_tasks_data_dependencies = &Add_tasks_data_dependencies;
+        v->add_tasks_expected_output_ids = &Add_tasks_expected_output_ids;
+        v->add_tasks_retry_of_ids = &Add_tasks_retry_of_ids;
+        v->add_tasks_options_options = &Add_tasks_options_options;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_ListTasksDetailedResponse* Pvt = MakePvt();
+    private static ak_pvt_ListTasksDetailedResponse* MakePvt() { var v = (ak_pvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTasksDetailedResponse)); v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
@@ -1307,20 +1341,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_ListTasksDetailedResponse
-                {
-                    utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    new_tasks = &New_tasks,
-                    apply_tasks = &Apply_tasks,
-                    add_tasks_parent_task_ids = &Add_tasks_parent_task_ids,
-                    add_tasks_data_dependencies = &Add_tasks_data_dependencies,
-                    add_tasks_expected_output_ids = &Add_tasks_expected_output_ids,
-                    add_tasks_retry_of_ids = &Add_tasks_retry_of_ids,
-                    add_tasks_options_options = &Add_tasks_options_options,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -1608,8 +1630,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_ListProbeResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_ListProbeResponse { utf8_skip = AkUtf8Skip.ListProbeResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_ListProbeResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_ListProbeResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListProbeResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -1622,6 +1643,24 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListProbeResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_ListProbeResponse* Vt = MakeVt();
+    private static ak_dvt_ListProbeResponse* MakeVt()
+    {
+        var v = (ak_dvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListProbeResponse));
+        v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->add_probes = &Add_probes;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_ListProbeResponse* Pvt = MakePvt();
+    private static ak_pvt_ListProbeResponse* MakePvt() { var v = (ak_pvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListProbeResponse)); v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
@@ -1646,14 +1685,8 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_ListProbeResponse
-                {
-                    utf8_skip = AkUtf8Skip.ListProbeResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    add_probes = &Add_probes,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -1963,8 +1996,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_ListTaskSummaryResponse { utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTaskSummaryResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -1977,6 +2009,26 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_ListTaskSummaryResponse* Vt = MakeVt();
+    private static ak_dvt_ListTaskSummaryResponse* MakeVt()
+    {
+        var v = (ak_dvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListTaskSummaryResponse));
+        v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->new_tasks = &New_tasks;
+        v->apply_tasks = &Apply_tasks;
+        v->add_tasks_options_options = &Add_tasks_options_options;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_ListTaskSummaryResponse* Pvt = MakePvt();
+    private static ak_pvt_ListTaskSummaryResponse* MakePvt() { var v = (ak_pvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTaskSummaryResponse)); v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
@@ -2001,16 +2053,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_ListTaskSummaryResponse
-                {
-                    utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    new_tasks = &New_tasks,
-                    apply_tasks = &Apply_tasks,
-                    add_tasks_options_options = &Add_tasks_options_options,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -2225,8 +2269,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_UploadResultDataMessage { utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL };
-        int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_UploadResultDataMessage: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -2239,6 +2282,23 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out UploadResultDataMessage result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_UploadResultDataMessage* Vt = MakeVt();
+    private static ak_dvt_UploadResultDataMessage* MakeVt()
+    {
+        var v = (ak_dvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_UploadResultDataMessage));
+        v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_UploadResultDataMessage* Pvt = MakePvt();
+    private static ak_pvt_UploadResultDataMessage* MakePvt() { var v = (ak_pvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultDataMessage)); v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
@@ -2263,13 +2323,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_UploadResultDataMessage
-                {
-                    utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -2777,8 +2832,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_ListMetricsResponse { utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListMetricsResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -2791,6 +2845,30 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListMetricsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_ListMetricsResponse* Vt = MakeVt();
+    private static ak_dvt_ListMetricsResponse* MakeVt()
+    {
+        var v = (ak_dvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListMetricsResponse));
+        v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->new_batches = &New_batches;
+        v->apply_batches = &Apply_batches;
+        v->add_batches_ticks = &Add_batches_ticks;
+        v->add_batches_values = &Add_batches_values;
+        v->add_batches_codes = &Add_batches_codes;
+        v->add_batches_flags = &Add_batches_flags;
+        v->add_batches_statuses = &Add_batches_statuses;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_ListMetricsResponse* Pvt = MakePvt();
+    private static ak_pvt_ListMetricsResponse* MakePvt() { var v = (ak_pvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListMetricsResponse)); v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
@@ -2815,20 +2893,8 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_ListMetricsResponse
-                {
-                    utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    new_batches = &New_batches,
-                    apply_batches = &Apply_batches,
-                    add_batches_ticks = &Add_batches_ticks,
-                    add_batches_values = &Add_batches_values,
-                    add_batches_codes = &Add_batches_codes,
-                    add_batches_flags = &Add_batches_flags,
-                    add_batches_statuses = &Add_batches_statuses,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }
@@ -3164,8 +3230,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _dctx = Abi.ak_dec_ctx_new_DualResponse();   // rule 6: bound to this root; no options exist
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        var pvt = new ak_pvt_DualResponse { utf8_skip = AkUtf8Skip.DualResponse_ALL };
-        int sp = Abi.ak_dec_set_pvt_DualResponse(_dctx, &pvt);
+        int sp = Abi.ak_dec_set_pvt_DualResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_DualResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
@@ -3178,6 +3243,25 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out DualResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native
+    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode
+    /// writes it and the GC cannot move it. Not a static field of the struct type taken by
+    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which
+    /// compaction may move, so its address is not stable without a pin. The core only reads
+    /// the vtable during the call.
+    private static readonly ak_dvt_DualResponse* Vt = MakeVt();
+    private static ak_dvt_DualResponse* MakeVt()
+    {
+        var v = (ak_dvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_DualResponse));
+        v->utf8_skip = AkUtf8Skip.DualResponse_ALL;   // D20: every bit set, G.Str validates (strict)
+        v->apply = &ApplyRoot;
+        v->add_left = &Add_left;
+        v->add_right = &Add_right;
+        return v;
+    }
+    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
+    private static readonly ak_pvt_DualResponse* Pvt = MakePvt();
+    private static ak_pvt_DualResponse* MakePvt() { var v = (ak_pvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_DualResponse)); v->utf8_skip = AkUtf8Skip.DualResponse_ALL; return v; }
     private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
@@ -3202,15 +3286,8 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
-                var vt = new ak_dvt_DualResponse
-                {
-                    utf8_skip = AkUtf8Skip.DualResponse_ALL,   // D20: every bit set, G.Str validates (strict)
-                    apply = &ApplyRoot,
-                    add_left = &Add_left,
-                    add_right = &Add_right,
-                };
                 _fwd++;
-                rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, &vt);
+                rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, Vt);
             }
         }
         finally { _th.Target = null; rc = Disarm(rc); }

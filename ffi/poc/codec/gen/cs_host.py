@@ -1050,6 +1050,31 @@ def _emit_decode(o, p, root, slots):
         o += "    /// UnkPositionNames), whose entry is all zero when armed."
         o += "    public int TryDecodeZeroing(byte[] src, int len, int position, out %s result) => DecodeArmed(src, len, position, out result);" % root
         o += ""
+    o += "    /// Step 5b (owner, 2026-10-04): the push vtable, built ONCE per root and kept in native"
+    o += "    /// memory (NativeMemory.Alloc, never freed: one per root for the process), so no decode"
+    o += "    /// writes it and the GC cannot move it. Not a static field of the struct type taken by"
+    o += "    /// address: a non-primitive struct static lives in a boxed object on the GC heap, which"
+    o += "    /// compaction may move, so its address is not stable without a pin. The core only reads"
+    o += "    /// the vtable during the call."
+    o += "    private static readonly ak_dvt_%s* Vt = MakeVt();" % root
+    o += "    private static ak_dvt_%s* MakeVt()" % root
+    o += "    {"
+    o += "        var v = (ak_dvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_%s));" % (root, root)
+    o += "        v->utf8_skip = AkUtf8Skip.%s_ALL;   // D20: every bit set, G.Str validates (strict)" % root
+    o += "        v->apply = &ApplyRoot;"
+    for s_ in slots:
+        if s_.leaf:
+            o += "        v->add_%s = &Add_%s;" % (s_.name, s_.name)
+        else:
+            o += "        v->new_%s = &New_%s;" % (s_.name, s_.name)
+            o += "        v->apply_%s = &Apply_%s;" % (s_.name, s_.name)
+            for i_ in s_.inner:
+                o += "        v->add_%s_%s = &Add_%s_%s;" % (s_.name, i_.name, s_.name, i_.name)
+    o += "        return v;"
+    o += "    }"
+    o += "    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them)."
+    o += "    private static readonly ak_pvt_%s* Pvt = MakePvt();" % root
+    o += "    private static ak_pvt_%s* MakePvt() { var v = (ak_pvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_%s)); v->utf8_skip = AkUtf8Skip.%s_ALL; return v; }" % (root, root, root, root)
     o += "    private GCHandle _th;"
     o += "    private int DecodeArmed(byte[] src, int len, int mode, out %s result)" % root
     o += "    {"
@@ -1074,21 +1099,8 @@ def _emit_decode(o, p, root, slots):
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                _drun->Target = GCHandle.ToIntPtr(_th);"
     o += "                _drun->Buf = b;"
-    o += "                var vt = new ak_dvt_%s" % root
-    o += "                {"
-    o += "                    utf8_skip = AkUtf8Skip.%s_ALL,   // D20: every bit set, G.Str validates (strict)" % root
-    o += "                    apply = &ApplyRoot,"
-    for s in slots:
-        if s.leaf:
-            o += "                    add_%s = &Add_%s," % (s.name, s.name)
-        else:
-            o += "                    new_%s = &New_%s," % (s.name, s.name)
-            o += "                    apply_%s = &Apply_%s," % (s.name, s.name)
-            for i in s.inner:
-                o += "                    add_%s_%s = &Add_%s_%s," % (s.name, i.name, s.name, i.name)
-    o += "                };"
     o += "                _fwd++;"
-    o += "                rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, &vt);" % root
+    o += "                rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, Vt);" % root
     o += "            }"
     o += "        }"
     o += "        finally { _th.Target = null; rc = Disarm(rc); }"
@@ -1142,8 +1154,7 @@ def _emit_unk_nounk(o, p, root):
     o += "        _dctx = Abi.ak_dec_ctx_new_%s();   // rule 6: bound to this root; no options exist" % root
     o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
     o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
-    o += "        var pvt = new ak_pvt_%s { utf8_skip = AkUtf8Skip.%s_ALL };" % (root, root)
-    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, &pvt);" % root
+    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
     o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
@@ -1186,8 +1197,7 @@ def _emit_unk(o, p, root):
     o += "        _dctx = Abi.ak_dec_ctx_new_%s(null);   // rule 6: bound to this root, drop mode" % root
     o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
     o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
-    o += "        var pvt = new ak_pvt_%s { utf8_skip = AkUtf8Skip.%s_ALL };" % (root, root)
-    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, &pvt);" % root
+    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
     o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
