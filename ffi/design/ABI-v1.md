@@ -192,6 +192,35 @@ ak_transcode_fn ak_tc_ucs4(void);    /* CPython 4-byte */
 ak_transcode_fn ak_tc_bytes(void);   /* memcpy, no validation */
 ```
 
+**`ak_tc_utf16` is one pass on simdutf (owner, 2026-10-04, FIX-PLAN D19).** It reserves
+the worst case (3 bytes per UTF-16 code unit) through the grow contract, then converts
+with simdutf's UTF-16LE to UTF-8 straight into the encode buffer; on input simdutf calls
+invalid (a lone surrogate) it falls back to the replacing loop, so its output is
+byte-identical to the scalar transcoder's (U+FFFD for a lone surrogate; differential of
+about 3 million inputs, 0 differences, `logs/rust/opt/d19-simdutf/`). simdutf (crate
+`simdutf` 0.7.0, C++ simdutf 7.7.1) is a dependency of the core build only: building the
+core needs a C++11 compiler, `libak_core.so` depends on `libstdc++`, and a C host that
+links `libak_core.a` with a C driver adds `-lstdc++`. UTF-16 is the host's native `u16`;
+a big-endian build is refused. The previous transcoder stays exported as
+`ak_tc_utf16_scalar()` (a test oracle and benchmark control, in no header).
+
+**Additive UTF exports, for hosts that want the core's simdutf.** Pure functions (no
+context, no `ak_init`, not counted), declared by each host that uses them, in no shared
+header. `len` and `cap` count source and destination code units; the result is a count or
+a negative ak error code, capped at INT32_MAX; `(NULL, 0)` gives 0.
+
+```c
+int32_t ak_utf16_to_utf8(const uint16_t *src, size_t len, uint8_t *dst, size_t cap);
+        /* replacing (lone surrogate -> EF BF BD, as ak_tc_utf16); cap >= 3*len suffices;
+           AK_ERR_CAPACITY if short (nothing written) */
+int32_t ak_utf16_utf8_len(const uint16_t *src, size_t len);   /* exactly what the above writes */
+int32_t ak_utf8_to_utf16(const uint8_t *src, size_t len, uint16_t *dst, size_t cap);
+        /* strict (AK_ERR_TRANSCODE on invalid, the verdict of ak_utf8_check); cap >= len suffices */
+int32_t ak_utf8_utf16_len(const uint8_t *src, size_t len);    /* for VALID UTF-8 only */
+int32_t ak_utf8_validate(const uint8_t *src, size_t len);     /* AK_OK | AK_ERR_TRANSCODE */
+int32_t ak_utf16_validate(const uint16_t *src, size_t len);   /* AK_OK | AK_ERR_TRANSCODE (lone surrogate) */
+```
+
 **The UTF-8 entry is a passthrough, and passthroughs do not validate.** Nothing
 in the encoder needs a `string` field's bytes to be valid: it writes a length and
 copies. The decoder cannot trust them whatever the encoder did, since they arrive
