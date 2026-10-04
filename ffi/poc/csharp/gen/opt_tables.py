@@ -150,7 +150,20 @@ if cod:
       'U-* = corpus rows (content `corpus`). encode = `encode-transport-hot` (end state ii, the form the arm hands its transport, one hot graph); '
       'decode = `decode-read` (decode, then read every field).')
     P('')
-    for dr, title in (('encode-transport-hot', 'encode (encode-transport-hot)'), ('decode-read', 'decode-read')):
+    # encode: each arm's row of the grid (incumbent-prod: encode-transport-hot; core-ffi and
+    # host-gen: encode-core-hot since step 1 (D1), encode-transport-hot before it)
+    def udir(dr, u):
+        if dr != 'encode':
+            return dr
+        if u[0] != 'incumbent-prod' and any(k[2] == 'encode-core-hot' for k in by):
+            return 'encode-core-hot'
+        return 'encode-transport-hot'
+    for (p, c, d2, u) in list(by):
+        if d2.startswith('encode'):
+            cases_enc = True
+    cases = sorted({(p, c, 'encode' if d2.startswith('encode') else d2) for (p, c, d2, _) in by},
+                   key=lambda t: (t[0].startswith('U-'), t[0], {'ascii': 0, 'latin1': 1, 'wide': 2}.get(t[1], 3)))
+    for dr, title in (('encode', 'encode (incumbent-prod: encode-transport-hot; core-ffi, host-gen: ' + ('encode-core-hot' if any(k[2] == 'encode-core-hot' for k in by) else 'encode-transport-hot') + ')'), ('decode-read', 'decode-read')):
         for metric, mt in (('cpu', 'process CPU per op, microseconds'), ('wall', 'wall per op, microseconds')):
             P(f'### {title}: {mt}')
             P('')
@@ -162,7 +175,7 @@ if cod:
                 name = p + ('' if c in ('ascii', 'corpus') else '/' + c)
                 cells = []
                 for u in UNITS:
-                    rs = by.get((p, c, dr, u))
+                    rs = by.get((p, c, udir(dr, u), u))
                     if not rs:
                         cells.append('')
                         continue
@@ -180,7 +193,7 @@ if cod:
             name = p + ('' if c in ('ascii', 'corpus') else '/' + c)
             cells = []
             for u in UNITS:
-                rs = by.get((p, c, dr, u))
+                rs = by.get((p, c, udir(dr, u), u))
                 if not rs:
                     cells.append('')
                     continue
@@ -202,9 +215,10 @@ if cod:
             if d2 != dr:
                 continue
             name = p + ('' if c in ('ascii', 'corpus') else '/' + c)
-            a = cf.get(f'{p} {c} core-ffi {dr} retain', 'MISSING')
-            a2 = cf.get(f'{p} {c} core-ffi {dr} drop', 'MISSING')
-            b = cn.get(f'{p} {c} core-ffi {dr} no-unknown', 'MISSING')
+            dd = udir(dr, ('core-ffi', ''))
+            a = cf.get(f'{p} {c} core-ffi {dd} retain', 'MISSING')
+            a2 = cf.get(f'{p} {c} core-ffi {dd} drop', 'MISSING')
+            b = cn.get(f'{p} {c} core-ffi {dd} no-unknown', 'MISSING')
             P(f'| {name} | {a} | {a2} | {b} |')
         P('')
     with open(os.path.join(DIR, 'codec.tsv'), 'w') as t:

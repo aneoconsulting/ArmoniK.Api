@@ -1,0 +1,10 @@
+# build: 13.0 s
+# codec full: 452.9 s rc=0
+# codec nounk: 211.0 s rc=0
+# rpc server build: 0.2 s
+# rpc server warm (500): 46.2 s
+# rpc stock: 296.3 s rc=0
+# rpc h2-batch: 55.5 s rc=0
+# rpc stock-pinned: 43.6 s rc=0
+# rpc nounk: 107.6 s rc=0
+# total: 1229.4 s

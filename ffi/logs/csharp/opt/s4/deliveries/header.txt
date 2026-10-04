@@ -1,0 +1,4 @@
+# opt_ab_rpc.sh (narrowed RPC A/B), CONTAINER INSTRUMENTATION, not gated (every call checked); 2026-10-04T11:48:57Z
+# client CPUs 0,1, server 2,3; BDN default toolchain, warm-up 10 x 100 ms, 6 rounds x 100 ms, MemoryDiagnoser on; transport armonik, stock h2, full build; units Bf,Bf.callback,Bf.callback-inline,Bf.queue,Cf-retain,Cf-retain.callback,Cf-retain.callback-inline,Cf-retain.queue,Ef-retain,Ef-retain.callback,Ef-retain.callback-inline,Ef-retain.queue, AK_RPC_ONLY_DIRS= inflight 1,8; reps 1 (order alternated)
+# variant s4: /home/user/ArmoniK.Api/ffi/poc/csharp at a03408ab
+# rep 1 s4: rc=0 576 s, 576 rows

@@ -1,0 +1,3 @@
+warm: 500 checked calls per direction (a, b, c; d: 125) from tonic (A) and the core (B) on unix:/tmp/aksrv.Qy6ha7/shipped.sock
+warm: 500 checked calls per direction (a, b, c; d: 125) from tonic (A) and the core (B) on unix:/tmp/aksrv.Qy6ha7/pinned.sock
+warm: 500 checked calls per direction (a, b, c; d: 125) from tonic (A) and the core (B) on http://127.0.0.1:40237

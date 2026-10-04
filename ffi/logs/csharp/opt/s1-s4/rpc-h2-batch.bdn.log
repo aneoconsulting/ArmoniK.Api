@@ -1,0 +1,377 @@
+# campaign suite rpc: raw samples, one JSON object per line; nothing summarised here
+# runtime:        .NET 8.0.31
+# incumbent:      Google.Protobuf 3.32.0; Grpc.Net.Client 2.71.0
+# server:         the Rust slice's tonic rpc_server, the campaign's one server for every slice (FIX-PLAN WP10, CAMPAIGN req 13 as amended; poc/rust/SERVER.md): service armonik.ffi.campaign.v1.Grid, P2.2 pre-serialised with prost, requests decoded with prost, receive limit 8 MiB; shipped socket = tonic's server defaults, pinned socket = 4 MiB stream and connection windows, adaptive off; its configuration and worker count are in its own log (rpc-server.log)
+# JIT:            TieredCompilation default(on), TieredPGO default(on), ReadyToRun default(on) (net8.0 defaults unless set)
+# GC:             server=False, concurrent=default(on), latency=Interactive
+# managed codec:  plan utf8=reject unknown=drop limit=100
+# process CPUs:   affinity mask 0x3 (2 logical CPUs visible)
+# build full; launch 1; unit Cf-retain (one process per cell, WP9); transport armonik (the client's configuration: Grpc.Net ArmoniK's channel (packages/csharp GrpcChannelFactory.CreateChannel, package defaults; see '# armonik'); server: its TCP listener, the pinned server configuration (4 MiB windows, adaptive off, TCP_NODELAY on accept); core: ak_client_opts stream 0 connection 0 adaptive 0 nagle 0); endpoint tcp:127.0.0.1:40237; in flight 1/8 (c and d at 1 and 8 only)
+# engine:         BenchmarkDotNet 0.15.8.0 (CAMPAIGN req 22a as amended 2026-09-27, WP9), toolchain BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630), pinned by the runner, StopOnFirstError; one invocation = one batch of k calls in flight (OperationsPerInvoke = k; `iters` = calls, `invocations` = batches); the benchmark classes RpcK1, RpcK8, RpcK16 hold the k = 1, 8, 16 cases
+# job:            6 actual iterations (rounds) per case, 10 warm-up iterations (the same for every case) after BDN's jitting stage and pilot, iteration time 100 ms (the pilot picks the invocation count, unroll factor 1), strategy Throughput, EvaluateOverhead=false
+# clocks:         per iteration, read by the job's clock (CpuClock) at the same iteration boundaries: wall (Stopwatch); cpu_ns = perf task-clock of the WHOLE client process (req 21 as amended 2026-10-01: a counter per thread this process opens itself with perf_event_open, PERF_COUNT_SW_TASK_CLOCK, new threads picked up at the next read; softirq-inclusive while the process runs); proc_cpu_ns = CLOCK_PROCESS_CPUTIME_ID beside it (misses softirq time with IRQ_TIME_ACCOUNTING); per case, client_softirq_ticks / client_irq_ticks = /proc/stat on the CLIENT CPUs (0,1) across the actual stage, USER_HZ ticks; the server is another process
+# network:        TCP 127.0.0.1:40237 (D10; CAMPAIGN 4.0 as amended b58543f7b): transport armonik, the core grid's one configuration (see '# armonik'); Nagle off on every client socket (Grpc.Net: SocketsHttpHandler's default TCP_NODELAY, nothing set by ArmoniK or by this harness; the core: ak_client_opts.tcp_nagle = 0), READ BACK on the live sockets before timing (one without it fails the case) and after each case; the server's TCP listener sets TCP_NODELAY on every accepted socket (SERVER.md; not readable from this process)
+# grid:           core (CAMPAIGN section 4.0, D18; AK_CAMPAIGN_GRID=core): cells A, Bf, Cf-retain, Ef-retain, full build, the host's idiomatic delivery; a+read and b (P2.2), c at P5.4, d at 16 MiB, k = 1 and 8; the framed cells' a+read is the reference cell's (B, C-retain, E-retain: a has an empty request, so the send path is the same), run in the framed cell's process under its own name; this process narrowed to directions c,d. Extras left out (AK_CAMPAIGN_GRID=full runs them): cells B, C, D, E, F as cells of their own, Cc, the drop mode, the callback and queue deliveries, direction a, k = 16, P5.3, d at 4 MiB, the RPC grid in the no-unknown build, the second transport configuration, h2-batch beyond Cf on c and d, the pinned allocator pass beyond A and Cf on c and d at k = 1
+# allocator:      default (readback at process start: a 16 MiB malloc came from the mmapped (mallinfo2; the block kept, never freed); no heap pre-grow (owner, 2026-10-03): BDN's warm-up runs the real call path on every thread, and minflt per row shows whether it sufficed; under the default toolchain each child probes once, on its case's first row as alloc_probe; GLIBC_TUNABLES=unset; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432) is a labelled diagnostic; the core's buffers and transport allocate through glibc malloc in this process; every row carries `alloc` and `minflt`, the client process's minor page faults over the iteration, so faults per call = minflt / iters)
+# h2:             the loaded core's h2 = h2-batch (D11 as amended: read from the core library; the runner's AK_H2 = h2-batch); every row carries it
+# pools:          D8 / D14: AK_WORKERS = 8; the core runtime 8 worker thread(s) (ak_runtime_new, shared by every core channel of the process); the .NET thread pool's worker minimum and maximum set to 8 (ThreadPool.SetMin/MaxThreads); the caller pool is the in-flight level (k dedicated caller threads for the blocking cells, not a worker pool); grpc-core is not used by this slice (Grpc.Net is managed)
+# order:          this launch's unit order: Ef-retain, A, Cf-retain, Bf (seed 7907); the cases of this process in a seeded shuffle (seed 123560); ratios, where the aggregation forms them, from per-launch medians (req 30)
+# cells:          A incumbent over Grpc.Net; B incumbent over the core's transport (Bf its framed send path); C core-ffi over the core's transport on the MOVE path (ak_call_unary_enc / ak_call_send_enc; Cf framed, Cc the copy path, a labelled extra); D core-ffi over Grpc.Net (a copy into the call's buffer: Grpc.Net's serializer cannot take a core buffer); E host-gen over the core's transport (Ef framed); F host-gen over Grpc.Net; B/C .callback/.queue the core's other deliveries (labelled extras); -retain/-drop/-nounk the unknown-field mode (req 10, 12)
+# directions:     a empty request, P2.2 response decoded; a+read the same then every field read; b P2.2 request decoded by the server; c unary upload of P5.3 / P5.4 (M5, 1 MB / 4 MB); d the streamed upload, M5 messages of 2 MiB (ids on the first), 4 MiB / 16 MiB (req 14); every call checked: status, response length or the server's byte count (req 18); the upload cells' count and SHA-256 checked once in setup before timing
+# warm-up/thread: CAMPAIGN req 24 as amended 8c02e7c58 (>= 20 calls per calling thread at the cell's payload before the first measured value, same process, same threads): B, C, E (and Bf, Cf, Cc, Ef) call from k dedicated caller threads, created in this process before BDN's first stage and kept to its end (under the default toolchain one case per child process, so the warm-up and the measurement share the process and its threads); one invocation = k calls, one on each caller thread; BDN runs at least 4 invocations per iteration (its minimum invoke count), so the 10 warm-up iteration(s) give every caller thread >= 40 calls at the case's payload, after 1 jitting invocation and >= 4 pilot invocations (checked: d/16 MiB at k = 8, BDN child mode, iteration 100 ms: 1 + 4 + 40 = 45 per thread). A, D, F and the callback/queue extras start k async loops (one call each per invocation) on the .NET thread pool (worker min = max = AK_WORKERS): >= 40 calls per loop, but which pool thread runs a call is not controlled, so the per-thread count is not guaranteed for them
+# delivery:       B, C, E the core's BLOCKING call on k caller threads (a CallerPool created before BDN starts); A, D, F Grpc.Net's idiomatic async call (AsyncUnaryCall / AsyncClientStreamingCall awaited), k concurrent async calls per invocation; the core's cells share one core runtime with 8 worker thread(s) (req 16)
+# armonik:        cell A's channel = packages/csharp ArmoniK.Api.Client GrpcChannelFactory.CreateChannel(new GrpcClient { Endpoint = "http://127.0.0.1:40237" }), called directly (the assembly built from packages/csharp, unchanged), every other option at its package default: HandlerType Http = HttpClientHandler (SocketsHttpHandler underneath) wrapped in the package's logging DelegatingHandler (logger null), proxy type Undefined (UseProxy true: the system proxy for this endpoint is none (bypassed)); GrpcChannelOptions: Credentials Insecure, DisposeHttpClient true, ServiceConfig retry MaxAttempts 5, InitialBackoff 1 s, MaxBackoff 5 s, BackoffMultiplier 1.5 on Unavailable, Aborted, Unknown (so Grpc.Net buffers requests for retry), MaxReceiveMessageSize and MaxSendMessageSize at Grpc.Net's defaults (receive 4 MiB, send unlimited), EnableMultipleHttp2Connections false (the HttpClientHandler default); ServicePointManager.ReusePort = true and ServicePoint SetTcpKeepAlive(true, 30 s, 30 s), MaxIdleTime 5 min, read back on the live sockets per case (so_keepalive_after, so_reuseport_after on each case's first row: 0 = the ServicePoint settings did not reach SocketsHttpHandler's socket); process-wide switches observed: Http2FlowControl.DisableDynamicWindowSizing not set (the worker channel provider's, not set on the control plane's path), Http2UnencryptedSupport not set (the factory sets it only for https with AllowUnsafeConnection); Nagle: SocketsHttpHandler's own default sets TCP_NODELAY, read back before timing and after each case (tcp_nodelay_after), the HTTP/2 connections per cell after each case's run on its first row (tcp_sockets_after); the core cells: the core's client configuration of `shipped` (windows at the stack's defaults, adaptive off, tcp_nagle 0)
+# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced); the server's receive limit 8 MiB per message (SERVER.md)
+# channels:       each benchmark process builds only the cell of its case, from the case key, with its own channel(s) (one per cell and direction group, opened in the case's setup and kept to the process's end); each row's cell is checked against the cell the process ran (refused on a mismatch)
+# threads:        .NET thread pool min 8 worker / 8 IO, max 8 worker / 1000 IO, 0 pool thread(s) now; 2 logical CPUs visible; caller threads 8; core runtime 1, 8 worker thread(s)
+# memory:         AK_BDN_MEMORY=1: BenchmarkDotNet's MemoryDiagnoser (an exploration switch, not a campaign setting): one extra workload iteration per case AFTER the actual stage, at the actual stage's invocation count, outside the job's clock (no exported sample is affected); on each case's first sample row mem_alloc_bytes_per_op (GC.GetTotalAllocatedBytes(precise), every thread, divided by its operations), mem_gen = [gen0, gen1, gen2] collections during it, mem_ops its operations, mem_alloc_bytes its total
+# cpus:           this process: 2 CPU(s) in its affinity mask (sched_getaffinity), Environment.ProcessorCount 2; single-CPU guard (JOURNAL 73): a timed process (host or BDN child) with ONE CPU is refused unless AK_ALLOW_SINGLE_CPU=1 (here: unset); each case's first row carries cpus_affinity, cpus_runtime and single_cpu_override as its own process saw them
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 4 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+Unable to find .sln or .csproj file. Will use current directory /home/user/ArmoniK.Api/ffi/poc/csharp to search for project file. If you don't use .sln file on purpose it should not be a problem.
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/" /p:OutDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0/" /p:OutputPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0/" /p:PublishDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/publish/" in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1
+// command took 2.45 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/" /p:OutDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0/" /p:OutputPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0/" /p:PublishDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/publish/" --output "/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0/" in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1
+// command took 22.82 sec and exited with 0
+// ***** Done, took 00:00:25 (25.37 sec)   *****
+// Found 2 benchmarks:
+//   RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|1]
+//   RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|1 [26]]
+
+// **************************
+// Benchmark: RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|1]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet akrpc-rpc-1.dll --anonymousPipes 136 137 --benchmarkName "Armonik.Ffi.Campaign.RpcK1.Run(Case: \"Cf-retain|c|P5.4|1\")" --job rpc --benchmarkId 0 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10)
+
+OverheadJitting  1: 1 op, 174744.00 ns, 174.7440 us/op
+WorkloadJitting  1: 1 op, 20987013.00 ns, 20.9870 ms/op
+
+WorkloadPilot    1: 4 op, 19955797.00 ns, 4.9889 ms/op
+WorkloadPilot    2: 20 op, 228742699.00 ns, 11.4371 ms/op
+WorkloadPilot    3: 9 op, 190171901.00 ns, 21.1302 ms/op
+WorkloadPilot    4: 5 op, 107824886.00 ns, 21.5650 ms/op
+
+WorkloadWarmup   1: 5 op, 42949540.00 ns, 8.5899 ms/op
+WorkloadWarmup   2: 5 op, 41478723.00 ns, 8.2957 ms/op
+WorkloadWarmup   3: 5 op, 66899787.00 ns, 13.3800 ms/op
+WorkloadWarmup   4: 5 op, 37072683.00 ns, 7.4145 ms/op
+WorkloadWarmup   5: 5 op, 30578584.00 ns, 6.1157 ms/op
+WorkloadWarmup   6: 5 op, 70403141.00 ns, 14.0806 ms/op
+WorkloadWarmup   7: 5 op, 36971945.00 ns, 7.3944 ms/op
+WorkloadWarmup   8: 5 op, 36842463.00 ns, 7.3685 ms/op
+WorkloadWarmup   9: 5 op, 28217449.00 ns, 5.6435 ms/op
+WorkloadWarmup  10: 5 op, 40432827.00 ns, 8.0866 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 5 op, 77606077.00 ns, 15.5212 ms/op
+WorkloadActual   2: 5 op, 31835978.00 ns, 6.3672 ms/op
+WorkloadActual   3: 5 op, 42089256.00 ns, 8.4179 ms/op
+WorkloadActual   4: 5 op, 96524433.00 ns, 19.3049 ms/op
+WorkloadActual   5: 5 op, 62714328.00 ns, 12.5429 ms/op
+WorkloadActual   6: 5 op, 61223035.00 ns, 12.2446 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 5 op, 77606077.00 ns, 15.5212 ms/op
+WorkloadResult   2: 5 op, 31835978.00 ns, 6.3672 ms/op
+WorkloadResult   3: 5 op, 42089256.00 ns, 8.4179 ms/op
+WorkloadResult   4: 5 op, 96524433.00 ns, 19.3049 ms/op
+WorkloadResult   5: 5 op, 62714328.00 ns, 12.5429 ms/op
+WorkloadResult   6: 5 op, 61223035.00 ns, 12.2446 ms/op
+// GC:  0 0 0 696 5
+// Threading:  0 0 5
+
+// AfterAll
+// Benchmark Process 5452 has exited with code 0.
+
+Mean = 12.400 ms, StdErr = 1.912 ms (15.42%), N = 6, StdDev = 4.684 ms
+Min = 6.367 ms, Q1 = 9.375 ms, Median = 12.394 ms, Q3 = 14.777 ms, Max = 19.305 ms
+IQR = 5.402 ms, LowerFence = 1.271 ms, UpperFence = 22.880 ms
+ConfidenceInterval = [-0.736 ms; 25.536 ms] (CI 99.9%), Margin = 13.136 ms (105.94% of Mean)
+Skewness = 0.12, Kurtosis = 1.37, MValue = 2
+
+// ** Remained 3 (75.0 %) benchmark(s) to run. Estimated finish 2026-10-04 12:16 (0h 0m from now) **
+// **************************
+// Benchmark: RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|1 [26]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet akrpc-rpc-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Campaign.RpcK1.Run(Case: \"Cf-retain|d|stream-16MiB|1\")" --job rpc --benchmarkId 1 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10)
+
+OverheadJitting  1: 1 op, 223861.00 ns, 223.8610 us/op
+WorkloadJitting  1: 1 op, 22611391.00 ns, 22.6114 ms/op
+
+WorkloadPilot    1: 4 op, 98045326.00 ns, 24.5113 ms/op
+
+WorkloadWarmup   1: 4 op, 108632892.00 ns, 27.1582 ms/op
+WorkloadWarmup   2: 4 op, 157176973.00 ns, 39.2942 ms/op
+WorkloadWarmup   3: 4 op, 117158514.00 ns, 29.2896 ms/op
+WorkloadWarmup   4: 4 op, 116916983.00 ns, 29.2292 ms/op
+WorkloadWarmup   5: 4 op, 81096594.00 ns, 20.2741 ms/op
+WorkloadWarmup   6: 4 op, 78539541.00 ns, 19.6349 ms/op
+WorkloadWarmup   7: 4 op, 55982568.00 ns, 13.9956 ms/op
+WorkloadWarmup   8: 4 op, 54528237.00 ns, 13.6321 ms/op
+WorkloadWarmup   9: 4 op, 128434409.00 ns, 32.1086 ms/op
+WorkloadWarmup  10: 4 op, 109414348.00 ns, 27.3536 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 4 op, 68096440.00 ns, 17.0241 ms/op
+WorkloadActual   2: 4 op, 68363100.00 ns, 17.0908 ms/op
+WorkloadActual   3: 4 op, 84106968.00 ns, 21.0267 ms/op
+WorkloadActual   4: 4 op, 126438640.00 ns, 31.6097 ms/op
+WorkloadActual   5: 4 op, 67452985.00 ns, 16.8632 ms/op
+WorkloadActual   6: 4 op, 65989990.00 ns, 16.4975 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 4 op, 68096440.00 ns, 17.0241 ms/op
+WorkloadResult   2: 4 op, 68363100.00 ns, 17.0908 ms/op
+WorkloadResult   3: 4 op, 84106968.00 ns, 21.0267 ms/op
+WorkloadResult   4: 4 op, 67452985.00 ns, 16.8632 ms/op
+WorkloadResult   5: 4 op, 65989990.00 ns, 16.4975 ms/op
+// GC:  0 0 0 1344 4
+// Threading:  0 0 4
+
+// AfterAll
+// Benchmark Process 5607 has exited with code 0.
+
+Mean = 17.700 ms, StdErr = 0.838 ms (4.73%), N = 5, StdDev = 1.874 ms
+Min = 16.497 ms, Q1 = 16.863 ms, Median = 17.024 ms, Q3 = 17.091 ms, Max = 21.027 ms
+IQR = 0.228 ms, LowerFence = 16.522 ms, UpperFence = 17.432 ms
+ConfidenceInterval = [10.486 ms; 24.915 ms] (CI 99.9%), Margin = 7.215 ms (40.76% of Mean)
+Skewness = 1.03, Kurtosis = 2.03, MValue = 2
+
+// ** Remained 2 (50.0 %) benchmark(s) to run. Estimated finish 2026-10-04 12:17 (0h 0m from now) **
+Run time: 00:00:06 (6.76 sec), executed benchmarks: 2
+
+// Found 2 benchmarks:
+//   RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|8]
+//   RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|8 [26]]
+
+// **************************
+// Benchmark: RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|8]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet akrpc-rpc-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Campaign.RpcK8.Run(Case: \"Cf-retain|c|P5.4|8\")" --job rpc --benchmarkId 2 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10)
+
+OverheadJitting  1: 8 op, 250774.00 ns, 31.3468 us/op
+WorkloadJitting  1: 8 op, 86432922.00 ns, 10.8041 ms/op
+
+WorkloadPilot    1: 32 op, 242131520.00 ns, 7.5666 ms/op
+
+WorkloadWarmup   1: 32 op, 248418699.00 ns, 7.7631 ms/op
+WorkloadWarmup   2: 32 op, 275964716.00 ns, 8.6239 ms/op
+WorkloadWarmup   3: 32 op, 265139012.00 ns, 8.2856 ms/op
+WorkloadWarmup   4: 32 op, 287168973.00 ns, 8.9740 ms/op
+WorkloadWarmup   5: 32 op, 269736045.00 ns, 8.4293 ms/op
+WorkloadWarmup   6: 32 op, 247088659.00 ns, 7.7215 ms/op
+WorkloadWarmup   7: 32 op, 315237054.00 ns, 9.8512 ms/op
+WorkloadWarmup   8: 32 op, 265930792.00 ns, 8.3103 ms/op
+WorkloadWarmup   9: 32 op, 253765086.00 ns, 7.9302 ms/op
+WorkloadWarmup  10: 32 op, 281311481.00 ns, 8.7910 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 32 op, 265276979.00 ns, 8.2899 ms/op
+WorkloadActual   2: 32 op, 289871536.00 ns, 9.0585 ms/op
+WorkloadActual   3: 32 op, 244679767.00 ns, 7.6462 ms/op
+WorkloadActual   4: 32 op, 252332556.00 ns, 7.8854 ms/op
+WorkloadActual   5: 32 op, 266274383.00 ns, 8.3211 ms/op
+WorkloadActual   6: 32 op, 247045835.00 ns, 7.7202 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 32 op, 265276979.00 ns, 8.2899 ms/op
+WorkloadResult   2: 32 op, 289871536.00 ns, 9.0585 ms/op
+WorkloadResult   3: 32 op, 244679767.00 ns, 7.6462 ms/op
+WorkloadResult   4: 32 op, 252332556.00 ns, 7.8854 ms/op
+WorkloadResult   5: 32 op, 266274383.00 ns, 8.3211 ms/op
+WorkloadResult   6: 32 op, 247045835.00 ns, 7.7202 ms/op
+// GC:  0 0 0 1632 32
+// Threading:  0 0 32
+
+// AfterAll
+// Benchmark Process 5769 has exited with code 0.
+
+Mean = 8.154 ms, StdErr = 0.215 ms (2.63%), N = 6, StdDev = 0.526 ms
+Min = 7.646 ms, Q1 = 7.761 ms, Median = 8.088 ms, Q3 = 8.313 ms, Max = 9.058 ms
+IQR = 0.552 ms, LowerFence = 6.934 ms, UpperFence = 9.141 ms
+ConfidenceInterval = [6.679 ms; 9.628 ms] (CI 99.9%), Margin = 1.475 ms (18.09% of Mean)
+Skewness = 0.59, Kurtosis = 1.7, MValue = 2.4
+
+// ** Remained 1 (25.0 %) benchmark(s) to run. Estimated finish 2026-10-04 12:17 (0h 0m from now) **
+// **************************
+// Benchmark: RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|8 [26]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet akrpc-rpc-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Campaign.RpcK8.Run(Case: \"Cf-retain|d|stream-16MiB|8\")" --job rpc --benchmarkId 3 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc-rpc-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256
+// Job: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10)
+
+OverheadJitting  1: 8 op, 329252.00 ns, 41.1565 us/op
+WorkloadJitting  1: 8 op, 272701022.00 ns, 34.0876 ms/op
+
+WorkloadPilot    1: 32 op, 731931465.00 ns, 22.8729 ms/op
+
+WorkloadWarmup   1: 32 op, 833332083.00 ns, 26.0416 ms/op
+WorkloadWarmup   2: 32 op, 812751007.00 ns, 25.3985 ms/op
+WorkloadWarmup   3: 32 op, 796948533.00 ns, 24.9046 ms/op
+WorkloadWarmup   4: 32 op, 749825685.00 ns, 23.4321 ms/op
+WorkloadWarmup   5: 32 op, 684114619.00 ns, 21.3786 ms/op
+WorkloadWarmup   6: 32 op, 674228235.00 ns, 21.0696 ms/op
+WorkloadWarmup   7: 32 op, 683276208.00 ns, 21.3524 ms/op
+WorkloadWarmup   8: 32 op, 623295768.00 ns, 19.4780 ms/op
+WorkloadWarmup   9: 32 op, 529081502.00 ns, 16.5338 ms/op
+WorkloadWarmup  10: 32 op, 599658400.00 ns, 18.7393 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 32 op, 612241773.00 ns, 19.1326 ms/op
+WorkloadActual   2: 32 op, 573217432.00 ns, 17.9130 ms/op
+WorkloadActual   3: 32 op, 538554988.00 ns, 16.8298 ms/op
+WorkloadActual   4: 32 op, 611837110.00 ns, 19.1199 ms/op
+WorkloadActual   5: 32 op, 566374805.00 ns, 17.6992 ms/op
+WorkloadActual   6: 32 op, 572342541.00 ns, 17.8857 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 32 op, 612241773.00 ns, 19.1326 ms/op
+WorkloadResult   2: 32 op, 573217432.00 ns, 17.9130 ms/op
+WorkloadResult   3: 32 op, 538554988.00 ns, 16.8298 ms/op
+WorkloadResult   4: 32 op, 611837110.00 ns, 19.1199 ms/op
+WorkloadResult   5: 32 op, 566374805.00 ns, 17.6992 ms/op
+WorkloadResult   6: 32 op, 572342541.00 ns, 17.8857 ms/op
+// GC:  0 0 0 10080 32
+// Threading:  0 0 32
+
+// AfterAll
+// Benchmark Process 6053 has exited with code 0.
+
+Mean = 18.097 ms, StdErr = 0.363 ms (2.01%), N = 6, StdDev = 0.890 ms
+Min = 16.830 ms, Q1 = 17.746 ms, Median = 17.899 ms, Q3 = 18.818 ms, Max = 19.133 ms
+IQR = 1.072 ms, LowerFence = 16.137 ms, UpperFence = 20.427 ms
+ConfidenceInterval = [15.601 ms; 20.593 ms] (CI 99.9%), Margin = 2.496 ms (13.79% of Mean)
+Skewness = 0.02, Kurtosis = 1.29, MValue = 3
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-10-04 12:17 (0h 0m from now) **
+Run time: 00:00:20 (20.31 sec), executed benchmarks: 2
+
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  home/user/ArmoniK.Api/ffi/logs/csharp/opt/s1-s4/rpc-h2-batch.jsonl
+
+// * Detailed results *
+RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|8 [26]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 18.097 ms, StdErr = 0.363 ms (2.01%), N = 6, StdDev = 0.890 ms
+Min = 16.830 ms, Q1 = 17.746 ms, Median = 17.899 ms, Q3 = 18.818 ms, Max = 19.133 ms
+IQR = 1.072 ms, LowerFence = 16.137 ms, UpperFence = 20.427 ms
+ConfidenceInterval = [15.601 ms; 20.593 ms] (CI 99.9%), Margin = 2.496 ms (13.79% of Mean)
+Skewness = 0.02, Kurtosis = 1.29, MValue = 3
+-------------------- Histogram --------------------
+[16.729 ms ; 18.014 ms) | @@@@
+[18.014 ms ; 18.483 ms) | 
+[18.483 ms ; 19.775 ms) | @@
+---------------------------------------------------
+
+RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|1]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 12.400 ms, StdErr = 1.912 ms (15.42%), N = 6, StdDev = 4.684 ms
+Min = 6.367 ms, Q1 = 9.375 ms, Median = 12.394 ms, Q3 = 14.777 ms, Max = 19.305 ms
+IQR = 5.402 ms, LowerFence = 1.271 ms, UpperFence = 22.880 ms
+ConfidenceInterval = [-0.736 ms; 25.536 ms] (CI 99.9%), Margin = 13.136 ms (105.94% of Mean)
+Skewness = 0.12, Kurtosis = 1.37, MValue = 2
+-------------------- Histogram --------------------
+[ 6.072 ms ; 12.839 ms) | @@@@
+[12.839 ms ; 20.797 ms) | @@
+---------------------------------------------------
+
+RpcK1.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-re(...)MiB|1 [26]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 17.700 ms, StdErr = 0.838 ms (4.73%), N = 5, StdDev = 1.874 ms
+Min = 16.497 ms, Q1 = 16.863 ms, Median = 17.024 ms, Q3 = 17.091 ms, Max = 21.027 ms
+IQR = 0.228 ms, LowerFence = 16.522 ms, UpperFence = 17.432 ms
+ConfidenceInterval = [10.486 ms; 24.915 ms] (CI 99.9%), Margin = 7.215 ms (40.76% of Mean)
+Skewness = 1.03, Kurtosis = 2.03, MValue = 2
+-------------------- Histogram --------------------
+[15.356 ms ; 18.232 ms) | @@@@
+[18.232 ms ; 19.589 ms) | 
+[19.589 ms ; 22.465 ms) | @
+---------------------------------------------------
+
+RpcK8.Run: rpc(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=100ms, LaunchCount=1, RunStrategy=Throughput, UnrollFactor=1, WarmupCount=10) [Case=Cf-retain|c|P5.4|8]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 8.154 ms, StdErr = 0.215 ms (2.63%), N = 6, StdDev = 0.526 ms
+Min = 7.646 ms, Q1 = 7.761 ms, Median = 8.088 ms, Q3 = 8.313 ms, Max = 9.058 ms
+IQR = 0.552 ms, LowerFence = 6.934 ms, UpperFence = 9.141 ms
+ConfidenceInterval = [6.679 ms; 9.628 ms] (CI 99.9%), Margin = 1.475 ms (18.09% of Mean)
+Skewness = 0.59, Kurtosis = 1.7, MValue = 2.4
+-------------------- Histogram --------------------
+[7.604 ms ; 8.363 ms) | @@@@@
+[8.363 ms ; 8.679 ms) | 
+[8.679 ms ; 9.438 ms) | @
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.80GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 8.0.131
+  [Host] : .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+  rpc    : .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+
+Job=rpc  EvaluateOverhead=False  Clock=Armonik.Ffi.Bdn.CpuClock  
+IterationCount=6  IterationTime=100ms  LaunchCount=1  
+RunStrategy=Throughput  UnrollFactor=1  WarmupCount=10  
+
+| Type  | Method | Case                 | Mean      | Error     | StdDev    | Allocated |
+|------ |------- |--------------------- |----------:|----------:|----------:|----------:|
+| RpcK8 | Run    | Cf-re(...)MiB|8 [26] | 18.097 ms |  2.496 ms | 0.8901 ms |     315 B |
+| RpcK1 | Run    | Cf-retain|c|P5.4|1   | 12.400 ms | 13.136 ms | 4.6844 ms |     139 B |
+| RpcK1 | Run    | Cf-re(...)MiB|1 [26] | 17.700 ms |  7.215 ms | 1.8736 ms |     336 B |
+| RpcK8 | Run    | Cf-retain|c|P5.4|8   |  8.154 ms |  1.475 ms | 0.5259 ms |      51 B |
+
+// * Legends *
+  Case      : Value of the 'Case' parameter
+  Mean      : Arithmetic mean of all measurements
+  Error     : Half of 99.9% confidence interval
+  StdDev    : Standard deviation of all measurements
+  Allocated : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  1 ms      : 1 Millisecond (0.001 sec)
+
+// * Diagnostic Output - AkRpcProcessCpu *
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Global total time: 00:00:53 (53.39 sec), executed benchmarks: 4
+// * Artifacts cleanup *
+Artifacts cleanup is finished

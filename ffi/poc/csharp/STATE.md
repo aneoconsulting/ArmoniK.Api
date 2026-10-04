@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-73); this file states what is true now.
+74); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | 2026-10-04: the optimisation pass's short baseline run (not gated, container instrumentation; see **Optimisation baseline**), with the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-04: optimisation pass steps 1 to 4 implemented and measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -91,6 +91,33 @@ src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, In
 src/HarnessFloor/           net48, compile only (the binding; the host half is compiled out)
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
+
+## Optimisation pass (2026-10-04; JOURNAL 74; container instrumentation, NOT gated)
+
+- **Steps** (owner decisions; each its own commit, checks and A/B log):
+  1. D1 (`6883426d`, `48b3e4a5`): core-ffi and host-gen encode rows of the core grid at the form
+     the CORE's transport receives (`encode-core-hot`, enc_end transport-core); the Grpc.Net frame
+     form a labelled extra. `logs/csharp/opt/s1/`.
+  2. a1 (`4c4e0496`): native string staging keeps its blocks, grows geometrically, commits only
+     the bytes written. `s2/`.
+  3. a2 (`49839a04`): push decode without ak_dec_err_reset / ak_dec_err (harness `hostfail`
+     check), one GCHandle per instance, options rewritten on a mode change only, retain buffers
+     from a per-context arena. `s3/`.
+  4. D7 (`07bbafa1`): delivery cells <cell>.callback / .callback-inline / .queue for Bf,
+     Cf-retain, Ef-retain (src/Rpc/Deliveries.cs), `akrpc --delivery-semantics` in the gate,
+     gen/rpc-delivery-counts*.txt, `csw` per RPC row. `s4/`.
+- **Final combined run:** `logs/csharp/opt/s1-s4/` (gen/opt_bench.sh with OPT_DROP=1: the core
+  grid plus the drop units and the RPC no-unknown client, labelled extras), tables.md.
+- **Harness defect fixed on the way (`2610f847`):** under BDN's default toolchain the children of
+  a no-unknown host were built as the FULL build (no /p:AkNounk=true): every "no-unknown" codec
+  and RPC row timed under the default toolchain before it (the baselines of JOURNAL 73 included)
+  ran the full build's code in drop mode. Every process now checks its build and core against
+  the host's (BuildCheck) and the no-unknown job passes the property.
+- **Counts regenerated:** gen/counts*.txt (step 1: encode-core rows added; step 3: fwd -2 per
+  core-ffi decode), gen/rpc-counts*.txt (step 3), gen/rpc-delivery-counts*.txt (step 4, new).
+- **Quick checks:** `AK_GATE_LEVELS=8 AK_GATE_KEEP_CORE=1 gen/gate.sh` (net8.0 only, cores not
+  rebuilt; prints "CHECKS PASSED ... NOT the gate"). The full gate has not been run since
+  step 1 (owner: no gate yet).
 
 ## Optimisation baseline (2026-10-04; JOURNAL 73; container instrumentation, NOT gated)
 
@@ -202,6 +229,7 @@ itself does not specify.
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the core-ffi host half has no net48 form (needs delegate thunks rooted for the vtable's lifetime) |
 | D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
+| D47 | (closed, 2610f847) | BDN default-toolchain children of the no-unknown host built as the full build; the baselines' no-unknown columns are the full build in drop mode (JOURNAL 74) |
 | D46 | BenchDotNet JitTiers (grouped mode) | the JIT check counts only methods compiled inside a case's span and promoted later; code first compiled before the case (Cases.Verify runs every arm first) and never promoted is not seen: on one CPU, tier-0-speed rows passed `jit check: PASS` (JOURNAL 73, logs/csharp/opt/tier-check/1cpu-grouped.*). Not fixed. Under the default toolchain no tier readback exists (JOURNAL 64); the one-CPU guard and the warm-up length are what stand in for it there |
 | D45 | (closed, D18) | the per-unit `# build ...` header line said "Unix socket ... (req 17: UDS)" over TCP; rewritten with the transport line in ebbf1f6 |
 
@@ -414,8 +442,9 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
-0. Optimisation pass: the exploration reads `logs/csharp/opt/baseline/tables.md`; this slice
-   changes nothing further in this unit. D46 (the grouped-mode JIT check's blind spot) is open.
+0. Optimisation pass: steps 1 to 4 are in; the aggregating session reads `logs/csharp/opt/s1-s4/`
+   and the per-step logs. The full gate (both h2 variants) is due before any campaign use. D46
+   (the grouped-mode JIT check's blind spot) is open.
 1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
@@ -426,6 +455,8 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 | Log | What it establishes |
 |---|---|
+| `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
+| `opt/s1-s4/` | the combined core-grid run after step 4 (with the drop and no-unknown RPC extras), tables.md |
 | `opt/baseline/` | the optimisation pass's short baseline, core grid, client on 2 CPUs (not gated; tables.md, codec.tsv, rpc.tsv) |
 | `opt/baseline-1cpu-VOID/` | the first baseline run, client on 1 CPU: VOID for the managed arms (tier 0), kept |
 | `opt/tier-check/` | the tier-0 confirmation: 1 vs 2 CPUs, delay 0, tiering off, grouped, warm-up length, the guard's refusal |

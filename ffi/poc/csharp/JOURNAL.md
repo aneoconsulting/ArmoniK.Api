@@ -2408,3 +2408,85 @@ Cases.Verify on, every RPC call checked.
   2-CPU runs in both directions, mostly up on 2 CPUs (A b k=1 7.3 -> 16.2 ms task-clock; Cf-retain
   c k=1 3.1 -> 4.3 ms; Ef-retain b k=1 3.0 -> 1.6 ms), with task-clock above wall for A; (4) cell A's
   tier state is not checked (no RPC tier check was run; its warm-up is the campaign's 10 x 100 ms).
+
+## 74. Optimisation pass, steps 1 to 4 (owner decisions D1, a1, a2, D7; 2026-10-04)
+
+Container instrumentation throughout; no gate (owner), each step's net8.0 quick checks
+(`AK_GATE_LEVELS=8 AK_GATE_KEEP_CORE=1 gen/gate.sh`: every net8 check and control of the gate,
+counts included, no net6.0 floor, no net48, the cores not rebuilt; the last line says "NOT the
+gate"). Narrowed A/B in one session, variants alternated by rep (`gen/opt_ab.sh`,
+`gen/opt_ab_rpc.sh`), each variant built and run from its own tree (a git worktree at the
+previous step's commit), the baseline's settings (client CPUs 0,1, codec 25 x 40 ms warm-up, 6 x
+40 ms rounds; RPC 10 x 100 ms, 6 x 100 ms), MemoryDiagnoser on, drop units added
+(`AK_BDN_DROP=1`, a labelled extra) beside retain and no-unknown.
+
+- **A harness defect found first (fixed, 2610f847).** Under BDN's default toolchain every case's
+  child is REBUILT from the project, and the job did not pass `/p:AkNounk=true`: every
+  no-unknown "core-ffi:no-unknown" / "host-gen:no-unknown" row timed so far under the default
+  toolchain (the 2-CPU baseline of JOURNAL 73 included) ran the FULL build's code in its child
+  (the host, which writes the header and checks, was the no-unknown build). Found because the
+  new per-process build check refused it: every process (host and child) now checks its build
+  and its core against the host's (`BuildCheck`, AK_BDN_BUILD), and the no-unknown job passes
+  the property (both suites). The baseline's no-unknown columns are therefore the full build's
+  code with drop semantics. The figures of steps 1 to 4 and of the final run are after the fix.
+- **Step 1 (D1).** The core grid's core-ffi and host-gen encode rows are now `encode-core-hot`
+  (end state ii for the core's transport, `enc_end` transport-core): core-ffi `EncodeInto` (the
+  encode left in the core's context, no take, no frame, as Cf hands it to ak_call_unary_enc);
+  host-gen its Enc (64 KiB initial, as Ef). The Grpc.Net frame form stays a labelled extra
+  (`encode-transport-hot`, full grid or AK_BDN_DIRS). Byte identity of the new form checked in
+  Cases.Verify (both builds, every payload and U-* row; `ContextBytes` reads the context without
+  consuming it). Counts: 95 + 7 rows added to gen/counts.txt, 51 to counts-nounk.txt (no existing
+  row changed; core-ffi encode-core-hot = fwd 3, one fewer than the take form). A/B
+  (`logs/csharp/opt/s1/ab/`, both forms in one process, 2 reps): see the report's table; e.g.
+  core-ffi retain P5.4 0.55 ms -> 0.30 ms, P5.2 3.34 -> 1.69 us, P1.1 0.79 -> 0.71 us.
+- **Step 2 (a1, cs_host.py Stage).** Blocks kept across encodes, new block max(need, 2 x the
+  largest), a string reserves its maximum and commits what it wrote; pointers valid until Reset.
+  Checks passed (`s2/checks.log`). A/B (`s2/ab/`, `s2/ab-rpc/`): core-ffi retain P2.4 1.54 ms
+  and 408 minor faults per op -> 0.78 ms and 0; P2.3 retain (one rep 1.2 ms / 170 faults) ->
+  0.60 ms / 0; the other rows within the run's spread; RPC Cf-retain b at k 8 2.43 -> 2.04 ms
+  task-clock (k 1 within spread).
+- **Step 3 (a2).** (i) The push decode drops ak_dec_err_reset and ak_dec_err: ak_decode_* clears
+  hdr.err on entry and returns it when set (codec.rs, every root from one template; read before
+  the change); new check `harness hostfail` (gate, both builds): a planted throw in every apply
+  (or every add/new) callback comes back as AK_ERR_HOST from the return value alone, 32/32 (24/32
+  with add: the shapes without one succeed), 16/16 and 12/16 no-unknown. (ii) one GCHandle per
+  instance, Target set per decode. (iii) the options rewritten only when the mode changes (the
+  core never writes a grow-only entry). (iv) the retain buffers from a per-context native arena
+  (UnkArena: 64 KiB then geometric chunks kept across decodes, a grow of the last allocation in
+  place, an outstanding count for UNDELIVERED); the skipped-release control still fails
+  (UNDELIVERED), the decision-11 controls unchanged. Counts: every core-ffi decode row fwd -2
+  (exactly ak_dec_err and ak_dec_err_reset), rev/grow/reset unchanged, 640 + 320 codec rows and
+  8 + 4 RPC rows regenerated. A first run of the step-3 checks was contaminated by step-4 code
+  edited in the same tree while it ran (two akrpc build failures); discarded, the step-4 work
+  moved to its own worktree, the checks re-run clean (`s3/checks.log`). A/B (`s3/ab/`): core-ffi
+  retain U-* decode 0.42 -> 0.29 us (UploadResultData), 0.49 -> 0.37 (oneof), 0.99 -> 0.80
+  (nested), 0.69 -> 0.55 (Dual); drop and no-unknown 0.02 to 0.06 us lower (P5.1 0.25 -> 0.23);
+  host-gen (unchanged code) within spread.
+- **Step 4 (D7).** `src/Rpc/Deliveries.cs`: <cell>.callback (TCS with
+  RunContinuationsAsynchronously), <cell>.callback-inline (TCS inline: the continuation runs on
+  the core's tokio worker), <cell>.queue (one drainer, blocking ak_queue_next with a 1 s timeout,
+  one completion per pop: no batch pop in the ABI), for Bf, Cf-retain, Ef-retain (Cf-nounk,
+  Ef-nounk in the no-unknown build); d with ak_call_send(_enc)_cb/_q, each send awaited, then
+  ak_call_recv_cb/_q. `akrpc --delivery-semantics` (in the gate): 9 cases (unary ok, non-OK 13,
+  cancel; unary_enc ok, 13; stream ok, 13, cancel, send_enc ok) x 4 deliveries, each equal to
+  the blocking one (the unary cancel, which the blocking unary cannot express, equal across the
+  three async ones: CANCELLED): 0 failures. Observed while writing it: an inline continuation that
+  reaches a BLOCKING core entry (here the next channel's ak_client_new_opts) panics the tokio
+  runtime ("Cannot start a runtime from within a runtime") and aborts the process; the timed
+  inline cells only start non-blocking calls. Delivery-cell crossing counts committed
+  (gen/rpc-delivery-counts*.txt; the idle drainers of other cells and the first-use context
+  creation on a pool thread are filtered by name, the queue cell's own pops counted). Per
+  iteration the RPC rows now carry `csw` (voluntary + involuntary context switches of the
+  process, getrusage, read with the minor faults).
+- **Step 4 measured** (`logs/csharp/opt/s4/deliveries/`, one BDN run of 12 units, blocking and
+  the three deliveries for Bf, Cf-retain, Ef-retain on a+read, b, c P5.4, d 16 MiB at k 1 and 8,
+  ONE rep, 576 s): the spreads are wide (container, one rep) and no delivery is clear of the
+  blocking one's spread on every row; context switches per call 2 to 10 times the blocking
+  cells' (e.g. Cf-retain b k 1: 12 blocking, 77 callback, 152 inline, 52 queue); allocations per
+  call +1.0 to 1.4 KB per completion for the async deliveries (TCS, Pending, GCHandle), except
+  one anomaly flagged: Bf.callback d k 1 at 528 KB per call (k 8: 3.2 KB; not investigated).
+- **Final combined run** (`logs/csharp/opt/s1-s4/`, gen/opt_bench.sh OPT_DROP=1 at the step-4
+  commit + the tables fix): codec full 453 s, no-unknown 211 s, RPC stock (with Cf-drop, Ef-drop)
+  296 s, h2-batch 56 s, pinned 44 s, no-unknown client 108 s: 1,168 s of benchmark wall plus build
+  13 s and server warm-up 46 s; every case's process saw 2 CPUs; 0 failed. Many rows carry one
+  slow round (` *`), more than in the baseline run.
