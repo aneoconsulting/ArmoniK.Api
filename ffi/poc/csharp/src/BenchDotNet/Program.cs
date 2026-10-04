@@ -113,7 +113,13 @@ public static class Program
             .WithIterationTime(TimeInterval.FromMilliseconds(itMs))
             .WithEvaluateOverhead(false)
             .WithClock(CpuClock.Instance)
-            .WithId("campaign");
+            .WithId("campaign")
+#if AK_NO_UNKNOWN_FIELDS
+            // JOURNAL 74: the default toolchain rebuilds each child from the project; without
+            // this the no-unknown host's children were the FULL build (BuildCheck now refuses it).
+            .WithArguments(new BenchmarkDotNet.Jobs.Argument[] { new BenchmarkDotNet.Jobs.MsBuildArgument("/p:AkNounk=true") })
+#endif
+            ;
         var config = ManualConfig.CreateEmpty()
             .AddJob(job)
             .AddLogger(ConsoleLogger.Default)

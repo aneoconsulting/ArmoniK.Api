@@ -130,6 +130,7 @@ public static class Alloc
         var m = Mismatch();
         if (m != null) throw new InvalidOperationException("allocator mode mismatch: " + m);
         CpuGuard.Check();
+        BuildCheck();
         WriteChild();
     }
     /// Under the default toolchain the child's probe is written for the host (one file per
@@ -139,6 +140,19 @@ public static class Alloc
         if (CpuClock.ChildDir == null) return;
         System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n" + CpuGuard.Fields() + "\n");
         ChildFile = "probe-" + Environment.ProcessId + ".txt";
+    }
+    /// The build the host was compiled as (full or no-unknown) must be the build every BDN
+    /// child runs, with its own core (2026-10-04, JOURNAL 74: BDN's default toolchain rebuilt
+    /// the child from the project WITHOUT /p:AkNounk=true, so a no-unknown host timed the full
+    /// build's code). The host's first Startup records AK_BDN_BUILD; a child refuses another.
+    private static void BuildCheck()
+    {
+        var mine = Armonik.Ffi.Harness.AbiVariant.Name;
+        var want = Environment.GetEnvironmentVariable("AK_BDN_BUILD");
+        if (string.IsNullOrEmpty(want)) Environment.SetEnvironmentVariable("AK_BDN_BUILD", mine);
+        else if (want != mine) throw new InvalidOperationException("build mismatch: the host is the " + want + " build, this process the " + mine + " build (a BDN child built without the host's MSBuild properties)");
+        var why = Armonik.Ffi.Harness.AbiVariant.CheckLoadedCore();
+        if (why != null) throw new InvalidOperationException("core variant mismatch in this process: " + why);
     }
     public static string ChildFile;
     /// The row field: this process's probe (grouped) or the child's (default toolchain; the
