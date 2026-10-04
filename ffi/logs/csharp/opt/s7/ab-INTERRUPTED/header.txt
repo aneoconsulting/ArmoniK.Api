@@ -1,0 +1,29 @@
+# INTERRUPTED: the container was restarted during rep 2 of this run (2026-10-04); kept only as a record of what ran. No figure from it is used: the step-7 codec A/B is s7/ab/ (re-run from the start).
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 741f10f2; 2026-10-04T21:40:35Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY=P1.2,P2.2,P2.3,P2.4,P2.5,P4.1,U-nested-before,U-deep-u-repeated,U-oneof-u-repeated,U-wire-ListTaskSummaryResponse-tasks-as-wt5,U-wire-UploadResultDataMessage-upload-as-wt5,U-wire-ListMetricsResponse-batches-as-wt0,U-wire-DualResponse-left-as-wt5 AK_BDN_DIRS=encode-core-hot AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full nounk; reps 2 (order alternated)
+# variant e0pre: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-pre7/ffi/poc/csharp at 1818d178
+# variant e0: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0 at 741f10f2
+# variant e1: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1 at 741f10f2
+# variant e1c: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1C at 741f10f2
+# variant e1r: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R at 741f10f2
+# variant e3: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E3 at 741f10f2
+# rep 1 e0pre full: rc=0 104 s; quiet: load1 0.11, no process above 10 % (waited 435 s); # correctness:    2716 pre-timing checks passed (byte identi
+# rep 1 e0pre nounk: rc=0 68 s; quiet: load1 0.48, no process above 10 % (waited 55 s); # correctness:    1944 pre-timing checks passed (byte identi
+# rep 1 e0 full: rc=0 111 s; quiet: load1 0.48, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e0 nounk: rc=0 81 s; quiet: load1 0.49, no process above 10 % (waited 50 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1 full: rc=0 108 s; quiet: load1 0.47, no process above 10 % (waited 50 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1 nounk: rc=0 64 s; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1c full: rc=0 98 s; quiet: load1 0.49, no process above 10 % (waited 50 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1c nounk: rc=0 60 s; quiet: load1 0.47, no process above 10 % (waited 70 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1r full: rc=0 106 s; quiet: load1 0.47, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1r nounk: rc=0 68 s; quiet: load1 0.48, no process above 10 % (waited 55 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e3 full: rc=0 105 s; quiet: load1 0.47, no process above 10 % (waited 50 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e3 nounk: rc=0 61 s; quiet: load1 0.46, no process above 10 % (waited 50 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e3 full: rc=0 103 s; quiet: load1 0.49, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e3 nounk: rc=0 62 s; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1r full: rc=0 104 s; quiet: load1 0.49, no process above 10 % (waited 30 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1r nounk: rc=0 63 s; quiet: load1 0.47, no process above 10 % (waited 55 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1c full: rc=0 92 s; quiet: load1 0.47, no process above 10 % (waited 40 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1c nounk: rc=0 57 s; quiet: load1 0.48, no process above 10 % (waited 55 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1 full: rc=0 105 s; quiet: load1 0.48, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1 nounk: rc=0 63 s; quiet: load1 0.46, no process above 10 % (waited 45 s); # correctness:    3032 pre-timing checks passed (byte identi
