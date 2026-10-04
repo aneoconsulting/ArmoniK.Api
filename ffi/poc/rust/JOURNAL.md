@@ -4385,3 +4385,44 @@ repeated field last to first. Everything in logs/rust/opt/patches/backward-encod
   Step 12b: TCP uploads on the stock core, then h2-batch uploads over UDS and TCP and
   rpc_semantics, all passed. Crossing counts: 1,092 / 567 rows identical.
   Logs: logs/rust/d18-gate/.
+
+## 2026-10-04 -- D19: ak_tc_utf16 on simdutf, additive UTF exports (owner; shared core, worktree)
+
+Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-simdutf/`.
+
+- Core (ed31dbfd): simdutf = "=0.7.0" (simdutf C++ 7.7.1, cc, -std=c++11). `tc_utf16`: len 0 -> 0;
+  if the buffer is short of 3 bytes per unit, one grow of that (the core's ak_grow = Vec::reserve,
+  geometric); simdutf convert_utf16le_to_utf8 into the buffer; 0 (invalid: a lone surrogate) ->
+  the pre-D19 write loop over the same dst. A buffer still short after the request (host grow
+  giving less or refusing, or > INT32_MAX/3 units) measures the exact length and keeps the
+  pre-D19 grow-exact / AK_ERR_CAPACITY behaviour. First draft returned the grow's refusal code
+  at once; that differs from the pre-D19 transcoder when the exact output fits in the current
+  buffer and a host grow refuses (never with the core's own grow): changed before any check ran.
+- The pre-D19 code kept as `tc_utf16_scalar`, exported `ak_tc_utf16_scalar`. Its codegen is not
+  the pre-D19 binary's: on ascii it is 10-17% slower than the pre-D19 core's own transcoder and
+  on bmp-wide 8-15% faster (the write loop now sits in its own function). So the measurement
+  compares against the pre-D19 core binary itself, loaded RTLD_LOCAL in the same process
+  (AK_D19_BASE_CORE, `gen/d19_base_core.sh`), and keeps the scalar export as a column.
+- Exports: ak_utf16_to_utf8, ak_utf16_utf8_len, ak_utf8_to_utf16, ak_utf8_utf16_len,
+  ak_utf8_validate, ak_utf16_validate. simdutf's utf8_length_from_utf16le counts a lone
+  surrogate as 2 bytes, not U+FFFD's 3: the length export validates first and falls back to the
+  scalar count on invalid input (the differential's B section would have caught it otherwise).
+- Big-endian: compile_error.
+- Checks (`checks/checks.log`, commit 9b21c21b): unit tests 8 + 16 pass; conformance and shapes
+  VERDICT pass; the differential at scale 8: A 2,991,408 inputs / 95.7 M checks, 0 failures
+  (23.9 M of them the pre-D19 binary against the scalar export: bytes, return code and grow
+  requests identical); B 109 M export checks, 0; C 160,000 messages through a real encode
+  context vs prost, 0; the `?` plant differs on exactly the inputs with a lone surrogate, the
+  overrun plant caught 1000/1000. Corpus 680 per C ABI arm, controls fail as required, both
+  builds. Pre-check 620 / 359 checks, 0 failures (same counts as the d18 gate). Crossing counts
+  1,092 / 567 lines identical.
+- Grow requests: across the differential's eight capacity cases the new transcoder asked for
+  22.8 M grows against 11.9 M (it asks for the worst case, then the exact length when a host
+  grow gives less). Not a crossing (the core's ak_grow is internal); no committed count file
+  has an encode-side grow column that this changes (C#'s `grow` column counts decision 11's
+  decode grow).
+- Instrumentation (`bench/`, container, haswell AVX2 kernel): see STATE. Short strings: astral
+  8 units 1.20-1.28x the pre-D19 time, ascii 8 0.89-1.14x, bmp-wide 8 0.95x; from 32 units on
+  faster on every set.
+- Refuted along the way: the first g++ static link put `-x c++` before the archive, so g++
+  compiled libak_core.a as C++ source (a 10-minute cc1plus, killed); fixed (84900734).

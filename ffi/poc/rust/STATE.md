@@ -8,12 +8,72 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. Latest unit (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
+| **Next step** | none assigned. Latest unit (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## D19: ak_tc_utf16 on simdutf, additive UTF exports (2026-10-04, owner; shared core; container)
+
+Built in a worktree on 1d18e637 (commits ed31dbfd core, 761b4489..84900734 this slice). Logs:
+`logs/rust/opt/d19-simdutf/`. Nothing here is a recommendation; every timing is container
+instrumentation.
+
+- **What changed in the core** (`poc/codec/crates/ak-core/src/lib.rs`): `tc_utf16` reserves 3
+  bytes per UTF-16 unit through the grow contract when the buffer is shorter (the core's
+  `ak_grow`, `Vec::reserve`, geometric), converts with simdutf `convert_utf16le_to_utf8` into the
+  encode buffer, and on input simdutf reports invalid (a lone surrogate) runs the pre-D19 write
+  loop (`utf16_write_replacing`, U+FFFD) over the same buffer. A buffer still short of the worst
+  case after that request (a host grow giving less or refusing; more than INT32_MAX/3 units)
+  measures the exact length and keeps the pre-D19 grow and AK_ERR_CAPACITY behaviour. The
+  pre-D19 transcoder is kept unchanged as `tc_utf16_scalar`, exported `ak_tc_utf16_scalar`
+  (oracle and control; no header declares it). Big-endian builds are refused (compile_error).
+  simdutf = "=0.7.0" (simdutf C++ 7.7.1, built by cc with -std=c++11) is a dependency of
+  ak-core only.
+- **Additive exports** (pure, no `ak_init`, not counted, declared by no generated header; this
+  slice declares them in `crates/harness/src/d19.rs`): `ak_utf16_to_utf8`, `ak_utf16_utf8_len`,
+  `ak_utf8_to_utf16`, `ak_utf8_utf16_len`, `ak_utf8_validate`, `ak_utf16_validate`. Signatures and
+  contracts are in the doc comments beside them in lib.rs.
+- **Checked** (`checks/checks.log`, `gen/d19_checks.sh`, commit 9b21c21b): ak-core / ak-rt unit
+  tests (8 + 16, new `d19_utf16_tests`); conformance and shapes VERDICT pass; the differential
+  (`bin/tc16_diff`, scale 8): 2,991,408 UTF-16 inputs over 8 content sets (3 with lone
+  surrogates) x 8 capacity / grow cases, 95.7 M checks, 0 failures, including the pre-D19 core
+  BINARY (loaded RTLD_LOCAL) against the scalar export on bytes, return code and grow requests;
+  the exports 109 M checks, 0 failures (against std, ak_utf8_check, the RFC 3629 edge cases,
+  random and mutated bytes, canaries past every capacity); 160,000 ListResultsResponse messages
+  with every string field through ak_tc_utf16 in a real encode context (fresh and reused) equal
+  to prost over the lossy strings; planted `?` transcoder differs on exactly the inputs with a
+  lone surrogate, planted overrun caught 1000/1000. Corpus 680 per C ABI arm with its controls,
+  both builds; pre-check 620 / 359 checks, 0 failures; crossing counts 1,092 / 567 lines
+  identical (no crossing changed: the Rust host never calls ak_tc_utf16).
+- **Build impact** (`build-impact/`): every slice's ak-core feature set, the three h2-batch build
+  forms, the Java JNI and Python shims (gcc against the cdylib; the Python module imports), a C
+  program through the .so, the staticlib with g++ and with gcc + -lstdc++, the 1.88.0 floor
+  (build and unit tests): all pass (`matrix.log`). The C++ slice's CMake core targets and its
+  conformance arms (a17 shared, a17 static, c11 shared; counts_a17_static_lto built) pass
+  (`cpp.log`). The C# slice's gen/build_core.sh: `csharp.log`. What changed for every slice:
+  the core build needs a C++11 compiler; libak_core.so gains DT_NEEDED libstdc++.so.6 (1.44 MB
+  against 0.84 MB); a C host that links libak_core.a with gcc needs -lstdc++ (50 undefined
+  C++ runtime references without it; rustc's native-static-libs lists it); no slice does that
+  today (the C++ slice links with g++).
+- **Instrumentation** (`bench/tables.md`, `gen/d19_bench.sh`; 3 processes; simdutf kernel at run
+  time here: haswell, AVX2): the transcoder alone, capacity ample. Against the pre-D19 core's
+  own ak_tc_utf16, new/old per process: ascii 0.89-1.14 at 8 units, 0.35 at 32, 0.05-0.06 at
+  1 Ki and 64 Ki; latin1 0.71 at 8, 0.04-0.05 at 1 Ki+; bmp-wide 0.95 at 8, 0.14-0.16 at 1 Ki+;
+  astral 1.20-1.28 at 8 (slower), 0.74-0.78 from 128; mixed (uniform random classes) 0.53-0.72;
+  lone surrogates 0.41-0.58 (the fallback writes once where the pre-D19 code counted and then
+  wrote). The Rust codec suite has no row through ak_tc_utf16 (the binding passes UTF-8 with
+  ak_tc_utf8_trusted / ak_tc_bytes), so no codec row moves.
+- **Not covered**: the C# and Java slices' own gates and corpora on the new core (their hosts
+  are the ones calling ak_tc_utf16); the campaign machine (NixOS: whether libstdc++ resolves
+  for every loader there, and which simdutf kernel its CPU gets); ThreadSanitizer (nightly not
+  installed; simdutf is uninstrumented C++); grow-request counts on encode (the new transcoder
+  asks for the worst case, so a context whose buffer is short grows earlier: 22.8 M against
+  11.9 M grow calls over the differential's capacity cases; not a crossing, no committed count
+  file has an encode grow column); strings over INT32_MAX/3 units (the exact-length path is
+  covered with host grows that give less, not with a 700 M-unit string).
 
 ## Backward-encode experiment (2026-10-02, owner; container; patch only, poc/codec unchanged)
 
@@ -787,6 +847,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 ## What is not measured
 
+- **D19's gaps**: listed in section D19 above (other slices' gates on the new core, the campaign machine, TSan, encode grow counts, strings over INT32_MAX/3 units).
 - **The backward-encode experiment's gaps**: listed in `logs/rust/opt/patches/backward-encode/README.md` (pool inputs, decode, the 2x2 on order-dependent payloads, the P6.1 attribution, the floor and the campaign machine on the patched tree).
 - **Timings.** None are results in this phase; every timing log is container
   instrumentation, and no figure is quoted in this file.
@@ -850,6 +911,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/d19-simdutf/` | D19: `checks/checks.log` (unit tests, conformance, shapes, the differential at scale 8, corpus both builds, pre-checks, crossing counts), `bench/` (header, three tc16_bench processes, tables.md), `build-impact/` (matrix.log: feature sets, h2-batch, C hosts, staticlib, floor; cpp.log; csharp.log) |
 | `logs/rust/opt/patches/backward-encode/` | the backward-encode experiment: the patches (sources, generated, dropped v2), README, the gate and bwd_check on the backward core (checks/gate), the mismatched pair (checks/mismatch), the alternated encode session and RPC probe (bench/, tables.md), P6.1 v1/v2 and harness x core (bench-p6-v2/, bench-p6-2x2/) |
 | `logs/rust/opt/wp12-gates/` | WP12: the full gate on the h2-batch core, on the stock core (both built per feature set by build.sh or the same cargo command) and as committed (plain), each with loads.txt (which core every process loaded), the TCP checks and the write-count marker; NOTE.txt |
 | `logs/rust/opt/tcp-sweep/` | the TCP core worker sweep after the re-pin: low/ (k 1, 8) and high/ (k 16, 32), tables.md; `tcp-sweep-unpinned-irqs/` the same run before the re-pin (machine condition in its NOTES.txt) |
