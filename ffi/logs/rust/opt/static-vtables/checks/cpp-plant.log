@@ -1,0 +1,4 @@
+# sv_cpp check at e0586a85; cmake version 3.28.3; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; 2026-10-04T18:16:41Z
+  ok    planted missing member caught: missing initializer for member 'ak_dvt_ListTasksDetailedResponse::add_tasks_options_options' [-Werror=missing-field-initializers
+failures: 0
+SV CPP check PASSED

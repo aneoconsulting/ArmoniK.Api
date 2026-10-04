@@ -1,0 +1,66 @@
+# sv_cpp check at e0586a85; cmake version 3.28.3; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; 2026-10-04T18:02:02Z
+  ok    configure /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/sv/cpp-after
+  ok    build conformance_a17_shared conformance_a17_static conformance_c11_shared conformance_c14_shared conformance_b17_shared conformance_nounk_a17 conformance_nounk_c11 conformance_nounk_static corpus_all_a17 corpus_all_c11 corpus_all_a17_static corpus_nounk_a17 counts_a17_shared counts_a17_static counts_nounk campaign_codec campaign_codec_nounk
+  core: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/sv/cpp-core/target/release/libak_core.so
+  ok    conformance_a17_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_a17_static: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_c11_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_c14_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_b17_shared: exit 0: 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_nounk_a17: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_nounk_c11: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+  ok    conformance_nounk_static: exit 0: 478 checks, 0 failures, 1 payloads with two valid encodings
+        corpus_all_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_a17:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17: CORPUS PASSES on every built arm
+  ok    corpus corpus_all_a17
+        corpus_all_c11:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_c11:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_c11:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_c11:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_c11:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_c11:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_c11: CORPUS PASSES on every built arm
+  ok    corpus corpus_all_c11
+        corpus_all_a17_static:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17_static:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17_static:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_a17_static:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_all_a17_static:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17_static:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_all_a17_static: CORPUS PASSES on every built arm
+  ok    corpus corpus_all_a17_static
+        corpus_nounk_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_nounk_a17:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+        corpus_nounk_a17:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+        corpus_nounk_a17:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 702
+        corpus_nounk_a17:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+        corpus_nounk_a17:    pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+        corpus_nounk_a17: CORPUS PASSES on every built arm
+  ok    corpus corpus_nounk_a17
+  ok    counts counts_a17_shared: 530 rows identical to logs/cpp/counts-baseline.log
+  ok    counts counts_a17_static: 530 rows identical to logs/cpp/counts-baseline.log
+  ok    counts counts_nounk: 301 rows identical to logs/cpp/counts-nounk-baseline.log
+  ok    campaign_codec pre-check: "campaign_codec_gate": {"groups": 120, "slots": 4436, "failed": 0, "ffi_retain": "built", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+  ok    campaign_codec_nounk pre-check: "campaign_codec_gate": {"groups": 120, "slots": 2724, "failed": 0, "ffi_retain": "compiled out (no-unknown build)", "pull_value_gate": "push = pull walked = pull drained on every group and mode, 0 failed"}
+        conformance_a17_shared: 14 k_dvt_ objects in a read-only / data section (nm -C; 7 roots)
+        conformance_c11_shared: 14 k_dvt_ objects in a read-only / data section (nm -C; 7 roots)
+        conformance_nounk_a17: 14 k_dvt_ objects in a read-only / data section (nm -C; 7 roots)
+        campaign_codec: 14 k_dvt_ objects in a read-only / data section (nm -C; 7 roots)
+        campaign_codec_nounk: 14 k_dvt_ objects in a read-only / data section (nm -C; 7 roots)
+  ok    src/generated/binding.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (7 static vtables)
+  ok    src/generated/binding_borrow.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (7 static vtables)
+  ok    src/generated/binding_nounk.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (7 static vtables)
+  ok    src/generated/binding_borrow_nounk.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (7 static vtables)
+  ok    corpus/src/generated/binding.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (29 static vtables)
+  ok    corpus/src/generated/binding_nounk.cpp compiles at -std=c++11/14/17 with -Werror=missing-field-initializers (29 static vtables)
+Traceback (most recent call last):
+  File "<stdin>", line 10, in <module>
+AssertionError
+  ok    planted missing member caught: 
+failures: 0
+SV CPP check PASSED

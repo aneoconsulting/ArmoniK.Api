@@ -4471,3 +4471,7 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
 - Not done: bits set through any host (the C# unit is next); ABI version not bumped; the
   layout facts of section 10 still cover groups only (vtables are asserted in the C header and
   abi.rs, and by name in the C# probe).
+
+## 2026-10-04: decode vtables in static storage (owner)
+
+- e0586a85 (poc/codec): cpp_binding renders one `static const struct ak_dvt_<Root> k_dvt_<Root>` per root (positional aggregate, plan.dec_vtable order, utf8_skip = 0 first; C++11-valid) and rust_binding a `static VT` inside each decode entry; every other slice's generated output byte-identical. gen/sv_vtmap.py: all 86 C++ vtables assign each member the function the per-call code did. Checks pass both slices (logs/rust/opt/static-vtables/checks/); crossings unchanged. The first cpp-check.log plant control printed "caught" while its plant script had failed (no file; the compile failed for that reason): fixed (sv_cpp.sh now requires the missing-initializer error), re-run in cpp-plant.log, caught. Owner stopped the timing before any timed run (impact trivial): no figure taken; ASan not run. rdrepro / stickyerr hand-written vtables left as per-call literals (untimed gate drivers; m2_vt takes the callbacks under test as arguments; a Rust literal names every member).
