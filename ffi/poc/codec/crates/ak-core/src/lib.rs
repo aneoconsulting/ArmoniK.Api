@@ -876,8 +876,12 @@ unsafe fn write_cp(dst: *mut u8, at: usize, cp: u32) -> usize {
     }
 }
 
-/// UTF-16 code units in, UTF-8 out. `len` is the number of `u16`s.
-unsafe extern "C" fn tc_utf16(
+/// The pre-D19 transcoder, UNCHANGED: a counting pre-pass (`utf16_utf8_len`), one grow
+/// of exactly that many bytes if the buffer is short, then `utf16_write_replacing`. It is
+/// D19's replacing path for input simdutf reports invalid, the differential oracle of the
+/// new transcoder and the control of its measurement (`ak_tc_utf16_scalar`); no host
+/// binding uses it.
+unsafe extern "C" fn tc_utf16_scalar(
     src: *const c_void,
     len: usize,
     mut dst: *mut u8,
@@ -901,6 +905,14 @@ unsafe extern "C" fn tc_utf16(
             return AK_ERR_CAPACITY;
         }
     }
+    utf16_write_replacing(p, len, dst) as i32
+}
+
+/// The write loop of the pre-D19 transcoder, moved out of it unchanged: a surrogate pair
+/// becomes its code point, a lone surrogate (high not followed by a low, or a low on its
+/// own) becomes U+FFFD (EF BF BD). Writes exactly `utf16_utf8_len(src, len)` bytes.
+#[inline]
+unsafe fn utf16_write_replacing(p: *const u16, len: usize, dst: *mut u8) -> usize {
     let s = core::slice::from_raw_parts(p, len);
     let mut at = 0usize;
     let mut i = 0usize;
@@ -922,7 +934,109 @@ unsafe extern "C" fn tc_utf16(
         at += write_cp(dst, at, cp);
         i += 1;
     }
-    at as i32
+    at
+}
+
+// D19 (owner, 2026-10-04): the UTF-16 paths run on simdutf (C++, through the `simdutf`
+// crate, which builds it with cc). simdutf's UTF-16 functions used here are the LE ones and
+// the host hands the core its NATIVE `u16`s, so the two agree only on a little-endian
+// target. Every target the slices build for is little-endian (x86_64, aarch64); a
+// big-endian build is refused here rather than left to transcode byte-swapped text.
+#[cfg(target_endian = "big")]
+compile_error!("ak-core: D19's UTF-16 paths call simdutf's UTF-16LE functions on the host's native u16; big-endian targets are not supported");
+
+/// The UTF-8 output of `len` UTF-16 units into `dst` (`cap` bytes), lone surrogates as
+/// U+FFFD: exactly the bytes `utf16_write_replacing` writes, for every input.
+///
+/// `cap >= 3 * len` (the worst case: no unit makes more than 3 bytes, a pair makes 4 from 2)
+/// is the one-pass path: simdutf's validating conversion straight into `dst`; on input it
+/// reports invalid (a lone surrogate; it returns 0, and a non-empty valid input never
+/// converts to 0 bytes) the pre-D19 replacing writer runs over the same `dst` from the
+/// start. A shorter `cap` measures first (simdutf's validation and length on valid input,
+/// the scalar count on invalid) and converts only if the result fits; `Err(need)` when it
+/// does not, nothing written. `len > 0`, `p` and `dst` valid.
+#[inline]
+unsafe fn utf16_to_utf8_into(p: *const u16, len: usize, dst: *mut u8, cap: usize) -> Result<usize, usize> {
+    if len <= cap / 3 {
+        let n = simdutf::convert_utf16le_to_utf8(p, len, dst);
+        if n != 0 {
+            return Ok(n);
+        }
+        return Ok(utf16_write_replacing(p, len, dst));
+    }
+    let s = core::slice::from_raw_parts(p, len);
+    if simdutf::validate_utf16le(s) {
+        let need = simdutf::utf8_length_from_utf16le(s);
+        if need > cap {
+            return Err(need);
+        }
+        Ok(simdutf::convert_valid_utf16le_to_utf8(p, len, dst))
+    } else {
+        let need = utf16_utf8_len(p, len);
+        if need > cap {
+            return Err(need);
+        }
+        Ok(utf16_write_replacing(p, len, dst))
+    }
+}
+
+/// UTF-16 code units in, UTF-8 out. `len` is the number of `u16`s (native order, so
+/// little-endian: see the refusal above).
+///
+/// D19: ONE conversion pass. The worst case (3 bytes per unit) is reserved through the
+/// grow contract of section 4 -- the core's `ak_grow` is `Vec::reserve`, geometric -- and
+/// simdutf converts straight into the encode buffer; a lone surrogate takes the pre-D19
+/// replacing path, so the bytes are the pre-D19 bytes for every input (`ak_tc_utf16_scalar`
+/// is the differential oracle). AK_ERR_CAPACITY and a grow's refusal code as before: if the
+/// buffer is still short of the worst case after the request (a host's own grow that gives
+/// less or refuses; or a string over INT32_MAX / 3 units, where no worst-case request is
+/// possible), the exact length is measured; it is written if it fits, otherwise grown for
+/// exactly as the pre-D19 transcoder did (its refusal code returned), and AK_ERR_CAPACITY
+/// if that grow still leaves it short.
+unsafe extern "C" fn tc_utf16(
+    src: *const c_void,
+    len: usize,
+    mut dst: *mut u8,
+    mut cap: i32,
+    grow: ak_grow_fn,
+    sink: *mut c_void,
+) -> i32 {
+    // R-D9: an empty host string may arrive as (NULL, 0), and `slice::from_raw_parts` /
+    // `copy_nonoverlapping` require a non-null pointer even for zero bytes.
+    if len == 0 {
+        return 0;
+    }
+    let p = src as *const u16;
+    let worst = len.saturating_mul(3);
+    if worst > cap.max(0) as usize && worst <= i32::MAX as usize {
+        // A refused worst-case request is not yet a failure: the pre-D19 transcoder asked
+        // only for the exact length and succeeded without a grow when that fitted, so the
+        // exact path below decides, and returns the grow's own code if its request is
+        // refused too. (The core's `ak_grow` never refuses; a host's grow might.)
+        let (d0, c0) = (dst, cap);
+        if grow(sink, worst as i32, &mut dst, &mut cap) < 0 {
+            dst = d0;
+            cap = c0;
+        }
+    }
+    match utf16_to_utf8_into(p, len, dst, cap.max(0) as usize) {
+        Ok(n) => n as i32,
+        Err(need) => {
+            // Above INT32_MAX no grow can be asked for (`want` is an int32_t): refused, as
+            // the pre-D19 transcoder refused it.
+            if need > i32::MAX as usize {
+                return AK_ERR_CAPACITY;
+            }
+            let rc = grow(sink, need as i32, &mut dst, &mut cap);
+            if rc < 0 {
+                return rc;
+            }
+            match utf16_to_utf8_into(p, len, dst, cap.max(0) as usize) {
+                Ok(n) => n as i32,
+                Err(_) => AK_ERR_CAPACITY,
+            }
+        }
+    }
 }
 
 /// Latin-1 bytes in, UTF-8 out: the JVM's compact string form, and CPython's 1-byte kind.
@@ -978,6 +1092,14 @@ pub extern "C" fn ak_tc_utf16() -> ak_transcode_fn {
     tc_utf16
 }
 
+/// D19, additive: the pre-D19 scalar UTF-16 transcoder (`tc_utf16_scalar`), exported so the
+/// differential test and the old-against-new measurement run both in one process through
+/// the C ABI. A control, not a host entry: no generated header declares it.
+#[no_mangle]
+pub extern "C" fn ak_tc_utf16_scalar() -> ak_transcode_fn {
+    tc_utf16_scalar
+}
+
 #[no_mangle]
 pub extern "C" fn ak_tc_latin1() -> ak_transcode_fn {
     tc_latin1
@@ -1000,6 +1122,170 @@ pub unsafe extern "C" fn ak_utf8_check(p: *const u8, n: usize) -> i32 {
     match ak_rt::strings::check_utf8(core::slice::from_raw_parts(p, n)) {
         Ok(()) => AK_OK,
         Err(_) => AK_ERR_TRANSCODE,
+    }
+}
+
+// ---- D19: the core's UTF conversions, exported for hosts --------------------------------
+//
+// Additive (owner, 2026-10-04): simdutf through the core, so a host can convert and validate
+// with the same code the core's transcoder runs, without a dependency of its own. Like
+// `ak_utf8_check`: pure functions with no context and no state, so they do not require
+// `ak_init` and are not counted; no generated header declares them -- each host declares
+// what it uses. Conventions of ABI v1: lengths in `size_t` code units of the source (and
+// `cap` in code units of the destination), the result an `int32_t` count or a negative ak
+// error code; every output is capped at INT32_MAX (AK_ERR_LIMIT above it, as decision 11
+// rule 5 caps every capacity). UTF-16 is the host's native `u16`, little-endian (the core
+// refuses a big-endian build), 2-byte aligned. An empty input may be (NULL, 0) (R-D9) and
+// is a success with 0; a NULL `src` with a non-zero length is refused (AK_ERR_TRANSCODE, as
+// `ak_utf8_check` refuses it), and so is a NULL `dst` that would be written
+// (AK_ERR_CAPACITY).
+
+/// UTF-16 to UTF-8, replacing: lone surrogates become U+FFFD (EF BF BD), so the bytes are
+/// those `ak_tc_utf16` writes for the same input. Returns the bytes written;
+/// AK_ERR_CAPACITY when `cap` is less than the output (nothing written; `cap >= 3 * len`
+/// always suffices); AK_ERR_LIMIT when the output would exceed INT32_MAX.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf16_to_utf8(src: *const u16, len: usize, dst: *mut u8, cap: usize) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    if dst.is_null() {
+        return AK_ERR_CAPACITY;
+    }
+    // A worst case below INT32_MAX cannot produce more; above it, measure before writing.
+    if len > i32::MAX as usize / 3 {
+        let n = ak_utf16_utf8_len(src, len);
+        if n < 0 {
+            return n;
+        }
+    }
+    match utf16_to_utf8_into(src, len, dst, cap) {
+        Ok(n) => n as i32,
+        Err(need) if need > i32::MAX as usize => AK_ERR_LIMIT,
+        Err(_) => AK_ERR_CAPACITY,
+    }
+}
+
+/// The exact length `ak_utf16_to_utf8` writes for this input (lone surrogates counted as
+/// the 3 bytes of U+FFFD). AK_ERR_LIMIT above INT32_MAX.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf16_utf8_len(src: *const u16, len: usize) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    let s = core::slice::from_raw_parts(src, len);
+    // simdutf counts a lone surrogate as 2 bytes, not U+FFFD's 3, so its length is the
+    // replacing length only on valid input.
+    let n = if simdutf::validate_utf16le(s) { simdutf::utf8_length_from_utf16le(s) } else { utf16_utf8_len(src, len) };
+    if n > i32::MAX as usize {
+        AK_ERR_LIMIT
+    } else {
+        n as i32
+    }
+}
+
+/// UTF-8 to UTF-16, strict: AK_ERR_TRANSCODE unless `src` is valid UTF-8 (RFC 3629: no
+/// overlong form, no surrogate, nothing above U+10FFFF -- the rule `ak_utf8_check` applies).
+/// Returns the UTF-16 code units written; `cap` counts code units, and `cap >= len` always
+/// suffices; AK_ERR_CAPACITY when it is less than the output (nothing written). On a
+/// refusal with `cap >= len`, `dst[0..len)` may have been written.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf8_to_utf16(src: *const u8, len: usize, dst: *mut u16, cap: usize) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    if dst.is_null() {
+        return AK_ERR_CAPACITY;
+    }
+    // No byte makes more than one unit (a 4-byte sequence makes 2), so the output never
+    // exceeds `len`; over INT32_MAX bytes, measure first.
+    if len > i32::MAX as usize {
+        if simdutf::validate_utf8(core::slice::from_raw_parts(src, len)) {
+            if simdutf::utf16_length_from_utf8(core::slice::from_raw_parts(src, len)) > i32::MAX as usize {
+                return AK_ERR_LIMIT;
+            }
+        } else {
+            return AK_ERR_TRANSCODE;
+        }
+    }
+    if cap >= len {
+        // simdutf validates as it converts: 0 is invalid input, since a non-empty valid input
+        // never converts to 0 units.
+        let n = simdutf::convert_utf8_to_utf16le(src, len, dst);
+        return if n == 0 { AK_ERR_TRANSCODE } else { n as i32 };
+    }
+    let s = core::slice::from_raw_parts(src, len);
+    if !simdutf::validate_utf8(s) {
+        return AK_ERR_TRANSCODE;
+    }
+    let need = simdutf::utf16_length_from_utf8(s);
+    if need > cap {
+        return AK_ERR_CAPACITY;
+    }
+    simdutf::convert_valid_utf8_to_utf16le(src, len, dst) as i32
+}
+
+/// The UTF-16 code units `ak_utf8_to_utf16` writes for VALID UTF-8 (`len` is an upper
+/// bound). It does not validate: on invalid input it returns a count that means nothing
+/// (simdutf: "implementation defined"), never undefined behaviour, and the conversion
+/// itself refuses that input. AK_ERR_LIMIT above INT32_MAX.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf8_utf16_len(src: *const u8, len: usize) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    let n = simdutf::utf16_length_from_utf8(core::slice::from_raw_parts(src, len));
+    if n > i32::MAX as usize {
+        AK_ERR_LIMIT
+    } else {
+        n as i32
+    }
+}
+
+/// UTF-8 validation on simdutf: AK_OK, or AK_ERR_TRANSCODE. The same verdict as
+/// `ak_utf8_check` (the decoders' validator, simdutf8) on every input; a second validator,
+/// not a replacement of the first.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf8_validate(src: *const u8, len: usize) -> i32 {
+    if len == 0 {
+        return AK_OK;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    if simdutf::validate_utf8(core::slice::from_raw_parts(src, len)) {
+        AK_OK
+    } else {
+        AK_ERR_TRANSCODE
+    }
+}
+
+/// UTF-16 validation on simdutf: AK_OK when every surrogate is paired, AK_ERR_TRANSCODE
+/// otherwise -- that is, whether `ak_utf16_to_utf8` / `ak_tc_utf16` would substitute U+FFFD.
+#[no_mangle]
+pub unsafe extern "C" fn ak_utf16_validate(src: *const u16, len: usize) -> i32 {
+    if len == 0 {
+        return AK_OK;
+    }
+    if src.is_null() {
+        return AK_ERR_TRANSCODE;
+    }
+    if simdutf::validate_utf16le(core::slice::from_raw_parts(src, len)) {
+        AK_OK
+    } else {
+        AK_ERR_TRANSCODE
     }
 }
 
@@ -1411,12 +1697,13 @@ mod tc_empty_tests {
     #[test]
     fn every_transcoder_accepts_null_and_zero() {
         let mut dst = [0u8; 4];
-        let tcs: [(&str, ak_transcode_fn); 6] = [
+        let tcs: [(&str, ak_transcode_fn); 7] = [
             ("utf8", tc_utf8),
             ("utf8_trusted", tc_utf8_trusted),
             ("utf8_simd", tc_utf8_simd),
             ("latin1", tc_latin1),
             ("utf16", tc_utf16),
+            ("utf16_scalar", tc_utf16_scalar),
             ("bytes", ak_tc_bytes()),
         ];
         for (name, tc) in tcs {
@@ -1425,6 +1712,111 @@ mod tc_empty_tests {
             };
             assert_eq!(n, 0, "{name}: an empty string transcodes to zero bytes");
         }
+    }
+}
+
+#[cfg(test)]
+mod d19_utf16_tests {
+    //! D19: the simdutf transcoder against the pre-D19 scalar one (kept as
+    //! `tc_utf16_scalar`) and against std's lossy decoder, and the additive exports. A small
+    //! deterministic sample for the debug build; the millions-input differential is
+    //! `poc/rust`'s `tc16_diff` (release, through the C ABI).
+    use super::*;
+
+    /// A Vec-backed sink whose grow gives `min(want, limit)` more bytes than are written.
+    struct Sink {
+        v: Vec<u8>,
+        limit: usize,
+        grows: u32,
+    }
+    unsafe extern "C" fn sink_grow(sink: *mut c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
+        let s = &mut *(sink as *mut Sink);
+        s.grows += 1;
+        let give = (want.max(0) as usize).min(s.limit);
+        s.v = vec![0u8; give];
+        *dst = s.v.as_mut_ptr();
+        *cap = give as i32;
+        AK_OK
+    }
+    unsafe fn run(tc: ak_transcode_fn, u: &[u16], cap: usize, limit: usize) -> (i32, Vec<u8>) {
+        let mut sink = Sink { v: vec![0u8; cap], limit, grows: 0 };
+        let p = sink.v.as_mut_ptr();
+        let n = tc(u.as_ptr() as *const c_void, u.len(), p, cap as i32, sink_grow, &mut sink as *mut Sink as *mut c_void);
+        let out = if n > 0 { sink.v[..n as usize].to_vec() } else { Vec::new() };
+        (n, out)
+    }
+
+    fn lcg(x: &mut u64) -> u64 {
+        *x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *x >> 33
+    }
+    fn unit(x: &mut u64) -> u16 {
+        match lcg(x) % 8 {
+            0 => (lcg(x) % 0x80) as u16,
+            1 => (0x80 + lcg(x) % 0x780) as u16,
+            2 => (0x800 + lcg(x) % (0xD800 - 0x800)) as u16,
+            3 => (0xD800 + lcg(x) % 0x400) as u16,
+            4 => (0xDC00 + lcg(x) % 0x400) as u16,
+            5 => (0xE000 + lcg(x) % 0x2000) as u16,
+            _ => (lcg(x) % 0x80) as u16,
+        }
+    }
+
+    #[test]
+    fn new_equals_scalar_and_std() {
+        let mut x = 7u64;
+        let fixed: [&[u16]; 8] = [
+            &[0xD800], &[0xDC00], &[0xD800, 0xD800], &[0xDC00, 0xD800], &[0x41, 0xD83D],
+            &[0xD83D, 0xDE00], &[0xD83D, 0x41, 0xDE00], &[0xFFFF, 0xD7FF, 0xE000],
+        ];
+        let mut inputs: Vec<Vec<u16>> = fixed.iter().map(|f| f.to_vec()).collect();
+        for _ in 0..3000 {
+            let n = (lcg(&mut x) % 80) as usize;
+            inputs.push((0..n).map(|_| unit(&mut x)).collect());
+        }
+        for u in &inputs {
+            let want = String::from_utf16_lossy(u).into_bytes();
+            for (cap, limit) in [(3 * u.len() + 8, usize::MAX), (0, usize::MAX), (1, usize::MAX), (want.len(), usize::MAX), (0, want.len()), (0, want.len().saturating_sub(1))] {
+                let (n_old, b_old) = unsafe { run(tc_utf16_scalar, u, cap, limit) };
+                let (n_new, b_new) = unsafe { run(tc_utf16, u, cap, limit) };
+                assert_eq!(n_new, n_old, "{u:04x?} cap {cap} limit {limit}");
+                assert_eq!(b_new, b_old, "{u:04x?} cap {cap} limit {limit}");
+                if n_new >= 0 {
+                    assert_eq!(b_new, want, "{u:04x?}");
+                }
+            }
+            // the exports
+            let mut d = vec![0u8; 3 * u.len() + 1];
+            let n = unsafe { ak_utf16_to_utf8(u.as_ptr(), u.len(), d.as_mut_ptr(), d.len()) };
+            assert_eq!(&d[..n as usize], &want[..]);
+            assert_eq!(unsafe { ak_utf16_utf8_len(u.as_ptr(), u.len()) }, want.len() as i32);
+            let valid = char::decode_utf16(u.iter().copied()).all(|r| r.is_ok());
+            assert_eq!(unsafe { ak_utf16_validate(u.as_ptr(), u.len()) } == AK_OK, valid);
+            if !want.is_empty() {
+                let short = want.len() - 1;
+                assert_eq!(unsafe { ak_utf16_to_utf8(u.as_ptr(), u.len(), d.as_mut_ptr(), short) }, AK_ERR_CAPACITY);
+            }
+            // UTF-8 back to UTF-16: the replaced string round-trips to its own UTF-16.
+            let back: Vec<u16> = String::from_utf8(want.clone()).unwrap().encode_utf16().collect();
+            let mut w = vec![0u16; want.len() + 1];
+            let m = unsafe { ak_utf8_to_utf16(want.as_ptr(), want.len(), w.as_mut_ptr(), w.len()) };
+            assert_eq!(&w[..m as usize], &back[..]);
+            assert_eq!(unsafe { ak_utf8_utf16_len(want.as_ptr(), want.len()) }, back.len() as i32);
+            assert_eq!(unsafe { ak_utf8_validate(want.as_ptr(), want.len()) }, AK_OK);
+        }
+    }
+
+    #[test]
+    fn invalid_utf8_refused() {
+        for b in [&b"\xC0\x80"[..], b"\xED\xA0\x80", b"\xF4\x90\x80\x80", b"a\xFF", b"\xE2\x82"] {
+            let mut w = [0u16; 8];
+            assert_eq!(unsafe { ak_utf8_to_utf16(b.as_ptr(), b.len(), w.as_mut_ptr(), w.len()) }, AK_ERR_TRANSCODE);
+            assert_eq!(unsafe { ak_utf8_to_utf16(b.as_ptr(), b.len(), w.as_mut_ptr(), 0) }, AK_ERR_TRANSCODE);
+            assert_eq!(unsafe { ak_utf8_validate(b.as_ptr(), b.len()) }, AK_ERR_TRANSCODE);
+            assert_eq!(unsafe { ak_utf8_check(b.as_ptr(), b.len()) }, AK_ERR_TRANSCODE);
+        }
+        assert_eq!(unsafe { ak_utf8_to_utf16(core::ptr::null(), 0, core::ptr::null_mut(), 0) }, 0);
+        assert_eq!(unsafe { ak_utf16_to_utf8(core::ptr::null(), 0, core::ptr::null_mut(), 0) }, 0);
     }
 }
 

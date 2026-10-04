@@ -26,6 +26,10 @@ publish = false
 # A SIMD UTF-8 validator, used by ONE transcoder arm to separate "validation costs this"
 # from "Rust's scalar validator costs this". See ffi/logs/rust/stage3-content-sets.log.
 simdutf8 = "0.1"
+# D19 (owner, 2026-10-04): simdutf (C++, built by the crate with cc) for the core's UTF-16
+# transcoder and the UTF conversion exports. A dependency of ak-core only: the core build now
+# needs a C++11 compiler, and libak_core.so links the C++ standard library. Pinned exactly.
+simdutf = "=0.7.0"
 bytes = "1"
 # The RPC half. Versions matched to packages/rust's workspace so the incumbent the slices
 # measure against is the one ArmoniK ships.
