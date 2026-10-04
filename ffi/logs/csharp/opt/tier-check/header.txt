@@ -1,0 +1,18 @@
+# tier check (JOURNAL 73), commit dc5e9a95, 2026-10-04T08:37:52Z; CONTAINER INSTRUMENTATION, not gated (Cases.Verify on)
+# cases: full build, units incumbent-prod:default, core-ffi:retain, host-gen:retain; P1.1 and P6.1; encode-transport-hot and decode-read; BDN --warmup 4 --rounds 6 --iteration-ms 40
+# 1cpu: cpus 1, toolchain process, env [AK_ALLOW_SINGLE_CPU=1]: rc=0 54 s
+# 1cpu-delay0: cpus 1, toolchain process, env [AK_ALLOW_SINGLE_CPU=1 DOTNET_TC_CallCountingDelayMs=0]: rc=0 76 s
+# 1cpu-tc0: cpus 1, toolchain process, env [AK_ALLOW_SINGLE_CPU=1 DOTNET_TieredCompilation=0]: rc=0 53 s
+# 2cpu: cpus 0,1, toolchain process, env []: rc=0 43 s
+# 1cpu-grouped: cpus 1, toolchain grouped, env [AK_ALLOW_SINGLE_CPU=1]: rc=0 22 s
+# 2cpu-grouped: cpus 0,1, toolchain grouped, env []: rc=0 19 s
+# 1cpu-guard: cpus 1, toolchain process, env []: rc=134 10 s
+# tier check (JOURNAL 73), commit dc5e9a95, 2026-10-04T08:43:38Z; CONTAINER INSTRUMENTATION, not gated (Cases.Verify on)
+# cases: full build, units incumbent-prod:default, core-ffi:retain, host-gen:retain; P1.1 and P6.1; encode-transport-hot and decode-read; BDN --rounds 6, warm-up per line (phase 2)
+# 2cpu-w10x100: cpus 0,1, toolchain process, warm-up 10 x 100 ms, env []: rc=0 65 s
+# 2cpu-w10x40: cpus 0,1, toolchain process, warm-up 10 x 40 ms, env []: rc=0 45 s
+# 2cpu-cpus23: cpus 2,3, toolchain process, warm-up 4 x 40 ms, env []: rc=0 43 s
+# 2cpu-delay0: cpus 0,1, toolchain process, warm-up 4 x 40 ms, env [DOTNET_TC_CallCountingDelayMs=0]: rc=0 52 s
+# tier check (JOURNAL 73), commit dc5e9a95, 2026-10-04T08:47:42Z; CONTAINER INSTRUMENTATION, not gated (Cases.Verify on)
+# cases: full build, units incumbent-prod:default, core-ffi:retain, host-gen:retain; P1.1 and P6.1; encode-transport-hot and decode-read; BDN --rounds 6, warm-up per line (phase 3)
+# 2cpu-w25x40: cpus 0,1, toolchain process, warm-up 25 x 40 ms, env []: rc=0 50 s

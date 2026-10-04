@@ -96,6 +96,15 @@ P('Notation: each entry is the **median over the BDN actual iterations (rounds) 
   'counts fwd/rev/grow/reset per operation are from the committed count files (`gen/counts.txt`, '
   '`gen/counts-nounk.txt`, `gen/rpc-counts.txt`, gated; none measured in this run).')
 P('')
+cpus = set()
+for f in os.listdir(DIR):
+    if f.endswith('.jsonl'):
+        for l in open(os.path.join(DIR, f)):
+            if l.startswith('{') and '"round":1,' in l:
+                r = json.loads(l)
+                cpus.add((r.get('cpus_affinity', 'not recorded'), r.get('cpus_runtime', 'not recorded'), r.get('single_cpu_override', 'not recorded')))
+P('CPUs seen by each case\'s own process (affinity mask, Environment.ProcessorCount, single-CPU override), over every case: ' + ', '.join(str(c) for c in sorted(cpus, key=str)) + '.')
+P('')
 P('```')
 for h in hdr:
     P(h)

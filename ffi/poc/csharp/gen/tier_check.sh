@@ -20,14 +20,17 @@ unset GLIBC_TUNABLES DOTNET_TieredCompilation DOTNET_TC_CallCountingDelayMs
 B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"
 cp "$SLICE/target-core/release/libak_core.so" "$B8/"
 { echo "# tier check (JOURNAL 73), commit $(git -C "$SLICE" rev-parse --short HEAD), $(date -u +%FT%TZ); CONTAINER INSTRUMENTATION, not gated (Cases.Verify on)";
-  echo "# cases: full build, units incumbent-prod:default, core-ffi:retain, host-gen:retain; P1.1 and P6.1; encode-transport-hot and decode-read; BDN --warmup 4 --rounds 6 --iteration-ms 40"; } > "$OUT/header.txt"
-run() {  # name cpus toolchain env...
+  echo "# cases: full build, units incumbent-prod:default, core-ffi:retain, host-gen:retain; P1.1 and P6.1; encode-transport-hot and decode-read; BDN --rounds 6, warm-up per line (phase ${TIER_PHASE:-1})"; } >> "$OUT/header.txt"
+run() {  # name cpus toolchain env...   (W, T: warm-up count and iteration ms, default 4 / 40)
   local n=$1 c=$2 tc=$3; shift 3
+  local w=${W:-4} it=${T:-40}
   local t0; t0=$(date +%s.%N)
   env "$@" taskset -c "$c" dotnet "$B8/BenchDotNet.dll" --launch 1 --out "$OUT/$n.jsonl" --artifacts "$SCRATCH/bdn-$n" \
-    --rounds 6 --warmup 4 --iteration-ms 40 --toolchain "$tc" > "$OUT/$n.bdn.log" 2>&1
-  echo "# $n: cpus $c, toolchain $tc, env [$*]: rc=$? $(python3 -c "import time;print(f'{time.time()-$t0:.0f}')") s" | tee -a "$OUT/header.txt"
+    --rounds 6 --warmup "$w" --iteration-ms "$it" --toolchain "$tc" > "$OUT/$n.bdn.log" 2>&1
+  echo "# $n: cpus $c, toolchain $tc, warm-up $w x $it ms, env [$*]: rc=$? $(python3 -c "import time;print(f'{time.time()-$t0:.0f}')") s" | tee -a "$OUT/header.txt"
 }
+PHASE="${TIER_PHASE:-1}"
+if [ "$PHASE" = 1 ]; then
 run 1cpu 1 process AK_ALLOW_SINGLE_CPU=1
 run 1cpu-delay0 1 process AK_ALLOW_SINGLE_CPU=1 DOTNET_TC_CallCountingDelayMs=0
 run 1cpu-tc0 1 process AK_ALLOW_SINGLE_CPU=1 DOTNET_TieredCompilation=0
@@ -35,3 +38,16 @@ run 2cpu 0,1 process
 run 1cpu-grouped 1 grouped AK_ALLOW_SINGLE_CPU=1
 run 2cpu-grouped 0,1 grouped
 run 1cpu-guard 1 process   # the guard: must refuse (rc != 0, no rows)
+fi
+# Phase 2 (after phase 1 showed 2 CPUs alone still measuring mid-tier-up at the short warm-up):
+# the warm-up length on 2 CPUs, default toolchain.
+if [ "$PHASE" = 2 ]; then
+W=10 T=100 run 2cpu-w10x100 0,1 process
+W=10 T=40 run 2cpu-w10x40 0,1 process
+W=4 T=40 run 2cpu-cpus23 2,3 process
+W=4 T=40 run 2cpu-delay0 0,1 process DOTNET_TC_CallCountingDelayMs=0
+fi
+# Phase 3: the same ~1 s of warm-up in shorter iterations (cheaper pilot), 2 CPUs.
+if [ "$PHASE" = 3 ]; then
+W=25 T=40 run 2cpu-w25x40 0,1 process
+fi

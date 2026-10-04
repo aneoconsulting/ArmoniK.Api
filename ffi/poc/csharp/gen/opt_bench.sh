@@ -15,10 +15,11 @@
 #   * AK_BDN_MEMORY=1: BenchmarkDotNet's MemoryDiagnoser (one extra workload iteration per
 #     case after the actual stage, outside the job's clock), allocated bytes and gen0/1/2 per case.
 #
-# Settings (defaults): OPT_CODEC_WARMUP 4, OPT_CODEC_ROUNDS 6, OPT_CODEC_ITER_MS 40;
-# OPT_RPC_WARMUP 4 (req 24: 1 jitting + >= 4 pilot + 4 x >= 4 = >= 21 calls per caller thread),
-# OPT_RPC_ROUNDS 6, OPT_RPC_ITER_MS 100 (the campaign's); OPT_SERVER_WARM 2000 (the campaign's);
-# AK_CPU_CLIENT (default 1), AK_CPU_SERVER (default 2,3), AK_WORKERS (default 8, the runner's).
+# Settings (defaults): OPT_CODEC_WARMUP 25, OPT_CODEC_ROUNDS 6, OPT_CODEC_ITER_MS 40 (25 x 40 ms = ~1 s of
+# warm-up per child: on 2 CPUs a BDN child needs about that long before tier 1 is in place, JOURNAL 73,
+# logs/csharp/opt/tier-check/); OPT_RPC_WARMUP 10 (the campaign's; req 24: >= 45 calls per caller thread),
+# OPT_RPC_ROUNDS 6, OPT_RPC_ITER_MS 100 (the campaign's); OPT_SERVER_WARM 500 (campaign 2000; the server is the Rust tonic process, no JIT);
+# AK_CPU_CLIENT (default 0,1: a one-CPU .NET client is refused, JOURNAL 73), AK_CPU_SERVER (default 2,3), AK_WORKERS (default 8, the runner's).
 set -uo pipefail
 SLICE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="$(git -C "$SLICE" rev-parse --show-toplevel)"
@@ -35,14 +36,14 @@ done
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
 export SCRATCH="${SCRATCH:-$(mktemp -d)}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
-export AK_CPU_CLIENT="${AK_CPU_CLIENT:-1}" AK_CPU_SERVER="${AK_CPU_SERVER:-2,3}"
+export AK_CPU_CLIENT="${AK_CPU_CLIENT:-0,1}" AK_CPU_SERVER="${AK_CPU_SERVER:-2,3}"
 export AK_WORKERS="${AK_WORKERS:-8}"; export AK_SERVER_THREADS="${AK_SERVER_THREADS:-$AK_WORKERS}"
 export AK_CAMPAIGN_GRID=core AK_CAMPAIGN_ALLOC=default AK_BDN_MEMORY=1
 export AK_LLC_BYTES="${AK_LLC_BYTES:-14417920}"
 unset GLIBC_TUNABLES
 PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432"
-CW="${OPT_CODEC_WARMUP:-4}" CR="${OPT_CODEC_ROUNDS:-6}" CT="${OPT_CODEC_ITER_MS:-40}"
-RW="${OPT_RPC_WARMUP:-4}" RR="${OPT_RPC_ROUNDS:-6}" RT="${OPT_RPC_ITER_MS:-100}" WARM="${OPT_SERVER_WARM:-2000}"
+CW="${OPT_CODEC_WARMUP:-25}" CR="${OPT_CODEC_ROUNDS:-6}" CT="${OPT_CODEC_ITER_MS:-40}"
+RW="${OPT_RPC_WARMUP:-10}" RR="${OPT_RPC_ROUNDS:-6}" RT="${OPT_RPC_ITER_MS:-100}" WARM="${OPT_SERVER_WARM:-500}"
 B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"; BN8="$SLICE/src/BenchDotNet/bin-nounk/Release/net8.0"
 R8="$SLICE/src/Rpc/bin/Release/net8.0"
 COMMIT="$(git -C "$REPO" rev-parse HEAD)"
@@ -71,10 +72,11 @@ el() { python3 -c "print(f'{$2-$1:.1f}')"; }
   echo "# BDN:        BenchmarkDotNet 0.15.8, DEFAULT toolchain (one child process per case, as the campaign), one launch (launch 1: full build first), merged runs (one per codec build; one per RPC run kind)"
   echo "#             codec: --warmup $CW --rounds $CR --iteration-ms $CT (campaign: 10 / 5 / 100, 3 launches)"
   echo "#             rpc:   --warmup $RW --rounds $RR --iteration-ms $RT (campaign: 10 / 5 / 100, 3 launches); >= $((1 + 4 + 4 * RW)) calls per caller thread before the first measured value (req 24: >= 20)"
+  echo "#             warm-up length (JOURNAL 73, logs/csharp/opt/tier-check/): .NET 8 tiers up after a call-counting delay of 100 ms (x10 on a one-CPU affinity mask), restarted by each new tier-0 JIT; a BDN child measured tier-0 or mid-tier-up code with 4 x 40 ms of warm-up (1 CPU: always; 2 CPUs: often), and settled code with 10 x 100 ms or 25 x 40 ms on 2 CPUs; every timed process refuses a one-CPU affinity mask (CpuGuard) and each case's first row carries the CPUs its process saw"
   echo "#             MemoryDiagnoser on (AK_BDN_MEMORY=1): one extra workload iteration per case after the actual stage, outside the job's clock"
   echo "# grid:       codec: units incumbent-prod:default, core-ffi:retain, host-gen:retain (full build), core-ffi:no-unknown, host-gen:no-unknown (no-unknown build); encode-transport-hot and decode-read; 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2, 7 U-* rows"
   echo "#             rpc: transport armonik; stock h2: A, Bf (+ B a+read), Cf-retain (+ C-retain a+read), Ef-retain (+ E-retain a+read) on a+read, b (P2.2), c (P5.4), d (16 MiB) at k = 1 and 8; h2-batch: Cf-retain on c, d at k = 1, 8; pinned allocator: A, Cf-retain on c, d at k = 1"
-  echo "# dropped:    nothing of the core grid; calib not run; no plant controls"
+  echo "# dropped:    nothing of the core grid; calib not run; no plant controls; server warm-up $WARM calls per direction (campaign 2000)"
   echo "# allocator:  default (GLIBC_TUNABLES unset) for every process except the pinned-allocator subset (GLIBC_TUNABLES=$PINNED_TUNABLES)"
 } > "$OUT/header.txt"
 cat "$OUT/header.txt"

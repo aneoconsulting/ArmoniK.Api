@@ -1,0 +1,4 @@
+Unhandled exception. System.InvalidOperationException: refused: this timed process is affinitized to ONE CPU (sched_getaffinity), where .NET 8 delays tier-up 10x (TC_DelaySingleProcMultiplier) and the measurement runs tier-0 code; give the client >= 2 CPUs, or set AK_ALLOW_SINGLE_CPU=1 (labelled on every case's first row)
+   at Armonik.Ffi.Bdn.CpuGuard.Check() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs:line 312
+   at Armonik.Ffi.Bdn.Alloc.Startup() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs:line 132
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 68
