@@ -15,21 +15,27 @@ for f in sorted(glob.glob(os.path.join(D, '*.jsonl'))):
             r = json.loads(l)
             if r.get('round', 0) >= 1:
                 k = (r['cell'], r['dir'], r['payload'], r['inflight'])
-                e = by.setdefault(k, {}).setdefault(var, {'tc': {}, 'pc': [], 'wl': [], 'mem': [], 'mf': []})
+                e = by.setdefault(k, {}).setdefault(var, {'tc': {}, 'pc': [], 'wl': [], 'mem': [], 'mf': [], 'cs': [], 'gen': None})
                 e['tc'].setdefault(rep, []).append(r['cpu_ns'] / r['iters'] / 1000)
                 e['pc'].append(r['proc_cpu_ns'] / r['iters'] / 1000)
                 e['wl'].append(r['wall_ns'] / r['iters'] / 1000)
                 e['mf'].append(r['minflt'] / r['iters'])
+                if r.get('csw', -1) >= 0:
+                    e['cs'].append(r['csw'] / r['iters'])
+                if 'mem_gen' in r:
+                    e['gen'] = (r['mem_gen'], r['mem_ops'])
                 if 'mem_alloc_bytes_per_op' in r:
                     e['mem'].append(r['mem_alloc_bytes_per_op'])
 fm = lambda x: f'{x:.4g}'
 md = lambda v: f'{fm(statistics.median(v))} [{fm(min(v))}-{fm(max(v))}]'
-print('| cell | dir | payload | k | variant | task-clock us/call (per-rep medians) | process CPU | wall | B/call | minflt/call |')
-print('|---|---|---|---:|---|---|---|---|---:|---:|')
+print('| cell | dir | payload | k | variant | task-clock us/call (per-rep medians) | process CPU | wall | B/call | Gen0/1/2 per 1k calls | minflt/call | ctx switches/call |')
+print('|---|---|---|---:|---|---|---|---|---:|---:|---:|---:|')
 for k in sorted(by):
     for v in sorted(by[k]):
         e = by[k][v]
         tc = [x for rr in e['tc'].values() for x in rr]
         reps = ' '.join(fm(statistics.median(e['tc'][r])) for r in sorted(e['tc']))
         mem = fm(statistics.median(e['mem'])) if e['mem'] else 'n/a'
-        print(f'| {k[0]} | {k[1]} | {k[2]} | {k[3]} | {v} | {md(tc)} ({reps}) | {md(e["pc"])} | {md(e["wl"])} | {mem} | {statistics.median(e["mf"]):.3g} |')
+        gen = '/'.join(f'{1000.0 * x / e["gen"][1]:.3g}' for x in e['gen'][0]) if e['gen'] else 'n/a'
+        cs = f'{statistics.median(e["cs"]):.3g}' if e['cs'] else 'n/a'
+        print(f'| {k[0]} | {k[1]} | {k[2]} | {k[3]} | {v} | {md(tc)} ({reps}) | {md(e["pc"])} | {md(e["wl"])} | {mem} | {gen} | {statistics.median(e["mf"]):.3g} | {cs} |')

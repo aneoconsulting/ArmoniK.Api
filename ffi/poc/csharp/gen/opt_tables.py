@@ -255,8 +255,8 @@ if rpc:
     for dr, pl in DIRS:
         P(f'### direction {dr} ({pl})')
         P('')
-        P('| cell | h2 / alloc | k | task-clock CPU / call | process CPU / call | wall / call | alloc B / call; Gen0/1/2 per 1k calls | minflt / call | crossings fwd/rev/grow/reset | client softirq ticks |')
-        P('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|')
+        P('| cell | h2 / alloc | k | task-clock CPU / call | process CPU / call | wall / call | alloc B / call; Gen0/1/2 per 1k calls | minflt / call | ctx switches / call | crossings fwd/rev/grow/reset | client softirq ticks |')
+        P('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
         ks = sorted(by.items(), key=lambda kv: (okey(kv[0][0]), kv[0][4], kv[0][5], kv[0][3]))
         for (cell, d2, p2, k, h2, al), rs in ks:
             if d2 != dr:
@@ -265,6 +265,8 @@ if rpc:
             pc = [r['proc_cpu_ns'] / r['iters'] / 1000.0 for r in rs]
             wl = [r['wall_ns'] / r['iters'] / 1000.0 for r in rs]
             mf = statistics.median([r['minflt'] / r['iters'] for r in rs])
+            csv = [r['csw'] / r['iters'] for r in rs if r.get('csw', -1) >= 0]
+            csw = f'{statistics.median(csv):.3g}' if csv else 'n/a'
             r0 = rs[0]
             if 'mem_alloc_bytes_per_op' in r0:
                 ops = r0['mem_ops']
@@ -276,7 +278,7 @@ if rpc:
             cnt = rc.get(f'RPC {cell} {dr} {p2} {mode}', '-' if cell == 'A' else 'MISSING')
             lab = ('stock' if h2 == 'stock' else '**h2-batch**') + ' / ' + ('default' if al == 'default' else '**pinned**')
             sirq = r0.get('client_softirq_ticks', '')
-            P(f'| {cell} | {lab} | {k} | {cell_txt(tc)} | {cell_txt(pc)} | {cell_txt(wl)} | {mem} | {mf:.1f} | {cnt} | {sirq} |')
+            P(f'| {cell} | {lab} | {k} | {cell_txt(tc)} | {cell_txt(pc)} | {cell_txt(wl)} | {mem} | {mf:.1f} | {csw} | {cnt} | {sirq} |')
         P('')
     with open(os.path.join(DIR, 'rpc.tsv'), 'w') as t:
         t.write('cell\tdir\tpayload\tinflight\th2\talloc\trounds\ttaskclock_ns_per_call_median\tmin\tmax\tproc_cpu_ns_per_call_median\twall_ns_per_call_median\twall_min\twall_max\tcalls_per_round\tminflt_per_call_median\talloc_bytes_per_call\tgen0\tgen1\tgen2\tmem_calls\tclient_softirq_ticks\ttaskclock_ns_per_call_by_round\n')
