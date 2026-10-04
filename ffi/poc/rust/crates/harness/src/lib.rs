@@ -17,6 +17,8 @@ pub mod generated {
 pub fn abi_version() -> u32 {
     unsafe { ak_abi::ak_abi_version() }
 }
+/// D19: the simdutf UTF-16 transcoder and the UTF exports (bins tc16_diff, tc16_bench).
+pub mod d19;
 pub mod manifest;
 /// A layout perturbation used by `gen/stability.sh`; empty in a normal build.
 pub mod pad;
