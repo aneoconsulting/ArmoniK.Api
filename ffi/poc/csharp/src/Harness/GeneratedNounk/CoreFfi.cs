@@ -193,7 +193,7 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); ReleaseChunk(); }
+    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); if (Mode == E1C) ReleaseChunk(); }
 
     /// E1: the pins of the last codec call, released once it has returned (the core copied
     /// the strings into its own buffer during the call).
@@ -347,19 +347,9 @@ public sealed unsafe class Stage : IDisposable
     public ak_str StrPresent(string s)
     {
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
-        int m = Mode;
-        if (m != E0 && !Utf16 && s.Length >= Threshold && !(NonAsciiOnly && IsAscii(s)))
-        {
-            switch (m)
-            {
-                case E1: case ETH: return Pin(s);
-                case E2: case E3: case E3L: return Tab(s, m);
-                default:   // E1R, E1C: marked here, pinned by the frame around the call that reads it
-                    Marked++;
-                    if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
-                    return new ak_str { data = PinPending, len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
-            }
-        }
+        // The non-default paths in a method of their own, so this one keeps the E0 shape it had
+        // before them (JOURNAL 76: the default encode measured about 8 to 15 ns slower otherwise).
+        if (Mode != E0 && !Utf16 && Alt(s, out var alt)) return alt;
         if (Utf16)
         {
             // `len` counts CODE UNITS: ak_tc_utf16 reads `*const u16`.
@@ -373,6 +363,24 @@ public sealed unsafe class Stage : IDisposable
         fixed (char* c = s) n = Encoding.UTF8.GetBytes(c, s.Length, q, max);
         Commit(n);
         return new ak_str { data = (IntPtr)q, len = (nuint)n, tc = Tc };
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool Alt(string s, out ak_str r)
+    {
+        r = default;
+        int m = Mode;
+        if (s.Length < Threshold || (NonAsciiOnly && IsAscii(s))) return false;
+        switch (m)
+        {
+            case E1: case ETH: r = Pin(s); return true;
+            case E2: case E3: case E3L: r = Tab(s, m); return true;
+            default:   // E1R, E1C: marked here, pinned by the frame around the call that reads it
+                Marked++;
+                if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
+                r = new ak_str { data = PinPending, len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
+                return true;
+        }
     }
 
     private static bool IsAscii(string s)
@@ -997,7 +1005,9 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -1015,7 +1025,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             loop_results = &Loop_results,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListResultsResponse();
             G.E_ListResultsResponse(ref fix, src, _st);
@@ -1024,7 +1034,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -1704,7 +1714,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -1810,7 +1822,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListTasksDetailedResponse();
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
@@ -1819,7 +1831,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -2283,7 +2295,9 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -2301,7 +2315,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             loop_probes = &Loop_probes,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListProbeResponse();
             G.E_ListProbeResponse(ref fix, src, _st);
@@ -2310,7 +2324,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -2746,7 +2760,9 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -2780,7 +2796,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListTaskSummaryResponse();
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
@@ -2789,7 +2805,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -3082,12 +3098,38 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         return a;
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static nint RootPinR_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    {
+        var __c1 = src.Upload;
+        fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
+        {
+            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; Stage.Patched++; }
+            fixed (byte* dp = direct) return Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static nint RootPinH_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    {
+        var __c1 = src.Upload;
+        if (__g->upload.session_id.data == Stage.PinPending) __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId);
+        if (__g->upload.result_id.data == Stage.PinPending) __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId);
+        nint rc;
+        fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
+        Stage.ReleaseChunk();
+        return rc;
+    }
+
     private int Go(UploadResultDataMessage src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         var vt = new ak_evt_UploadResultDataMessage
@@ -3097,36 +3139,17 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         // ABI v1 section 8: the one direct-argument field of this tree, pinned for the call.
         byte[] direct = src.Upload?.DataChunk ?? Array.Empty<byte>();
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_UploadResultDataMessage();
             G.E_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (Stage.Defer == 1)
-            {
-                var __c1 = src.Upload;
-                fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
-                {
-                    var __g = &fix;
-                    if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; Stage.Patched++; }
-                    if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; Stage.Patched++; }
-                    fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
-                }
-            }
-            else if (Stage.Defer == 2)
-            {
-                var __c1 = src.Upload;
-                var __g = &fix;
-                if (__g->upload.session_id.data == Stage.PinPending) __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId);
-                if (__g->upload.result_id.data == Stage.PinPending) __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId);
-                fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
-                Stage.ReleaseChunk();
-            }
-            else fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
+            if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
+            else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -3549,7 +3572,9 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -3658,7 +3683,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             elem_batches = _evt_batches,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListMetricsResponse();
             G.E_ListMetricsResponse(ref fix, src, _st);
@@ -3667,7 +3692,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
@@ -4200,7 +4225,9 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         outPtr = null; outLen = 0;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
-        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches
+        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+        long __mk0 = 0, __pt0 = 0;
+        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         if (retain) throw new NotSupportedException("unknown fields are compiled out of this build (WP5 step 10): no ak_uencode");
         {
@@ -4229,7 +4256,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             loop_right = &Loop_right,
         };
         nint rc;
-        if (Stage.Defer != 0) _pinSrc = src;
+        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_DualResponse();
             G.E_DualResponse(ref fix, src, _st);
@@ -4238,7 +4265,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
-        if (Stage.Defer != 0)
+        if (__d != 0)
         {
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.

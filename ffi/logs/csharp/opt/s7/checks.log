@@ -1,4 +1,4 @@
-# s7_checks.sh at 1818d178 + uncommitted; 2026-10-04T19:54:24Z
+# s7_checks.sh at 70fb9443 + uncommitted; 2026-10-04T21:07:22Z
 # cores: 800d7882ab536255 (full) 11e0c85ae13efa7a (nounk) a9b0944005c94f70 (corpus) 28a03470681c347e (corpus nounk)
 ## 1. Cases.Verify (every payload, content set and U-* row under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na)
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
@@ -1562,31 +1562,31 @@ exit status: 1
 control corpus E1C K 3, handles released before the call + compacting GC: failed, as required
 ## 4. K bound: a K above Stage.MaxPinK is refused
 $ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
-gen/s7_checks.sh: line 12: 30626 Aborted                 "$@" > "${SCRATCH:-/tmp}/ctl.out" 2>&1
-   at Armonik.Ffi.Harness.CoreFfi_ListResultsResponse.EncodeToArray(ListResultsResponse src, Boolean retain) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/CoreFfi.cs:line 1487
+gen/s7_checks.sh: line 12: 27590 Aborted                 "$@" > "${SCRATCH:-/tmp}/ctl.out" 2>&1
+   at Armonik.Ffi.Harness.CoreFfi_ListResultsResponse.EncodeToArray(ListResultsResponse src, Boolean retain) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/CoreFfi.cs:line 1495
    at Armonik.Ffi.Campaign.Ops_ListResultsResponse.EncFfiBytes(Boolean retain) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Generated/CampaignOps.cs:line 540
    at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 310
    at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 97
 exit status: 134
 control K 257 refused: failed, as required
 ## 5. counts per path (= gen/counts-str-<path>[-nounk].txt)
-$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e3.txt' > /dev/null && diff -q gen/counts-str-e3.txt '/tmp/tmp.dNC1TxENip/c-e3.txt'
+$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e3.txt' > /dev/null && diff -q gen/counts-str-e3.txt '/tmp/tmp.jPBeuEcde2/c-e3.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e3-nounk.txt' > /dev/null && diff -q gen/counts-str-e3-nounk.txt '/tmp/tmp.dNC1TxENip/c-e3-nounk.txt'
+$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e3-nounk.txt' > /dev/null && diff -q gen/counts-str-e3-nounk.txt '/tmp/tmp.jPBeuEcde2/c-e3-nounk.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e3l.txt' > /dev/null && diff -q gen/counts-str-e3l.txt '/tmp/tmp.dNC1TxENip/c-e3l.txt'
+$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e3l.txt' > /dev/null && diff -q gen/counts-str-e3l.txt '/tmp/tmp.jPBeuEcde2/c-e3l.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e3l-nounk.txt' > /dev/null && diff -q gen/counts-str-e3l-nounk.txt '/tmp/tmp.dNC1TxENip/c-e3l-nounk.txt'
+$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e3l-nounk.txt' > /dev/null && diff -q gen/counts-str-e3l-nounk.txt '/tmp/tmp.jPBeuEcde2/c-e3l-nounk.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e1r.txt' > /dev/null && diff -q gen/counts-str-e1r.txt '/tmp/tmp.dNC1TxENip/c-e1r.txt'
+$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e1r.txt' > /dev/null && diff -q gen/counts-str-e1r.txt '/tmp/tmp.jPBeuEcde2/c-e1r.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e1r-nounk.txt' > /dev/null && diff -q gen/counts-str-e1r-nounk.txt '/tmp/tmp.dNC1TxENip/c-e1r-nounk.txt'
+$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e1r-nounk.txt' > /dev/null && diff -q gen/counts-str-e1r-nounk.txt '/tmp/tmp.jPBeuEcde2/c-e1r-nounk.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e1c.txt' > /dev/null && diff -q gen/counts-str-e1c.txt '/tmp/tmp.dNC1TxENip/c-e1c.txt'
+$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e1c.txt' > /dev/null && diff -q gen/counts-str-e1c.txt '/tmp/tmp.jPBeuEcde2/c-e1c.txt'
 exit status: 0
-$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e1c-nounk.txt' > /dev/null && diff -q gen/counts-str-e1c-nounk.txt '/tmp/tmp.dNC1TxENip/c-e1c-nounk.txt'
+$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e1c-nounk.txt' > /dev/null && diff -q gen/counts-str-e1c-nounk.txt '/tmp/tmp.jPBeuEcde2/c-e1c-nounk.txt'
 exit status: 0
-$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.dNC1TxENip/c-e0.txt' > /dev/null && diff -q gen/counts.txt '/tmp/tmp.dNC1TxENip/c-e0.txt'
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.jPBeuEcde2/c-e0.txt' > /dev/null && diff -q gen/counts.txt '/tmp/tmp.jPBeuEcde2/c-e0.txt'
 exit status: 0
 
 S7 CHECKS PASSED (net8.0; not the gate)

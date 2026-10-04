@@ -1,0 +1,9 @@
+simdutf 7.7.1
+SIMDUTF_FORCE_IMPLEMENTATION=(unset)
+available: icelake    supported_by_runtime_system=0  (Intel AVX512 (AVX-512BW, AVX-512CD, AVX-512VL, AVX-512VBMI2 extensions))
+available: haswell    supported_by_runtime_system=1  (Intel/AMD AVX2)
+available: westmere   supported_by_runtime_system=1  (Intel/AMD SSE4.2)
+available: fallback   supported_by_runtime_system=1  (Generic fallback implementation)
+active: haswell (Intel/AMD AVX2)
+-- SIMDUTF_FORCE_IMPLEMENTATION=westmere: active: westmere (Intel/AMD SSE4.2)
+-- SIMDUTF_FORCE_IMPLEMENTATION=fallback: active: fallback (Generic fallback implementation)

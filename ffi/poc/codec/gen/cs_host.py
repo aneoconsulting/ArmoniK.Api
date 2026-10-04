@@ -627,7 +627,7 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); ReleaseChunk(); }
+    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); if (Mode == E1C) ReleaseChunk(); }
 
     /// E1: the pins of the last codec call, released once it has returned (the core copied
     /// the strings into its own buffer during the call).
@@ -781,19 +781,9 @@ public sealed unsafe class Stage : IDisposable
     public ak_str StrPresent(string s)
     {
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
-        int m = Mode;
-        if (m != E0 && !Utf16 && s.Length >= Threshold && !(NonAsciiOnly && IsAscii(s)))
-        {
-            switch (m)
-            {
-                case E1: case ETH: return Pin(s);
-                case E2: case E3: case E3L: return Tab(s, m);
-                default:   // E1R, E1C: marked here, pinned by the frame around the call that reads it
-                    Marked++;
-                    if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
-                    return new ak_str { data = PinPending, len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
-            }
-        }
+        // The non-default paths in a method of their own, so this one keeps the E0 shape it had
+        // before them (JOURNAL 76: the default encode measured about 8 to 15 ns slower otherwise).
+        if (Mode != E0 && !Utf16 && Alt(s, out var alt)) return alt;
         if (Utf16)
         {
             // `len` counts CODE UNITS: ak_tc_utf16 reads `*const u16`.
@@ -807,6 +797,24 @@ public sealed unsafe class Stage : IDisposable
         fixed (char* c = s) n = Encoding.UTF8.GetBytes(c, s.Length, q, max);
         Commit(n);
         return new ak_str { data = (IntPtr)q, len = (nuint)n, tc = Tc };
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private bool Alt(string s, out ak_str r)
+    {
+        r = default;
+        int m = Mode;
+        if (s.Length < Threshold || (NonAsciiOnly && IsAscii(s))) return false;
+        switch (m)
+        {
+            case E1: case ETH: r = Pin(s); return true;
+            case E2: case E3: case E3L: r = Tab(s, m); return true;
+            default:   // E1R, E1C: marked here, pinned by the frame around the call that reads it
+                Marked++;
+                if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
+                r = new ak_str { data = PinPending, len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
+                return true;
+        }
     }
 
     private static bool IsAscii(string s)
@@ -1262,33 +1270,52 @@ def _emit_pin_strs(o, name):
     o += ""
 
 
-def _root_call(o, ind, call, rpins):
-    """The root encode call; under E1R / E1C wrapped in the root group's pin frame."""
+def _root_call(o, ind, call, rpins, x, ds):
+    """The root encode call; under E1R / E1C a call to the root's pin method (RootPinR_/H_<x>),
+    kept out of Go so the default path's code is not the frame's (the `fixed` scope and its
+    pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76)."""
     decls, pins = rpins
     if not pins:
         o += ind + call
         return
-    o += ind + "if (Stage.Defer == 1)"
-    o += ind + "{"
-    for d in decls:
-        o += ind + "    " + d.replace("__e", "src")
-    o += ind + "    " + _fixed_open(pins)
-    o += ind + "    {"
-    o += ind + "        var __g = &fix;"
-    _pin_patch_r(o, ind + "        ", "__g", pins)
-    o += ind + "        " + call
-    o += ind + "    }"
-    o += ind + "}"
-    o += ind + "else if (Stage.Defer == 2)"
-    o += ind + "{"
-    for d in decls:
-        o += ind + "    " + d
-    o += ind + "    var __g = &fix;"
-    _pin_patch_h(o, ind + "    ", "__g", pins)
-    o += ind + "    " + call
-    o += ind + "    Stage.ReleaseChunk();"
-    o += ind + "}"
-    o += ind + "else " + call
+    args = "_run, _ctx, &vt, &fix, src%s" % (", direct" if ds else "")
+    o += ind + "if (__d == 0) " + call
+    o += ind + "else rc = __d == 1 ? RootPinR_%s(%s) : RootPinH_%s(%s);" % (x, args, x, args)
+
+
+def _emit_root_pins(o, p, root, ds, rpins):
+    """E1R / E1C: the root group's strings pinned around the root encode call (one `fixed` scope
+    with every root string, or chunk-lived GCHandles), in methods of their own."""
+    decls, pins = rpins
+    if not pins:
+        return
+    for x, fix, fn in ([("e", "ak_efix", "ak_encode")] + ([] if _NO else [("u", "ak_ufix", "ak_uencode")])):
+        sig = "Run_%s* _run, IntPtr _ctx, ak_evt_%s* vt, %s_%s* __g, %s src%s" % (root, root, fix, root, root, ", byte[] direct" if ds else "")
+        call = "Abi.%s_%s(_run, _ctx, vt, __g%s)" % (fn, root, ", dp, (nuint)direct.Length" if ds else "")
+        o += "    [MethodImpl(MethodImplOptions.NoInlining)]"
+        o += "    private static nint RootPinR_%s(%s)" % (x, sig)
+        o += "    {"
+        for d in decls:
+            o += "        " + d
+        o += "        " + _fixed_open(pins)
+        o += "        {"
+        _pin_patch_r(o, "            ", "__g", pins)
+        o += "            %sreturn %s;" % ("fixed (byte* dp = direct) " if ds else "", call)
+        o += "        }"
+        o += "    }"
+        o += ""
+        o += "    [MethodImpl(MethodImplOptions.NoInlining)]"
+        o += "    private static nint RootPinH_%s(%s)" % (x, sig)
+        o += "    {"
+        for d in decls:
+            o += "        " + d
+        _pin_patch_h(o, "        ", "__g", pins)
+        o += "        nint rc;"
+        o += "        %src = %s;" % ("fixed (byte* dp = direct) " if ds else "", call)
+        o += "        Stage.ReleaseChunk();"
+        o += "        return rc;"
+        o += "    }"
+        o += ""
 
 
 def _emit_root(o, p, root, facade_ns):
@@ -1467,12 +1494,15 @@ def _emit_root(o, p, root, facade_ns):
     o += "        return a;"
     o += "    }"
     o += ""
+    _emit_root_pins(o, p, root, ds, _pin_fields(p, root, "src"))
     o += "    private int Go(%s src, bool retain, bool call, out byte* outPtr, out int outLen)" % root
     o += "    {"
     o += "        outPtr = null; outLen = 0;"
     o += "        Abi.ak_enc_reset(_ctx);"
     o += "        _st.Reset();"
-    o += "        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches"
+    o += "        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only"
+    o += "        long __mk0 = 0, __pt0 = 0;"
+    o += "        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches"
     o += "        _run->Chunk = Chunk;"
     if _NO:
         o += "        if (retain) throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10): no ak_uencode\");"
@@ -1537,7 +1567,7 @@ def _emit_root(o, p, root, facade_ns):
         dargs = ", dp, (nuint)direct.Length"
     o += "        nint rc;"
     rpins = _pin_fields(p, root, "src")
-    o += "        if (Stage.Defer != 0) _pinSrc = src;"
+    o += "        if (__d != 0) _pinSrc = src;"
     if _NO:
         o += "        {"
         o += "            var fix = new ak_efix_%s();" % root
@@ -1545,7 +1575,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
-                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
+                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "e", ds)
         o += "        }"
     else:
         o += "        if (retain)"
@@ -1555,7 +1585,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
-                   else ("rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
+                   else ("rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "u", ds)
         o += "        }"
         o += "        else"
         o += "        {"
@@ -1564,10 +1594,10 @@ def _emit_root(o, p, root, facade_ns):
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
-                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
+                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "e", ds)
         o += "        }"
     o += "        _st.ReleasePins();   // D21 E1: the core has copied every pinned string"
-    o += "        if (Stage.Defer != 0)"
+    o += "        if (__d != 0)"
     o += "        {"
     o += "            _pinSrc = null;"
     o += "            // E1R / E1C: every mark the fill left was patched by a frame before the core read it."

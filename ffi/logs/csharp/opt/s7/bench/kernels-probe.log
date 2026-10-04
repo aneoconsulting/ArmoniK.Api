@@ -1,0 +1,10 @@
+runtime 8.0.31, X64
+Vector512.IsHardwareAccelerated=False
+Vector256.IsHardwareAccelerated=True
+Vector128.IsHardwareAccelerated=True
+Vector<byte>.Count=32
+Avx512F=True Avx512BW=True Avx512CD=True Avx512DQ=True Avx512Vbmi=False Avx2=True Sse42=True
+DOTNET_PreferredVectorBitWidth=(unset)
+DOTNET_EnableAVX512F=(unset)
+DOTNET_EnableAVX2=(unset)
+DOTNET_TieredCompilation=(unset)

@@ -1,0 +1,22 @@
+# E0 per-encode overhead of the step-7 machinery: the sweep's E0 (and E1, E2) at 4 and 64 code units, pre-step-7 build (1818d178) vs step-7 build (70fb9443), alternated, separate processes (absolutes do not travel between them; E2's per-string path is unchanged by step 7 except the Tab argument). CONTAINER INSTRUMENTATION.
+pre r1 rc=0 load 0.53
+post r1 rc=0 load 0.56
+pre r2 rc=0 load 0.52
+post r2 rc=0 load 0.56
+# after moving the root pin frames out of Go (RootPinR_/H_ methods): fix-r1/r2 vs pre-r3/r4
+pre r3 rc=0 load 0.53
+fix r3 rc=0 load 0.53
+pre r4 rc=0 load 0.57
+fix r4 rc=0 load 0.52
+# after reading Stage.Defer once into a local and guarding Reset's ReleaseChunk (thread-static): fix2 vs pre r5/r6
+pre r5 rc=0 load 0.53
+fix2 r5 rc=0 load 0.52
+pre r6 rc=0 load 0.56
+fix2 r6 rc=0 load 0.51
+# after moving StrPresent's non-default paths into Alt (NoInlining): fix3 vs pre r7..r9
+pre r7 rc=0 load 0.53
+fix3 r7 rc=0 load 0.57
+pre r8 rc=0 load 0.52
+fix3 r8 rc=0 load 0.56
+pre r9 rc=0 load 0.52
+fix3 r9 rc=0 load 0.56
