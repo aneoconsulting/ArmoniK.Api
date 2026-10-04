@@ -101,6 +101,7 @@ public static class Program
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)",
         };
         if (MemStats.On) hdr = hdr.Append(MemStats.Header).ToArray();
+        hdr = hdr.Append(CpuGuard.Header).ToArray();
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 

@@ -563,6 +563,7 @@ public static class RpcBenchMain
         hdr.Add("# channels:       each benchmark process builds only the cell of its case, from the case key, with its own channel(s) (one per cell and direction group, opened in the case's setup and kept to the process's end); each row's cell is checked against the cell the process ran (refused on a mismatch)" + (RpcCtx.RunUnits.Length > 1 ? "; this BDN run merges units " + RpcCtx.Unit + " (owner, 2026-10-03), every case in its own child process" : ""));
         hdr.Add(CampaignMain.ThreadLine("caller threads " + RpcCtx.Levels.Max() + "; core runtime 1, " + RpcCtx.Workers + " worker thread(s)"));
         if (MemStats.On) hdr.Add(MemStats.Header);
+        hdr.Add(CpuGuard.Header);
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 

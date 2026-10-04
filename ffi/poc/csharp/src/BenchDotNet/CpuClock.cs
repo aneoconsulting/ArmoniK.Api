@@ -129,6 +129,7 @@ public static class Alloc
         Probe();
         var m = Mismatch();
         if (m != null) throw new InvalidOperationException("allocator mode mismatch: " + m);
+        CpuGuard.Check();
         WriteChild();
     }
     /// Under the default toolchain the child's probe is written for the host (one file per
@@ -136,7 +137,7 @@ public static class Alloc
     private static void WriteChild()
     {
         if (CpuClock.ChildDir == null) return;
-        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n" + CpuGuard.Fields() + "\n");
         ChildFile = "probe-" + Environment.ProcessId + ".txt";
     }
     public static string ChildFile;
@@ -144,14 +145,16 @@ public static class Alloc
     /// child wrote its pid's file and the case's key file is a copy).
     public static string RowFields(string key)
     {
-        string probe = _probe;
+        string probe = _probe, cpus = CpuGuard.Fields();
         if (CpuClock.ChildDir != null)
         {
             var kf = CpuClock.KeyFile(key) + ".probe";
-            if (!System.IO.File.Exists(kf)) return ",\"alloc_probe\":\"not recorded\"";
-            probe = System.IO.File.ReadAllText(kf).Trim();
+            if (!System.IO.File.Exists(kf)) return ",\"alloc_probe\":\"not recorded\",\"cpus\":\"not recorded\"";
+            var ls = System.IO.File.ReadAllText(kf).Trim().Split('\n');
+            probe = ls[0].Trim();
+            cpus = ls.Length > 1 ? ls[1].Trim() : "\"cpus\":\"not recorded\"";
         }
-        return ",\"alloc_probe\":\"" + probe + "\"";
+        return ",\"alloc_probe\":\"" + probe + "\"," + cpus;
     }
 }
 
@@ -279,4 +282,38 @@ public static class MemStats
             per.HasValue ? per.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null",
             g.Gen0Collections, g.Gen1Collections, g.Gen2Collections, g.TotalOperations, g.GetTotalAllocatedBytes(true));
     }
+}
+
+/// The CPUs this process may run on, and a refusal of a timed managed process pinned to ONE
+/// CPU (2026-10-04, the aggregating session, JOURNAL 73): .NET 8 multiplies the tier-up
+/// call-counting delay (TC_CallCountingDelayMs, 100 ms) by TC_DelaySingleProcMultiplier (10)
+/// when the process is affinitized to a single processor, so tier 1 arrives ~1 s after the last
+/// tier-0 JIT, later than a BDN child measures: a one-CPU run measures tier-0 code. Checked once
+/// per process (the host and every BDN child, Alloc.Startup); AK_ALLOW_SINGLE_CPU=1 overrides,
+/// and the row says so. The effective count goes on each case's first row (the child's own
+/// under the default toolchain).
+public static unsafe class CpuGuard
+{
+    [DllImport("libc", SetLastError = true)] private static extern int sched_getaffinity(int pid, nuint size, ulong* mask);
+    public static int Affinity()
+    {
+        ulong* m = stackalloc ulong[16];
+        for (int i = 0; i < 16; i++) m[i] = 0;
+        if (sched_getaffinity(0, 16 * 8, m) != 0) return -1;
+        int n = 0;
+        for (int i = 0; i < 16; i++) n += System.Numerics.BitOperations.PopCount(m[i]);
+        return n;
+    }
+    public static bool Override => Environment.GetEnvironmentVariable("AK_ALLOW_SINGLE_CPU") == "1";
+    public static void Check()
+    {
+        int n = Affinity();
+        if (n == 1 && !Override)
+            throw new InvalidOperationException("refused: this timed process is affinitized to ONE CPU (sched_getaffinity), where .NET 8 delays tier-up 10x (TC_DelaySingleProcMultiplier) and the measurement runs tier-0 code; give the client >= 2 CPUs, or set AK_ALLOW_SINGLE_CPU=1 (labelled on every case's first row)");
+    }
+    public static string Fields() => string.Format(System.Globalization.CultureInfo.InvariantCulture,
+        "\"cpus_affinity\":{0},\"cpus_runtime\":{1},\"single_cpu_override\":{2}", Affinity(), Environment.ProcessorCount, Override && Affinity() == 1 ? "true" : "false");
+    public static string Header => "# cpus:           this process: " + Affinity() + " CPU(s) in its affinity mask (sched_getaffinity), Environment.ProcessorCount " + Environment.ProcessorCount
+        + "; single-CPU guard (JOURNAL 73): a timed process (host or BDN child) with ONE CPU is refused unless AK_ALLOW_SINGLE_CPU=1 (here: " + (Override ? "SET" : "unset") + "); each case's first row carries cpus_affinity, cpus_runtime and single_cpu_override as its own process saw them"
+        + (Affinity() == 1 ? " -- SINGLE CPU UNDER OVERRIDE: .NET 8's tier-up delay is 10x (about 1 s); managed timings here likely include tier-0 code" : "");
 }

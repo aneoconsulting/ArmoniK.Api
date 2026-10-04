@@ -77,7 +77,7 @@ fi
 # Values already in the environment win, as in campaign.sh.
 CPUSRC="environment (ffi/campaign.sh exports ffi/campaign.machine's)"
 if [ -z "${AK_CPU_CLIENT:-}" ] || { [ "$SUITE" = rpc ] && [ -z "${AK_CPU_SERVER:-}" ]; }; then
-  if [ $SMOKE = 1 ]; then AK_CPU_CLIENT="${AK_CPU_CLIENT:-0}"; AK_CPU_SERVER="${AK_CPU_SERVER:-1}"; CPUSRC="smoke defaults (a container has no campaign CPU sets)"
+  if [ $SMOKE = 1 ]; then AK_CPU_CLIENT="${AK_CPU_CLIENT:-0,1}"; AK_CPU_SERVER="${AK_CPU_SERVER:-2,3}"; CPUSRC="smoke defaults (a container has no campaign CPU sets; the client gets 2 CPUs: a one-CPU .NET process is refused, JOURNAL 73)"
   elif [ -f "$REPO/ffi/campaign.machine" ]; then
     # shellcheck source=/dev/null
     . "$REPO/ffi/campaign.machine"; CPUSRC="ffi/campaign.machine (${AK_MACHINE_NAME:-unnamed})"
