@@ -154,6 +154,12 @@ echo "# the campaign server: $(cat "$SCRATCH/srv.start" | tr '\n' ' ')"
 core "$R8" target-core-count
 run "akrpc layout" dotnet "$R8/akrpc.dll" --layout "$LAY"
 run "akrpc error path (against the campaign server: Fetch ok, StatusU13 a non-OK status)" dotnet "$R8/akrpc.dll" --error-path --sock "$SOCK"
+# D7 (2026-10-04): every core delivery the delivery cells use (callback, callback with inline
+# continuations, queue with one drainer) reports status, a non-OK status and a cancel as the
+# blocking delivery does, unary (copy and move) and client streaming (copy and move sends).
+core "$R8" target-core
+run "akrpc delivery semantics (D7)" dotnet "$R8/akrpc.dll" --delivery-semantics --sock "$SOCK"
+core "$R8" target-core-count
 
 for lvl in $LEVELS; do
   if [ $lvl = 8 ]; then CX=("$C8/corpus"); C="$C8"; else CX=("$C6/corpus"); C="$C6"; fi
@@ -248,6 +254,8 @@ AK_COUNT_GROW=exact control "codec counts with an exact-size grow (the counted g
 echo "# rpc counts and the upload check: against the campaign server ($SOCK, started in step 6)"
 run "rpc counts, full build (= gen/rpc-counts.txt)" bash -c "dotnet '$RC/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-full '$SLICE/gen/rpc-counts.txt' '$SCRATCH/rpc-counts.txt'"
 run "rpc counts, no-unknown build (= gen/rpc-counts-nounk.txt)" bash -c "dotnet '$RCN/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-nounk '$SLICE/gen/rpc-counts-nounk.txt' '$SCRATCH/rpc-counts-nounk.txt'"
+AK_RPC_COUNT_DELIVERIES=1 run "rpc delivery-cell counts, full build (= gen/rpc-delivery-counts.txt)" bash -c "dotnet '$RC/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-delivery-counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-deliveries '$SLICE/gen/rpc-delivery-counts.txt' '$SCRATCH/rpc-delivery-counts.txt'"
+AK_RPC_COUNT_DELIVERIES=1 run "rpc delivery-cell counts, no-unknown build (= gen/rpc-delivery-counts-nounk.txt)" bash -c "dotnet '$RCN/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$SCRATCH/rpc-delivery-counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts rpc-deliveries-nounk '$SLICE/gen/rpc-delivery-counts-nounk.txt' '$SCRATCH/rpc-delivery-counts-nounk.txt'"
 # WP8 (CAMPAIGN req 14 as amended): the upload directions' correctness before timing, both
 # builds: every c cell accepted, every d stream's count and SHA-256 equal (every cell and
 # framed twin); a planted wrong SHA-256 must fail.

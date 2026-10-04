@@ -122,15 +122,18 @@ for b in ('full', 'nounk'):
 if cod:
     cf = counts(os.path.join(GEN, 'counts.txt'))
     cn = counts(os.path.join(GEN, 'counts-nounk.txt'))
-    UNITS = [('incumbent-prod', 'full'), ('core-ffi', 'retain'), ('core-ffi', 'no-unknown'),
-             ('host-gen', 'retain'), ('host-gen', 'no-unknown')]
-    UL = ['incumbent-prod', 'core-ffi retain', 'core-ffi no-unknown', 'host-gen retain', 'host-gen no-unknown']
+    UNITS = [('incumbent-prod', 'full'), ('core-ffi', 'retain'), ('core-ffi', 'drop'), ('core-ffi', 'no-unknown'),
+             ('host-gen', 'retain'), ('host-gen', 'drop'), ('host-gen', 'no-unknown')]
+    UL = ['incumbent-prod', 'core-ffi retain', 'core-ffi drop', 'core-ffi no-unknown', 'host-gen retain', 'host-gen drop', 'host-gen no-unknown']
 
     def unit_of(d):
         if d['arm'] == 'incumbent-prod':
             return ('incumbent-prod', 'full')
         return (d['arm'], d['unknown_mode'])
 
+    have = {unit_of(d) for d in cod}
+    keep = [i for i, u in enumerate(UNITS) if u in have]
+    UNITS = [UNITS[i] for i in keep]; UL = [UL[i] for i in keep]
     by = {}
     for d in cod:
         k = (d['payload'], d['content'], d['dir'], unit_of(d))
@@ -193,15 +196,16 @@ if cod:
         P('')
         P(f'### {title}: core-ffi crossings per op, fwd/rev/grow/reset (committed count files)')
         P('')
-        P('| payload | core-ffi retain (gen/counts.txt) | core-ffi no-unknown (gen/counts-nounk.txt) |')
-        P('|---|---:|---:|')
+        P('| payload | core-ffi retain (gen/counts.txt) | core-ffi drop (gen/counts.txt) | core-ffi no-unknown (gen/counts-nounk.txt) |')
+        P('|---|---:|---:|---:|')
         for (p, c, d2) in cases:
             if d2 != dr:
                 continue
             name = p + ('' if c in ('ascii', 'corpus') else '/' + c)
             a = cf.get(f'{p} {c} core-ffi {dr} retain', 'MISSING')
+            a2 = cf.get(f'{p} {c} core-ffi {dr} drop', 'MISSING')
             b = cn.get(f'{p} {c} core-ffi {dr} no-unknown', 'MISSING')
-            P(f'| {name} | {a} | {b} |')
+            P(f'| {name} | {a} | {a2} | {b} |')
         P('')
     with open(os.path.join(DIR, 'codec.tsv'), 'w') as t:
         t.write('payload\tcontent\tdir\tarm\tunknown_mode\tbuild\trounds\tcpu_ns_per_op_median\tcpu_min\tcpu_max\twall_ns_per_op_median\twall_min\twall_max\titers_per_round\tminflt_per_op_median\talloc_bytes_per_op\tgen0\tgen1\tgen2\tmem_ops\tcpu_ns_per_op_by_round\n')
@@ -220,12 +224,14 @@ if cod:
 
 # ---------------------------------------------------------------- rpc
 rpc = []
-for name in ('rpc-stock.jsonl', 'rpc-h2-batch.jsonl', 'rpc-stock.alloc-pinned.jsonl'):
+for name in ('rpc-stock.jsonl', 'rpc-h2-batch.jsonl', 'rpc-stock.alloc-pinned.jsonl', 'rpc-nounk.jsonl'):
     p = os.path.join(DIR, name)
     if os.path.exists(p):
         rpc += rows(p)[1]
 if rpc:
     rc = counts(os.path.join(GEN, 'rpc-counts.txt'))
+    rc.update(counts(os.path.join(GEN, 'rpc-counts-nounk.txt')))
+    rc.update(counts(os.path.join(GEN, 'rpc-delivery-counts.txt')))
     by = {}
     for d in rpc:
         k = (d['cell'], d['dir'], d['payload'], d['inflight'], d['h2'], d['alloc'])
@@ -233,7 +239,10 @@ if rpc:
     for v in by.values():
         v.sort(key=lambda d: d['round'])
     DIRS = [('a+read', 'P2.2'), ('b', 'P2.2'), ('c', 'P5.4'), ('d', 'stream-16MiB')]
-    ORDER = ['A', 'B', 'Bf', 'C-retain', 'Cf-retain', 'E-retain', 'Ef-retain']
+    ORDER = ['A', 'B', 'Bf', 'C-retain', 'Cf-retain', 'C-drop', 'Cf-drop', 'C-nounk', 'Cf-nounk', 'E-retain', 'Ef-retain', 'E-drop', 'Ef-drop', 'E-nounk', 'Ef-nounk']
+    def okey(c):
+        base = c.split('.')[0]
+        return (ORDER.index(base) if base in ORDER else 99, c)
     P('## RPC grid')
     P('')
     P('Per call: the client process\'s CPU (`cpu_ns` = perf task-clock of the whole process, CAMPAIGN req 21 as amended; '
@@ -248,7 +257,7 @@ if rpc:
         P('')
         P('| cell | h2 / alloc | k | task-clock CPU / call | process CPU / call | wall / call | alloc B / call; Gen0/1/2 per 1k calls | minflt / call | crossings fwd/rev/grow/reset | client softirq ticks |')
         P('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|')
-        ks = sorted(by.items(), key=lambda kv: (ORDER.index(kv[0][0]) if kv[0][0] in ORDER else 99, kv[0][4], kv[0][5], kv[0][3]))
+        ks = sorted(by.items(), key=lambda kv: (okey(kv[0][0]), kv[0][4], kv[0][5], kv[0][3]))
         for (cell, d2, p2, k, h2, al), rs in ks:
             if d2 != dr:
                 continue

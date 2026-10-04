@@ -55,7 +55,14 @@ public static class Program
             if (si < 0 || si + 1 >= argv.Length) { Console.Error.WriteLine("--error-path needs --sock PATH (the campaign server, poc/rust/serve.sh)"); return 2; }
             return await ErrorPath(argv[si + 1], Arg(argv, "--calls", 50));
         }
-        Console.Error.WriteLine("akrpc: bench | campaign --suite calib|rpc | --layout PROBE | --error-path --sock PATH | --shared-ctx");
+        // D7: each core delivery reports status, errors and cancels as the blocking one does.
+        if (argv.Contains("--delivery-semantics"))
+        {
+            int si = Array.IndexOf(argv, "--sock");
+            if (si < 0 || si + 1 >= argv.Length) { Console.Error.WriteLine("--delivery-semantics needs --sock EP"); return 2; }
+            return await Armonik.Ffi.Campaign.DeliverySemantics.Run(argv[si + 1]);
+        }
+        Console.Error.WriteLine("akrpc: bench | campaign --suite calib|rpc | --layout PROBE | --error-path --sock PATH | --delivery-semantics --sock EP | --shared-ctx");
         return 2;
     }
 

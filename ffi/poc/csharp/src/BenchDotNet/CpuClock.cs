@@ -29,6 +29,15 @@ public static unsafe class ProcCpu
         if (getrusage(0, u) != 0) throw new InvalidOperationException("getrusage");
         return u[8];   // two timevals (4 longs), maxrss, ixrss, idrss, isrss, then minflt
     }
+    /// Minor faults and context switches (voluntary + involuntary, every thread of the process)
+    /// from ONE getrusage call (D7, 2026-10-04: the deliveries' context switches per call).
+    public static long MinFltCsw(out long csw)
+    {
+        long* u = stackalloc long[18];
+        if (getrusage(0, u) != 0) throw new InvalidOperationException("getrusage");
+        csw = u[16] + u[17];   // ru_nvcsw, ru_nivcsw
+        return u[8];
+    }
     public static long Wall() => (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1e9 / System.Diagnostics.Stopwatch.Frequency));
 }
 
@@ -190,7 +199,11 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     public static readonly List<long> Tc = new List<long>(64);
     /// minor page faults of the process at every read (req 25 as amended, D9).
     public static readonly List<long> Mf = new List<long>(64);
-    public static void Reset() { Cpu.Clear(); Wall.Clear(); Tc.Clear(); Mf.Clear(); }
+    /// context switches of the process at every read (getrusage, with the minor faults).
+    public static readonly List<long> Cs = new List<long>(64);
+    public static void Reset() { Cpu.Clear(); Wall.Clear(); Tc.Clear(); Mf.Clear(); Cs.Clear(); }
+    /// Per case, the context switches at each actual iteration's start and end (grouped mode).
+    public static readonly Dictionary<string, long[]> IterCs = new Dictionary<string, long[]>();
     /// Per case, the minor faults at each actual iteration's start and end (grouped mode).
     public static readonly Dictionary<string, long[]> IterMf = new Dictionary<string, long[]>();
     /// BDN's default toolchain (one child process per case, req 22a as amended e6c909630): the
@@ -208,7 +221,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         long t;
         if ((Cpu.Count & 1) == 0)
         {
-            Mf.Add(ProcCpu.MinFlt());
+            Mf.Add(ProcCpu.MinFltCsw(out long cs)); Cs.Add(cs);
             if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
             Cpu.Add(ProcCpu.Ns()); t = System.Diagnostics.Stopwatch.GetTimestamp();
         }
@@ -216,7 +229,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         {
             t = System.Diagnostics.Stopwatch.GetTimestamp(); Cpu.Add(ProcCpu.Ns());
             if (TaskClock.Enabled) Tc.Add(TaskClock.Ns());
-            Mf.Add(ProcCpu.MinFlt());
+            Mf.Add(ProcCpu.MinFltCsw(out long cs)); Cs.Add(cs);
         }
         Wall.Add(t);
         return t;
@@ -233,7 +246,7 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     {
         if (ChildDir == null) return;
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append(' ').Append(i < Mf.Count ? Mf[i] : -1).Append('\n');
+        for (int i = 0; i < Cpu.Count; i++) sb.Append(Cpu[i]).Append(' ').Append(Wall[i]).Append(' ').Append(i < Tc.Count ? Tc[i] : -1).Append(' ').Append(i < Mf.Count ? Mf[i] : -1).Append(' ').Append(i < Cs.Count ? Cs[i] : -1).Append('\n');
         System.IO.File.WriteAllText(FileOf(key), sb.ToString());
         if (Alloc.ChildFile != null) System.IO.File.Copy(System.IO.Path.Combine(ChildDir, Alloc.ChildFile), FileOf(key) + ".probe", true);
     }
@@ -247,9 +260,12 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     public static long[] FromChild(string key, IList<double> actualNs, out long[] tc) => FromChild(key, actualNs, out tc, out _);
 
     /// The same, with the minor-fault reads too (null when absent).
-    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc, out long[] mf)
+    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc, out long[] mf) => FromChild(key, actualNs, out tc, out mf, out _);
+
+    /// The same, with the context-switch reads too (null when absent).
+    public static long[] FromChild(string key, IList<double> actualNs, out long[] tc, out long[] mf, out long[] cs)
     {
-        tc = null; mf = null;
+        tc = null; mf = null; cs = null;
         if (ChildDir == null) return null;
         var f = FileOf(key);
         if (!System.IO.File.Exists(f)) return null;
@@ -259,7 +275,8 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
         var o = new long[2 * n];
         var t = new long[2 * n];
         var q = new long[2 * n];
-        bool hasTc = true, hasMf = true;
+        var w = new long[2 * n];
+        bool hasTc = true, hasMf = true, hasCs = true;
         double tick = 1e9 / System.Diagnostics.Stopwatch.Frequency;
         for (int i = 0; i < n; i++)
         {
@@ -267,11 +284,13 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
             o[2 * i] = long.Parse(a[0]); o[2 * i + 1] = long.Parse(b[0]);
             if (a.Length > 2 && b.Length > 2 && a[2] != "-1" && b[2] != "-1") { t[2 * i] = long.Parse(a[2]); t[2 * i + 1] = long.Parse(b[2]); } else hasTc = false;
             if (a.Length > 3 && b.Length > 3 && a[3] != "-1" && b[3] != "-1") { q[2 * i] = long.Parse(a[3]); q[2 * i + 1] = long.Parse(b[3]); } else hasMf = false;
+            if (a.Length > 4 && b.Length > 4 && a[4] != "-1" && b[4] != "-1") { w[2 * i] = long.Parse(a[4]); w[2 * i + 1] = long.Parse(b[4]); } else hasCs = false;
             double span = (long.Parse(b[1]) - long.Parse(a[1])) * tick;
             if (Math.Abs(span - actualNs[i]) > 0.02 * actualNs[i] + 20000) return null;
         }
         if (hasTc) tc = t;
         if (hasMf) mf = q;
+        if (hasCs) cs = w;
         return o;
     }
 }

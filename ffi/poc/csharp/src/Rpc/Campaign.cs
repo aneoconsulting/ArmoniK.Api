@@ -302,6 +302,8 @@ public static class CampaignMain
         public int CallDiv = 1;
         public Action Check;
         public Func<Task> CheckAsync;
+        /// D7: the delivery cell's channel (its queue's pop count in the counting run).
+        public DeliveryChannel Dc;
         public bool Upload => Dir == "c" || Dir == "d";
     }
 
@@ -553,9 +555,144 @@ public static class CampaignMain
         }
 #endif
         AddUploadCells(cells, (n, q) => CoreCh(n, q), GrpcCh, ModeOf, keep);
+        // D7 (owner, 2026-10-04): the core's callback and queue deliveries of the framed core
+        // cells, each its own labelled cell (Deliveries.cs).
+        if (extras)
+        {
+#if AK_NO_UNKNOWN_FIELDS
+            var dbases = new[] { ("Bf", 0, false, "default"), ("Cf-nounk", 1, false, "no-unknown"), ("Ef-nounk", 2, false, "no-unknown") };
+#else
+            var dbases = new[] { ("Bf", 0, false, "default"), ("Cf-retain", 1, true, "retain"), ("Ef-retain", 2, true, "retain") };
+#endif
+            foreach (var (bname, codec, retain, mode) in dbases)
+                foreach (var (sfx, dl) in new[] { (".callback", Delivery.Callback), (".callback-inline", Delivery.CallbackInline), (".queue", Delivery.Queue) })
+                {
+                    string name = bname + sfx;
+                    if (!keep(name)) continue;
+                    DeliveryChannel dc = null;
+                    if (!dry)
+                    {
+                        var ch = CoreCh(name);
+                        if (AkRpc.ak_client_set_framed(ch.Client, 1) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
+                        dc = new DeliveryChannel(ch, dl);
+                        owned.Insert(0, dc);   // disposed before its channel
+                    }
+                    int cd = codec; bool rt2 = retain; string nm = name;
+                    cells.Add(new Cell { Name = name, Dir = "a+read", Mode = mode, Dc = dc, OneAsync = () => DownD(dc, downPath, cd, rt2, want, nm) });
+                    cells.Add(new Cell { Name = name, Dir = "b", Mode = mode, Dc = dc, OneAsync = () => UpD(dc, upPath, cd, rt2, g22, f22, nm) });
+                    AddUploadDeliveryCells(cells, dc, name, codec, retain, mode);
+                }
+        }
         foreach (var c in cells) c.Channel ??= c.Name;
         GC.KeepAlive(gUpBytes);
         return cells;
+    }
+
+    // ====================================================== D7: the delivery cells' flows
+
+    private static async Task DownD(DeliveryChannel dc, byte[] path, int codec, bool retain, int want, string cell)
+    {
+        var d = await DeliveryFlows.Unary(dc, (u, t) => dc.StartUnary(path, Array.Empty<byte>(), 0, u, t), cell).ConfigureAwait(false);
+        try
+        {
+            if (d.Status != AkRpc.AK_OK) throw new Abort(cell + ": status " + d.Status + " grpc " + d.Grpc);
+            _sink += DecodeRead(d.Bytes, codec, retain, want, cell);
+        }
+        finally { DeliveryChannel.Free(d.Bytes); }
+    }
+
+    /// The blocking cells' decode of the P2.2 response (CoreDown), then every field read.
+    private static unsafe long DecodeRead(ak_bytes r, int codec, bool retain, int want, string cell)
+    {
+        CheckLen((int)r.len, want, cell);
+        if (codec == 0)
+            return Touch.G_ListTasksDetailedResponse(Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len)));
+        var b = Buf((int)r.len);
+        new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
+        ListTasksDetailedResponse fm;
+        if (codec == 1)
+        {
+            int dr = Core.TryDecode(b, (int)r.len, retain, out fm);
+            if (dr < 0) throw new Abort(cell + ": core decode " + dr);
+        }
+        else fm = HostDecode(b, (int)r.len, retain, cell);
+        return Touch.F_ListTasksDetailedResponse(fm);
+    }
+
+    private static async Task UpD(DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, string cell)
+    {
+        var d = await DeliveryFlows.Unary(dc, (u, t) => StartUp(dc, path, codec, retain, g, f, u, t, cell), cell).ConfigureAwait(false);
+        try
+        {
+            if (d.Status != AkRpc.AK_OK) throw new Abort(cell + " up: status " + d.Status + " grpc " + d.Grpc);
+            CheckLen((int)d.Bytes.len, 0, cell + " up");
+        }
+        finally { DeliveryChannel.Free(d.Bytes); }
+    }
+
+    /// Direction b's encode and start, as the blocking cells encode (CoreUp): incumbent into a
+    /// buffer then copied by the core; core-ffi into its context, MOVED (the _enc entries);
+    /// host-gen into its Enc, copied by the core.
+    private static unsafe IntPtr StartUp(DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, IntPtr user, ulong tag, string cell)
+    {
+        if (codec == 1)
+        {
+            int er = Core.EncodeInto(f, retain);
+            if (er < 0) throw new Abort(cell + ": core encode " + er);
+            return dc.StartUnaryEnc(path, Core.EncContext, user, tag);
+        }
+        if (codec == 0)
+        {
+            int n = g.CalculateSize();
+            var a = Buf(n);
+            g.WriteTo(new Span<byte>(a, 0, n));
+            return dc.StartUnary(path, a, n, user, tag);
+        }
+        if (_he.Buf == null) _he = Enc.New(Armonik.Ffi.Facade.Codec.Sites, 1 << 16);
+        _he.Reset();
+        if (retain) HostR.WriteListTasksDetailedResponse(ref _he, f); else Armonik.Ffi.Facade.Codec.WriteListTasksDetailedResponse(ref _he, f);
+        if (_he.Err != 0) throw new Abort(cell + ": managed encode " + _he.Err);
+        return dc.StartUnary(path, _he.Buf, _he.Pos, user, tag);
+    }
+
+    private static void AddUploadDeliveryCells(List<Cell> cells, DeliveryChannel dc, string name, int codec, bool retain, string mode)
+    {
+        var upload = Encoding.UTF8.GetBytes("/" + Svc + "/Upload");
+        var stream = Encoding.UTF8.GetBytes("/" + Svc + "/UploadStream");
+        var streamCheck = Encoding.UTF8.GetBytes("/" + Svc + "/UploadStreamCheck");
+        foreach (var u in _ups)
+        {
+            var uu = u;
+            if (!u.Stream)
+                cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = mode, CallDiv = 4, Channel = name, Dc = dc,
+                    OneAsync = () => UploadD(dc, upload, codec, retain, uu, name), CheckAsync = () => UploadD(dc, upload, codec, retain, uu, name) });
+            else
+                cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = mode, CallDiv = 8, Channel = name, Dc = dc,
+                    OneAsync = async () => Uploads.CheckStreamResponse(await StreamD(dc, stream, codec, retain, uu, name), uu, false, 0, null, name),
+                    CheckAsync = async () => Uploads.CheckStreamResponse(await StreamD(dc, streamCheck, codec, retain, uu, name), uu, true, 0, null, name) });
+        }
+    }
+
+    private static async Task UploadD(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
+    {
+        var d = await DeliveryFlows.Unary(dc, (us, t) => Uploads.StartUpload(dc, path, codec, retain, u, us, t, cell), cell).ConfigureAwait(false);
+        try
+        {
+            if (d.Status != AkRpc.AK_OK) throw new CampaignAbort(cell + " c: status " + d.Status + " grpc " + d.Grpc);
+            if ((int)d.Bytes.len != 0) throw new CampaignAbort(cell + " c: response length " + d.Bytes.len + ", expected 0");
+        }
+        finally { DeliveryChannel.Free(d.Bytes); }
+    }
+
+    private static async Task<byte[]> StreamD(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
+    {
+        var d = await DeliveryFlows.Stream(dc, path, u.G.Length, (h, i, us, t) => Uploads.StartSend(dc, h, codec, retain, u, i, us, t, cell), cell).ConfigureAwait(false);
+        try
+        {
+            if (d.Status != AkRpc.AK_OK) throw new CampaignAbort(cell + " d: recv status " + d.Status + " grpc " + d.Grpc);
+            return DeliveryChannel.Copy(d.Bytes);
+        }
+        finally { DeliveryChannel.Free(d.Bytes); }
     }
 
     // ====================================================== directions c and d (Upload.cs)
@@ -705,7 +842,7 @@ public static class CampaignMain
         {
             // The counting run builds no extra rows: their queue drainer calls the core on its
             // own thread, which a per-call count must not see.
-            var cells = BuildCells(sock, pinned, rt, want, owned, chans, extras: !counts);
+            var cells = BuildCells(sock, pinned, rt, want, owned, chans, extras: !counts || DeliveryCounts, keep: counts && DeliveryCounts ? (n => n.Contains(".callback") || n.Contains(".queue")) : null);
             // The --plant controls (req 18) run one send path at a time: AK_CAMPAIGN_ONLY=cell,...
             var only = Environment.GetEnvironmentVariable("AK_CAMPAIGN_ONLY");
             if (!string.IsNullOrEmpty(only)) { var keep = new HashSet<string>(only.Split(','), StringComparer.Ordinal); cells = cells.Where(c => keep.Contains(c.Name)).ToList(); }
@@ -768,11 +905,12 @@ public static class CampaignMain
         {
             "# CAMPAIGN req 19 (R-H31): one call per RPC cell and direction (" + AbiVariant.Name + " build, P2.2), counted by name in the host (AK_HOST_COUNT), after one untimed call on the cell's own channel.",
             "# fields: RPC cell dir payload mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...",
-            "# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call",
+            DeliveryCounts ? "# D7 (AK_RPC_COUNT_DELIVERIES=1): the delivery cells only (<cell>.callback, .callback-inline, .queue, and the older B/C extras); a queue cell's drainer pops (ak_queue_next) are counted by name; one call = one awaited call of the cell, after one untimed call"
+                : "# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call",
         };
         foreach (var c in cells)
         {
-            if (c.Name.Contains('.')) continue;
+            if (c.Name.Contains('.') != DeliveryCounts) continue;
             void Call() { if (c.One != null) c.One(); else c.OneAsync().GetAwaiter().GetResult(); }
             Call();
             _ = Core;   // the counting thread's own context exists before the counters are zeroed
@@ -783,8 +921,22 @@ public static class CampaignMain
 #else
             long Grows() => 0;
 #endif
+            long pops0 = c.Dc?.Pops ?? 0;
             Call();
             var e = Abi.EntryCounts().Concat(AkRpc.EntryCounts()).OrderBy(x => x.Name, StringComparer.Ordinal).ToList();
+            if (DeliveryCounts)
+            {
+                // Global counters, every cell's channel built in this run: the drainers of the
+                // OTHER queue cells poll ak_queue_next while idle, and a continuation's first use of
+                // a thread-pool thread creates that thread's codec contexts (ak_enc_ctx_new,
+                // ak_dec_ctx_new_*, ak_tc_*): neither is this call's. Dropped by name; the queue
+                // cell's own pops are its channel's count (pops=N).
+                e = e.Where(x => x.Name != "ak_queue_next" && !x.Name.StartsWith("ak_enc_ctx_new", StringComparison.Ordinal)
+                    && !x.Name.StartsWith("ak_dec_ctx_new", StringComparison.Ordinal) && !x.Name.StartsWith("ak_tc_", StringComparison.Ordinal)).ToList();
+                long pops = (c.Dc?.Pops ?? 0) - pops0;
+                if (pops > 0) e.Add(("ak_queue_next", pops));
+                e = e.OrderBy(x => x.Name, StringComparer.Ordinal).ToList();
+            }
             long fwd = e.Sum(x => x.Calls), resets = e.Where(x => x.Name.StartsWith("ak_dec_reset_", StringComparison.Ordinal)).Sum(x => x.Calls);
             if (resets != Core.ResetCalls) { Console.Error.WriteLine("reset tally mismatch on " + c.Name + " " + c.Dir); return 1; }
             o.Add(string.Format(CultureInfo.InvariantCulture, "RPC {0} {1} {8} {2} | fwd {3} rev {4} grow {5} reset {6} | {7}", c.Name, c.Dir, c.Mode, fwd, Core.ReverseCalls, Grows(), resets,
@@ -795,6 +947,11 @@ public static class CampaignMain
         return 0;
 #endif
     }
+
+    /// D7: AK_RPC_COUNT_DELIVERIES=1 counts the delivery cells (<cell>.callback, .callback-inline,
+    /// .queue) instead of the grid's (gen/rpc-delivery-counts*.txt); the queue drainer's
+    /// ak_queue_next pops are counted by name with the rest.
+    private static bool DeliveryCounts => Environment.GetEnvironmentVariable("AK_RPC_COUNT_DELIVERIES") == "1";
 
     /// The core client handle, for the blocking calls made through the generated imports.
     private static IntPtr CoreClient(CoreChannel c) => c.Client;

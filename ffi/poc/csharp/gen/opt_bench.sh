@@ -45,7 +45,11 @@ PINNED_TUNABLES="glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_thresho
 CW="${OPT_CODEC_WARMUP:-25}" CR="${OPT_CODEC_ROUNDS:-6}" CT="${OPT_CODEC_ITER_MS:-40}"
 RW="${OPT_RPC_WARMUP:-10}" RR="${OPT_RPC_ROUNDS:-6}" RT="${OPT_RPC_ITER_MS:-100}" WARM="${OPT_SERVER_WARM:-500}"
 B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"; BN8="$SLICE/src/BenchDotNet/bin-nounk/Release/net8.0"
-R8="$SLICE/src/Rpc/bin/Release/net8.0"
+R8="$SLICE/src/Rpc/bin/Release/net8.0"; RN8="$SLICE/src/Rpc/bin-nounk/Release/net8.0"
+# OPT_DROP=1 (optimisation runs, labelled extras): the codec's drop units (AK_BDN_DROP=1), the RPC
+# drop framed cells Cf-drop and Ef-drop (with C-drop and E-drop's a+read), and the RPC no-unknown
+# client (Cf-nounk, Ef-nounk with C-nounk and E-nounk's a+read) in its own run.
+OPT_DROP="${OPT_DROP:-0}"; [ "$OPT_DROP" = 1 ] && export AK_BDN_DROP=1
 COMMIT="$(git -C "$REPO" rev-parse HEAD)"
 CODE="ffi/poc/csharp/src ffi/poc/csharp/gen ffi/poc/csharp/abi ffi/poc/csharp/Directory.Build.props ffi/poc/csharp/Directory.Build.targets"
 DIRTY="clean"; git -C "$REPO" diff --quiet HEAD -- $CODE ffi/schema ffi/corpus || DIRTY="DIRTY (uncommitted changes in the slice, schema or corpus)"
@@ -77,6 +81,7 @@ el() { python3 -c "print(f'{$2-$1:.1f}')"; }
   echo "# grid:       codec: units incumbent-prod:default, core-ffi:retain, host-gen:retain (full build), core-ffi:no-unknown, host-gen:no-unknown (no-unknown build); encode-transport-hot and decode-read; 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2, 7 U-* rows"
   echo "#             rpc: transport armonik; stock h2: A, Bf (+ B a+read), Cf-retain (+ C-retain a+read), Ef-retain (+ E-retain a+read) on a+read, b (P2.2), c (P5.4), d (16 MiB) at k = 1 and 8; h2-batch: Cf-retain on c, d at k = 1, 8; pinned allocator: A, Cf-retain on c, d at k = 1"
   echo "# dropped:    nothing of the core grid; calib not run; no plant controls; server warm-up $WARM calls per direction (campaign 2000)"
+  [ "$OPT_DROP" = 1 ] && echo "# extras:     OPT_DROP=1: codec drop units core-ffi:drop and host-gen:drop (AK_BDN_DROP=1); RPC Cf-drop, Ef-drop (+ C-drop, E-drop a+read) in the stock run; the RPC no-unknown client Cf-nounk, Ef-nounk (+ C-nounk, E-nounk a+read) in its own run (rpc-nounk.jsonl)"
   echo "# allocator:  default (GLIBC_TUNABLES unset) for every process except the pinned-allocator subset (GLIBC_TUNABLES=$PINNED_TUNABLES)"
 } > "$OUT/header.txt"
 cat "$OUT/header.txt"
@@ -84,7 +89,8 @@ cat "$OUT/header.txt"
 T0=$(now)
 ( cd "$SLICE" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release > "$OUT/build.log" 2>&1 \
   && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true >> "$OUT/build.log" 2>&1 \
-  && dotnet build src/Rpc/akrpc.csproj -c Release >> "$OUT/build.log" 2>&1 ) || { tail -30 "$OUT/build.log"; exit 1; }
+  && dotnet build src/Rpc/akrpc.csproj -c Release >> "$OUT/build.log" 2>&1 \
+  && { [ "$OPT_DROP" != 1 ] || dotnet build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true >> "$OUT/build.log" 2>&1; } ) || { tail -30 "$OUT/build.log"; exit 1; }
 echo "# build: $(el "$T0" "$(now)") s" | tee -a "$OUT/timing.txt"
 
 for s in $SUITES; do
@@ -114,17 +120,19 @@ rpc)
   "$SERVE" warm "$WARM" > "$OUT/rpc-server-warm.log" 2>&1 || { echo "server warm-up failed" >&2; "$SERVE" stop; exit 1; }
   echo "# rpc server warm ($WARM): $(el "$t" "$(now)") s" | tee -a "$OUT/timing.txt"
   BDNARGS=(--toolchain process --rounds "$RR" --warmup "$RW" --iteration-ms "$RT" --artifacts "$SCRATCH/bdn-rpc")
-  for kind in stock h2-batch stock-pinned; do
-    h2=stock; UNITS="A,Bf,Cf-retain,Ef-retain"; UENV=(); f="$OUT/rpc-stock.jsonl"
+  KINDS="stock h2-batch stock-pinned"; [ "$OPT_DROP" = 1 ] && KINDS="$KINDS nounk"
+  for kind in $KINDS; do
+    h2=stock; UNITS="A,Bf,Cf-retain,Ef-retain"; [ "$OPT_DROP" = 1 ] && UNITS="$UNITS,Cf-drop,Ef-drop"; UENV=(); f="$OUT/rpc-stock.jsonl"; RX="$R8"
     case "$kind" in
+      nounk) UNITS="Cf-nounk,Ef-nounk"; RX="$RN8"; f="$OUT/rpc-nounk.jsonl" ;;
       h2-batch) h2=h2-batch; UNITS="Cf-retain"; UENV=(AK_RPC_ONLY_DIRS=c,d); f="$OUT/rpc-h2-batch.jsonl" ;;
       stock-pinned) UNITS="A,Cf-retain"; UENV=(AK_RPC_ONLY_DIRS=c,d AK_RPC_ONLY_K=1 GLIBC_TUNABLES="$PINNED_TUNABLES" AK_CAMPAIGN_ALLOC=pinned); f="$OUT/rpc-stock.alloc-pinned.jsonl" ;;
     esac
     hs=""; [ "$h2" = h2-batch ] && hs="-h2b"
-    cp "$SLICE/target-core$hs/release/libak_core.so" "$R8/"
+    cp "$SLICE/target-core$hs/release/libak_core.so" "$R8/"; cp "$SLICE/target-core-nounk$hs/release/libak_core.so" "$RN8/" 2>/dev/null
     { cat "$OUT/header.txt"; echo "# run:        $kind; units $UNITS; server pid $(sed -n 's/^pid //p' "$sdir/start.out"), TCP $TL"; } > "$f"
     t=$(now)
-    env "${UENV[@]}" AK_H2="$h2" taskset -c "$AK_CPU_CLIENT" dotnet "$R8/akrpc.dll" bench --sock "tcp:$TL" --transport armonik --unit "$UNITS" \
+    env "${UENV[@]}" AK_H2="$h2" taskset -c "$AK_CPU_CLIENT" dotnet "$RX/akrpc.dll" bench --sock "tcp:$TL" --transport armonik --unit "$UNITS" \
       --launch 1 --out "$f" "${BDNARGS[@]}" --inflight 1,8 > "$OUT/rpc-$kind.bdn.log" 2>&1
     rc=$?
     echo "# rpc $kind: $(el "$t" "$(now)") s rc=$rc" | tee -a "$OUT/timing.txt"

@@ -161,6 +161,33 @@ internal static class Uploads
         fixed (byte* q = arr) return send(q, len);
     }
 
+    /// D7: direction c's encode and start for a delivery cell (as CoreUnary encodes).
+    public static unsafe IntPtr StartUpload(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, IntPtr user, ulong tag, string cell)
+    {
+        if (codec == 1)
+        {
+            int er = Core.EncodeInto(u.F[0], retain);
+            if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
+            return dc.StartUnaryEnc(path, Core.EncContext, user, tag);
+        }
+        IntPtr call = IntPtr.Zero;
+        EncodeAndSend(codec, retain, u, 0, (body, len) => { call = dc.StartUnary(path, body, len, user, tag); return 0; }, cell);
+        return call;
+    }
+
+    /// D7: direction d's message i, encoded and its send started (as CoreStream encodes).
+    public static unsafe int StartSend(DeliveryChannel dc, IntPtr h, int codec, bool retain, UpData u, int i, IntPtr user, ulong tag, string cell)
+    {
+        int last = i == u.G.Length - 1 ? 1 : 0;
+        if (codec == 1)
+        {
+            int er = Core.EncodeInto(u.F[i], retain);
+            if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
+            return dc.StartSendEnc(h, Core.EncContext, last, user, tag);
+        }
+        return EncodeAndSend(codec, retain, u, i, (body, len) => dc.StartSend(h, body, len, last, user, tag), cell);
+    }
+
     /// Direction c through the core's transport: one blocking ak_call_unary.
     public static unsafe void CoreUnary(CoreChannel ch, byte[] path, int codec, bool retain, UpData u, int wantLen, string cell)
     {

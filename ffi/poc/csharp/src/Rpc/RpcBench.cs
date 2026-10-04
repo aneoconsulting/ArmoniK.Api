@@ -145,7 +145,9 @@ internal static class RpcCtx
     /// further (the runner's h2-batch rows and pinned allocator pass). Unset or `full`: today's grid.
     public static readonly bool CoreGrid = Environment.GetEnvironmentVariable("AK_CAMPAIGN_GRID") == "core";
     public static readonly string[] CoreUnits = { "A", "Bf", "Cf-retain", "Ef-retain" };
-    public static string Partner(string unit) => unit switch { "Bf" => "B", "Cf-retain" => "C-retain", "Ef-retain" => "E-retain", _ => null };
+    public static string Partner(string unit) => unit switch { "Bf" => "B", "Cf-retain" => "C-retain", "Ef-retain" => "E-retain",
+        // optimisation runs (2026-10-04): the drop and no-unknown framed cells as labelled extras
+        "Cf-drop" => "C-drop", "Ef-drop" => "E-drop", "Cf-nounk" => "C-nounk", "Ef-nounk" => "E-nounk", _ => null };
     private static bool GridKeep(CampaignMain.Cell c, int k)
     {
         var only = Environment.GetEnvironmentVariable("AK_RPC_ONLY_DIRS");
@@ -320,6 +322,7 @@ public sealed class RpcCpuDiagnoser : IDiagnoser
                 IterCpu[key] = CpuClock.Cpu.ToArray();
                 IterTc[key] = CpuClock.Tc.ToArray();
                 CpuClock.IterMf[key] = CpuClock.Mf.ToArray();
+                CpuClock.IterCs[key] = CpuClock.Cs.ToArray();
             }
             Times[key] = (_t0, _t1, DateTime.UtcNow);
         }
@@ -360,8 +363,9 @@ public sealed class RpcJsonExporter : IExporter
 
     private static string SendPath(string cell) =>
         cell.StartsWith("A", StringComparison.Ordinal) || cell.StartsWith("D", StringComparison.Ordinal) || cell.StartsWith("F", StringComparison.Ordinal) ? "grpc.net"
-        : cell.Contains(".callback", StringComparison.Ordinal) ? "core-callback"
-        : cell.Contains(".queue", StringComparison.Ordinal) ? "core-queue"
+        : cell.Contains(".callback-inline", StringComparison.Ordinal) ? (cell.Split('.')[0].Contains('f') ? "core-framed-callback-inline" : "core-callback-inline")
+        : cell.Contains(".callback", StringComparison.Ordinal) ? (cell.Split('.')[0].Contains('f') ? "core-framed-callback" : "core-callback")
+        : cell.Contains(".queue", StringComparison.Ordinal) ? (cell.Split('.')[0].Contains('f') ? "core-framed-queue" : "core-queue")
         : cell.StartsWith("Bf", StringComparison.Ordinal) || cell.StartsWith("Cf", StringComparison.Ordinal) || cell.StartsWith("Ef", StringComparison.Ordinal) ? "core-framed"
         : "core-reference";
 
@@ -394,9 +398,9 @@ public sealed class RpcJsonExporter : IExporter
             var all = r.AllMeasurements;
             int warm = all.Count(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Warmup);
             var act = all.Where(m => m.IterationMode == IterationMode.Workload && m.IterationStage == IterationStage.Actual).ToList();
-            long[] ic, tc, mf;
-            if (RpcCtx.Grouped) { RpcCpuDiagnoser.IterCpu.TryGetValue(key, out ic); RpcCpuDiagnoser.IterTc.TryGetValue(key, out tc); CpuClock.IterMf.TryGetValue(key, out mf); }
-            else ic = CpuClock.FromChild(key, act.Select(m => m.Nanoseconds).ToList(), out tc, out mf);   // the default toolchain's child
+            long[] ic, tc, mf, cs;
+            if (RpcCtx.Grouped) { RpcCpuDiagnoser.IterCpu.TryGetValue(key, out ic); RpcCpuDiagnoser.IterTc.TryGetValue(key, out tc); CpuClock.IterMf.TryGetValue(key, out mf); CpuClock.IterCs.TryGetValue(key, out cs); }
+            else ic = CpuClock.FromChild(key, act.Select(m => m.Nanoseconds).ToList(), out tc, out mf, out cs);   // the default toolchain's child
             if (tc == null || tc.Length != 2 * act.Count)
             {
                 Failed = true;
@@ -423,13 +427,14 @@ public sealed class RpcJsonExporter : IExporter
             foreach (var m in act)
             {
                 long cpu = tc[2 * round + 1] - tc[2 * round], pcpu = ic[2 * round + 1] - ic[2 * round], flt = mf[2 * round + 1] - mf[2 * round];
+                long csw = cs != null && cs.Length == mf.Length ? cs[2 * round + 1] - cs[2 * round] : -1;
                 round++;
                 var sb = new StringBuilder("{\"slice\":\"csharp\",\"suite\":\"rpc\"");
                 sb.Append(",\"cell\":\"").Append(f[0]).Append("\",\"payload\":\"").Append(f[2]).Append("\",\"dir\":\"").Append(f[1])
                   .Append("\",\"unknown_mode\":\"").Append(cell.Mode).Append("\",\"transport\":\"").Append(RpcCtx.Transport)
                   .Append("\",\"build\":\"").Append(AbiVariant.Name).Append("\",\"send_path\":\"").Append(SendPath(f[0])).Append("\",\"h2\":\"").Append(RpcCtx.H2).Append("\",\"net\":\"").Append(CampaignMain.IsTcp(RpcCtx.Sock) ? "tcp" : "uds").Append("\",\"alloc\":\"").Append(Alloc.Label).Append('"');
                 sb.Append(",\"inflight\":").Append(f[3]).Append(",\"launch\":").Append(_launch).Append(",\"round\":").Append(round);
-                sb.Append(",\"cpu_ns\":").Append(cpu).Append(",\"proc_cpu_ns\":").Append(pcpu).Append(",\"wall_ns\":").Append((long)Math.Round(m.Nanoseconds)).Append(",\"iters\":").Append(m.Operations).Append(",\"minflt\":").Append(flt);
+                sb.Append(",\"cpu_ns\":").Append(cpu).Append(",\"proc_cpu_ns\":").Append(pcpu).Append(",\"wall_ns\":").Append((long)Math.Round(m.Nanoseconds)).Append(",\"iters\":").Append(m.Operations).Append(",\"minflt\":").Append(flt).Append(",\"csw\":").Append(csw);
                 sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"engine\":\"bdn\",\"bdn_warmup\":{0},\"invocations\":{1}", warm, m.Operations / int.Parse(f[3], CultureInfo.InvariantCulture)));
                 if (round == 1)
                 {
@@ -551,6 +556,8 @@ public static class RpcBenchMain
         hdr.Add("# directions:     a empty request, P2.2 response decoded; a+read the same then every field read; b P2.2 request decoded by the server; c unary upload of P5.3 / P5.4 (M5, 1 MB / 4 MB); d the streamed upload, M5 messages of 2 MiB (ids on the first), 4 MiB / 16 MiB (req 14); every call checked: status, response length or the server's byte count (req 18); the upload cells' count and SHA-256 checked once in setup before timing");
         hdr.Add(string.Format(CultureInfo.InvariantCulture, "# warm-up/thread: CAMPAIGN req 24 as amended 8c02e7c58 (>= 20 calls per calling thread at the cell's payload before the first measured value, same process, same threads): B, C, E (and Bf, Cf, Cc, Ef) call from k dedicated caller threads, created in this process before BDN's first stage and kept to its end (under the default toolchain one case per child process, so the warm-up and the measurement share the process and its threads); one invocation = k calls, one on each caller thread; BDN runs at least 4 invocations per iteration (its minimum invoke count), so the {0} warm-up iteration(s) give every caller thread >= {1} calls at the case's payload, after 1 jitting invocation and >= 4 pilot invocations (checked: d/16 MiB at k = 8, BDN child mode, iteration 100 ms: 1 + 4 + 40 = 45 per thread){2}. A, D, F and the callback/queue extras start k async loops (one call each per invocation) on the .NET thread pool (worker min = max = AK_WORKERS): >= {1} calls per loop, but which pool thread runs a call is not controlled, so the per-thread count is not guaranteed for them", warm, 4 * warm, warm * 4 >= 20 ? "" : " -- BELOW the rule's 20 at this setting"));
         hdr.Add("# delivery:       B, C, E the core's BLOCKING call on k caller threads (a CallerPool created before BDN starts); A, D, F Grpc.Net's idiomatic async call (AsyncUnaryCall / AsyncClientStreamingCall awaited), k concurrent async calls per invocation; the core's cells share one core runtime with " + RpcCtx.Workers + " worker thread(s) (req 16)");
+        if (RpcCtx.RunUnits.Any(u => u.Contains('.')))
+            hdr.Add("# deliveries:     D7 (2026-10-04, src/Rpc/Deliveries.cs): <cell>.callback = the core's completion callback ([UnmanagedCallersOnly], on a core tokio worker) completing a TaskCompletionSource with RunContinuationsAsynchronously (the continuation queued to the .NET thread pool); <cell>.callback-inline = the same with inline continuations (the decode and the next start run ON the tokio worker; a labelled extra); <cell>.queue = ak_queue with ONE drainer thread (blocking ak_queue_next with a 1 s timeout, one completion per pop: the ABI has no batch pop) completing the TaskCompletionSource (RunContinuationsAsynchronously); k async loops awaiting, as cells A, D, F; d uses ak_call_send(_enc)_cb/_q, each send awaited before the next, then ak_call_recv_cb/_q; per call a Pending (TaskCompletionSource) per completion, plus a GCHandle per callback completion; csw = voluntary + involuntary context switches of the process per iteration (getrusage)");
         if (RpcCtx.Transport == "armonik")
         {
             AppContext.TryGetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing", out bool dws);
