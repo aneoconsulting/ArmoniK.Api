@@ -1,0 +1,41 @@
+# commit 84900734; rustc 1.94.1; cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+===== 1. ak-core feature sets (cargo build --release -p ak-core) =====
+  ok    default:  -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    java/python/cpp plain: --features init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    count: --features count,init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    corpus: --features corpus,init-guard -> 249 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    rpc: --features rpc,init-guard -> 140 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    rpc count: --features rpc,count,init-guard -> 140 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    cpp AK_RPC: --features rpc -> 140 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    cpp AK_RPC count: --features rpc,count -> 140 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    cpp planted pad: --features pad-widths,init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    cpp planted global: --features global-widths,init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    cpp planted both: --features pad-widths,global-widths,init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    nounk: --no-default-features --features init-guard -> 86 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    nounk count: --no-default-features --features count,init-guard -> 86 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    nounk corpus: --no-default-features --features corpus,init-guard -> 179 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    nounk rpc: --no-default-features --features rpc,init-guard -> 119 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    nounk rpc count: --no-default-features --features rpc,count,init-guard -> 119 ak_* exports, 7 D19 exports, NEEDED libstdc++
+  ok    dec-reject-simd: --features dec-reject-simd,init-guard -> 107 ak_* exports, 7 D19 exports, NEEDED libstdc++
+===== 2. h2-batch cores =====
+  ok    codec/h2-batch/build.sh h2-batch rpc,init-guard -> 7 D19 exports, h2: h2-batch-src/src/codec/framed_write.rs 
+  ok    by hand (--config patch), --no-default-features rpc,count,init-guard -> 7 D19 exports
+  ok    poc/rust/gen/h2batch_core.sh (the working tree's poc/codec): 254f90109ffbd752719e11e8828a7f3a2963aea36d9327e9f039e349355c9ee1  /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/d19-matrix/h2b-rust/release/deps/libak_core.so     h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+===== 3. C hosts linking the cdylib with gcc =====
+  ok    java JNI shim (gcc -shared, /usr/lib/jvm/java-21-openjdk-amd64 headers; the slice uses JDK 17's): links; ldd resolves 2 of libak_core + libstdc++
+  ok    python shim (cc -shared -Werror, CPython 3.12.3 headers): links
+  ok    python: import _akffi loads the core (libstdc++ resolved)
+  ok    C program (gcc, dynamic): ak_tc_utf16 and the six exports, bytes checked: D19 C CHECK PASSED
+===== 4. the staticlib =====
+  rustc native-static-libs: -lstdc++ -lgcc_s -lutil -lrt -lpthread -lm -ldl -lc
+  info  gcc static WITHOUT -lstdc++: does not link (50 undefined references, e.g. undefined reference to `__cxa_guard_acquire' undefined reference to `__cxa_guard_release' )
+  ok    gcc static WITH -lstdc++: D19 C CHECK PASSED
+  ok    g++ static (the C++ slice's driver): D19 C CHECK PASSED
+===== 5. the floor toolchain =====
+  ok    rustc 1.88.0: --features rpc,init-guard builds, 7 D19 exports
+  ok    rustc 1.88.0: ak-core / ak-rt unit tests: 24 passed, 0 failed
+
+sizes: libak_core.so (init-guard) 1440176 B, libak_core.a 22784282 B
+failures: 0
+D19 BUILD MATRIX PASSED
+exit 0

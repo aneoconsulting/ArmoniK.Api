@@ -58,14 +58,19 @@ instrumentation.
   against 0.84 MB); a C host that links libak_core.a with gcc needs -lstdc++ (50 undefined
   C++ runtime references without it; rustc's native-static-libs lists it); no slice does that
   today (the C++ slice links with g++).
-- **Instrumentation** (`bench/tables.md`, `gen/d19_bench.sh`; 3 processes; simdutf kernel at run
-  time here: haswell, AVX2): the transcoder alone, capacity ample. Against the pre-D19 core's
-  own ak_tc_utf16, new/old per process: ascii 0.89-1.14 at 8 units, 0.35 at 32, 0.05-0.06 at
-  1 Ki and 64 Ki; latin1 0.71 at 8, 0.04-0.05 at 1 Ki+; bmp-wide 0.95 at 8, 0.14-0.16 at 1 Ki+;
-  astral 1.20-1.28 at 8 (slower), 0.74-0.78 from 128; mixed (uniform random classes) 0.53-0.72;
-  lone surrogates 0.41-0.58 (the fallback writes once where the pre-D19 code counted and then
-  wrote). The Rust codec suite has no row through ak_tc_utf16 (the binding passes UTF-8 with
-  ak_tc_utf8_trusted / ak_tc_bytes), so no codec row moves.
+- **Instrumentation** (`tables.md` = `bench/tables.md`, clean tree at d4ee871c; `bench-first/` an
+  earlier session; `gen/d19_bench.sh`, 3 processes each; simdutf kernel here: haswell, AVX2): the
+  transcoder alone, capacity ample, against the pre-D19 core's own ak_tc_utf16 in the same
+  process. new/pre-D19 per process, both sessions: ascii 0.88-1.14 at 8 units, 0.35 at 32,
+  0.047-0.057 at 1 Ki and 64 Ki; latin1 0.71-0.78 at 8, 0.041-0.053 at 1 Ki and up; bmp-wide
+  0.95-0.96 at 8, 0.14-0.16 at 1 Ki and up; astral 1.20-1.28 at 8 (slower), 0.74-0.79 from 128;
+  mixed (classes uniform at random per code point) 0.53-0.72; lone surrogates 0.39-0.59 (the
+  fallback writes once where the pre-D19 code counted, then wrote). Absolutes at 64 Ki units,
+  clean session: ascii 110 us -> 5.3 us (1.2 -> 24.6 GB/s of UTF-16), bmp-wide 207 -> 30 us.
+  Control: the scalar export is not the pre-D19 binary's codegen (pre-D19 / scalar export:
+  ascii 0.83-0.96, bmp-wide 1.06-1.15, the other sets 0.87-1.12). The Rust codec suite has no row
+  through ak_tc_utf16 (the binding passes UTF-8 with ak_tc_utf8_trusted / ak_tc_bytes), so no
+  codec row moves.
 - **Not covered**: the C# and Java slices' own gates and corpora on the new core (their hosts
   are the ones calling ak_tc_utf16); the campaign machine (NixOS: whether libstdc++ resolves
   for every loader there, and which simdutf kernel its CPU gets); ThreadSanitizer (nightly not

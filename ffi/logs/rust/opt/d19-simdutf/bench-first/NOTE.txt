@@ -1,0 +1,1 @@
+The first instrumentation session (3 processes), run at 761b4489 before d19_bench.sh's kernel-probe fix was committed: the header says "+ uncommitted changes" for that one script line (the C++ probe program); the tc16_bench binary and both cores are the ones of bench/ (same sha256). Kept as a second session; bench/ is the run from a clean tree at d4ee871c.

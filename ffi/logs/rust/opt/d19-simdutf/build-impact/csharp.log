@@ -1,0 +1,40 @@
+# commit 84900734; cmake version 3.28.3; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; dotnet 8.0.131
+===== csharp: gen/build_core.sh =====
+  ok    build_core.sh
+        # core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit ed31dbfd
+        # rustc 1.94.1, cargo 1.94.1
+        #   target-core: --features rpc,init-guard -> 0b8a6a706b080bf9 (140 ak_* exports)
+        #   target-core-count: --features rpc,count,init-guard -> 16eabcc73a01c285 (140 ak_* exports)
+        #   target-core-corpus: --features corpus,init-guard -> 09decc9fab9dc440 (249 ak_* exports)
+        #   target-core-nounk: --features rpc,init-guard -> ee155b884603d838 (119 ak_* exports)
+        #   target-core-count-nounk: --features rpc,count,init-guard -> 17bfcc85790ec34a (119 ak_* exports)
+        #   target-core-corpus-nounk: --features corpus,init-guard -> 69c3bac939a16a77 (179 ak_* exports)
+        #   layout probe: 111 structs (shapes), 205 structs (corpus)
+        #   layout probe, no-unknown: 84 structs (shapes), 144 structs (corpus)
+        #   target-core-count-h2b: --features rpc,count,init-guard -> 352be0e97f8f571d (140 ak_* exports)
+        #   target-core-nounk-h2b: --features rpc,init-guard -> f054bb8084fbdfaf (119 ak_* exports)
+        #   target-core-count-nounk-h2b: --features rpc,count,init-guard -> 5df87438b9e7dfd3 (119 ak_* exports)
+        #   target-core-h2b: --features rpc,init-guard via h2-batch/build.sh -> e96d1e22cd290581
+        #   target-core: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+        #   target-core-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+        #   target-core-count: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+        #   target-core-count-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+        #   target-core-nounk: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+        #   target-core-nounk-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+        #   target-core-count-nounk: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+        #   target-core-count-nounk-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+        #   target-core: 7 ak_uencode_* exports
+        #   target-core-nounk: 0 ak_uencode_* exports
+        # ArmoniK.Api.Client (packages/csharp at HEAD): ArmoniK.Api.Client.dll ArmoniK.Api.Common.dll 
+  target-core: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-corpus: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-corpus-nounk: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-count: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-count-h2b: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-count-nounk: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-count-nounk-h2b: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-h2b: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-nounk: 7 D19 exports, 1 libstdc++ NEEDED
+  target-core-nounk-h2b: 7 D19 exports, 1 libstdc++ NEEDED
+failures: 0
+D19 CPP/CSHARP BUILD CHECK PASSED

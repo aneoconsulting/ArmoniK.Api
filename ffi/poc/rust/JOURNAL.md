@@ -4399,8 +4399,8 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   at once; that differs from the pre-D19 transcoder when the exact output fits in the current
   buffer and a host grow refuses (never with the core's own grow): changed before any check ran.
 - The pre-D19 code kept as `tc_utf16_scalar`, exported `ak_tc_utf16_scalar`. Its codegen is not
-  the pre-D19 binary's: on ascii it is 10-17% slower than the pre-D19 core's own transcoder and
-  on bmp-wide 8-15% faster (the write loop now sits in its own function). So the measurement
+  the pre-D19 binary's: on ascii the pre-D19 core's own transcoder takes 0.83-0.96 of its time and
+  on bmp-wide 1.06-1.15 (the write loop now sits in its own function). So the measurement
   compares against the pre-D19 core binary itself, loaded RTLD_LOCAL in the same process
   (AK_D19_BASE_CORE, `gen/d19_base_core.sh`), and keeps the scalar export as a column.
 - Exports: ak_utf16_to_utf8, ak_utf16_utf8_len, ak_utf8_to_utf16, ak_utf8_utf16_len,
@@ -4421,8 +4421,13 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   grow gives less). Not a crossing (the core's ak_grow is internal); no committed count file
   has an encode-side grow column that this changes (C#'s `grow` column counts decision 11's
   decode grow).
-- Instrumentation (`bench/`, container, haswell AVX2 kernel): see STATE. Short strings: astral
-  8 units 1.20-1.28x the pre-D19 time, ascii 8 0.89-1.14x, bmp-wide 8 0.95x; from 32 units on
-  faster on every set.
+- Instrumentation (`bench/` clean at d4ee871c, `bench-first/` an earlier session; container,
+  haswell AVX2 kernel): see STATE. Short strings: astral 8 units 1.20-1.28x the pre-D19 time,
+  ascii 8 0.88-1.14x, bmp-wide 8 0.95-0.96x; from 32 units on faster on every set.
+- Build impact (`build-impact/`): every slice's ak-core feature set, h2-batch forms, the JNI and
+  CPython shims, a C program, the staticlib (g++; gcc needs -lstdc++), the 1.88.0 floor, the C++
+  CMake core targets and conformance arms, the C# gen/build_core.sh: all pass. Java's and
+  Python's whole build scripts not run (JDK 8/17 and Maven deps absent; Python's 12-core build
+  replaced by its feature sets and shim).
 - Refuted along the way: the first g++ static link put `-x c++` before the archive, so g++
   compiled libak_core.a as C++ source (a 10-minute cc1plus, killed); fixed (84900734).

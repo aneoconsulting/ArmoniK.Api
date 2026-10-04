@@ -1,0 +1,213 @@
+# D19 tc16_bench: container instrumentation; rounds 7, ~40 ms per measurement; arms rotated per round
+# pre-D19 core loaded RTLD_LOCAL: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/d19-base/target/release/libak_core.so (ak_tc_utf16 0x7f81039bc250); arm pre-D19-core
+# set | units | strings in pool | out B/str | arm | ns/string median [min..max] | GB/s (UTF-16 in) median [min..max]
+ascii | 8 | 1024 | 8 | pre-D19-core | 16.2 [15.7..16.8] | 0.99 [0.95..1.02]
+ascii | 8 | 1024 | 8 | old-scalar | 17.5 [17.4..19.5] | 0.91 [0.82..0.92]
+ascii | 8 | 1024 | 8 | new-simdutf | 14.2 [14.0..14.9] | 1.12 [1.07..1.14]
+ascii | 8 | 1024 | 8 | export | 13.1 [13.0..13.2] | 1.22 [1.21..1.23]
+ascii | 8 | | | new/old-scalar (median of per-round ratios) | 0.813 | 
+ascii | 8 | | | new/pre-D19-core (median of per-round ratios) | 0.875 | 
+ascii | 8 | | | pre-D19-core/old-scalar (control) | 0.926 | 
+ascii | 32 | 1024 | 32 | pre-D19-core | 52.9 [52.7..57.0] | 1.21 [1.12..1.22]
+ascii | 32 | 1024 | 32 | old-scalar | 62.4 [60.9..67.3] | 1.03 [0.95..1.05]
+ascii | 32 | 1024 | 32 | new-simdutf | 18.5 [18.3..18.7] | 3.46 [3.43..3.50]
+ascii | 32 | 1024 | 32 | export | 17.4 [16.7..20.4] | 3.68 [3.13..3.82]
+ascii | 32 | | | new/old-scalar (median of per-round ratios) | 0.296 | 
+ascii | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.350 | 
+ascii | 32 | | | pre-D19-core/old-scalar (control) | 0.852 | 
+ascii | 128 | 1024 | 128 | pre-D19-core | 222.1 [219.2..226.3] | 1.15 [1.13..1.17]
+ascii | 128 | 1024 | 128 | old-scalar | 243.5 [242.5..255.9] | 1.05 [1.00..1.06]
+ascii | 128 | 1024 | 128 | new-simdutf | 23.2 [22.9..23.8] | 11.03 [10.75..11.19]
+ascii | 128 | 1024 | 128 | export | 21.5 [20.7..21.8] | 11.91 [11.75..12.38]
+ascii | 128 | | | new/old-scalar (median of per-round ratios) | 0.094 | 
+ascii | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.104 | 
+ascii | 128 | | | pre-D19-core/old-scalar (control) | 0.909 | 
+ascii | 1024 | 1024 | 1024 | pre-D19-core | 1759.6 [1712.0..1920.8] | 1.16 [1.07..1.20]
+ascii | 1024 | 1024 | 1024 | old-scalar | 1978.4 [1930.8..2044.3] | 1.04 [1.00..1.06]
+ascii | 1024 | 1024 | 1024 | new-simdutf | 88.7 [83.2..97.9] | 23.10 [20.92..24.60]
+ascii | 1024 | 1024 | 1024 | export | 85.8 [82.1..107.8] | 23.87 [19.00..24.95]
+ascii | 1024 | | | new/old-scalar (median of per-round ratios) | 0.044 | 
+ascii | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.051 | 
+ascii | 1024 | | | pre-D19-core/old-scalar (control) | 0.891 | 
+ascii | 65536 | 32 | 65536 | pre-D19-core | 110206.3 [109408.1..114493.1] | 1.19 [1.14..1.20]
+ascii | 65536 | 32 | 65536 | old-scalar | 124983.7 [122308.2..127520.4] | 1.05 [1.03..1.07]
+ascii | 65536 | 32 | 65536 | new-simdutf | 5329.2 [4829.2..5683.4] | 24.59 [23.06..27.14]
+ascii | 65536 | 32 | 65536 | export | 5015.9 [4819.3..5293.2] | 26.13 [24.76..27.20]
+ascii | 65536 | | | new/old-scalar (median of per-round ratios) | 0.043 | 
+ascii | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.049 | 
+ascii | 65536 | | | pre-D19-core/old-scalar (control) | 0.892 | 
+latin1 | 8 | 1024 | 11 | pre-D19-core | 47.3 [45.6..66.3] | 0.34 [0.24..0.35]
+latin1 | 8 | 1024 | 11 | old-scalar | 46.8 [41.6..50.9] | 0.34 [0.31..0.38]
+latin1 | 8 | 1024 | 11 | new-simdutf | 34.2 [33.0..41.1] | 0.47 [0.39..0.48]
+latin1 | 8 | 1024 | 11 | export | 32.1 [31.4..39.4] | 0.50 [0.41..0.51]
+latin1 | 8 | | | new/old-scalar (median of per-round ratios) | 0.725 | 
+latin1 | 8 | | | new/pre-D19-core (median of per-round ratios) | 0.725 | 
+latin1 | 8 | | | pre-D19-core/old-scalar (control) | 1.012 | 
+latin1 | 32 | 1024 | 47 | pre-D19-core | 316.3 [305.8..365.6] | 0.20 [0.18..0.21]
+latin1 | 32 | 1024 | 47 | old-scalar | 314.9 [306.1..351.2] | 0.20 [0.18..0.21]
+latin1 | 32 | 1024 | 47 | new-simdutf | 73.4 [71.9..90.7] | 0.87 [0.71..0.89]
+latin1 | 32 | 1024 | 47 | export | 75.3 [71.3..113.8] | 0.85 [0.56..0.90]
+latin1 | 32 | | | new/old-scalar (median of per-round ratios) | 0.238 | 
+latin1 | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.240 | 
+latin1 | 32 | | | pre-D19-core/old-scalar (control) | 1.019 | 
+latin1 | 128 | 1024 | 192 | pre-D19-core | 1202.5 [1192.4..1228.9] | 0.21 [0.21..0.21]
+latin1 | 128 | 1024 | 192 | old-scalar | 1211.0 [1191.7..1222.3] | 0.21 [0.21..0.21]
+latin1 | 128 | 1024 | 192 | new-simdutf | 110.1 [105.8..114.1] | 2.32 [2.24..2.42]
+latin1 | 128 | 1024 | 192 | export | 107.4 [103.3..112.5] | 2.38 [2.28..2.48]
+latin1 | 128 | | | new/old-scalar (median of per-round ratios) | 0.092 | 
+latin1 | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.092 | 
+latin1 | 128 | | | pre-D19-core/old-scalar (control) | 1.003 | 
+latin1 | 1024 | 1024 | 1535 | pre-D19-core | 9493.3 [9392.8..9505.6] | 0.22 [0.22..0.22]
+latin1 | 1024 | 1024 | 1535 | old-scalar | 9660.7 [9597.5..9708.8] | 0.21 [0.21..0.21]
+latin1 | 1024 | 1024 | 1535 | new-simdutf | 465.5 [454.4..682.6] | 4.40 [3.00..4.51]
+latin1 | 1024 | 1024 | 1535 | export | 462.9 [409.9..626.9] | 4.42 [3.27..5.00]
+latin1 | 1024 | | | new/old-scalar (median of per-round ratios) | 0.048 | 
+latin1 | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.049 | 
+latin1 | 1024 | | | pre-D19-core/old-scalar (control) | 0.982 | 
+latin1 | 65536 | 32 | 98291 | pre-D19-core | 612283.5 [606934.9..679712.3] | 0.21 [0.19..0.22]
+latin1 | 65536 | 32 | 98291 | old-scalar | 616156.2 [612222.6..625216.9] | 0.21 [0.21..0.21]
+latin1 | 65536 | 32 | 98291 | new-simdutf | 25145.4 [21775.7..26277.2] | 5.21 [4.99..6.02]
+latin1 | 65536 | 32 | 98291 | export | 25187.9 [21312.8..27807.0] | 5.20 [4.71..6.15]
+latin1 | 65536 | | | new/old-scalar (median of per-round ratios) | 0.041 | 
+latin1 | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.041 | 
+latin1 | 65536 | | | pre-D19-core/old-scalar (control) | 0.988 | 
+bmp-wide | 8 | 1024 | 24 | pre-D19-core | 28.6 [27.9..40.1] | 0.56 [0.40..0.57]
+bmp-wide | 8 | 1024 | 24 | old-scalar | 26.0 [24.6..27.2] | 0.62 [0.59..0.65]
+bmp-wide | 8 | 1024 | 24 | new-simdutf | 27.1 [26.4..29.5] | 0.59 [0.54..0.61]
+bmp-wide | 8 | 1024 | 24 | export | 25.7 [25.2..31.4] | 0.62 [0.51..0.64]
+bmp-wide | 8 | | | new/old-scalar (median of per-round ratios) | 1.049 | 
+bmp-wide | 8 | | | new/pre-D19-core (median of per-round ratios) | 0.946 | 
+bmp-wide | 8 | | | pre-D19-core/old-scalar (control) | 1.119 | 
+bmp-wide | 32 | 1024 | 96 | pre-D19-core | 106.1 [104.5..110.5] | 0.60 [0.58..0.61]
+bmp-wide | 32 | 1024 | 96 | old-scalar | 92.8 [90.9..93.4] | 0.69 [0.69..0.70]
+bmp-wide | 32 | 1024 | 96 | new-simdutf | 48.8 [48.5..52.8] | 1.31 [1.21..1.32]
+bmp-wide | 32 | 1024 | 96 | export | 49.8 [49.5..57.9] | 1.29 [1.10..1.29]
+bmp-wide | 32 | | | new/old-scalar (median of per-round ratios) | 0.532 | 
+bmp-wide | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.463 | 
+bmp-wide | 32 | | | pre-D19-core/old-scalar (control) | 1.146 | 
+bmp-wide | 128 | 1024 | 384 | pre-D19-core | 406.9 [403.5..422.5] | 0.63 [0.61..0.63]
+bmp-wide | 128 | 1024 | 384 | old-scalar | 374.6 [372.6..382.8] | 0.68 [0.67..0.69]
+bmp-wide | 128 | 1024 | 384 | new-simdutf | 93.3 [92.5..95.2] | 2.74 [2.69..2.77]
+bmp-wide | 128 | 1024 | 384 | export | 93.2 [91.6..98.1] | 2.75 [2.61..2.79]
+bmp-wide | 128 | | | new/old-scalar (median of per-round ratios) | 0.249 | 
+bmp-wide | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.228 | 
+bmp-wide | 128 | | | pre-D19-core/old-scalar (control) | 1.087 | 
+bmp-wide | 1024 | 1024 | 3072 | pre-D19-core | 3193.4 [3177.5..3504.6] | 0.64 [0.58..0.64]
+bmp-wide | 1024 | 1024 | 3072 | old-scalar | 2946.3 [2864.5..3605.3] | 0.70 [0.57..0.71]
+bmp-wide | 1024 | 1024 | 3072 | new-simdutf | 505.8 [501.7..511.8] | 4.05 [4.00..4.08]
+bmp-wide | 1024 | 1024 | 3072 | export | 506.4 [502.5..519.7] | 4.04 [3.94..4.08]
+bmp-wide | 1024 | | | new/old-scalar (median of per-round ratios) | 0.173 | 
+bmp-wide | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.158 | 
+bmp-wide | 1024 | | | pre-D19-core/old-scalar (control) | 1.097 | 
+bmp-wide | 65536 | 32 | 196608 | pre-D19-core | 204552.7 [202694.9..231850.6] | 0.64 [0.57..0.65]
+bmp-wide | 65536 | 32 | 196608 | old-scalar | 190114.2 [180922.9..195413.4] | 0.69 [0.67..0.72]
+bmp-wide | 65536 | 32 | 196608 | new-simdutf | 30644.6 [29486.7..31676.0] | 4.28 [4.14..4.45]
+bmp-wide | 65536 | 32 | 196608 | export | 30784.7 [29452.2..33570.1] | 4.26 [3.90..4.45]
+bmp-wide | 65536 | | | new/old-scalar (median of per-round ratios) | 0.164 | 
+bmp-wide | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.148 | 
+bmp-wide | 65536 | | | pre-D19-core/old-scalar (control) | 1.112 | 
+astral | 8 | 1024 | 16 | pre-D19-core | 19.3 [19.2..20.2] | 0.83 [0.79..0.83]
+astral | 8 | 1024 | 16 | old-scalar | 19.7 [19.2..21.1] | 0.81 [0.76..0.83]
+astral | 8 | 1024 | 16 | new-simdutf | 23.9 [23.7..26.9] | 0.67 [0.59..0.68]
+astral | 8 | 1024 | 16 | export | 22.5 [22.4..22.8] | 0.71 [0.70..0.71]
+astral | 8 | | | new/old-scalar (median of per-round ratios) | 1.230 | 
+astral | 8 | | | new/pre-D19-core (median of per-round ratios) | 1.243 | 
+astral | 8 | | | pre-D19-core/old-scalar (control) | 0.995 | 
+astral | 32 | 1024 | 64 | pre-D19-core | 68.3 [67.3..72.6] | 0.94 [0.88..0.95]
+astral | 32 | 1024 | 64 | old-scalar | 69.3 [68.5..138.9] | 0.92 [0.46..0.93]
+astral | 32 | 1024 | 64 | new-simdutf | 61.5 [60.4..71.9] | 1.04 [0.89..1.06]
+astral | 32 | 1024 | 64 | export | 59.6 [59.1..69.2] | 1.07 [0.92..1.08]
+astral | 32 | | | new/old-scalar (median of per-round ratios) | 0.875 | 
+astral | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.897 | 
+astral | 32 | | | pre-D19-core/old-scalar (control) | 0.982 | 
+astral | 128 | 1024 | 256 | pre-D19-core | 268.3 [266.3..271.6] | 0.95 [0.94..0.96]
+astral | 128 | 1024 | 256 | old-scalar | 269.0 [267.2..276.3] | 0.95 [0.93..0.96]
+astral | 128 | 1024 | 256 | new-simdutf | 208.1 [206.9..226.8] | 1.23 [1.13..1.24]
+astral | 128 | 1024 | 256 | export | 207.4 [206.2..213.5] | 1.23 [1.20..1.24]
+astral | 128 | | | new/old-scalar (median of per-round ratios) | 0.774 | 
+astral | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.777 | 
+astral | 128 | | | pre-D19-core/old-scalar (control) | 0.996 | 
+astral | 1024 | 1024 | 2048 | pre-D19-core | 2193.8 [2188.5..2224.0] | 0.93 [0.92..0.94]
+astral | 1024 | 1024 | 2048 | old-scalar | 2204.9 [2166.7..2308.6] | 0.93 [0.89..0.95]
+astral | 1024 | 1024 | 2048 | new-simdutf | 1620.9 [1616.0..1637.4] | 1.26 [1.25..1.27]
+astral | 1024 | 1024 | 2048 | export | 1626.5 [1617.3..1659.4] | 1.26 [1.23..1.27]
+astral | 1024 | | | new/old-scalar (median of per-round ratios) | 0.735 | 
+astral | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.738 | 
+astral | 1024 | | | pre-D19-core/old-scalar (control) | 1.001 | 
+astral | 65536 | 32 | 131072 | pre-D19-core | 139535.1 [138682.8..140996.6] | 0.94 [0.93..0.95]
+astral | 65536 | 32 | 131072 | old-scalar | 142736.2 [138525.1..143371.4] | 0.92 [0.91..0.95]
+astral | 65536 | 32 | 131072 | new-simdutf | 104405.5 [103140.7..107263.3] | 1.26 [1.22..1.27]
+astral | 65536 | 32 | 131072 | export | 104476.4 [102611.8..188037.4] | 1.25 [0.70..1.28]
+astral | 65536 | | | new/old-scalar (median of per-round ratios) | 0.744 | 
+astral | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.747 | 
+astral | 65536 | | | pre-D19-core/old-scalar (control) | 0.982 | 
+mixed | 8 | 1024 | 15 | pre-D19-core | 73.8 [71.0..78.6] | 0.22 [0.20..0.23]
+mixed | 8 | 1024 | 15 | old-scalar | 81.0 [79.7..84.0] | 0.20 [0.19..0.20]
+mixed | 8 | 1024 | 15 | new-simdutf | 48.5 [47.6..49.2] | 0.33 [0.33..0.34]
+mixed | 8 | 1024 | 15 | export | 47.1 [46.8..48.5] | 0.34 [0.33..0.34]
+mixed | 8 | | | new/old-scalar (median of per-round ratios) | 0.596 | 
+mixed | 8 | | | new/pre-D19-core (median of per-round ratios) | 0.656 | 
+mixed | 8 | | | pre-D19-core/old-scalar (control) | 0.911 | 
+mixed | 32 | 1024 | 63 | pre-D19-core | 385.1 [384.2..406.6] | 0.17 [0.16..0.17]
+mixed | 32 | 1024 | 63 | old-scalar | 371.1 [369.3..400.7] | 0.17 [0.16..0.17]
+mixed | 32 | 1024 | 63 | new-simdutf | 205.6 [203.6..220.3] | 0.31 [0.29..0.31]
+mixed | 32 | 1024 | 63 | export | 207.9 [203.7..230.6] | 0.31 [0.28..0.31]
+mixed | 32 | | | new/old-scalar (median of per-round ratios) | 0.553 | 
+mixed | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.532 | 
+mixed | 32 | | | pre-D19-core/old-scalar (control) | 1.039 | 
+mixed | 128 | 1024 | 255 | pre-D19-core | 1534.1 [1512.5..1554.0] | 0.17 [0.16..0.17]
+mixed | 128 | 1024 | 255 | old-scalar | 1525.8 [1488.5..1580.6] | 0.17 [0.16..0.17]
+mixed | 128 | 1024 | 255 | new-simdutf | 860.1 [838.5..928.2] | 0.30 [0.28..0.31]
+mixed | 128 | 1024 | 255 | export | 852.0 [831.4..867.1] | 0.30 [0.30..0.31]
+mixed | 128 | | | new/old-scalar (median of per-round ratios) | 0.571 | 
+mixed | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.564 | 
+mixed | 128 | | | pre-D19-core/old-scalar (control) | 1.003 | 
+mixed | 1024 | 1024 | 2047 | pre-D19-core | 12313.2 [12233.1..13201.1] | 0.17 [0.16..0.17]
+mixed | 1024 | 1024 | 2047 | old-scalar | 12130.2 [12093.3..18580.5] | 0.17 [0.11..0.17]
+mixed | 1024 | 1024 | 2047 | new-simdutf | 6659.8 [6631.6..7667.5] | 0.31 [0.27..0.31]
+mixed | 1024 | 1024 | 2047 | export | 6666.6 [6622.1..7093.1] | 0.31 [0.29..0.31]
+mixed | 1024 | | | new/old-scalar (median of per-round ratios) | 0.548 | 
+mixed | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.542 | 
+mixed | 1024 | | | pre-D19-core/old-scalar (control) | 1.010 | 
+mixed | 65536 | 32 | 131091 | pre-D19-core | 795741.3 [788667.9..816460.2] | 0.16 [0.16..0.17]
+mixed | 65536 | 32 | 131091 | old-scalar | 779899.6 [775468.3..821197.5] | 0.17 [0.16..0.17]
+mixed | 65536 | 32 | 131091 | new-simdutf | 428856.9 [424017.6..444197.7] | 0.31 [0.30..0.31]
+mixed | 65536 | 32 | 131091 | export | 430694.4 [425581.7..469568.7] | 0.30 [0.28..0.31]
+mixed | 65536 | | | new/old-scalar (median of per-round ratios) | 0.550 | 
+mixed | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.539 | 
+mixed | 65536 | | | pre-D19-core/old-scalar (control) | 1.014 | 
+lone-surrogates | 8 | 1024 | 18 | pre-D19-core | 82.1 [81.6..84.2] | 0.19 [0.19..0.20]
+lone-surrogates | 8 | 1024 | 18 | old-scalar | 78.4 [76.6..81.6] | 0.20 [0.20..0.21]
+lone-surrogates | 8 | 1024 | 18 | new-simdutf | 36.5 [35.7..40.3] | 0.44 [0.40..0.45]
+lone-surrogates | 8 | 1024 | 18 | export | 35.0 [33.9..43.3] | 0.46 [0.37..0.47]
+lone-surrogates | 8 | | | new/old-scalar (median of per-round ratios) | 0.468 | 
+lone-surrogates | 8 | | | new/pre-D19-core (median of per-round ratios) | 0.441 | 
+lone-surrogates | 8 | | | pre-D19-core/old-scalar (control) | 1.047 | 
+lone-surrogates | 32 | 1024 | 66 | pre-D19-core | 402.9 [398.5..414.2] | 0.16 [0.15..0.16]
+lone-surrogates | 32 | 1024 | 66 | old-scalar | 394.1 [387.8..433.0] | 0.16 [0.15..0.17]
+lone-surrogates | 32 | 1024 | 66 | new-simdutf | 213.5 [208.9..316.8] | 0.30 [0.20..0.31]
+lone-surrogates | 32 | 1024 | 66 | export | 209.2 [207.0..233.2] | 0.31 [0.27..0.31]
+lone-surrogates | 32 | | | new/old-scalar (median of per-round ratios) | 0.537 | 
+lone-surrogates | 32 | | | new/pre-D19-core (median of per-round ratios) | 0.530 | 
+lone-surrogates | 32 | | | pre-D19-core/old-scalar (control) | 1.022 | 
+lone-surrogates | 128 | 1024 | 258 | pre-D19-core | 1662.1 [1554.3..1757.6] | 0.15 [0.15..0.16]
+lone-surrogates | 128 | 1024 | 258 | old-scalar | 1534.9 [1525.0..1696.6] | 0.17 [0.15..0.17]
+lone-surrogates | 128 | 1024 | 258 | new-simdutf | 899.9 [848.9..945.3] | 0.28 [0.27..0.30]
+lone-surrogates | 128 | 1024 | 258 | export | 878.2 [843.1..907.4] | 0.29 [0.28..0.30]
+lone-surrogates | 128 | | | new/old-scalar (median of per-round ratios) | 0.580 | 
+lone-surrogates | 128 | | | new/pre-D19-core (median of per-round ratios) | 0.530 | 
+lone-surrogates | 128 | | | pre-D19-core/old-scalar (control) | 1.049 | 
+lone-surrogates | 1024 | 1024 | 2049 | pre-D19-core | 12354.2 [12252.4..12775.4] | 0.17 [0.16..0.17]
+lone-surrogates | 1024 | 1024 | 2049 | old-scalar | 12250.7 [12122.9..12706.3] | 0.17 [0.16..0.17]
+lone-surrogates | 1024 | 1024 | 2049 | new-simdutf | 6852.2 [6709.9..7091.4] | 0.30 [0.29..0.31]
+lone-surrogates | 1024 | 1024 | 2049 | export | 6772.7 [6655.7..7555.1] | 0.30 [0.27..0.31]
+lone-surrogates | 1024 | | | new/old-scalar (median of per-round ratios) | 0.562 | 
+lone-surrogates | 1024 | | | new/pre-D19-core (median of per-round ratios) | 0.552 | 
+lone-surrogates | 1024 | | | pre-D19-core/old-scalar (control) | 1.005 | 
+lone-surrogates | 65536 | 32 | 131096 | pre-D19-core | 793240.5 [786683.9..837201.0] | 0.17 [0.16..0.17]
+lone-surrogates | 65536 | 32 | 131096 | old-scalar | 786782.8 [779218.8..818043.8] | 0.17 [0.16..0.17]
+lone-surrogates | 65536 | 32 | 131096 | new-simdutf | 458520.0 [453098.1..464255.2] | 0.29 [0.28..0.29]
+lone-surrogates | 65536 | 32 | 131096 | export | 459238.3 [454971.3..469112.2] | 0.29 [0.28..0.29]
+lone-surrogates | 65536 | | | new/old-scalar (median of per-round ratios) | 0.581 | 
+lone-surrogates | 65536 | | | new/pre-D19-core (median of per-round ratios) | 0.576 | 
+lone-surrogates | 65536 | | | pre-D19-core/old-scalar (control) | 1.003 | 

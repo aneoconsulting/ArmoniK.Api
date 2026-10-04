@@ -1,0 +1,5 @@
+# D19 tc16_bench, container instrumentation; 2026-10-04T12:45:11Z
+# commit d4ee871c; rustc 1.94.1; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+# cpu: Intel(R) Xeon(R) Processor @ 2.80GHz, 4 cpus; simdutf 7.7.1 kernel at run time: haswell (Intel/AMD AVX2)
+# D19 core: /home/user/ArmoniK.Api/.claude/worktrees/agent-ab8a541bf2fc183a1/ffi/poc/rust/target/release/deps/libak_core.so sha256 22862c53e0a2d3a4
+# pre-D19 core: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/d19-base/target/release/libak_core.so sha256 9ea3c14a0514992a

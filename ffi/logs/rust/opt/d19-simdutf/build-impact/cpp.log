@@ -1,0 +1,18 @@
+# commit 017407df; cmake version 3.28.3; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; dotnet 8.0.131
+===== cpp: CMake core targets and conformance arms =====
+  ok    configure
+  ok    build core
+  ok    build core_count
+  ok    build core_pad
+  ok    build core_global
+  ok    build core_both
+  ok    build conformance_a17_shared
+  ok    build conformance_a17_static
+  ok    build conformance_c11_shared
+  ok    build counts_a17_static_lto
+  core: libstdc++.so.6 NEEDED; libak_core.a 22784232 B
+  ok    run conformance_a17_shared (dynamic libak_core: 1): 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    run conformance_a17_static (dynamic libak_core: 0): 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    run conformance_c11_shared (dynamic libak_core: 1): 608 checks, 0 failures, 1 payloads with two valid encodings
+failures: 0
+D19 CPP/CSHARP BUILD CHECK PASSED

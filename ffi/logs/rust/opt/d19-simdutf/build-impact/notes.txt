@@ -1,0 +1,35 @@
+D19 build impact (container; commits ed31dbfd core .. 84900734). Logs beside this file.
+
+What changed for every build of the core
+- ak-core depends on simdutf = "=0.7.0" (crates.io), whose build.rs compiles simdutf C++ 7.7.1
+  (cpp/simdutfrs.cpp, amalgamated) with the cc crate, -std=c++11: a C++11 compiler is required
+  wherever the core is built. New lockfile entries: simdutf, bitflags, cc, find-msvc-tools, shlex
+  (poc/codec; poc/rust and poc/rust/corpus gain simdutf only).
+- libak_core.so: DT_NEEDED libstdc++.so.6 added (was libgcc_s, libc, libm); 1,440,176 B with
+  init-guard against 838,952 B before. No symbol other than ak_* is exported (simdutf's C++
+  symbols stay local). libak_core.a: rustc's native-static-libs now lists -lstdc++.
+- simdutf picks its kernel at run time (haswell / AVX2 in this container; the campaign
+  machine's CPU decides there). Big-endian targets: compile_error in ak-core.
+
+Per slice (matrix.log, cpp.log, csharp.log)
+- rust: cargo build of every target the D19 checks use (gen/d19_checks.sh), gen/h2batch_core.sh,
+  the 1.88.0 floor (build + ak-core/ak-rt unit tests): pass.
+- cpp: CMake configure; targets core, core_count, core_pad, core_global, core_both,
+  conformance_a17_shared / _static / c11_shared (run: 608 checks, 0 failures each),
+  counts_a17_static_lto: pass. The static arms link libak_core.a with g++, which brings
+  libstdc++. AK_RPC=ON not configured (Google Benchmark 1.8.3 not installed here); its cargo
+  feature sets (rpc; rpc,count) build in matrix.log.
+- csharp: gen/build_core.sh as committed (10 cores incl. h2-batch, the layout probes, the
+  ArmoniK.Api.Client dotnet build): pass; every core carries the 7 D19 exports. The build
+  output under poc/csharp/target-* was removed afterwards.
+- java: gen/build.sh needs JDK 8 / 17 and deps/cp.txt, not present here; not run. Its cargo
+  feature sets build (matrix.log) and its JNI shim (gcc -shared against the cdylib, JDK 21
+  headers here) links.
+- python: build.sh not run as a whole; its feature sets build and its shim
+  (cc -shared -Werror against the cdylib, CPython 3.12.3) links and imports.
+- A C host linking libak_core.a with gcc fails without -lstdc++ (50 undefined C++ runtime
+  references); with -lstdc++ it links and runs. No slice links the staticlib with a C driver.
+
+Not checked: the NixOS campaign machine (whether libstdc++.so.6 resolves for every loader of
+libak_core.so there: .NET, the JVM, CPython, the Rust and C++ binaries); ThreadSanitizer
+builds (nightly not installed); Windows / macOS.
