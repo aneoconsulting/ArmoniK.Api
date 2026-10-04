@@ -1,0 +1,12 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit a79c14be; 2026-10-04T14:44:18Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=decode-read AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full nounk; reps 2 (order alternated)
+# variant before: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp at 09ee7592
+# variant after: /home/user/ArmoniK.Api/ffi/poc/csharp at a79c14be
+# rep 1 before full: rc=0 127 s; quiet: load1 0.02, no process above 10 % (waited 460 s); # correctness:    1996 pre-timing checks passed (byte identi
+# rep 1 before nounk: rc=0 76 s; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    1400 pre-timing checks passed (byte identi
+# rep 1 after full: rc=0 121 s; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    1996 pre-timing checks passed (byte identi
+# rep 1 after nounk: rc=0 74 s; quiet: load1 0.47, no process above 10 % (waited 70 s); # correctness:    1400 pre-timing checks passed (byte identi
+# rep 2 after full: rc=0 119 s; quiet: load1 0.47, no process above 10 % (waited 70 s); # correctness:    1996 pre-timing checks passed (byte identi
+# rep 2 after nounk: rc=0 63 s; quiet: load1 0.47, no process above 10 % (waited 50 s); # correctness:    1400 pre-timing checks passed (byte identi
+# rep 2 before full: rc=0 119 s; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    1996 pre-timing checks passed (byte identi
+# rep 2 before nounk: rc=0 60 s; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    1400 pre-timing checks passed (byte identi
