@@ -1,0 +1,17 @@
+MSBuild version 17.8.49+7806cbf7b for .NET
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Facade -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/Facade/bin-nounk/Release/net8.0/Facade.dll
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+  Harness -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-nounk/Release/net8.0/harness.dll
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(58,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/BenchDotNet.csproj]
+  BenchDotNet -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll
+
+Build succeeded.
+
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(58,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/BenchDotNet.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:15.50
