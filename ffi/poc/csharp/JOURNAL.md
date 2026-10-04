@@ -2346,3 +2346,65 @@ On the rewritten history (2026-10-03, logs/PURGED.md), code at `2f9ce48`.
 - Gates at beae3d7 from a fresh worktree, both variants: PASSED, 30 controls each; counts equal
   (1,051 / 551, RPC 105 / 62). Core-grid smoke there (grouped): codec 245 rows, rpc 32 + 4 + 4,
   the same label sets and counts as the pre-merge smoke of JOURNAL 71.
+
+## 73. The optimisation pass's short baseline; a one-CPU client measured tier-0 code (2026-10-04)
+
+Container instrumentation throughout; nothing gated (gen/gate.sh not run); each codec process's
+Cases.Verify on, every RPC call checked.
+
+- **Toolchain.** The container had no .NET; `builds.dotnet.microsoft.com` (dotnet-install) is
+  refused by the proxy (403, policy). Ubuntu noble-updates has the slice's exact versions:
+  `apt-get install dotnet-sdk-8.0=8.0.131-0ubuntu1~24.04.1` (SDK 8.0.131, runtime 8.0.31). Cores
+  built by gen/build_core.sh (last core commit fd69b0d6; target-core sha256 8932d205...,
+  nounk 83768736..., h2b a6faa4d6...), the Rust server by poc/rust/serve.sh build.
+- **Built:** `gen/opt_bench.sh` (the core grid exactly as run_campaign.sh runs it: default
+  toolchain, merged runs; short BDN settings; not gated), `gen/opt_tables.py` (tables.md, codec.tsv,
+  rpc.tsv), and `AK_BDN_MEMORY=1` (an exploration switch, off in the campaign): BDN's
+  MemoryDiagnoser, one extra workload iteration after the actual stage, outside the job's clock;
+  `mem_alloc_bytes_per_op`, `mem_gen`, `mem_ops` on each case's first row, both suites.
+  Checked in child mode on host-gen:retain (smoke): fields present, plausible (encode-transport-hot
+  0 B on most rows, decode-read the decoded graph's size).
+- **First run VOID for the managed arms** (`logs/csharp/opt/baseline-1cpu-VOID/`, kept, marked in
+  its header, jsonl and tables.md): client CLIENT=1 (one CPU), codec 4 x 40 ms warm-up. The
+  aggregating session pointed out (from the .NET 8 source: TC_CallCountingDelayMs 100 ms x
+  TC_DelaySingleProcMultiplier 10 on a one-CPU affinity mask) that tier-up then comes ~1 s after
+  the last tier-0 JIT, later than each child measures. Confirmed (`logs/csharp/opt/tier-check/`,
+  gen/tier_check.sh, gen/tier_table.py; full build, P1.1 and P6.1, encode-transport-hot and
+  decode-read, three units): on 1 CPU every managed row is flat and 3 to 7 times slower than with
+  DOTNET_TC_CallCountingDelayMs=0 or DOTNET_TieredCompilation=0 in the same pinning (e.g.
+  incumbent-prod P6.1 encode 3.08-3.13 ms against 0.45-0.51 ms; host-gen 0.88 against 0.13-0.15 ms;
+  P1.1 encode incumbent 5.1 against 1.24-1.31 us). The core-ffi encode rows (native work) barely
+  move; core-ffi decode-read (managed facade fill) does.
+- **Two CPUs alone did not fix it at that warm-up.** On CPUs 0,1 and on 2,3 with 4 x 40 ms, rows
+  tier up DURING the actual stage (e.g. incumbent P1.1 encode 8.7, 13.5, 11.7, 2.0, 1.8, 1.3 us by
+  round; host-gen P6.1 decode-read 1.8 ms then 1.1 ms), so the first fix tried (more CPUs, nothing
+  else) leaves mixed-tier samples. Warm-up 10 x 40 ms: still partly tier 0 (incumbent P6.1 encode
+  0.87 ms). Warm-up 10 x 100 ms (the campaign's) and 25 x 40 ms: settled on all 12 rows, matching
+  the delay-0 control within the run's spread. So the 2-CPU baseline runs 25 x 40 ms (codec) and
+  10 x 100 ms (RPC, the campaign's), and is longer than the 5-10 min asked (stated).
+- **The slice's JIT check missed it.** In grouped mode (InProcessEmit) on one CPU the measured rows
+  were tier-0 speed, yet `jit check: PASS` (all 6 runs). The check counts methods compiled IN the
+  case's span that are promoted later; code first compiled before the case (Cases.Verify runs every
+  arm before BDN starts) and never promoted while the process lives is not seen. Open defect D46,
+  not fixed in this unit. Under the default toolchain there is no tier readback at all (JOURNAL 64).
+- **Guard (CpuGuard, CpuClock.cs):** every timed process (BDN host and each child, codec and RPC,
+  at Alloc.Startup) reads its affinity mask (sched_getaffinity) and refuses ONE CPU unless
+  AK_ALLOW_SINGLE_CPU=1; the header states it, each case's first row carries `cpus_affinity`,
+  `cpus_runtime` (Environment.ProcessorCount) and `single_cpu_override` as its own process saw
+  them. Control: `1cpu-guard` in tier-check, refused (rc 134, no rows). run_campaign.sh's smoke
+  defaults moved from client 0 / server 1 to client 0,1 / server 2,3 (the guard would refuse the
+  old default); the campaign machine's sets are 8 CPUs.
+- One line: a `pkill -f VBCSCompiler` in the same command line as the run matched its own shell
+  and killed the first tier-check launch (exit 144); rerun without it.
+- **The 2-CPU baseline** (`logs/csharp/opt/baseline/`, commit 24a9294, client 0,1, server 2,3):
+  codec 245 cases + 4 primes, RPC 40 cases, 0 failed; every case's process saw 2 CPUs (affinity and
+  ProcessorCount). Benchmark wall 745 s (codec 474, RPC 271) plus build 24 s and server warm-up
+  36 s (500 calls per direction, campaign 2000). The settled tier-check rows agree with it within
+  the run's spread (e.g. incumbent-prod P1.1 encode 1.31 us, P6.1 encode 0.48 ms). Flagged, not
+  interpreted: (1) many rows carry one slow round (` *` in tables.md; CPU 0 is shared with the
+  container's other processes); (2) core-ffi retain P5.4 decode-read 1.05 ms with 0 GC in its
+  MemoryDiagnoser iteration, against 1.75-2.09 ms and gen2 collections in the four other units
+  (the same 4,194,600 B allocated); (3) the RPC client CPU per call moved between the 1-CPU and
+  2-CPU runs in both directions, mostly up on 2 CPUs (A b k=1 7.3 -> 16.2 ms task-clock; Cf-retain
+  c k=1 3.1 -> 4.3 ms; Ef-retain b k=1 3.0 -> 1.6 ms), with task-clock above wall for A; (4) cell A's
+  tier state is not checked (no RPC tier check was run; its warm-up is the campaign's 10 x 100 ms).

@@ -1,0 +1,21 @@
+# csharp slice OPTIMISATION BENCHMARK (gen/opt_bench.sh), core grid (AK_CAMPAIGN_GRID=core, CAMPAIGN section 4.0)
+# CONTAINER INSTRUMENTATION: not a campaign result (README 1.1, CAMPAIGN section 2); NOT GATED (gen/gate.sh not run); each codec process's Cases.Verify byte-identity pre-check is on, and every RPC call is checked (req 18)
+# commit:     24a92944bca8cf5fe9ff3ee54c36c5175928d31c (clean)
+# utc:        2026-10-04T08:49:04Z
+# machine:    Intel(R) Xeon(R) Processor @ 2.80GHz; 4 logical CPUs; kernel 6.18.44-fc-v64; smt 0
+# cpu sets:   CLIENT=0,1 SERVER=2,3 (taskset); AK_WORKERS=8 (core runtime workers, .NET thread pool min/max in the RPC client), server tokio workers AK_SERVER_THREADS=8
+# .NET:       SDK 8.0.131; runtimes Microsoft.AspNetCore.App 8.0.31;Microsoft.NETCore.App 8.0.31; (Ubuntu noble-updates packages dotnet-sdk-8.0 8.0.131-0ubuntu1~24.04.1); target net8.0 Release; workstation concurrent GC, tiering/PGO at defaults
+# rust:       rustc 1.94.1 (e408947bf 2026-03-25); cargo 1.94.1 (29ea6fb6a 2026-03-24)
+# core:       target-core (rpc,init-guard) sha256 8932d20505b6d5f062a59e7a830a1df03f9705bfe8b3e5e63ef0296d5bd9b436
+#             target-core-nounk (rpc,init-guard, --no-default-features) sha256 837687368933381fda3ca67cd0747072257c736a1cff029e4af5d4f483df5631
+#             target-core-h2b (rpc,init-guard, h2-batch) sha256 a6faa4d6d8aacbf3f557b88e2ca6f01f2a3fdc8d19a08f22c92630288a12d53a
+#             built by gen/build_core.sh from git archive HEAD ffi/poc/codec (last core commit fd69b0d6)
+# BDN:        BenchmarkDotNet 0.15.8, DEFAULT toolchain (one child process per case, as the campaign), one launch (launch 1: full build first), merged runs (one per codec build; one per RPC run kind)
+#             codec: --warmup 25 --rounds 6 --iteration-ms 40 (campaign: 10 / 5 / 100, 3 launches)
+#             rpc:   --warmup 10 --rounds 6 --iteration-ms 100 (campaign: 10 / 5 / 100, 3 launches); >= 45 calls per caller thread before the first measured value (req 24: >= 20)
+#             warm-up length (JOURNAL 73, logs/csharp/opt/tier-check/): .NET 8 tiers up after a call-counting delay of 100 ms (x10 on a one-CPU affinity mask), restarted by each new tier-0 JIT; a BDN child measured tier-0 or mid-tier-up code with 4 x 40 ms of warm-up (1 CPU: always; 2 CPUs: often), and settled code with 10 x 100 ms or 25 x 40 ms on 2 CPUs; every timed process refuses a one-CPU affinity mask (CpuGuard) and each case's first row carries the CPUs its process saw
+#             MemoryDiagnoser on (AK_BDN_MEMORY=1): one extra workload iteration per case after the actual stage, outside the job's clock
+# grid:       codec: units incumbent-prod:default, core-ffi:retain, host-gen:retain (full build), core-ffi:no-unknown, host-gen:no-unknown (no-unknown build); encode-transport-hot and decode-read; 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2, 7 U-* rows
+#             rpc: transport armonik; stock h2: A, Bf (+ B a+read), Cf-retain (+ C-retain a+read), Ef-retain (+ E-retain a+read) on a+read, b (P2.2), c (P5.4), d (16 MiB) at k = 1 and 8; h2-batch: Cf-retain on c, d at k = 1, 8; pinned allocator: A, Cf-retain on c, d at k = 1
+# dropped:    nothing of the core grid; calib not run; no plant controls; server warm-up 500 calls per direction (campaign 2000)
+# allocator:  default (GLIBC_TUNABLES unset) for every process except the pinned-allocator subset (GLIBC_TUNABLES=glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432)

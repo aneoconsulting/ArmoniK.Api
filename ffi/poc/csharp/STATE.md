@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-65); this file states what is true now.
+73); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-04: the optimisation pass's short baseline run (not gated, container instrumentation; see **Optimisation baseline**), with the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -91,6 +91,33 @@ src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, In
 src/HarnessFloor/           net48, compile only (the binding; the host half is compiled out)
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
+
+## Optimisation baseline (2026-10-04; JOURNAL 73; container instrumentation, NOT gated)
+
+- **Where:** `logs/csharp/opt/baseline/` (the valid run: header.txt, tables.md, codec.tsv,
+  rpc.tsv, the raw jsonl and BDN logs, timing.txt), at `24a9294`. Driver `gen/opt_bench.sh`
+  (the core grid as run_campaign.sh runs it: BDN default toolchain, one child per case, merged
+  runs; codec 25 x 40 ms warm-up, 6 rounds of 40 ms; RPC 10 x 100 ms warm-up, 6 rounds of
+  100 ms; server warm-up 500; MemoryDiagnoser on through `AK_BDN_MEMORY=1`), tables by
+  `gen/opt_tables.py`. Client CPUs 0,1, server 2,3, AK_WORKERS 8. Nothing of the core grid
+  dropped; benchmark wall 12.4 min (codec 474 s, RPC 271 s), over the 5-10 min asked because each
+  child needs ~1 s of warm-up to reach tier 1 (below). Every codec process ran Cases.Verify;
+  every RPC call checked; 0 failed cases.
+- **VOID for the managed arms:** `logs/csharp/opt/baseline-1cpu-VOID/` (client on ONE CPU, 4 x 40 ms
+  warm-up): .NET 8 delays tier-up 10x on a one-CPU affinity mask, and those rows measured tier-0
+  code. Kept, marked in its header, jsonl and tables.md.
+- **Tier check:** `logs/csharp/opt/tier-check/` (gen/tier_check.sh, gen/tier_table.py): on 1 CPU
+  managed rows 3-7x slower than with DOTNET_TC_CallCountingDelayMs=0 or TieredCompilation=0; on 2
+  CPUs with 4 x 40 ms they tier up during the actual stage; 10 x 100 ms and 25 x 40 ms settle.
+- **Guard:** every timed .NET process (BDN host and each child, both suites) reads its affinity mask
+  and refuses one CPU unless AK_ALLOW_SINGLE_CPU=1 (CpuGuard in src/BenchDotNet/CpuClock.cs);
+  `cpus_affinity`, `cpus_runtime`, `single_cpu_override` on each case's first row; the header
+  states it. run_campaign.sh's smoke defaults are now client 0,1 / server 2,3.
+- **Exploration switch:** `AK_BDN_MEMORY=1` adds BDN's MemoryDiagnoser (one extra workload
+  iteration after the actual stage, outside the job's clock; `mem_alloc_bytes_per_op`, `mem_gen`,
+  `mem_ops` on each case's first row). Off in the campaign.
+- **Toolchain in this container:** .NET from Ubuntu noble-updates (`dotnet-sdk-8.0`
+  8.0.131-0ubuntu1~24.04.1: SDK 8.0.131, runtime 8.0.31); dotnet-install's host is refused by the proxy.
 
 ## Gate (D18): clean checkout, one per h2 variant
 
@@ -175,6 +202,7 @@ itself does not specify.
 |---|---|---|
 | D4 | net48 | compiled only; no gate on .NET Framework (needs Windows); the core-ffi host half has no net48 form (needs delegate thunks rooted for the vtable's lifetime) |
 | D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
+| D46 | BenchDotNet JitTiers (grouped mode) | the JIT check counts only methods compiled inside a case's span and promoted later; code first compiled before the case (Cases.Verify runs every arm first) and never promoted is not seen: on one CPU, tier-0-speed rows passed `jit check: PASS` (JOURNAL 73, logs/csharp/opt/tier-check/1cpu-grouped.*). Not fixed. Under the default toolchain no tier readback exists (JOURNAL 64); the one-CPU guard and the warm-up length are what stand in for it there |
 | D45 | (closed, D18) | the per-unit `# build ...` header line said "Unix socket ... (req 17: UDS)" over TCP; rewritten with the transport line in ebbf1f6 |
 
 ## Campaign readiness (design/CAMPAIGN.md at 3210f28; section 10 checklist)
@@ -361,6 +389,8 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 ## What is not measured or not established
 
 - **No timing in this slice is a result.** Every figure is container instrumentation.
+- Whether the RPC cells (cell A's Grpc.Net path in particular) are at tier 1 when measured: the
+  tier check covered codec rows only (JOURNAL 73); the RPC warm-up is the campaign's 10 x 100 ms.
 - Anything on .NET Framework 4.8 (compiled only); no floor runs the RPC suite or BDN.
 - `perf stat` cycles and instructions (not installed here), so req 20's per-iteration counts.
 - The JIT tier under the default toolchain (open since JOURNAL 64).
@@ -384,6 +414,8 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
+0. Optimisation pass: the exploration reads `logs/csharp/opt/baseline/tables.md`; this slice
+   changes nothing further in this unit. D46 (the grouped-mode JIT check's blind spot) is open.
 1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
 2. The net48 gate on a Windows machine (D4), which first needs a net48 host half.
@@ -394,6 +426,9 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 | Log | What it establishes |
 |---|---|
+| `opt/baseline/` | the optimisation pass's short baseline, core grid, client on 2 CPUs (not gated; tables.md, codec.tsv, rpc.tsv) |
+| `opt/baseline-1cpu-VOID/` | the first baseline run, client on 1 CPU: VOID for the managed arms (tier 0), kept |
+| `opt/tier-check/` | the tier-0 confirmation: 1 vs 2 CPUs, delay 0, tiering off, grouped, warm-up length, the guard's refusal |
 | `wp13-core-grid-counts/` | the counting build over the core codec grid, both builds (see Campaign grid) |
 | `campaign/wp13-core-smoke/`, `wp13-core-gate-stock.log`, `wp13-core-gate-h2-batch.log` | the core-grid smoke through the runner from a clean worktree at `ebbf1f6`, and its two gates |
 | `wp13-merge-timing.log`, `campaign/wp13-merge-smoke/`, `wp13-merge-gate-stock.log`, `wp13-merge-gate-h2-batch.log` | the BDN merge: timings per launch before and after, the label control; the core-grid smoke after the merge and its two gates at `beae3d7` |
