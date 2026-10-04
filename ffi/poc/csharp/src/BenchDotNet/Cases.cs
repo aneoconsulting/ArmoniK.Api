@@ -56,7 +56,9 @@ public static class Cases
     public static readonly string[] CoreURows = { "U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
         "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
         "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5" };
-    private static string[] G(string[] arms) => CoreGrid ? arms.Where(a => CoreArms.Contains(a)).ToArray() : arms;
+    /// AK_BDN_ARMS (comma list of arm names; narrowed exploration runs only): keep these arms.
+    private static readonly string[] ArmsOnly = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AK_BDN_ARMS")) ? null : Environment.GetEnvironmentVariable("AK_BDN_ARMS").Split(',');
+    private static string[] G(string[] arms) => (CoreGrid ? arms.Where(a => CoreArms.Contains(a)) : arms).Where(a => ArmsOnly == null || ArmsOnly.Contains(a.Split(':')[0])).ToArray();
     /// Section 4.0's encode row per arm (owner decision D1, 2026-10-04, optimisation step 1):
     /// end state (ii) is the form the arm's OWN transport cell receives. incumbent-prod: the
     /// Grpc.Net frame (cell A, encode-transport-hot); core-ffi: its encode left in the core's

@@ -26,7 +26,7 @@ export AK_CPU_CLIENT="${AK_CPU_CLIENT:-0,1}" AK_CAMPAIGN_GRID=core AK_CAMPAIGN_A
 unset GLIBC_TUNABLES
 BUILDS="${BUILDS:-full nounk}"
 { echo "# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit $(git -C "$SLICE" rev-parse --short HEAD)$(git -C "$SLICE" diff --quiet HEAD -- src gen || echo ' + uncommitted changes'); $(date -u +%FT%TZ)"
-  echo "# client CPUs $AK_CPU_CLIENT; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY=${AK_BDN_ONLY:-} AK_BDN_DIRS=${AK_BDN_DIRS:-} AK_BDN_NO_UNKNOWN=${AK_BDN_NO_UNKNOWN:-}; builds $BUILDS; reps $REPS (order alternated)"
+  echo "# client CPUs $AK_CPU_CLIENT; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY=${AK_BDN_ONLY:-} AK_BDN_DIRS=${AK_BDN_DIRS:-} AK_BDN_NO_UNKNOWN=${AK_BDN_NO_UNKNOWN:-} AK_BDN_ARMS=${AK_BDN_ARMS:-} AK_BDN_DROP=${AK_BDN_DROP:-}; builds $BUILDS; reps $REPS (order alternated)"
   for v in "${VARS[@]}"; do d="${v#*=}"; echo "# variant ${v%%=*}: $d at $(git -C "$d" rev-parse --short HEAD)$(git -C "$d" diff --quiet HEAD -- src gen || echo ' + uncommitted')"; done; } >> "$OUT/header.txt"
 for v in "${VARS[@]}"; do
   d="${v#*=}"
@@ -36,6 +36,18 @@ for v in "${VARS[@]}"; do
     ( cd "$d" && dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release $a > "$OUT/build-${v%%=*}-$b.log" 2>&1 ) || { echo "build ${v%%=*} $b failed" >&2; exit 1; }
   done
 done
+# Before every timed process: the 1-minute load average below 0.5 and no other process above
+# 10 % CPU, waited for up to 10 min (recorded per process in header.txt).
+quiet() {
+  local la hot
+  for i in $(seq 1 120); do
+    la=$(cut -d' ' -f1 /proc/loadavg)
+    hot=$(ps -eo pcpu,comm --sort=-pcpu --no-headers | awk '$1 > 10 && $2 != "ps" {print $2"("$1"%)"}' | head -3 | tr '\n' ' ')
+    if awk -v l="$la" 'BEGIN{exit !(l < 0.5)}' && [ -z "$hot" ]; then echo "quiet: load1 $la, no process above 10 % (waited $((i * 5 - 5)) s)"; return 0; fi
+    sleep 5
+  done
+  echo "NOT QUIET after 10 min: load1 $la, hot: $hot"
+}
 for r in $(seq 1 "$REPS"); do
   if [ $((r % 2)) = 1 ]; then ORD=("${VARS[@]}"); else ORD=(); for ((i=${#VARS[@]}-1; i>=0; i--)); do ORD+=("${VARS[$i]}"); done; fi
   for v in "${ORD[@]}"; do
@@ -44,11 +56,12 @@ for r in $(seq 1 "$REPS"); do
       if [ "$b" = full ]; then bd="$sd/src/BenchDotNet/bin/Release/net8.0"; core="$SLICE/target-core/release/libak_core.so"; else bd="$sd/src/BenchDotNet/bin-nounk/Release/net8.0"; core="$SLICE/target-core-nounk/release/libak_core.so"; fi
       cp "$core" "$bd/"
       f="$OUT/$name-$b-r$r.jsonl"
+      q=$(quiet)
       t0=$(date +%s)
       ( cd "$sd" && exec taskset -c "$AK_CPU_CLIENT" dotnet "$bd/BenchDotNet.dll" --launch "$r" --out "$f" --artifacts "$SCRATCH/bdn-$name-$b-$r" \
         --rounds 6 --warmup 25 --iteration-ms 40 --toolchain process ) > "$OUT/$name-$b-r$r.bdn.log" 2>&1
       rc=$?
-      echo "# rep $r $name $b: rc=$rc $(( $(date +%s) - t0 )) s; $(grep -m1 '^# correctness' "$f" | cut -c1-60)" | tee -a "$OUT/header.txt"
+      echo "# rep $r $name $b: rc=$rc $(( $(date +%s) - t0 )) s; $q; $(grep -m1 '^# correctness' "$f" | cut -c1-60)" | tee -a "$OUT/header.txt"
       [ $rc = 0 ] || exit 1
     done
   done
