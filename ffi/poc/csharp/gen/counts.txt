@@ -8,6 +8,10 @@ P1.1 ascii core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem
 P1.1 ascii core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.1 ascii core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.1 ascii core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.1 ascii core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.1 ascii core-ffi decode drop | fwd 4 rev 2 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.1 ascii core-ffi decode retain | fwd 4 rev 2 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
@@ -22,6 +26,10 @@ P1.2 ascii core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem
 P1.2 ascii core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 ascii core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.2 ascii core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 ascii core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 ascii core-ffi decode drop | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 ascii core-ffi decode retain | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
@@ -36,6 +44,10 @@ P1.2 latin1 core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_ele
 P1.2 latin1 core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 latin1 core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.2 latin1 core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 latin1 core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 latin1 core-ffi decode drop | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 latin1 core-ffi decode retain | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 latin1 core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
@@ -50,6 +62,10 @@ P1.2 wide core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_
 P1.2 wide core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 wide core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.2 wide core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 wide core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.2 wide core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.2 wide core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.2 wide core-ffi decode drop | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 wide core-ffi decode retain | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.2 wide core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
@@ -64,6 +80,10 @@ P1.3 ascii core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem
 P1.3 ascii core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.3 ascii core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListResultsResponse=1
 P1.3 ascii core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+P1.3 ascii core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
 P1.3 ascii core-ffi decode drop | fwd 4 rev 3 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.3 ascii core-ffi decode retain | fwd 4 rev 3 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
 P1.3 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
@@ -78,6 +98,10 @@ P2.1 ascii core-ffi encode-transport drop | fwd 9 rev 6 grow 0 reset 0 | ak_blob
 P2.1 ascii core-ffi encode-transport retain | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.1 ascii core-ffi encode-transport-hot drop | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.1 ascii core-ffi encode-transport-hot retain | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-core drop | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-core retain | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-core-hot drop | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi encode-core-hot retain | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.1 ascii core-ffi decode drop | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.1 ascii core-ffi decode retain | fwd 4 rev 8 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -92,6 +116,10 @@ P2.2 ascii core-ffi encode-transport drop | fwd 2504 rev 2501 grow 0 reset 0 | a
 P2.2 ascii core-ffi encode-transport retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 ascii core-ffi encode-transport-hot drop | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.2 ascii core-ffi encode-transport-hot retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-core drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-core retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-core-hot drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi encode-core-hot retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 ascii core-ffi decode drop | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 ascii core-ffi decode retain | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -106,6 +134,10 @@ P2.2 latin1 core-ffi encode-transport drop | fwd 2504 rev 2501 grow 0 reset 0 | 
 P2.2 latin1 core-ffi encode-transport retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 latin1 core-ffi encode-transport-hot drop | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.2 latin1 core-ffi encode-transport-hot retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-core drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-core retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-core-hot drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi encode-core-hot retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 latin1 core-ffi decode drop | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 latin1 core-ffi decode retain | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 latin1 core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -120,6 +152,10 @@ P2.2 wide core-ffi encode-transport drop | fwd 2504 rev 2501 grow 0 reset 0 | ak
 P2.2 wide core-ffi encode-transport retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 wide core-ffi encode-transport-hot drop | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.2 wide core-ffi encode-transport-hot retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-core drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-core retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-core-hot drop | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi encode-core-hot retain | fwd 2503 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.2 wide core-ffi decode drop | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 wide core-ffi decode retain | fwd 4 rev 3501 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.2 wide core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -134,6 +170,10 @@ P2.3 ascii core-ffi encode-transport drop | fwd 629 rev 626 grow 0 reset 0 | ak_
 P2.3 ascii core-ffi encode-transport retain | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.3 ascii core-ffi encode-transport-hot drop | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.3 ascii core-ffi encode-transport-hot retain | fwd 629 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-core drop | fwd 628 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-core retain | fwd 628 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-core-hot drop | fwd 628 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi encode-core-hot retain | fwd 628 rev 626 grow 0 reset 0 | ak_blob_run=500 ak_elem_TaskOptionsOptionsEntry=125 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.3 ascii core-ffi decode drop | fwd 4 rev 876 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.3 ascii core-ffi decode retain | fwd 4 rev 876 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.3 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -148,6 +188,10 @@ P2.4 ascii core-ffi encode-transport drop | fwd 404 rev 401 grow 0 reset 0 | ak_
 P2.4 ascii core-ffi encode-transport retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 ascii core-ffi encode-transport-hot drop | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.4 ascii core-ffi encode-transport-hot retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-core drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-core retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-core-hot drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi encode-core-hot retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 ascii core-ffi decode drop | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 ascii core-ffi decode retain | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -162,6 +206,10 @@ P2.4 latin1 core-ffi encode-transport drop | fwd 404 rev 401 grow 0 reset 0 | ak
 P2.4 latin1 core-ffi encode-transport retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 latin1 core-ffi encode-transport-hot drop | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.4 latin1 core-ffi encode-transport-hot retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-core drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-core retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-core-hot drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 latin1 core-ffi encode-core-hot retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 latin1 core-ffi decode drop | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 latin1 core-ffi decode retain | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 latin1 core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -176,6 +224,10 @@ P2.4 wide core-ffi encode-transport drop | fwd 404 rev 401 grow 0 reset 0 | ak_b
 P2.4 wide core-ffi encode-transport retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 wide core-ffi encode-transport-hot drop | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.4 wide core-ffi encode-transport-hot retain | fwd 404 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-core drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-core retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-core-hot drop | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.4 wide core-ffi encode-core-hot retain | fwd 403 rev 401 grow 0 reset 0 | ak_blob_run=320 ak_elem_TaskOptionsOptionsEntry=80 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.4 wide core-ffi decode drop | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 wide core-ffi decode retain | fwd 4 rev 561 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.4 wide core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -190,6 +242,10 @@ P2.5 ascii core-ffi encode-transport drop | fwd 104 rev 101 grow 0 reset 0 | ak_
 P2.5 ascii core-ffi encode-transport retain | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.5 ascii core-ffi encode-transport-hot drop | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 P2.5 ascii core-ffi encode-transport-hot retain | fwd 104 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-core drop | fwd 103 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-core retain | fwd 103 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-core-hot drop | fwd 103 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi encode-core-hot retain | fwd 103 rev 101 grow 0 reset 0 | ak_blob_run=80 ak_elem_TaskOptionsOptionsEntry=20 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
 P2.5 ascii core-ffi decode drop | fwd 4 rev 141 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.5 ascii core-ffi decode retain | fwd 4 rev 141 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
 P2.5 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
@@ -204,6 +260,10 @@ P3.1 ascii core-ffi encode-transport drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem
 P3.1 ascii core-ffi encode-transport retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_Probe=1 ak_uencode_ListProbeResponse=1
 P3.1 ascii core-ffi encode-transport-hot drop | fwd 4 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListProbeResponse=1
 P3.1 ascii core-ffi encode-transport-hot retain | fwd 4 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_Probe=1 ak_uencode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-core drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-core retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Probe=1 ak_uencode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_encode_ListProbeResponse=1
+P3.1 ascii core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Probe=1 ak_uencode_ListProbeResponse=1
 P3.1 ascii core-ffi decode drop | fwd 4 rev 2 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
 P3.1 ascii core-ffi decode retain | fwd 4 rev 2 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
 P3.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListProbeResponse=1 ak_parse_ListProbeResponse=1
@@ -218,6 +278,10 @@ P4.1 ascii core-ffi encode-transport drop | fwd 204 rev 201 grow 0 reset 0 | ak_
 P4.1 ascii core-ffi encode-transport retain | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskSummary=1 ak_uencode_ListTaskSummaryResponse=1
 P4.1 ascii core-ffi encode-transport-hot drop | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTaskSummaryResponse=1
 P4.1 ascii core-ffi encode-transport-hot retain | fwd 204 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskSummary=1 ak_uencode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-core drop | fwd 203 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-core retain | fwd 203 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_enc_reset=1 ak_uelemu_TaskSummary=1 ak_uencode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-core-hot drop | fwd 203 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_encode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi encode-core-hot retain | fwd 203 rev 201 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=200 ak_enc_reset=1 ak_uelemu_TaskSummary=1 ak_uencode_ListTaskSummaryResponse=1
 P4.1 ascii core-ffi decode drop | fwd 4 rev 601 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
 P4.1 ascii core-ffi decode retain | fwd 4 rev 601 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
 P4.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_parse_ListTaskSummaryResponse=1
@@ -232,6 +296,10 @@ P5.1 ascii core-ffi encode-transport drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_
 P5.1 ascii core-ffi encode-transport retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
 P5.1 ascii core-ffi encode-transport-hot drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
 P5.1 ascii core-ffi encode-transport-hot retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-core drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-core retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-core-hot drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.1 ascii core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
 P5.1 ascii core-ffi decode drop | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.1 ascii core-ffi decode retain | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
@@ -246,6 +314,10 @@ P5.2 ascii core-ffi encode-transport drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_
 P5.2 ascii core-ffi encode-transport retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
 P5.2 ascii core-ffi encode-transport-hot drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
 P5.2 ascii core-ffi encode-transport-hot retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-core drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-core retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-core-hot drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.2 ascii core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
 P5.2 ascii core-ffi decode drop | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.2 ascii core-ffi decode retain | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.2 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
@@ -260,6 +332,10 @@ P5.3 ascii core-ffi encode-transport drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_
 P5.3 ascii core-ffi encode-transport retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
 P5.3 ascii core-ffi encode-transport-hot drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
 P5.3 ascii core-ffi encode-transport-hot retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-core drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-core retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-core-hot drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.3 ascii core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
 P5.3 ascii core-ffi decode drop | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.3 ascii core-ffi decode retain | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.3 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
@@ -274,6 +350,10 @@ P5.4 ascii core-ffi encode-transport drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_
 P5.4 ascii core-ffi encode-transport retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
 P5.4 ascii core-ffi encode-transport-hot drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
 P5.4 ascii core-ffi encode-transport-hot retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-core drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-core retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-core-hot drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+P5.4 ascii core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
 P5.4 ascii core-ffi decode drop | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.4 ascii core-ffi decode retain | fwd 4 rev 1 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
 P5.4 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
@@ -288,6 +368,10 @@ P6.1 ascii core-ffi encode-transport drop | fwd 1004 rev 1001 grow 0 reset 0 | a
 P6.1 ascii core-ffi encode-transport retain | fwd 1004 rev 1001 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
 P6.1 ascii core-ffi encode-transport-hot drop | fwd 1004 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
 P6.1 ascii core-ffi encode-transport-hot retain | fwd 1004 rev 1001 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
+P6.1 ascii core-ffi encode-core drop | fwd 1003 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi encode-core retain | fwd 1003 rev 1001 grow 0 reset 0 | ak_enc_reset=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
+P6.1 ascii core-ffi encode-core-hot drop | fwd 1003 rev 1001 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_encode_ListMetricsResponse=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200
+P6.1 ascii core-ffi encode-core-hot retain | fwd 1003 rev 1001 grow 0 reset 0 | ak_enc_reset=1 ak_run_f64=200 ak_run_i32=400 ak_run_i64=200 ak_run_u8=200 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
 P6.1 ascii core-ffi decode drop | fwd 4 rev 1401 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
 P6.1 ascii core-ffi decode retain | fwd 4 rev 1401 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
 P6.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListMetricsResponse=1 ak_parse_ListMetricsResponse=1
@@ -302,6 +386,10 @@ P7.1 ascii core-ffi encode-transport drop | fwd 5 rev 2 grow 0 reset 0 | ak_elem
 P7.1 ascii core-ffi encode-transport retain | fwd 5 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
 P7.1 ascii core-ffi encode-transport-hot drop | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
 P7.1 ascii core-ffi encode-transport-hot retain | fwd 5 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+P7.1 ascii core-ffi encode-core drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi encode-core retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+P7.1 ascii core-ffi encode-core-hot drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
+P7.1 ascii core-ffi encode-core-hot retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
 P7.1 ascii core-ffi decode drop | fwd 4 rev 3 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
 P7.1 ascii core-ffi decode retain | fwd 4 rev 3 grow 0 reset 1 | ak_dec_err=1 ak_dec_err_reset=1 ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
 P7.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
@@ -1051,3 +1139,10 @@ U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-transport-hot
 U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-transport-hot retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
 U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-transport-hot retain | fwd 14 rev 11 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
 U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-transport-hot retain | fwd 5 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+U-nested-before corpus core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_ResultRaw=1 ak_uencode_ListResultsResponse=1
+U-deep-u-repeated corpus core-ffi encode-core-hot retain | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+U-oneof-u-repeated corpus core-ffi encode-core-hot retain | fwd 3 rev 1 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Probe=1 ak_uencode_ListProbeResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-core-hot retain | fwd 5 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_enc_reset=1 ak_uelemu_TaskSummary=1 ak_uencode_ListTaskSummaryResponse=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-core-hot retain | fwd 13 rev 11 grow 0 reset 0 | ak_enc_reset=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-core-hot retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1

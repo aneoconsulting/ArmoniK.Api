@@ -123,6 +123,11 @@ public abstract unsafe class RootOps
     public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
+    /// D1 (2026-10-04): end state (ii) for the core's transport. core-ffi: the encode left in
+    /// the core's context (CoreFfi.EncodeInto), as cell Cf hands it to ak_call_unary_enc.
+    public abstract int EncFfiCore(bool retain);
+    /// The bytes EncFfiCore left in the context (the pre-timing identity check only).
+    public abstract byte[] EncFfiCoreBytes(bool retain);
     /// CAMPAIGN req 11, end state (ii): the form each arm's gRPC path hands to Grpc.Net, built
     /// by the SAME serializer the RPC grid's marshaller runs (Ser* below) into a GrpcFrame.
     public abstract int EncIncTransport(GrpcFrame c);
@@ -172,6 +177,8 @@ def _ops(o, root):
     o += "    public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.Write%s(ref e, _f); else Codec.Write%s(ref e, _f); if (e.Err != 0) throw new InvalidOperationException(\"managed encode \" + e.Err); return e.Pos; }" % (root, root)
     o += "    public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc); return n; }"
     o += "    public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);"
+    o += "    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc); return rc; }"
+    o += "    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException(\"core encode \" + rc); return _c.ContextBytes(); }"
     # CAMPAIGN req 11 end state (ii): the serializers the RPC grid's marshallers run (Ser*),
     # static so the grid calls exactly these.
     o += "    public static void SerInc(%s m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }" % g

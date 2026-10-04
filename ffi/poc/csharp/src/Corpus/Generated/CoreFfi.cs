@@ -1252,6 +1252,15 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -1556,6 +1565,15 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -1859,6 +1877,15 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -2198,6 +2225,15 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -2550,6 +2586,15 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -2939,6 +2984,15 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -3569,6 +3623,15 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -3945,6 +4008,15 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -4256,6 +4328,15 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -4559,6 +4640,15 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -4950,6 +5040,15 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -5414,6 +5513,15 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -5743,6 +5851,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -6236,6 +6353,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -7028,6 +7154,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -7492,6 +7627,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -7970,6 +8114,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -8519,6 +8672,15 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -8885,6 +9047,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -9273,6 +9444,15 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -9619,6 +9799,15 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -10073,6 +10262,15 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -10638,6 +10836,15 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -11287,6 +11494,15 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -11831,6 +12047,15 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -12169,6 +12394,15 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
@@ -12561,6 +12795,15 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -12945,6 +13188,15 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
     }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
+    }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;
     private bool _keep;
@@ -13248,6 +13500,15 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
         _keep = true;
         try { return Go(src, retain, true, out _, out _); }
         finally { _keep = false; }
+    }
+    /// A copy of the bytes an EncodeInto left in the context (ak_enc_take reads them without
+    /// consuming them); for checks, never on a timed path.
+    public byte[] ContextBytes()
+    {
+        byte* bp; nuint blen;
+        int tk = Abi.ak_enc_take(_ctx, &bp, &blen);
+        if (tk != 0) throw new InvalidOperationException($"core encode failed: {tk}");
+        return new ReadOnlySpan<byte>(bp, (int)blen).ToArray();
     }
     /// The encode context, for the move path's entries.
     public IntPtr EncContext => _ctx;

@@ -29,6 +29,9 @@ export SCRATCH="${SCRATCH:-$(mktemp -d)}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 cd "$SLICE"
 FAILS=0
+# AK_GATE_LEVELS (default "8 6"): "8" runs the net8.0 checks only (no net6.0 floor, no net48
+# compile): a quick check during optimisation work, NOT the gate (the last line says so).
+LEVELS="${AK_GATE_LEVELS:-8 6}"
 H8="$SLICE/src/Harness/bin/Release/net8.0"
 H6="$SLICE/src/Harness/bin/publish-net6"
 C8="$SLICE/src/Corpus/bin/Release/net8.0"
@@ -71,6 +74,7 @@ core() {  # dir variant  -- put a core build next to a harness
 
 echo "# csharp slice gate (FIX-PLAN WP5 to WP8). CORRECTNESS ONLY: no timing is taken."
 echo "# date:        $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "# levels:      $LEVELS (AK_GATE_LEVELS)"
 echo "# h2 variant:  $AK_H2 (D11 as amended: every core with the transport is the $AK_H2 build)"
 echo "# branch HEAD: $(git -C "$REPO" rev-parse --short HEAD)$(git -C "$REPO" diff --quiet HEAD -- ffi/poc/csharp ffi/poc/codec/gen/cs_*.py || echo ' + the uncommitted slice changes this log is committed with')"
 echo "# dotnet:      SDK $(dotnet --version); runtimes: $(dotnet --list-runtimes | grep NETCore | awk '{print $2}' | tr '\n' ' ')+ Microsoft.NETCore.App.Runtime.linux-x64 6.0.36 from NuGet (self-contained)"
@@ -83,17 +87,21 @@ rm -rf "$SCRATCH/cg"; mkdir -p "$SCRATCH/cg"
 AK_CODECGEN="$SCRATCH/cg/ffi/poc/codec/gen" run "generate --check" python3 -S gen/generate.py --check
 
 step "2. the core (every build with init-guard) and the layout probe"
-run "build_core" gen/build_core.sh
+if [ "$LEVELS" != "8 6" ] && [ "${AK_GATE_KEEP_CORE:-0}" = 1 ]; then
+  echo "# AK_GATE_KEEP_CORE=1 (quick checks only): the cores already built are used, not rebuilt"
+else
+  run "build_core" gen/build_core.sh
+fi
 
 step "3. builds"
 b() { echo "\$ dotnet $*"; dotnet "$@" > "$SCRATCH/build.out" 2>&1; local rc=$?; grep -E " error |Build succeeded|->" "$SCRATCH/build.out" | sed "s|$REPO/||" | grep -v "^ *$" | tail -4; echo "exit status: $rc"; [ $rc -eq 0 ] || { cat "$SCRATCH/build.out" | tail -30; FAILS=$((FAILS+1)); }; }
 b build src/Harness/Harness.csproj -c Release -f net8.0
-b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$H6"
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$H6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0
-b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$C6"
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$C6"
 b build src/Rpc/akrpc.csproj -c Release
 b build src/BenchDotNet/BenchDotNet.csproj -c Release
-b build src/HarnessFloor/HarnessFloor.csproj -c Release
+[[ " $LEVELS " == *" 6 "* ]] && b build src/HarnessFloor/HarnessFloor.csproj -c Release
 echo "# which import form each level compiled (the one generated Abi.cs, #if NET7_0_OR_GREATER):"
 for d in "$H8/harness.dll" "$H6/harness.dll" "$SLICE/src/HarnessFloor/bin/Release/net48/harness48.exe"; do
   echo "#   $(echo "$d" | sed "s|$SLICE/||"): LibraryImportAttribute referenced $(grep -c -a LibraryImportAttribute "$d") time(s)"
@@ -102,7 +110,7 @@ echo "# net48: COMPILED ONLY (the P/Invoke binding's DllImport branch included; 
 echo "#        #if NET5_0_OR_GREATER, no UnmanagedCallersOnly on .NET Framework). Nothing runs it here:"
 echo "#        .NET Framework needs Windows, and this container has no Mono either."
 
-for lvl in 8 6; do
+for lvl in $LEVELS; do
   if [ $lvl = 8 ]; then H="$H8"; HX=(dotnet "$H8/harness.dll"); else H="$H6"; HX=("$H6/harness"); fi
   step "$((lvl == 8 ? 4 : 5)). net${lvl}.0 harness"
   core "$H" target-core
@@ -142,7 +150,7 @@ core "$R8" target-core-count
 run "akrpc layout" dotnet "$R8/akrpc.dll" --layout "$LAY"
 run "akrpc error path (against the campaign server: Fetch ok, StatusU13 a non-OK status)" dotnet "$R8/akrpc.dll" --error-path --sock "$SOCK"
 
-for lvl in 8 6; do
+for lvl in $LEVELS; do
   if [ $lvl = 8 ]; then CX=("$C8/corpus"); C="$C8"; else CX=("$C6/corpus"); C="$C6"; fi
   step "7.$lvl the corpus, net${lvl}.0"
   core "$C" target-core-corpus
@@ -178,12 +186,12 @@ step "8. the NO-UNKNOWN variant (WP5 step 10): its own build, core and gate"
 HN8="$SLICE/src/Harness/bin-nounk/Release/net8.0"; HN6="$SLICE/src/Harness/bin-nounk/publish-net6"
 CN8="$SLICE/src/Corpus/bin-nounk/Release/net8.0"; CN6="$SLICE/src/Corpus/bin-nounk/publish-net6"
 b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true
-b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$HN6"
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$HN6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
-b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$CN6"
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$CN6"
 b build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
 b build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
-for lvl in 8 6; do
+for lvl in $LEVELS; do
   if [ $lvl = 8 ]; then H="$HN8"; HX=(dotnet "$HN8/harness.dll"); C="$CN8"; CX=(dotnet "$CN8/corpus.dll");
   else H="$HN6"; HX=("$HN6/harness"); C="$CN6"; CX=("$CN6/corpus"); fi
   step "8.$lvl no-unknown, net${lvl}.0"
@@ -248,5 +256,7 @@ AK_CAMPAIGN_PLANT=nagle control "upload check with Nagle left on (the TCP_NODELA
 echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
 
 echo
-if [ $FAILS -eq 0 ]; then echo "GATE PASSED"; else echo "GATE FAILED: $FAILS"; fi
+if [ "$LEVELS" != "8 6" ]; then
+  if [ $FAILS -eq 0 ]; then echo "CHECKS PASSED (levels $LEVELS only: NOT the gate)"; else echo "CHECKS FAILED: $FAILS (levels $LEVELS only)"; fi
+elif [ $FAILS -eq 0 ]; then echo "GATE PASSED"; else echo "GATE FAILED: $FAILS"; fi
 exit $FAILS

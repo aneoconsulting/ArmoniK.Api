@@ -452,6 +452,11 @@ public abstract unsafe class RootOps
     public abstract int EncHost(ref Enc e, bool retain);
     public abstract int EncFfi(bool retain);
     public abstract byte[] EncFfiBytes(bool retain);
+    /// D1 (2026-10-04): end state (ii) for the core's transport. core-ffi: the encode left in
+    /// the core's context (CoreFfi.EncodeInto), as cell Cf hands it to ak_call_unary_enc.
+    public abstract int EncFfiCore(bool retain);
+    /// The bytes EncFfiCore left in the context (the pre-timing identity check only).
+    public abstract byte[] EncFfiCoreBytes(bool retain);
     /// CAMPAIGN req 11, end state (ii): the form each arm's gRPC path hands to Grpc.Net, built
     /// by the SAME serializer the RPC grid's marshaller runs (Ser* below) into a GrpcFrame.
     public abstract int EncIncTransport(GrpcFrame c);
@@ -533,6 +538,8 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListResultsResponse(ref e, _f); else Codec.WriteListResultsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListResultsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(ListResultsResponse m, bool retain, SerializationContext c)
@@ -662,6 +669,8 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTasksDetailedResponse(ref e, _f); else Codec.WriteListTasksDetailedResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListTasksDetailedResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(ListTasksDetailedResponse m, bool retain, SerializationContext c)
@@ -791,6 +800,8 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListProbeResponse(ref e, _f); else Codec.WriteListProbeResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListProbeResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(ListProbeResponse m, bool retain, SerializationContext c)
@@ -920,6 +931,8 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListTaskSummaryResponse(ref e, _f); else Codec.WriteListTaskSummaryResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListTaskSummaryResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(ListTaskSummaryResponse m, bool retain, SerializationContext c)
@@ -1049,6 +1062,8 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteUploadResultDataMessage(ref e, _f); else Codec.WriteUploadResultDataMessage(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.UploadResultDataMessage m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(UploadResultDataMessage m, bool retain, SerializationContext c)
@@ -1178,6 +1193,8 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteListMetricsResponse(ref e, _f); else Codec.WriteListMetricsResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListMetricsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(ListMetricsResponse m, bool retain, SerializationContext c)
@@ -1307,6 +1324,8 @@ public sealed unsafe class Ops_DualResponse : RootOps
     public override int EncHost(ref Enc e, bool retain) { e.Reset(); if (retain) HostR.WriteDualResponse(ref e, _f); else Codec.WriteDualResponse(ref e, _f); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.Pos; }
     public override int EncFfi(bool retain) { int rc = _c.TryEncode(_f, retain, out byte* p, out int n); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return n; }
     public override byte[] EncFfiBytes(bool retain) => _c.EncodeToArray(_f, retain);
+    public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
+    public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.DualResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
     [ThreadStatic] private static Enc _se;
     public static void SerHost(DualResponse m, bool retain, SerializationContext c)

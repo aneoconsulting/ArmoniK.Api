@@ -173,7 +173,7 @@ public sealed class JsonLinesExporter : IExporter
             if (Cases.IsEnc(c.Dir))
             {
                 variant = string.Format(CultureInfo.InvariantCulture, ",\"enc_end\":\"{0}\",\"enc_input\":\"{1}\"",
-                    Cases.IsTransport(c.Dir) ? "transport" : "buf", Cases.IsPool(c.Dir) ? "pool" : "hot");
+                    Cases.IsTransport(c.Dir) ? "transport" : Cases.IsCoreForm(c.Dir) ? "transport-core" : "buf", Cases.IsPool(c.Dir) ? "pool" : "hot");
                 if (Cases.Pools.TryGetValue(c.Key, out var pl))
                     variant += string.Format(CultureInfo.InvariantCulture, ",\"pool_graphs\":{0},\"pool_bytes\":{1}", pl.N, pl.Bytes);
             }

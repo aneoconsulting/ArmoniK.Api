@@ -54,9 +54,23 @@ public static class Cases
         "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
         "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5" };
     private static string[] G(string[] arms) => CoreGrid ? arms.Where(a => CoreArms.Contains(a)).ToArray() : arms;
-    private static readonly string[] EncDirsG = CoreGrid ? new[] { "encode-transport-hot" } : null;
-    private static readonly string[] DecDirsG = CoreGrid ? new[] { "decode-read" } : new[] { "decode", "decode-read" };
-    private static readonly string[] UnkDirsG = CoreGrid ? new[] { "encode-transport-hot", "decode-read" } : null;
+    /// Section 4.0's encode row per arm (owner decision D1, 2026-10-04, optimisation step 1):
+    /// end state (ii) is the form the arm's OWN transport cell receives. incumbent-prod: the
+    /// Grpc.Net frame (cell A, encode-transport-hot); core-ffi: its encode left in the core's
+    /// context, as cell Cf hands it to ak_call_unary_enc (encode-core-hot, no take, no frame);
+    /// host-gen: its Enc buffer as cell Ef hands it to ak_call_unary (encode-core-hot). The
+    /// Grpc.Net frame form of core-ffi and host-gen stays a labelled extra (the full grid, or
+    /// AK_BDN_DIRS).
+    private static string CoreEncDir(string arm) => arm == "core-ffi" || arm == "host-gen" ? "encode-core-hot" : "encode-transport-hot";
+    /// AK_BDN_DIRS (comma list; narrowed exploration runs only): the directions to generate,
+    /// replacing the grid's, each where it applies to the arm.
+    private static readonly string[] DirsOverride = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AK_BDN_DIRS")) ? null : Environment.GetEnvironmentVariable("AK_BDN_DIRS").Split(',');
+    private static IEnumerable<string> EncDirsFor(string arm, string[] full)
+    {
+        var ds = DirsOverride != null ? DirsOverride.Where(IsEnc) : CoreGrid ? new[] { CoreEncDir(arm) } : full;
+        return ds.Where(d => (!IsTransport(d) || HasTransport(arm)) && (!IsCoreForm(d) || HasCoreForm(arm)));
+    }
+    private static readonly string[] DecDirsG = DirsOverride != null ? DirsOverride.Where(d => !IsEnc(d)).ToArray() : CoreGrid ? new[] { "decode-read" } : new[] { "decode", "decode-read" };
     private static int[] SetsOfG(string pid) => CoreGrid ? (pid == "P2.2" ? new[] { 0, 1, 2 } : new[] { 0 }) : SetsOf(pid);
 
     /// CAMPAIGN req 7 (R-H26): the payloads that carry the Latin-1 and wide content sets.
@@ -68,10 +82,14 @@ public static class Cases
     /// Enc; core-ffi: the core's encode buffer); transport = the form the arm's Grpc.Net
     /// marshaller hands to the call (GrpcFrame.cs). input: pool = a pool of distinct graphs,
     /// larger than the last-level cache (PoolBytes), round robin; hot = one graph.
-    public static readonly string[] EncDirs = { "encode", "encode-hot", "encode-transport", "encode-transport-hot" };
+    /// encode-core / encode-core-hot (D1, 2026-10-04): end state (ii) for the CORE's transport,
+    /// core-ffi and host-gen only (CoreEncDir).
+    public static readonly string[] EncDirs = { "encode", "encode-hot", "encode-transport", "encode-transport-hot", "encode-core", "encode-core-hot" };
     public static bool IsEnc(string dir) => dir.StartsWith("encode", StringComparison.Ordinal);
-    public static bool IsPool(string dir) => dir == "encode" || dir == "encode-transport";
+    public static bool IsPool(string dir) => dir == "encode" || dir == "encode-transport" || dir == "encode-core";
     public static bool IsTransport(string dir) => dir.StartsWith("encode-transport", StringComparison.Ordinal);
+    public static bool IsCoreForm(string dir) => dir.StartsWith("encode-core", StringComparison.Ordinal);
+    private static bool HasCoreForm(string arm) => arm == "core-ffi" || arm == "host-gen";
     /// incumbent-best has no gRPC path of its own, so it has no transport rows.
     private static bool HasTransport(string arm) => arm != "incumbent-best";
 
@@ -128,6 +146,7 @@ public static class Cases
         if (!InUnit(am)) yield break;
         var f = am.Split(':');
         foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-transport-hot", id, "corpus", f[1]);
+        foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-core-hot", id, "corpus", f[1]);   // D1 (2026-10-04)
     }
 
     /// Two sacrificial cases run first in every process: copies of its first two cases, with
@@ -194,11 +213,11 @@ public static class Cases
             if (keep != null && !keep.Contains(pid)) continue;
             foreach (var cs in SetsOfG(pid))
             {
-                foreach (var dir in (CoreGrid && pid == "P7.1") ? Array.Empty<string>() : (EncDirsG ?? EncDirs))   // section 4.0: P7.1 decode only
+                foreach (var dir in (CoreGrid && pid == "P7.1") ? Array.Empty<string>() : EncDirs)   // section 4.0: P7.1 decode only
                     foreach (var am in G(EncArms).Where(InUnit))
                     {
                         var f = am.Split(':');
-                        if (IsTransport(dir) && !HasTransport(f[0])) continue;
+                        if (!EncDirsFor(f[0], EncDirs).Contains(dir)) continue;
                         yield return string.Join("|", f[0], dir, pid, Values.SetNames[cs], f[1]);
                     }
                 foreach (var dir in DecDirsG)
@@ -219,10 +238,11 @@ public static class Cases
         foreach (var id in rows)
         {
             if (keep != null && !keep.Contains(id)) continue;
-            foreach (var dir in UnkDirsG ?? UnkDirs)
+            foreach (var dir in UnkDirs.Concat(EncDirs).Distinct())
                 foreach (var am in G(UnkArms).Where(InUnit))
                 {
                     var f = am.Split(':');
+                    if (IsEnc(dir) ? !EncDirsFor(f[0], new[] { "encode-hot" }).Contains(dir) : !DecDirsG.Concat(CoreGrid || DirsOverride != null ? Array.Empty<string>() : UnkDirs).Contains(dir)) continue;
                     if (dir == "decode-reencode" && f[0] == "incumbent-best") continue;
                     yield return string.Join("|", f[0], dir, id, "corpus", f[1]);
                 }
@@ -281,6 +301,8 @@ public static class Cases
                     Same(o.EncFfiBytes(true), wire, what + " core-ffi retain");
                     o.EncHostTransport(true, fr); SameFrame(what + " host-gen retain", wire);
                     o.EncFfiTransport(true, fr); SameFrame(what + " core-ffi retain", wire);
+                    Same(o.EncFfiCoreBytes(true), wire, what + " core-ffi retain (encode-core: the bytes left in the core's context)");
+                    n++;
 #endif
                     Same(o.EncFfiBytes(false), wire, what + " core-ffi drop");
                     var w = new BufWriter(wire.Length + 4096);
@@ -291,7 +313,11 @@ public static class Cases
                     o.EncIncTransport(fr); SameFrame(what + " incumbent-prod", wire);
                     o.EncHostTransport(false, fr); SameFrame(what + " host-gen drop", wire);
                     o.EncFfiTransport(false, fr); SameFrame(what + " core-ffi drop", wire);
-                    n += 11;
+                    Same(o.EncFfiCoreBytes(false), wire, what + " core-ffi drop/no-unknown (encode-core: the bytes left in the core's context)");
+                    var e1 = Enc.New(Armonik.Ffi.Facade.Codec.Sites, 1 << 16);
+                    o.EncHost(ref e1, false);
+                    Same(e1.ToArray(), wire, what + " host-gen drop/no-unknown (encode-core: Ef's Enc)");
+                    n += 13;
                 }
             }
         foreach (var id in UnknownRows())
@@ -312,7 +338,8 @@ public static class Cases
             var dropped = HostEnc(ops.FromWire(b, 1), false);
             ops.FromWire(b, 3).EncFfiTransport(false, fr); SameFrame(id + " core-ffi no-unknown", dropped);
             ops.FromWire(b, 1).EncHostTransport(false, fr); SameFrame(id + " host-gen no-unknown", dropped);
-            n += 8;
+            Same(ops.FromWire(b, 3).EncFfiCoreBytes(false), dropped, id + " core-ffi no-unknown (encode-core)");
+            n += 9;
 #else
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecHost(b, b.Length, true, true);
             ops.DecFfi(b, b.Length, false, true); ops.DecFfi(b, b.Length, true, true);
@@ -332,7 +359,8 @@ public static class Cases
             ops.FromWire(b, 0).EncIncTransport(fr); SameFrame(id + " incumbent-prod", inc);
             ops.FromWire(b, 4).EncFfiTransport(true, fr); SameFrame(id + " core-ffi retain", inc);
             ops.FromWire(b, 2).EncHostTransport(true, fr); SameFrame(id + " host-gen retain", inc);
-            n += 8;
+            Same(ops.FromWire(b, 4).EncFfiCoreBytes(true), inc, id + " core-ffi retain (encode-core)");
+            n += 9;
 #endif
         }
         return n;
@@ -394,7 +422,7 @@ public static class Cases
         bool read = c.Dir == "decode-read";
         var w = new BufWriter(len * 2 + 4096);
         var fr = new GrpcFrame();
-        string d = IsEnc(c.Dir) ? (IsTransport(c.Dir) ? "encode-transport" : "encode") : c.Dir;
+        string d = IsEnc(c.Dir) ? (IsTransport(c.Dir) ? "encode-transport" : IsCoreForm(c.Dir) ? "encode-core" : "encode") : c.Dir;
         LastOps = ops;
         switch (c.Arm + ":" + d)
         {
@@ -406,6 +434,10 @@ public static class Cases
             case "incumbent-prod:encode-transport": return () => { ops.Next(); return ops.EncIncTransport(fr); };
             case "host-gen:encode-transport": return () => { ops.Next(); return ops.EncHostTransport(retain, fr); };
             case "core-ffi:encode-transport": return () => { ops.Next(); return ops.EncFfiTransport(retain, fr); };
+            // D1: the form the core's transport receives (cells Cf / Ef): core-ffi's encode left
+            // in the core's context (EncodeInto, no take); host-gen's Enc buffer, sized as Ef's.
+            case "core-ffi:encode-core": return () => { ops.Next(); return ops.EncFfiCore(retain); };
+            case "host-gen:encode-core": { var box = new EncBox(-1); return () => { ops.Next(); return box.Run(ops, retain); }; }
             case "incumbent-prod:decode": case "incumbent-prod:decode-read": return () => ops.DecIncProd(seq, read);
             case "incumbent-best:decode": case "incumbent-best:decode-read": return () => ops.DecIncBest(wire, len, read);
             case "host-gen:decode": case "host-gen:decode-read": return () => ops.DecHost(wire, len, retain, read);
@@ -451,7 +483,8 @@ public static class Cases
     private sealed class EncBox
     {
         private Enc _e;
-        public EncBox(int len) { _e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, len + 4096); }
+        /// len < 0: the RPC grid's Enc for cell Ef (64 KiB initial, grown by Enc itself).
+        public EncBox(int len) { _e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, len < 0 ? 1 << 16 : len + 4096); }
         public long Run(RootOps ops, bool retain) => ops.EncHost(ref _e, retain);
     }
 }
