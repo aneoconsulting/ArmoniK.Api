@@ -1,0 +1,8 @@
+# opt_ab_rpc.sh (narrowed RPC A/B), CONTAINER INSTRUMENTATION, not gated (every call checked); 2026-10-04T10:53:23Z
+# client CPUs 0,1, server 2,3; BDN default toolchain, warm-up 10 x 100 ms, 6 rounds x 100 ms, MemoryDiagnoser on; transport armonik, stock h2, full build; units Cf-retain, AK_RPC_ONLY_DIRS=b inflight 1,8; reps 2 (order alternated)
+# variant before: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s1/ffi/poc/csharp at e61f13a0
+# variant after: /home/user/ArmoniK.Api/ffi/poc/csharp at 4c4e0496 + uncommitted
+# rep 1 before: rc=0 31 s, 12 rows
+# rep 1 after: rc=0 31 s, 12 rows
+# rep 2 after: rc=0 29 s, 12 rows
+# rep 2 before: rc=0 29 s, 12 rows

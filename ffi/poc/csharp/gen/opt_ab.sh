@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$OUT" ] && [ ${#VARS[@]} -gt 0 ] || { echo "usage: gen/opt_ab.sh --out DIR --reps N NAME=SLICEDIR ..." >&2; exit 2; }
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
-export SCRATCH="${SCRATCH:-$(mktemp -d)}" DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+export SCRATCH="${SCRATCH:-$(mktemp -d)}" DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1; mkdir -p "$SCRATCH"
 export AK_CPU_CLIENT="${AK_CPU_CLIENT:-0,1}" AK_CAMPAIGN_GRID=core AK_CAMPAIGN_ALLOC=default AK_BDN_MEMORY=1
 unset GLIBC_TUNABLES
 BUILDS="${BUILDS:-full nounk}"
