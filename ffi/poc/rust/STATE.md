@@ -8,12 +8,84 @@ here. This file states what exists and what was checked; the choice is the owner
 | | |
 |---|---|
 | **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. Latest unit (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
+| **Next step** | none assigned. Latest unit (2026-10-04): D20, the host-selected UTF-8 skip bits on decode (push vtable member, pull vtable and setter) in the shared core and generator, every slice regenerated with every bit 0; section "D20" below. Before it (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+
+## D20: decode UTF-8 validation per string field, host-selected (2026-10-04, owner; shared core and generator; container)
+
+Commits 3882bb74 (poc/codec: plan, core, every backend, every slice regenerated), f255a65e and
+4666f106 (this slice: two hand-written vtables, tooling). Logs: `logs/rust/opt/d20-utf8-bits/`.
+Nothing here is a recommendation; every timing is container instrumentation. No host sets a bit.
+
+- **Design (plan.py, "UTF-8 SKIP BITS ON DECODE")**. One `u64` mask `utf8_skip`; bit 1 = the
+  core does not validate that string field (its bytes are delivered as they are), 0 = validate
+  and reject with AK_ERR_TRANSCODE as before. **Push**: the FIRST member of every `ak_dvt_M`
+  (`dec_vtable`'s first row, kind `utf8_skip`, data not a callback, left out of `dec_slots`),
+  read at each `ak_decode_<Root>` from that call's vtable. **Pull**: `ak_pvt_<Root> { uint64_t
+  utf8_skip; }` (mask first, room for later members), handed by the additive setter
+  `int32_t ak_dec_set_pvt_<Root>(ak_dec_ctx*, const ak_pvt_<Root>*)`, which COPIES it into the
+  root-bound context (NULL = all zero; AK_ERR_INVALID_STATE on a context bound to another root;
+  both variants); every later `ak_parse_<Root>` uses it; resets and parses do not change it; push
+  ignores it. **Numbering** (`utf8_bits`): the decode tree of M, preorder: M's own `string`
+  fields in field-number order (singular, repeated = one bit for every element, oneof members),
+  then each message-typed field (child, repeated message, map entry, oneof message member) in
+  field-number order, the child's whole numbering. A child's bits are contiguous, so an element
+  type's numbering is the same wherever it is reached; a type reached at two positions has a
+  bit per position. Widest tree: 21 bits (ListTasksDetailedResponse / TaskDetailed, shapes and
+  corpus); over 64 the generator refuses and names `uint64_t utf8_skip[ceil(n/64)]`. Names:
+  `AK_DVT_<M>_UTF8_<PATH>` and `_ALL` (C header, abi.rs), `AkUtf8Skip.<M>_<path>` (C#).
+- **Core**: every decode function carries `sk` (its subtree's bits): `if n != 0 && sk & (1 << k)
+  == 0 && check_utf8(..)`, a constant bit per site; a child gets `sk >> offset` (0 when its
+  tree has no string). Bytes fields have no bit. `DecCtxImpl.pvt_utf8_skip`.
+- **Layout**: C header and abi.rs both assert `offsetof(ak_dvt_M, utf8_skip) == 0`, `sizeof ==
+  rows * 8` and `sizeof(ak_pvt_<Root>) == 8`; the C# slice's by-name probe checks every dvt
+  (not the pvt structs, which its binding declares but does not bind). The layout FACTS of
+  section 10 still cover groups only (unchanged, 400 / 504 members agree). `ak_abi_version`
+  not bumped (decision 11 did not bump it either).
+- **Every host sets 0**: rust_binding, the two hand-written harness vtables (rdrepro,
+  stickyerr), cpp_binding (`vt.utf8_skip = 0`; its vtable was uninitialised stack memory),
+  cs_host, java_binding (`putLong(vt + 0, 0)`; its trampoline numbering is `dec_slots`',
+  unchanged), py_capi (designated initialisers). No host calls the setter.
+- **Checked** (`checks/`): `rust-checks.log` (gen/d20_checks.sh): generators current for every
+  slice, one core; unit tests 10 + 16; the D20 core tests on all four plans (598 checks shapes,
+  1,638 corpus, both variants: every bit of every root, push and pull, bit set = accepted and
+  the planted span delivered, bit clear / all others set = AK_ERR_TRANSCODE, valid UTF-8
+  accepted, push ignores the pvt, NULL restores, wrong root refused; one message with every
+  string malformed at once: accepted only with every bit set); three planted defects (a
+  neighbour's bit, pull ignoring the pvt, a child shifted by one) each caught; conformance and
+  shapes VERDICT pass; counts; R-D1 and R-D6; corpus 680 / 696 per arm with controls, both
+  builds; pre-check 620 / 359 checks, 0 failures; crossing counts 1,092 / 567 lines identical.
+  `cpp.log`: configure, core targets, conformance a17 shared / a17 static / c11 shared / nounk
+  a17 run (608 / 608 / 608 / 478 checks, 0 failures), counts_a17_shared and _static 530 rows
+  identical to logs/cpp/counts-baseline.log. `csharp.log`: build_core.sh, then
+  `AK_GATE_LEVELS=8 AK_GATE_KEEP_CORE=1 gen/gate.sh`: CHECKS PASSED (net8.0 only), crossing
+  counts compared on every row (full and no-unknown), by-name layout agree. `java-python.log`:
+  four cores; four JNI shims (gcc, generated headers' asserts) link; all 20 generated
+  Binding.java compile (JDK 21 javac --release 17); four CPython shims build -Werror and import;
+  through `_akffi` and `_akffi_nounk` a valid message decodes and a malformed session_id is
+  refused (-6).
+- **Instrumentation** (`tables.md` = `bench/tables.md`; gen/d20_bench.sh, one session, 3
+  launches per variant, order rotated, CPU 1; core grid decode-read, core-ffi with core-native as
+  the in-process control; bin d20_toggle confirmed each build's mask before timing). after /
+  before, per-row medians over the 25 rows: full build 1.008 (rows 0.935-1.072), control
+  core-native 1.018 (0.914-1.065); no-unknown 1.008 (0.944-1.069), control 0.972 (0.925-1.051).
+  Rows above 1 us sit inside the control's band; on some rows under 400 ns the launch ranges
+  separate in both directions (full: U-wire-UploadResultDataMessage 165 -> 177 ns, P7.1 357 ->
+  370 ns; no-unknown: U-nested-before 319 -> 343 ns; but no-unknown P7.1 328 -> 322 ns,
+  DualResponse 237 -> 233 ns), not resolved here. skipall / after (every string bit set): 0.733-
+  0.92 on the string-dense rows (P2.2 ascii 2.08 -> 1.62 ms, P2.2 wide 2.41 -> 1.80 ms, P4.1
+  325 -> 238 us; no-unknown P5.1 100 -> 74 ns), 0.95-1.13 on rows with few or no strings (P1.3, ListMetrics,
+  P5.2-P5.4, P6.1). Benchmark wall 414 s.
+- **Not covered**: the corpus through a host with bits set (only the core tests set bits); the
+  C# full gate (net6.0 floor, net48) and its corpus/RPC levels beyond the quick checks; Java's
+  own build and run-time gate (no JDK 8/17, no Maven classpath here); Python's own build.sh and
+  gate (the shims were built to scratch); the pull family timed (core-ffi-pull is a core-grid
+  extra, not run); content sets on payloads other than P2.2; the C# pvt layout by name; the
+  campaign machine.
 
 ## D19: ak_tc_utf16 on simdutf, additive UTF exports (2026-10-04, owner; shared core; container)
 
@@ -852,6 +924,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 ## What is not measured
 
+- **D20's gaps**: listed in section D20 above (bits set through a host, other slices' full gates, pull timed, content sets beyond P2.2, the campaign machine).
 - **D19's gaps**: listed in section D19 above (other slices' gates on the new core, the campaign machine, TSan, encode grow counts, strings over INT32_MAX/3 units).
 - **The backward-encode experiment's gaps**: listed in `logs/rust/opt/patches/backward-encode/README.md` (pool inputs, decode, the 2x2 on order-dependent payloads, the P6.1 attribution, the floor and the campaign machine on the patched tree).
 - **Timings.** None are results in this phase; every timing log is container
@@ -916,6 +989,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/d20-utf8-bits/` | D20: `checks/rust-checks.log` (gen/d20_checks.sh: generators, unit and D20 core tests with plants, conformance, shapes, counts, R-D1, R-D6, corpus, pre-checks, crossing counts, both builds), `checks/cpp.log`, `checks/csharp.log` (build_core.sh and the net8.0 quick gate), `checks/java-python.log`; `bench/` (header with the toggle proofs, 18 processes, d20_bench.out) and `tables.md` |
 | `logs/rust/opt/d19-simdutf/` | D19: `checks/checks.log` (unit tests, conformance, shapes, the differential at scale 8, corpus both builds, pre-checks, crossing counts), `bench/` (header, three tc16_bench processes, tables.md), `build-impact/` (matrix.log: feature sets, h2-batch, C hosts, staticlib, floor; cpp.log; csharp.log) |
 | `logs/rust/opt/patches/backward-encode/` | the backward-encode experiment: the patches (sources, generated, dropped v2), README, the gate and bwd_check on the backward core (checks/gate), the mismatched pair (checks/mismatch), the alternated encode session and RPC probe (bench/, tables.md), P6.1 v1/v2 and harness x core (bench-p6-v2/, bench-p6-2x2/) |
 | `logs/rust/opt/wp12-gates/` | WP12: the full gate on the h2-batch core, on the stock core (both built per feature set by build.sh or the same cargo command) and as committed (plain), each with loads.txt (which core every process loaded), the TCP checks and the write-count marker; NOTE.txt |

@@ -1,0 +1,40 @@
+# commit f255a65e; gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; javac 21.0.10; Python 3.12.3
+===== cores (git archive HEAD ffi/poc/codec) =====
+  ok    core full (--features init-guard): 7 pvt setters
+  ok    core nounk (--no-default-features --features init-guard): 7 pvt setters
+  ok    core corpus (--features corpus,init-guard): 29 pvt setters
+  ok    core corpus-nounk (--no-default-features --features corpus,init-guard): 29 pvt setters
+===== java: JNI shim (gcc) and generated bindings (javac) =====
+  ok    JNI shim generated against core full (0 warnings)
+  ok    JNI shim generated_nounk against core nounk (0 warnings)
+  ok    JNI shim generated_corpus against core corpus (0 warnings)
+  ok    JNI shim generated_corpus_nounk against core corpus-nounk (0 warnings)
+  ok    javac src/generated/java17/ak/borrow/Binding.java
+  ok    javac src/generated/java17/ak/floor/Binding.java
+  ok    javac src/generated/java17/ak/shapes/Binding.java
+  ok    javac src/generated/java8/ak/borrow/Binding.java
+  ok    javac src/generated/java8/ak/floor/Binding.java
+  ok    javac src/generated/java8/ak/shapes/Binding.java
+  ok    javac src/generated_nounk/java17/ak/borrow/Binding.java
+  ok    javac src/generated_nounk/java17/ak/floor/Binding.java
+  ok    javac src/generated_nounk/java17/ak/shapes/Binding.java
+  ok    javac src/generated_nounk/java8/ak/borrow/Binding.java
+  ok    javac src/generated_nounk/java8/ak/floor/Binding.java
+  ok    javac src/generated_nounk/java8/ak/shapes/Binding.java
+  ok    javac src/generated_corpus/java17/ak/corpus/Binding.java
+  ok    javac src/generated_corpus/java17/ak/corpus/borrow/Binding.java
+  ok    javac src/generated_corpus/java8/ak/corpus/Binding.java
+  ok    javac src/generated_corpus/java8/ak/corpus/borrow/Binding.java
+  ok    javac src/generated_corpus_nounk/java17/ak/corpus/Binding.java
+  ok    javac src/generated_corpus_nounk/java17/ak/corpus/borrow/Binding.java
+  ok    javac src/generated_corpus_nounk/java8/ak/corpus/Binding.java
+  ok    javac src/generated_corpus_nounk/java8/ak/corpus/borrow/Binding.java
+===== python: shims, import, and the UTF-8 policy through the shim =====
+  ok    python shim _akffi (gen/out, -Werror) builds and imports: 38 names
+  ok    python shim _akffi_nounk (gen/out/nounk, -Werror) builds and imports: 38 names
+  ok    python shim _akffi_corpus (gen/out/corpus, -Werror) builds and imports: 48 names
+  ok    python shim _akffi_corpus_nounk (gen/out/corpus-nounk, -Werror) builds and imports: 48 names
+  ok    python _akffi: valid: decoded, 1 result(s) malformed: refused (ValueError: ak_decode_ListResultsResponse returned -6) 
+  ok    python _akffi_nounk: valid: decoded, 1 result(s) malformed: refused (ValueError: ak_decode_ListResultsResponse returned -6) 
+failures: 0
+D20 JAVA/PYTHON CHECK PASSED

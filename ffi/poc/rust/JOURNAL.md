@@ -4431,3 +4431,43 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   replaced by its feature sets and shim).
 - Refuted along the way: the first g++ static link put `-x c++` before the archive, so g++
   compiled libak_core.a as C++ source (a 10-minute cc1plus, killed); fixed (84900734).
+
+## 2026-10-04: D20, decode UTF-8 validation per string field, host-selected (owner; shared core)
+
+- Read: FIX-PLAN D20 (and D19), ABI-v1 sections 3, 4, 7, 10; plan.py; every backend that
+  renders a decode vtable. Found: only ROOTS have a push decode entry and every shapes root has
+  0 string fields of its own (the strings live in elements, inlined children, map entries), so
+  "one bit per string field of that message" read literally would give root masks with no bits.
+  Chosen: the mask of `ak_dvt_M` numbers M's whole decode TREE, M's own strings first in
+  field-number order, then each message-typed field's child numbering whole (preorder), so a
+  child's bits are a contiguous run and an element type's own numbering is the same wherever it
+  is reached. Per position, not per type (DualResponse.left and .right: two bits). Widest tree
+  21 bits, shapes and corpus; >64 refused with the proposed `uint64_t[ceil(n/64)]`.
+- Pull: the context is bound to its root (decision 11 rule 6), so the pull vtable is per root,
+  `ak_pvt_<Root> { utf8_skip }` with the root's push numbering, handed by an additive setter
+  that COPIES it (no lifetime obligation on the host, no change to `ak_dec_ctx_new_<Root>`'s
+  signature, the same in both variants). A context-creation option would have changed that
+  signature in both variants; a table indexed by message type would need per-type numbering,
+  which the per-position tree numbering replaces.
+- Core: `sk` threaded through every decode function (leaf fix decoders, non-leaf element
+  decoders push and pull, the inlined-child walk with a static offset like decision 11's `rel`);
+  the check is `n != 0 && sk & (1 << k) == 0 && check_utf8(..)`. A child with no string gets 0.
+- Found while rendering: cpp_binding declared `struct ak_dvt_X vt;` on the stack and set only
+  the callbacks, so the new member would have been garbage there: now `vt.utf8_skip = 0`.
+  Python's vtables are designated initialisers, Java's are written word by word (`putLong`),
+  C#'s and Rust's are initialisers (Rust's would not compile without the field: rdrepro and
+  stickyerr, hand-written in this slice, fixed).
+- Tests: generated per-root bit paths and test-only drivers (cfg(test)) let one core test plant
+  malformed UTF-8 at every bit of every root of the plan (598 checks shapes, 1,638 corpus), push
+  and pull, plus one message with every string malformed. Three plants in the generated codec
+  (neighbour's bit, pull ignoring the pvt, a child shifted by one) each fail it.
+- d20_checks.sh's first run stopped at the first plant: the plant's failing `cargo test` made
+  the `r=$(... | grep)` assignment fail under pipefail; `|| true` added (4666f106). The trap
+  restored the generated codec (git status clean).
+- All checks pass (STATE "D20"). Instrumentation (one session, 3 launches, rotated order):
+  after/before per-row medians 1.008 in both builds, inside the core-native control's band on
+  rows above 1 us; small rows (< 400 ns) separate by a few ns in both directions, not resolved.
+  Every bit set: 0.73-0.92 of the all-zero time on string-dense rows.
+- Not done: bits set through any host (the C# unit is next); ABI version not bumped; the
+  layout facts of section 10 still cover groups only (vtables are asserted in the C header and
+  abi.rs, and by name in the C# probe).

@@ -1,0 +1,21 @@
+# commit f255a65e; cmake version 3.28.3; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; dotnet 8.0.131
+===== cpp: CMake core targets, conformance arms, crossing counts =====
+  ok    configure
+  ok    build core
+  ok    build core_count
+  ok    build core_nounk
+  ok    build conformance_a17_shared
+  ok    build conformance_a17_static
+  ok    build conformance_c11_shared
+  ok    build conformance_nounk_a17
+  ok    build counts_a17_shared
+  ok    build counts_a17_static
+  core: 7 D20 pvt setters exported
+  ok    run conformance_a17_shared (dynamic libak_core: 1): 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    run conformance_a17_static (dynamic libak_core: 0): 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    run conformance_c11_shared (dynamic libak_core: 1): 608 checks, 0 failures, 1 payloads with two valid encodings
+  ok    run conformance_nounk_a17 (dynamic libak_core: 1): 478 checks, 0 failures, 1 payloads with two valid encodings
+  ok    counts_a17_shared: 530 count rows identical to logs/cpp/counts-baseline.log
+  ok    counts_a17_static: 530 count rows identical to logs/cpp/counts-baseline.log
+failures: 0
+D20 CPP/CSHARP CHECK PASSED

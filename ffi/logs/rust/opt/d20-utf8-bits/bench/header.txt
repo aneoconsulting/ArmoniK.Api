@@ -1,0 +1,39 @@
+# D20 utf8_skip decode measurement, 2026-10-04T14:07:22Z. CONTAINER INSTRUMENTATION, not a campaign result.
+# commit 4666f106dcd495112afa6309d420fef82298097c
+# rustc 1.94.1 (e408947bf 2026-03-25); nproc 4
+# cpu        Intel(R) Xeon(R) Processor @ 2.80GHz; kernel 6.18.44-fc-v64; smt notsupported (active 0); no_turbo n/a; governor cpu1 n/a; scaling min/max cpu1 n/a/n/a kHz
+# isolation  cmdline: isolated='' nohz_full='n/a'
+# cgroups    cpuset.cpus.effective:; this driver's cgroup /: n/a; root cpuset.cpus.isolated='n/a'; this driver's affinity 0-3
+# irq        default_smp_affinity f; smp_affinity_list of /proc/irq/*: 0-3 x29, 
+# allowed    non-kernel threads whose Cpus_allowed_list includes a benchmark CPU (1-8, 11-18), this session's excluded: environment-man x11, HeapHelper x3, process_api x1, vsock-console x1, idle-reclaim x1, sbx-telemetry-s x1, 6 x1, sh x1, claude x1, mi-scavenger x1, Bun Pool 0 x1, Bun Pool 1 x1, Bun Pool 2 x1, HTTP Client x1, Bun Pool 3 x1, fs.watch x1, JSCWarmUp x1, JITWorker x1
+# running    threads RUNNABLE right now on the client or server CPUs (1-8, 11-18), this session's excluded: ; loadavg 0.34 1.13 1.74 1/105 28832
+# toggle, skipall full:  d20_toggle: ACCEPTED, 1 result(s) d20_toggle: expected accept: ok 
+# toggle, skipall nounk: d20_toggle: ACCEPTED, 1 result(s) d20_toggle: expected accept: ok 
+# toggle, after full:    d20_toggle: REJECTED, code -6 (AK_ERR_TRANSCODE = -6) d20_toggle: expected reject: ok 
+# toggle, after nounk:   d20_toggle: REJECTED, code -6 (AK_ERR_TRANSCODE = -6) d20_toggle: expected reject: ok 
+# before-full: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-before/ffi/poc/rust/target/release/deps/codec_suite-0c3c22650ebd039a (sha256 f42803d4ed2db116) loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-before/ffi/poc/rust/target/release/deps/libak_core.so (sha256 6a924f7ed623c0a3; pvt setters exported: 0)
+# before-nounk: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-before/ffi/poc/rust/target-nounk/release/deps/codec_suite-24c79b6c40878a3a (sha256 b979e45a0d33b343) loads /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-before/ffi/poc/rust/target-nounk/release/deps/libak_core.so (sha256 4e7b16fe57fdd19a; pvt setters exported: 0)
+# after-full: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-d20-after (sha256 e1956eea51697fb3) loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (sha256 2d1eb05921b1d438; pvt setters exported: 7)
+# after-nounk: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-d20-after (sha256 938d08461a483e31) loads /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (sha256 ec8df55720bf6585; pvt setters exported: 7)
+# skipall-full: /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-d20-skipall (sha256 9a03547cc051c165) loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (sha256 2d1eb05921b1d438; pvt setters exported: 7)
+# skipall-nounk: /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/codec_suite-d20-skipall (sha256 e2c8b20f9fed7ae3) loads /home/user/ArmoniK.Api/ffi/poc/rust/target-nounk/release/deps/libak_core.so (sha256 ec8df55720bf6585; pvt setters exported: 7)
+# settings: AK_CAMPAIGN_GRID=core AK_CASE_ARMS=core-ffi,core-native AK_CASE_DIRS=decode-read AK_SAMPLES=10 AK_WARMUP_MS=100 AK_MEASURE_MS=250; 3 launches; CPU 1 (taskset); nothing else of this session runs meanwhile
+before full launch 1: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+before nounk launch 1: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+after full launch 1: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+after nounk launch 1: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+skipall full launch 1: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+skipall nounk launch 1: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+after full launch 2: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+after nounk launch 2: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+skipall full launch 2: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+skipall nounk launch 2: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+before full launch 2: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+before nounk launch 2: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+skipall full launch 3: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+skipall nounk launch 3: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+before full launch 3: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+before nounk launch 3: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+after full launch 3: # precheck: 552 checks, 0 failures, 25 inputs, 50 cases
+after nounk launch 3: # precheck: 311 checks, 0 failures, 25 inputs, 50 cases
+# benchmark wall: 414 s
