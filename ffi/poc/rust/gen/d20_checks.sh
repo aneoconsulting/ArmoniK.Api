@@ -69,7 +69,7 @@ t = eval(expr)
 assert t != s, "the plant changed nothing"
 open(f, "w").write(t)
 PY
-  r=$( cd ../codec && CARGO_TARGET_DIR="$TT" cargo test -q -p ak-core --lib d20 2>&1 | grep -E "test result" )
+  r=$( cd ../codec && CARGO_TARGET_DIR="$TT" cargo test -q -p ak-core --lib d20 2>&1 | grep -E "test result" || true )
   if echo "$r" | grep -q " 0 failed"; then echo "  PLANT NOT CAUGHT: $1 ($r)"; exit 1; fi
   echo "  planted $1: caught ($r)"
 }
