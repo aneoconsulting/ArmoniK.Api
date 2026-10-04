@@ -33,8 +33,8 @@ The transcoder is a parameter, so string-as-DATA (a core transcoder, zero crossi
 string-as-a-CALL (a host transcoder, one reverse crossing per string) are the same code
 with a different `Tcs`. That is the third mechanism decision 1 asks the price of.
 """
-from plan import (abi_order_topo, as_plan, direct_fields, elem_type, loop_slots,
-                  presence_bits, slot_name, unk_opts_layout, unk_opts_name, unk_positions,
+from plan import (UTF8_MEMBER, abi_order_topo, as_plan, dec_vtable, direct_fields, elem_type,
+                  loop_slots, presence_bits, slot_name, unk_opts_layout, unk_opts_name, unk_positions,
                   unknown_compiled_out)
 import cpp_names as cppnames
 from cpp_names import camel, oneof_type, snake
@@ -1543,6 +1543,28 @@ Tcs tcs_host() {
                             "decode inner slot %s.%s (%s %s)"
                             % (elem_ty, isn, iff.card, iff.kind))
 
+        # The decode vtable is ONE object in static storage per root (owner, 2026-10-04): the
+        # callbacks are constants, so nothing is stored per decode. Positional aggregate
+        # initialisation (C++11: no designated initialisers), every member in the plan's
+        # member order (plan.dec_vtable, the order c_abi declares the struct in), so no
+        # member is left to chance; the D20 mask first, 0 = the core validates every string.
+        o.append("static const struct ak_dvt_%s k_dvt_%s = {" % (root, root))
+        rows = dec_vtable(ir, root)
+        for i, (kind, sn, _x) in enumerate(rows):
+            sep = "," if i + 1 < len(rows) else ""
+            if kind == UTF8_MEMBER:
+                o.append("    0%s  /* %s: D20, every bit 0, the core validates every string */"
+                         % (sep, UTF8_MEMBER))
+            elif kind == "apply":
+                o.append("    apply_%s%s" % (snake(root), sep))
+            elif kind == "new":
+                o.append("    new_%s_%s%s" % (snake(root), sn, sep))
+            elif kind == "applyelem":
+                o.append("    apply_%s_%s%s" % (snake(root), sn, sep))
+            else:  # add, addinner (sn is "<outer>_<inner>" for an inner slot)
+                o.append("    add_%s_%s%s" % (snake(root), sn, sep))
+        o.append("};")
+        o.append("")
         o.append("static int32_t decode_impl_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
                  " void (*refill)(void *), void *hold) {" % (snake(root), root))
         o.append("  AK_INIT_OR_RETURN();")
@@ -1554,22 +1576,7 @@ Tcs tcs_host() {
         else:
             o.append("  sink.refill = refill;")
             o.append("  sink.hold = hold;")
-        o.append("  struct ak_dvt_%s vt;" % root)
-        o.append("  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */")
-        o.append("  vt.apply = apply_%s;" % snake(root))
-        for path, f in slots:
-            sn = slot_name(path)
-            et = elem_type(f)
-            elem_ty = f.entry if f.card == "map" else et
-            if elem_ty is None or ir.msg(elem_ty).leaf:
-                o.append("  vt.add_%s = add_%s_%s;" % (sn, snake(root), sn))
-            else:
-                o.append("  vt.new_%s = new_%s_%s;" % (sn, snake(root), sn))
-                o.append("  vt.apply_%s = apply_%s_%s;" % (sn, snake(root), sn))
-                for ipath, _iff in loop_slots(ir, elem_ty):
-                    isn = slot_name(ipath)
-                    o.append("  vt.add_%s_%s = add_%s_%s_%s;" % (sn, isn, snake(root), sn, isn))
-        o.append("  return ak_decode_%s(ctx, &sink, b, n, &vt);" % root)
+        o.append("  return ak_decode_%s(ctx, &sink, b, n, &k_dvt_%s);" % (root, root))
         o.append("}")
         o.append("")
         if not nu:

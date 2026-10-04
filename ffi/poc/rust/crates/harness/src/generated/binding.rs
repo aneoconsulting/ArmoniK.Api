@@ -4929,17 +4929,17 @@ pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<List
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    static VT: ak_dvt_ListResultsResponse = ak_dvt_ListResultsResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_results_response),
+        add_results: Some(add_list_results_response_results),
+    };
     let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListResultsResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_results_response),
-            add_results: Some(add_list_results_response_results),
-        };
-        ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -5399,23 +5399,23 @@ pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Resu
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    static VT: ak_dvt_ListTasksDetailedResponse = ak_dvt_ListTasksDetailedResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_tasks_detailed_response),
+        new_tasks: Some(new_list_tasks_detailed_response_tasks),
+        apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
+        add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
+        add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
+        add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
+        add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
+        add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
+    };
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListTasksDetailedResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_tasks_detailed_response),
-            new_tasks: Some(new_list_tasks_detailed_response_tasks),
-            apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
-            add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
-            add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
-            add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
-            add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
-            add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
-        };
-        ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -5841,17 +5841,17 @@ pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListPr
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    static VT: ak_dvt_ListProbeResponse = ak_dvt_ListProbeResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_probe_response),
+        add_probes: Some(add_list_probe_response_probes),
+    };
     let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
         let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListProbeResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_probe_response),
-            add_probes: Some(add_list_probe_response_probes),
-        };
-        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6239,19 +6239,19 @@ pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    static VT: ak_dvt_ListTaskSummaryResponse = ak_dvt_ListTaskSummaryResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_task_summary_response),
+        new_tasks: Some(new_list_task_summary_response_tasks),
+        apply_tasks: Some(apply_list_task_summary_response_tasks),
+        add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
+    };
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListTaskSummaryResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_task_summary_response),
-            new_tasks: Some(new_list_task_summary_response_tasks),
-            apply_tasks: Some(apply_list_task_summary_response_tasks),
-            add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
-        };
-        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6613,16 +6613,16 @@ pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    static VT: ak_dvt_UploadResultDataMessage = ak_dvt_UploadResultDataMessage {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_upload_result_data_message),
+    };
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
         let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_UploadResultDataMessage {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_upload_result_data_message),
-        };
-        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7063,23 +7063,23 @@ pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<List
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    static VT: ak_dvt_ListMetricsResponse = ak_dvt_ListMetricsResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_metrics_response),
+        new_batches: Some(new_list_metrics_response_batches),
+        apply_batches: Some(apply_list_metrics_response_batches),
+        add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
+        add_batches_values: Some(add_list_metrics_response_batches_values),
+        add_batches_codes: Some(add_list_metrics_response_batches_codes),
+        add_batches_flags: Some(add_list_metrics_response_batches_flags),
+        add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
+    };
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListMetricsResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_metrics_response),
-            new_batches: Some(new_list_metrics_response_batches),
-            apply_batches: Some(apply_list_metrics_response_batches),
-            add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
-            add_batches_values: Some(add_list_metrics_response_batches_values),
-            add_batches_codes: Some(add_list_metrics_response_batches_codes),
-            add_batches_flags: Some(add_list_metrics_response_batches_flags),
-            add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
-        };
-        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7490,18 +7490,18 @@ pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse
 /// The decode with the context as it is armed now.
 #[inline(always)]
 fn decode_with_dual_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
+    static VT: ak_dvt_DualResponse = ak_dvt_DualResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_dual_response),
+        add_left: Some(add_dual_response_left),
+        add_right: Some(add_dual_response_right),
+    };
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     let rc = unsafe {
         let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_DualResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_dual_response),
-            add_left: Some(add_dual_response_left),
-            add_right: Some(add_dual_response_right),
-        };
-        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }

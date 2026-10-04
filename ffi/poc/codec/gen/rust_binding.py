@@ -1206,27 +1206,30 @@ def emit_binding(ir):
             o.append("fn decode_with_%s_armed(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
         else:
             o.append("pub fn decode_with_%s(ctxs: DecCtxs, b: &[u8]) -> Result<%s, i32> {" % (rs, root))
-        o.append("    let ctx = ctxs.%s;" % rs)
-        o.append("    let mut out = %s::default();" % root)
-        o.append("    let rc = unsafe {")
-        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };" % root)
-        o.append("        let vt = ak_dvt_%s {" % root)
-        o.append("            // D20: every bit 0, so the core validates every string field.")
-        o.append("            utf8_skip: 0,")
-        o.append("            apply: Some(apply_%s)," % rs)
+        # The decode vtable is ONE object in static storage per root (owner, 2026-10-04): the
+        # callbacks are constants (fn items), so nothing is stored per decode; the core gets
+        # its address. Every member is named (a Rust struct literal cannot leave one out).
+        o.append("    static VT: ak_dvt_%s = ak_dvt_%s {" % (root, root))
+        o.append("        // D20: every bit 0, so the core validates every string field.")
+        o.append("        utf8_skip: 0,")
+        o.append("        apply: Some(apply_%s)," % rs)
         for path, f in loop_slots(ir, root):
             sn = slot_name(path)
             et = elem_type(f)
             if et and not ir.msg(et).leaf:
-                o.append("            new_%s: Some(new_%s_%s)," % (sn, rs, sn))
-                o.append("            apply_%s: Some(apply_%s_%s)," % (sn, rs, sn))
+                o.append("        new_%s: Some(new_%s_%s)," % (sn, rs, sn))
+                o.append("        apply_%s: Some(apply_%s_%s)," % (sn, rs, sn))
                 for ipath, _ in loop_slots(ir, et):
-                    o.append("            add_%s_%s: Some(add_%s_%s_%s)," %
+                    o.append("        add_%s_%s: Some(add_%s_%s_%s)," %
                              (sn, slot_name(ipath), rs, sn, slot_name(ipath)))
             else:
-                o.append("            add_%s: Some(add_%s_%s)," % (sn, rs, sn))
-        o.append("        };")
-        o.append("        ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)" % root)
+                o.append("        add_%s: Some(add_%s_%s)," % (sn, rs, sn))
+        o.append("    };")
+        o.append("    let ctx = ctxs.%s;" % rs)
+        o.append("    let mut out = %s::default();" % root)
+        o.append("    let rc = unsafe {")
+        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };" % root)
+        o.append("        ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)" % root)
         o.append("    };")
         o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
         o.append("}")

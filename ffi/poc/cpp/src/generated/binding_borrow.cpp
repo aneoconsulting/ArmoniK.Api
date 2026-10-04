@@ -3059,6 +3059,12 @@ static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_ListResultsResponse k_dvt_ListResultsResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_list_results_response,
+    add_list_results_response_results
+};
+
 static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListResultsResponse sink;
@@ -3066,11 +3072,7 @@ static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_ListResultsResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_list_results_response;
-  vt.add_results = add_list_results_response_results;
-  return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_ListResultsResponse(ctx, &sink, b, n, &k_dvt_ListResultsResponse);
 }
 
 static thread_local struct ak_dec_ListResultsResponse_opts t_unk_opts_list_results_response;
@@ -3451,6 +3453,18 @@ static void add_list_tasks_detailed_response_tasks_options_options(ak_dec_ctx *c
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_ListTasksDetailedResponse k_dvt_ListTasksDetailedResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_list_tasks_detailed_response,
+    new_list_tasks_detailed_response_tasks,
+    apply_list_tasks_detailed_response_tasks,
+    add_list_tasks_detailed_response_tasks_parent_task_ids,
+    add_list_tasks_detailed_response_tasks_data_dependencies,
+    add_list_tasks_detailed_response_tasks_expected_output_ids,
+    add_list_tasks_detailed_response_tasks_retry_of_ids,
+    add_list_tasks_detailed_response_tasks_options_options
+};
+
 static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTasksDetailedResponse sink;
@@ -3458,17 +3472,7 @@ static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const u
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_ListTasksDetailedResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_list_tasks_detailed_response;
-  vt.new_tasks = new_list_tasks_detailed_response_tasks;
-  vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
-  vt.add_tasks_parent_task_ids = add_list_tasks_detailed_response_tasks_parent_task_ids;
-  vt.add_tasks_data_dependencies = add_list_tasks_detailed_response_tasks_data_dependencies;
-  vt.add_tasks_expected_output_ids = add_list_tasks_detailed_response_tasks_expected_output_ids;
-  vt.add_tasks_retry_of_ids = add_list_tasks_detailed_response_tasks_retry_of_ids;
-  vt.add_tasks_options_options = add_list_tasks_detailed_response_tasks_options_options;
-  return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &k_dvt_ListTasksDetailedResponse);
 }
 
 static thread_local struct ak_dec_ListTasksDetailedResponse_opts t_unk_opts_list_tasks_detailed_response;
@@ -3863,6 +3867,12 @@ static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t t
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_ListProbeResponse k_dvt_ListProbeResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_list_probe_response,
+    add_list_probe_response_probes
+};
+
 static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListProbeResponse sink;
@@ -3870,11 +3880,7 @@ static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_ListProbeResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_list_probe_response;
-  vt.add_probes = add_list_probe_response_probes;
-  return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_ListProbeResponse(ctx, &sink, b, n, &k_dvt_ListProbeResponse);
 }
 
 static thread_local struct ak_dec_ListProbeResponse_opts t_unk_opts_list_probe_response;
@@ -4178,6 +4184,14 @@ static void add_list_task_summary_response_tasks_options_options(ak_dec_ctx *ctx
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_ListTaskSummaryResponse k_dvt_ListTaskSummaryResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_list_task_summary_response,
+    new_list_task_summary_response_tasks,
+    apply_list_task_summary_response_tasks,
+    add_list_task_summary_response_tasks_options_options
+};
+
 static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTaskSummaryResponse sink;
@@ -4185,13 +4199,7 @@ static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uin
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_ListTaskSummaryResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_list_task_summary_response;
-  vt.new_tasks = new_list_task_summary_response_tasks;
-  vt.apply_tasks = apply_list_task_summary_response_tasks;
-  vt.add_tasks_options_options = add_list_task_summary_response_tasks_options_options;
-  return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &k_dvt_ListTaskSummaryResponse);
 }
 
 static thread_local struct ak_dec_ListTaskSummaryResponse_opts t_unk_opts_list_task_summary_response;
@@ -4480,6 +4488,11 @@ static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const s
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_UploadResultDataMessage k_dvt_UploadResultDataMessage = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_upload_result_data_message
+};
+
 static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_UploadResultDataMessage sink;
@@ -4487,10 +4500,7 @@ static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uin
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_UploadResultDataMessage vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_upload_result_data_message;
-  return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
+  return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &k_dvt_UploadResultDataMessage);
 }
 
 static thread_local struct ak_dec_UploadResultDataMessage_opts t_unk_opts_upload_result_data_message;
@@ -4815,6 +4825,18 @@ static void add_list_metrics_response_batches_statuses(ak_dec_ctx *ctx, void *ob
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_ListMetricsResponse k_dvt_ListMetricsResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_list_metrics_response,
+    new_list_metrics_response_batches,
+    apply_list_metrics_response_batches,
+    add_list_metrics_response_batches_ticks,
+    add_list_metrics_response_batches_values,
+    add_list_metrics_response_batches_codes,
+    add_list_metrics_response_batches_flags,
+    add_list_metrics_response_batches_statuses
+};
+
 static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListMetricsResponse sink;
@@ -4822,17 +4844,7 @@ static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_ListMetricsResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_list_metrics_response;
-  vt.new_batches = new_list_metrics_response_batches;
-  vt.apply_batches = apply_list_metrics_response_batches;
-  vt.add_batches_ticks = add_list_metrics_response_batches_ticks;
-  vt.add_batches_values = add_list_metrics_response_batches_values;
-  vt.add_batches_codes = add_list_metrics_response_batches_codes;
-  vt.add_batches_flags = add_list_metrics_response_batches_flags;
-  vt.add_batches_statuses = add_list_metrics_response_batches_statuses;
-  return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &k_dvt_ListMetricsResponse);
 }
 
 static thread_local struct ak_dec_ListMetricsResponse_opts t_unk_opts_list_metrics_response;
@@ -5127,6 +5139,13 @@ static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, con
   AK_DGUARD_END
 }
 
+static const struct ak_dvt_DualResponse k_dvt_DualResponse = {
+    0,  /* utf8_skip: D20, every bit 0, the core validates every string */
+    apply_dual_response,
+    add_dual_response_left,
+    add_dual_response_right
+};
+
 static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_DualResponse sink;
@@ -5134,12 +5153,7 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   sink.refill = refill;
   sink.hold = hold;
-  struct ak_dvt_DualResponse vt;
-  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
-  vt.apply = apply_dual_response;
-  vt.add_left = add_dual_response_left;
-  vt.add_right = add_dual_response_right;
-  return ak_decode_DualResponse(ctx, &sink, b, n, &vt);
+  return ak_decode_DualResponse(ctx, &sink, b, n, &k_dvt_DualResponse);
 }
 
 static thread_local struct ak_dec_DualResponse_opts t_unk_opts_dual_response;

@@ -5929,16 +5929,16 @@ pub fn decode_with_timestamp_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Tim
 }
 
 pub fn decode_with_timestamp(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32> {
+    static VT: ak_dvt_Timestamp = ak_dvt_Timestamp {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_timestamp),
+    };
     let ctx = ctxs.timestamp;
     let mut out = Timestamp::default();
     let rc = unsafe {
         let mut sink = SinkTimestamp { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Timestamp {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_timestamp),
-        };
-        ak_decode_Timestamp(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Timestamp(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6142,16 +6142,16 @@ pub fn decode_with_duration_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Dura
 }
 
 pub fn decode_with_duration(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> {
+    static VT: ak_dvt_Duration = ak_dvt_Duration {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_duration),
+    };
     let ctx = ctxs.duration;
     let mut out = Duration::default();
     let rc = unsafe {
         let mut sink = SinkDuration { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Duration {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_duration),
-        };
-        ak_decode_Duration(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Duration(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6372,16 +6372,16 @@ pub fn decode_with_result_raw_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Re
 }
 
 pub fn decode_with_result_raw(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i32> {
+    static VT: ak_dvt_ResultRaw = ak_dvt_ResultRaw {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_result_raw),
+    };
     let ctx = ctxs.result_raw;
     let mut out = ResultRaw::default();
     let rc = unsafe {
         let mut sink = SinkResultRaw { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ResultRaw {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_result_raw),
-        };
-        ak_decode_ResultRaw(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ResultRaw(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6617,17 +6617,17 @@ pub fn decode_with_task_options_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<
 }
 
 pub fn decode_with_task_options(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions, i32> {
+    static VT: ak_dvt_TaskOptions = ak_dvt_TaskOptions {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_task_options),
+        add_options: Some(add_task_options_options),
+    };
     let ctx = ctxs.task_options;
     let mut out = TaskOptions::default();
     let rc = unsafe {
         let mut sink = SinkTaskOptions { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_TaskOptions {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_task_options),
-            add_options: Some(add_task_options_options),
-        };
-        ak_decode_TaskOptions(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskOptions(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -6838,16 +6838,16 @@ pub fn decode_with_task_output_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<T
 }
 
 pub fn decode_with_task_output(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, i32> {
+    static VT: ak_dvt_TaskOutput = ak_dvt_TaskOutput {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_task_output),
+    };
     let ctx = ctxs.task_output;
     let mut out = TaskOutput::default();
     let rc = unsafe {
         let mut sink = SinkTaskOutput { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_TaskOutput {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_task_output),
-        };
-        ak_decode_TaskOutput(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskOutput(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7218,21 +7218,21 @@ pub fn decode_with_task_detailed_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result
 }
 
 pub fn decode_with_task_detailed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetailed, i32> {
+    static VT: ak_dvt_TaskDetailed = ak_dvt_TaskDetailed {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_task_detailed),
+        add_parent_task_ids: Some(add_task_detailed_parent_task_ids),
+        add_data_dependencies: Some(add_task_detailed_data_dependencies),
+        add_expected_output_ids: Some(add_task_detailed_expected_output_ids),
+        add_retry_of_ids: Some(add_task_detailed_retry_of_ids),
+        add_options_options: Some(add_task_detailed_options_options),
+    };
     let ctx = ctxs.task_detailed;
     let mut out = TaskDetailed::default();
     let rc = unsafe {
         let mut sink = SinkTaskDetailed { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_TaskDetailed {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_task_detailed),
-            add_parent_task_ids: Some(add_task_detailed_parent_task_ids),
-            add_data_dependencies: Some(add_task_detailed_data_dependencies),
-            add_expected_output_ids: Some(add_task_detailed_expected_output_ids),
-            add_retry_of_ids: Some(add_task_detailed_retry_of_ids),
-            add_options_options: Some(add_task_detailed_options_options),
-        };
-        ak_decode_TaskDetailed(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskDetailed(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7507,17 +7507,17 @@ pub fn decode_with_task_summary_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<
 }
 
 pub fn decode_with_task_summary(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary, i32> {
+    static VT: ak_dvt_TaskSummary = ak_dvt_TaskSummary {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_task_summary),
+        add_options_options: Some(add_task_summary_options_options),
+    };
     let ctx = ctxs.task_summary;
     let mut out = TaskSummary::default();
     let rc = unsafe {
         let mut sink = SinkTaskSummary { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_TaskSummary {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_task_summary),
-            add_options_options: Some(add_task_summary_options_options),
-        };
-        ak_decode_TaskSummary(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_TaskSummary(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7738,16 +7738,16 @@ pub fn decode_with_probe_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Probe, 
 }
 
 pub fn decode_with_probe(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
+    static VT: ak_dvt_Probe = ak_dvt_Probe {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_probe),
+    };
     let ctx = ctxs.probe;
     let mut out = Probe::default();
     let rc = unsafe {
         let mut sink = SinkProbe { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Probe {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_probe),
-        };
-        ak_decode_Probe(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Probe(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -7949,16 +7949,16 @@ pub fn decode_with_empty_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Empty, 
 }
 
 pub fn decode_with_empty(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
+    static VT: ak_dvt_Empty = ak_dvt_Empty {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_empty),
+    };
     let ctx = ctxs.empty;
     let mut out = Empty::default();
     let rc = unsafe {
         let mut sink = SinkEmpty { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Empty {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_empty),
-        };
-        ak_decode_Empty(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Empty(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8163,16 +8163,16 @@ pub fn decode_with_upload_result_data_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> R
 }
 
 pub fn decode_with_upload_result_data(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultData, i32> {
+    static VT: ak_dvt_UploadResultData = ak_dvt_UploadResultData {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_upload_result_data),
+    };
     let ctx = ctxs.upload_result_data;
     let mut out = UploadResultData::default();
     let rc = unsafe {
         let mut sink = SinkUploadResultData { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_UploadResultData {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_upload_result_data),
-        };
-        ak_decode_UploadResultData(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_UploadResultData(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8460,21 +8460,21 @@ pub fn decode_with_metrics_batch_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result
 }
 
 pub fn decode_with_metrics_batch(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBatch, i32> {
+    static VT: ak_dvt_MetricsBatch = ak_dvt_MetricsBatch {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_metrics_batch),
+        add_ticks: Some(add_metrics_batch_ticks),
+        add_values: Some(add_metrics_batch_values),
+        add_codes: Some(add_metrics_batch_codes),
+        add_flags: Some(add_metrics_batch_flags),
+        add_statuses: Some(add_metrics_batch_statuses),
+    };
     let ctx = ctxs.metrics_batch;
     let mut out = MetricsBatch::default();
     let rc = unsafe {
         let mut sink = SinkMetricsBatch { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_MetricsBatch {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_metrics_batch),
-            add_ticks: Some(add_metrics_batch_ticks),
-            add_values: Some(add_metrics_batch_values),
-            add_codes: Some(add_metrics_batch_codes),
-            add_flags: Some(add_metrics_batch_flags),
-            add_statuses: Some(add_metrics_batch_statuses),
-        };
-        ak_decode_MetricsBatch(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_MetricsBatch(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8713,16 +8713,16 @@ pub fn decode_with_pair_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Pair, i3
 }
 
 pub fn decode_with_pair(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
+    static VT: ak_dvt_Pair = ak_dvt_Pair {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_pair),
+    };
     let ctx = ctxs.pair;
     let mut out = Pair::default();
     let rc = unsafe {
         let mut sink = SinkPair { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Pair {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_pair),
-        };
-        ak_decode_Pair(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Pair(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -8943,17 +8943,17 @@ pub fn decode_with_list_results_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -
 }
 
 pub fn decode_with_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListResultsResponse, i32> {
+    static VT: ak_dvt_ListResultsResponse = ak_dvt_ListResultsResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_results_response),
+        add_results: Some(add_list_results_response_results),
+    };
     let ctx = ctxs.list_results_response;
     let mut out = ListResultsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListResultsResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_results_response),
-            add_results: Some(add_list_results_response_results),
-        };
-        ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListResultsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9274,23 +9274,23 @@ pub fn decode_with_list_tasks_detailed_response_zc(ctxs: DecCtxs, b: &::bytes::B
 }
 
 pub fn decode_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTasksDetailedResponse, i32> {
+    static VT: ak_dvt_ListTasksDetailedResponse = ak_dvt_ListTasksDetailedResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_tasks_detailed_response),
+        new_tasks: Some(new_list_tasks_detailed_response_tasks),
+        apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
+        add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
+        add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
+        add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
+        add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
+        add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
+    };
     let ctx = ctxs.list_tasks_detailed_response;
     let mut out = ListTasksDetailedResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListTasksDetailedResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_tasks_detailed_response),
-            new_tasks: Some(new_list_tasks_detailed_response_tasks),
-            apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
-            add_tasks_parent_task_ids: Some(add_list_tasks_detailed_response_tasks_parent_task_ids),
-            add_tasks_data_dependencies: Some(add_list_tasks_detailed_response_tasks_data_dependencies),
-            add_tasks_expected_output_ids: Some(add_list_tasks_detailed_response_tasks_expected_output_ids),
-            add_tasks_retry_of_ids: Some(add_list_tasks_detailed_response_tasks_retry_of_ids),
-            add_tasks_options_options: Some(add_list_tasks_detailed_response_tasks_options_options),
-        };
-        ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTasksDetailedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9576,19 +9576,19 @@ pub fn decode_with_list_task_summary_response_zc(ctxs: DecCtxs, b: &::bytes::Byt
 }
 
 pub fn decode_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListTaskSummaryResponse, i32> {
+    static VT: ak_dvt_ListTaskSummaryResponse = ak_dvt_ListTaskSummaryResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_task_summary_response),
+        new_tasks: Some(new_list_task_summary_response_tasks),
+        apply_tasks: Some(apply_list_task_summary_response_tasks),
+        add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
+    };
     let ctx = ctxs.list_task_summary_response;
     let mut out = ListTaskSummaryResponse::default();
     let rc = unsafe {
         let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListTaskSummaryResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_task_summary_response),
-            new_tasks: Some(new_list_task_summary_response_tasks),
-            apply_tasks: Some(apply_list_task_summary_response_tasks),
-            add_tasks_options_options: Some(add_list_task_summary_response_tasks_options_options),
-        };
-        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListTaskSummaryResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -9821,17 +9821,17 @@ pub fn decode_with_list_probe_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> 
 }
 
 pub fn decode_with_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListProbeResponse, i32> {
+    static VT: ak_dvt_ListProbeResponse = ak_dvt_ListProbeResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_probe_response),
+        add_probes: Some(add_list_probe_response_probes),
+    };
     let ctx = ctxs.list_probe_response;
     let mut out = ListProbeResponse::default();
     let rc = unsafe {
         let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListProbeResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_probe_response),
-            add_probes: Some(add_list_probe_response_probes),
-        };
-        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListProbeResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10146,23 +10146,23 @@ pub fn decode_with_list_metrics_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -
 }
 
 pub fn decode_with_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<ListMetricsResponse, i32> {
+    static VT: ak_dvt_ListMetricsResponse = ak_dvt_ListMetricsResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_list_metrics_response),
+        new_batches: Some(new_list_metrics_response_batches),
+        apply_batches: Some(apply_list_metrics_response_batches),
+        add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
+        add_batches_values: Some(add_list_metrics_response_batches_values),
+        add_batches_codes: Some(add_list_metrics_response_batches_codes),
+        add_batches_flags: Some(add_list_metrics_response_batches_flags),
+        add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
+    };
     let ctx = ctxs.list_metrics_response;
     let mut out = ListMetricsResponse::default();
     let rc = unsafe {
         let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ListMetricsResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_list_metrics_response),
-            new_batches: Some(new_list_metrics_response_batches),
-            apply_batches: Some(apply_list_metrics_response_batches),
-            add_batches_ticks: Some(add_list_metrics_response_batches_ticks),
-            add_batches_values: Some(add_list_metrics_response_batches_values),
-            add_batches_codes: Some(add_list_metrics_response_batches_codes),
-            add_batches_flags: Some(add_list_metrics_response_batches_flags),
-            add_batches_statuses: Some(add_list_metrics_response_batches_statuses),
-        };
-        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ListMetricsResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10411,16 +10411,16 @@ pub fn decode_with_upload_result_data_message_zc(ctxs: DecCtxs, b: &::bytes::Byt
 }
 
 pub fn decode_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result<UploadResultDataMessage, i32> {
+    static VT: ak_dvt_UploadResultDataMessage = ak_dvt_UploadResultDataMessage {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_upload_result_data_message),
+    };
     let ctx = ctxs.upload_result_data_message;
     let mut out = UploadResultDataMessage::default();
     let rc = unsafe {
         let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_UploadResultDataMessage {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_upload_result_data_message),
-        };
-        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10656,18 +10656,18 @@ pub fn decode_with_dual_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result
 }
 
 pub fn decode_with_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<DualResponse, i32> {
+    static VT: ak_dvt_DualResponse = ak_dvt_DualResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_dual_response),
+        add_left: Some(add_dual_response_left),
+        add_right: Some(add_dual_response_right),
+    };
     let ctx = ctxs.dual_response;
     let mut out = DualResponse::default();
     let rc = unsafe {
         let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_DualResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_dual_response),
-            add_left: Some(add_dual_response_left),
-            add_right: Some(add_dual_response_right),
-        };
-        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_DualResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -10885,16 +10885,16 @@ pub fn decode_with_chunk_leaf_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Ch
 }
 
 pub fn decode_with_chunk_leaf(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i32> {
+    static VT: ak_dvt_ChunkLeaf = ak_dvt_ChunkLeaf {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_chunk_leaf),
+    };
     let ctx = ctxs.chunk_leaf;
     let mut out = ChunkLeaf::default();
     let rc = unsafe {
         let mut sink = SinkChunkLeaf { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ChunkLeaf {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_chunk_leaf),
-        };
-        ak_decode_ChunkLeaf(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkLeaf(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11130,18 +11130,18 @@ pub fn decode_with_chunk_inner_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<C
 }
 
 pub fn decode_with_chunk_inner(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, i32> {
+    static VT: ak_dvt_ChunkInner = ak_dvt_ChunkInner {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_chunk_inner),
+        add_marks: Some(add_chunk_inner_marks),
+        add_leaves: Some(add_chunk_inner_leaves),
+    };
     let ctx = ctxs.chunk_inner;
     let mut out = ChunkInner::default();
     let rc = unsafe {
         let mut sink = SinkChunkInner { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ChunkInner {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_chunk_inner),
-            add_marks: Some(add_chunk_inner_marks),
-            add_leaves: Some(add_chunk_inner_leaves),
-        };
-        ak_decode_ChunkInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11436,20 +11436,20 @@ pub fn decode_with_chunk_element_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result
 }
 
 pub fn decode_with_chunk_element(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkElement, i32> {
+    static VT: ak_dvt_ChunkElement = ak_dvt_ChunkElement {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_chunk_element),
+        add_labels: Some(add_chunk_element_labels),
+        add_attrs: Some(add_chunk_element_attrs),
+        add_inner_marks: Some(add_chunk_element_inner_marks),
+        add_inner_leaves: Some(add_chunk_element_inner_leaves),
+    };
     let ctx = ctxs.chunk_element;
     let mut out = ChunkElement::default();
     let rc = unsafe {
         let mut sink = SinkChunkElement { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ChunkElement {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_chunk_element),
-            add_labels: Some(add_chunk_element_labels),
-            add_attrs: Some(add_chunk_element_attrs),
-            add_inner_marks: Some(add_chunk_element_inner_marks),
-            add_inner_leaves: Some(add_chunk_element_inner_leaves),
-        };
-        ak_decode_ChunkElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -11773,22 +11773,22 @@ pub fn decode_with_chunked_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Res
 }
 
 pub fn decode_with_chunked_response(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponse, i32> {
+    static VT: ak_dvt_ChunkedResponse = ak_dvt_ChunkedResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_chunked_response),
+        new_items: Some(new_chunked_response_items),
+        apply_items: Some(apply_chunked_response_items),
+        add_items_labels: Some(add_chunked_response_items_labels),
+        add_items_attrs: Some(add_chunked_response_items_attrs),
+        add_items_inner_marks: Some(add_chunked_response_items_inner_marks),
+        add_items_inner_leaves: Some(add_chunked_response_items_inner_leaves),
+    };
     let ctx = ctxs.chunked_response;
     let mut out = ChunkedResponse::default();
     let rc = unsafe {
         let mut sink = SinkChunkedResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ChunkedResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_chunked_response),
-            new_items: Some(new_chunked_response_items),
-            apply_items: Some(apply_chunked_response_items),
-            add_items_labels: Some(add_chunked_response_items_labels),
-            add_items_attrs: Some(add_chunked_response_items_attrs),
-            add_items_inner_marks: Some(add_chunked_response_items_inner_marks),
-            add_items_inner_leaves: Some(add_chunked_response_items_inner_leaves),
-        };
-        ak_decode_ChunkedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkedResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12118,22 +12118,22 @@ pub fn decode_with_chunked_response_wide_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -
 }
 
 pub fn decode_with_chunked_response_wide(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkedResponseWide, i32> {
+    static VT: ak_dvt_ChunkedResponseWide = ak_dvt_ChunkedResponseWide {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_chunked_response_wide),
+        new_items: Some(new_chunked_response_wide_items),
+        apply_items: Some(apply_chunked_response_wide_items),
+        add_items_labels: Some(add_chunked_response_wide_items_labels),
+        add_items_attrs: Some(add_chunked_response_wide_items_attrs),
+        add_items_inner_marks: Some(add_chunked_response_wide_items_inner_marks),
+        add_items_inner_leaves: Some(add_chunked_response_wide_items_inner_leaves),
+    };
     let ctx = ctxs.chunked_response_wide;
     let mut out = ChunkedResponseWide::default();
     let rc = unsafe {
         let mut sink = SinkChunkedResponseWide { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_ChunkedResponseWide {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_chunked_response_wide),
-            new_items: Some(new_chunked_response_wide_items),
-            apply_items: Some(apply_chunked_response_wide_items),
-            add_items_labels: Some(add_chunked_response_wide_items_labels),
-            add_items_attrs: Some(add_chunked_response_wide_items_attrs),
-            add_items_inner_marks: Some(add_chunked_response_wide_items_inner_marks),
-            add_items_inner_leaves: Some(add_chunked_response_wide_items_inner_leaves),
-        };
-        ak_decode_ChunkedResponseWide(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_ChunkedResponseWide(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12377,16 +12377,16 @@ pub fn decode_with_leaf_element_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<
 }
 
 pub fn decode_with_leaf_element(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement, i32> {
+    static VT: ak_dvt_LeafElement = ak_dvt_LeafElement {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_leaf_element),
+    };
     let ctx = ctxs.leaf_element;
     let mut out = LeafElement::default();
     let rc = unsafe {
         let mut sink = SinkLeafElement { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_LeafElement {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_leaf_element),
-        };
-        ak_decode_LeafElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_LeafElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12605,17 +12605,17 @@ pub fn decode_with_leaf_response_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result
 }
 
 pub fn decode_with_leaf_response(ctxs: DecCtxs, b: &[u8]) -> Result<LeafResponse, i32> {
+    static VT: ak_dvt_LeafResponse = ak_dvt_LeafResponse {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_leaf_response),
+        add_items: Some(add_leaf_response_items),
+    };
     let ctx = ctxs.leaf_response;
     let mut out = LeafResponse::default();
     let rc = unsafe {
         let mut sink = SinkLeafResponse { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_LeafResponse {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_leaf_response),
-            add_items: Some(add_leaf_response_items),
-        };
-        ak_decode_LeafResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_LeafResponse(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -12869,18 +12869,18 @@ pub fn decode_with_surrogate_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Sur
 }
 
 pub fn decode_with_surrogate(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32> {
+    static VT: ak_dvt_Surrogate = ak_dvt_Surrogate {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_surrogate),
+        add_attrs: Some(add_surrogate_attrs),
+        add_texts: Some(add_surrogate_texts),
+    };
     let ctx = ctxs.surrogate;
     let mut out = Surrogate::default();
     let rc = unsafe {
         let mut sink = SinkSurrogate { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_Surrogate {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_surrogate),
-            add_attrs: Some(add_surrogate_attrs),
-            add_texts: Some(add_surrogate_texts),
-        };
-        ak_decode_Surrogate(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_Surrogate(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -13097,16 +13097,16 @@ pub fn decode_with_surrogate_inner_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Resu
 }
 
 pub fn decode_with_surrogate_inner(ctxs: DecCtxs, b: &[u8]) -> Result<SurrogateInner, i32> {
+    static VT: ak_dvt_SurrogateInner = ak_dvt_SurrogateInner {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_surrogate_inner),
+    };
     let ctx = ctxs.surrogate_inner;
     let mut out = SurrogateInner::default();
     let rc = unsafe {
         let mut sink = SinkSurrogateInner { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_SurrogateInner {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_surrogate_inner),
-        };
-        ak_decode_SurrogateInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_SurrogateInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
@@ -13322,16 +13322,16 @@ pub fn decode_with_wire_zoo_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<Wire
 }
 
 pub fn decode_with_wire_zoo(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
+    static VT: ak_dvt_WireZoo = ak_dvt_WireZoo {
+        // D20: every bit 0, so the core validates every string field.
+        utf8_skip: 0,
+        apply: Some(apply_wire_zoo),
+    };
     let ctx = ctxs.wire_zoo;
     let mut out = WireZoo::default();
     let rc = unsafe {
         let mut sink = SinkWireZoo { out: &mut out, base: b.as_ptr() };
-        let vt = ak_dvt_WireZoo {
-            // D20: every bit 0, so the core validates every string field.
-            utf8_skip: 0,
-            apply: Some(apply_wire_zoo),
-        };
-        ak_decode_WireZoo(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
+        ak_decode_WireZoo(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
