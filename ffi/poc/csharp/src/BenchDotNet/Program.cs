@@ -100,6 +100,7 @@ public static class Program
 #endif
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)",
         };
+        if (MemStats.On) hdr = hdr.Append(MemStats.Header).ToArray();
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 
@@ -117,6 +118,7 @@ public static class Program
             .AddLogger(ConsoleLogger.Default)
             .AddColumnProvider(DefaultColumnProviders.Instance)
             .AddDiagnoser(new CpuDiagnoser())
+            .AddDiagnoser(MemStats.On ? new BenchmarkDotNet.Diagnosers.IDiagnoser[] { BenchmarkDotNet.Diagnosers.MemoryDiagnoser.Default } : Array.Empty<BenchmarkDotNet.Diagnosers.IDiagnoser>())
             .AddExporter(new JsonLinesExporter(outp, launch))
             .WithOrderer(order)
             .WithArtifactsPath(art)

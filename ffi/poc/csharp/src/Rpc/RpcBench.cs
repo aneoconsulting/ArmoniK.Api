@@ -433,7 +433,7 @@ public sealed class RpcJsonExporter : IExporter
                 sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"engine\":\"bdn\",\"bdn_warmup\":{0},\"invocations\":{1}", warm, m.Operations / int.Parse(f[3], CultureInfo.InvariantCulture)));
                 if (round == 1)
                 {
-                    sb.Append(',').Append(jit).Append(Alloc.RowFields(key)).Append(RpcCtx.AfterFields(key));
+                    sb.Append(',').Append(jit).Append(Alloc.RowFields(key)).Append(RpcCtx.AfterFields(key)).Append(MemStats.Fields(r));
                     if (RpcCpuDiagnoser.IrqSpan.TryGetValue(key, out var iq))
                         sb.Append(string.Format(CultureInfo.InvariantCulture, ",\"client_softirq_ticks\":{0},\"client_irq_ticks\":{1}", iq.SoftIrq, iq.Irq));
                 }
@@ -562,6 +562,7 @@ public static class RpcBenchMain
         hdr.Add("# limits:         the client's max send and receive 64 MiB on both transports (D44, enforced); the server's receive limit 8 MiB per message (SERVER.md)");
         hdr.Add("# channels:       each benchmark process builds only the cell of its case, from the case key, with its own channel(s) (one per cell and direction group, opened in the case's setup and kept to the process's end); each row's cell is checked against the cell the process ran (refused on a mismatch)" + (RpcCtx.RunUnits.Length > 1 ? "; this BDN run merges units " + RpcCtx.Unit + " (owner, 2026-10-03), every case in its own child process" : ""));
         hdr.Add(CampaignMain.ThreadLine("caller threads " + RpcCtx.Levels.Max() + "; core runtime 1, " + RpcCtx.Workers + " worker thread(s)"));
+        if (MemStats.On) hdr.Add(MemStats.Header);
         File.AppendAllLines(outp, hdr);
         foreach (var h in hdr) Console.WriteLine(h);
 
@@ -581,6 +582,7 @@ public static class RpcBenchMain
             .AddLogger(ConsoleLogger.Default)
             .AddColumnProvider(DefaultColumnProviders.Instance)
             .AddDiagnoser(new RpcCpuDiagnoser())
+            .AddDiagnoser(MemStats.On ? new IDiagnoser[] { MemoryDiagnoser.Default } : Array.Empty<IDiagnoser>())
             .AddExporter(new RpcJsonExporter(outp, launch))
             .WithOrderer(orderer)
             .WithArtifactsPath(art)

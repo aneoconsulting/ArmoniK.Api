@@ -259,3 +259,24 @@ public sealed class CpuClock : Perfolizer.Horology.IClock
     }
 }
 
+
+/// Opt-in, AK_BDN_MEMORY=1 (an exploration switch, off in the campaign): BenchmarkDotNet's own
+/// MemoryDiagnoser. BDN runs ONE extra workload iteration after the actual stage (same
+/// invocation count, outside the job's clock, so no exported sample changes) and reads
+/// GC.GetTotalAllocatedBytes(precise) and the gen0/1/2 collection counts around it; every
+/// thread of the process counts. Its result goes on each case's first sample row.
+public static class MemStats
+{
+    public static bool On => Environment.GetEnvironmentVariable("AK_BDN_MEMORY") == "1";
+    public const string Header = "# memory:         AK_BDN_MEMORY=1: BenchmarkDotNet's MemoryDiagnoser (an exploration switch, not a campaign setting): one extra workload iteration per case AFTER the actual stage, at the actual stage's invocation count, outside the job's clock (no exported sample is affected); on each case's first sample row mem_alloc_bytes_per_op (GC.GetTotalAllocatedBytes(precise), every thread, divided by its operations), mem_gen = [gen0, gen1, gen2] collections during it, mem_ops its operations, mem_alloc_bytes its total";
+    public static string Fields(BenchmarkDotNet.Reports.BenchmarkReport r)
+    {
+        if (!On) return "";
+        var g = r.GcStats;
+        var per = g.GetBytesAllocatedPerOperation(r.BenchmarkCase);
+        return string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            ",\"mem_alloc_bytes_per_op\":{0},\"mem_gen\":[{1},{2},{3}],\"mem_ops\":{4},\"mem_alloc_bytes\":{5}",
+            per.HasValue ? per.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null",
+            g.Gen0Collections, g.Gen1Collections, g.Gen2Collections, g.TotalOperations, g.GetTotalAllocatedBytes(true));
+    }
+}
