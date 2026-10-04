@@ -5726,16 +5726,18 @@ pub unsafe extern "C" fn ak_run_u8(ctx: *mut ak_enc_ctx, p: *const u8, n: usize)
 }
 
 #[inline]
-unsafe fn dec_chunk_element_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkElementAttrsEntry {
+unsafe fn dec_chunk_element_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_ChunkElementAttrsEntry {
     let mut out = ak_dfix_ChunkElementAttrsEntry::ZERO;
-    dec_chunk_element_attrs_entry_fix_into(d, base, u, &mut out);
+    dec_chunk_element_attrs_entry_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_chunk_element_attrs_entry_fix` wraps.
 #[inline]
-unsafe fn dec_chunk_element_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_ChunkElementAttrsEntry) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_chunk_element_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_ChunkElementAttrsEntry) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -5753,13 +5755,13 @@ unsafe fn dec_chunk_element_attrs_entry_fix_into(d: &mut Dec, base: usize, u: Un
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -5774,16 +5776,18 @@ unsafe fn dec_chunk_element_attrs_entry_fix_into(d: &mut Dec, base: usize, u: Un
 }
 
 #[inline]
-unsafe fn dec_chunk_leaf_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ChunkLeaf {
+unsafe fn dec_chunk_leaf_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_ChunkLeaf {
     let mut out = ak_dfix_ChunkLeaf::ZERO;
-    dec_chunk_leaf_fix_into(d, base, u, &mut out);
+    dec_chunk_leaf_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_chunk_leaf_fix` wraps.
 #[inline]
-unsafe fn dec_chunk_leaf_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_ChunkLeaf) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_chunk_leaf_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_ChunkLeaf) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -5801,7 +5805,7 @@ unsafe fn dec_chunk_leaf_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.k = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -5820,16 +5824,18 @@ unsafe fn dec_chunk_leaf_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
 }
 
 #[inline]
-unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Empty {
+unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Empty {
     let mut out = ak_dfix_Empty::ZERO;
-    dec_empty_fix_into(d, base, u, &mut out);
+    dec_empty_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_empty_fix` wraps.
 #[inline]
-unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Empty) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_Empty) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -5856,16 +5862,18 @@ unsafe fn dec_empty_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
 }
 
 #[inline]
-unsafe fn dec_leaf_element_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_LeafElement {
+unsafe fn dec_leaf_element_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_LeafElement {
     let mut out = ak_dfix_LeafElement::ZERO;
-    dec_leaf_element_fix_into(d, base, u, &mut out);
+    dec_leaf_element_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_leaf_element_fix` wraps.
 #[inline]
-unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_LeafElement) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_LeafElement) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -5883,7 +5891,7 @@ unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mu
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -5936,16 +5944,18 @@ unsafe fn dec_leaf_element_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mu
 }
 
 #[inline]
-unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Pair {
+unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Pair {
     let mut out = ak_dfix_Pair::ZERO;
-    dec_pair_fix_into(d, base, u, &mut out);
+    dec_pair_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_pair_fix` wraps.
 #[inline]
-unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Pair) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_Pair) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -5963,7 +5973,7 @@ unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfi
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -5982,16 +5992,18 @@ unsafe fn dec_pair_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfi
 }
 
 #[inline]
-unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Probe {
+unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Probe {
     let mut out = ak_dfix_Probe::ZERO;
-    dec_probe_fix_into(d, base, u, &mut out);
+    dec_probe_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_probe_fix` wraps.
 #[inline]
-unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Probe) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_Probe) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -6009,7 +6021,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -6020,7 +6032,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.opt_label = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 out.presence |= AK_DFIX_PROBE_PRESENT_OPT_LABEL;
             }
@@ -6038,7 +6050,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
             11 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.body_as_text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 // Last one wins: a later member replaces the case.
                 out.body_case = 11;
@@ -6066,7 +6078,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
                     out.body_as_stamp = ak_dfix_Timestamp::ZERO;
                     out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
+                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 13;
@@ -6087,7 +6099,7 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
                     out.body_as_nothing = ak_dfix_Empty::ZERO;
                     out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -6104,16 +6116,18 @@ unsafe fn dec_probe_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_df
 }
 
 #[inline]
-unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_ResultRaw {
+unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_ResultRaw {
     let mut out = ak_dfix_ResultRaw::ZERO;
-    dec_result_raw_fix_into(d, base, u, &mut out);
+    dec_result_raw_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_result_raw_fix` wraps.
 #[inline]
-unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_ResultRaw) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_ResultRaw) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -6131,19 +6145,19 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.name = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 0 => {
@@ -6221,7 +6235,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.result_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 0 => {
@@ -6231,7 +6245,7 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
             10 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 2 => {
@@ -6255,16 +6269,18 @@ unsafe fn dec_result_raw_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut 
 }
 
 #[inline]
-unsafe fn dec_surrogate_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_SurrogateAttrsEntry {
+unsafe fn dec_surrogate_attrs_entry_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_SurrogateAttrsEntry {
     let mut out = ak_dfix_SurrogateAttrsEntry::ZERO;
-    dec_surrogate_attrs_entry_fix_into(d, base, u, &mut out);
+    dec_surrogate_attrs_entry_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_surrogate_attrs_entry_fix` wraps.
 #[inline]
-unsafe fn dec_surrogate_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_SurrogateAttrsEntry) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_surrogate_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_SurrogateAttrsEntry) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -6282,13 +6298,13 @@ unsafe fn dec_surrogate_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx,
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -6303,16 +6319,18 @@ unsafe fn dec_surrogate_attrs_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx,
 }
 
 #[inline]
-unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_TaskOptionsOptionsEntry {
+unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_TaskOptionsOptionsEntry {
     let mut out = ak_dfix_TaskOptionsOptionsEntry::ZERO;
-    dec_task_options_options_entry_fix_into(d, base, u, &mut out);
+    dec_task_options_options_entry_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_task_options_options_entry_fix` wraps.
 #[inline]
-unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_TaskOptionsOptionsEntry) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_TaskOptionsOptionsEntry) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -6330,13 +6348,13 @@ unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, u: U
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.value = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -6351,16 +6369,18 @@ unsafe fn dec_task_options_options_entry_fix_into(d: &mut Dec, base: usize, u: U
 }
 
 #[inline]
-unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_Timestamp {
+unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Timestamp {
     let mut out = ak_dfix_Timestamp::ZERO;
-    dec_timestamp_fix_into(d, base, u, &mut out);
+    dec_timestamp_fix_into(d, base, u, sk, &mut out);
     out
 }
 
 /// Decode INTO an existing group: what a oneof's message member needs to merge a
 /// repeated occurrence (plan rule), and what `dec_timestamp_fix` wraps.
 #[inline]
-unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_Timestamp) {
+/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).
+#[allow(unused_variables)]
+unsafe fn dec_timestamp_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_Timestamp) {
     #[allow(unused_variables)]
     let buf0 = d.buf;
     let base0 = base;
@@ -6406,6 +6426,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     let tok = match (*vt).new_tasks {
         Some(f) => {
@@ -6554,26 +6575,26 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_pod_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
@@ -6581,7 +6602,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
@@ -6589,7 +6610,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
@@ -6597,7 +6618,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
@@ -6608,7 +6629,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
@@ -6632,7 +6653,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 18, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -6681,37 +6702,37 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 12) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 13) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 14) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 15) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 16) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 17) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -6917,7 +6938,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 20) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -6935,7 +6956,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             17 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.pod_hostname = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             18 if wire == 2 => {
@@ -7077,7 +7098,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             22 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.initial_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             23 if wire == 2 => {
@@ -7185,13 +7206,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element(
             26 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 10) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.payload_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             27 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 11) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -7228,6 +7249,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     let tok = match (*vt).new_tasks {
         Some(f) => {
@@ -7284,13 +7306,13 @@ unsafe fn dec_list_task_summary_response_tasks_element(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -7314,7 +7336,7 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 10, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -7363,37 +7385,37 @@ unsafe fn dec_list_task_summary_response_tasks_element(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -7449,13 +7471,13 @@ unsafe fn dec_list_task_summary_response_tasks_element(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 0 => {
@@ -7496,6 +7518,7 @@ unsafe fn dec_list_metrics_response_batches_element(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     let tok = match (*vt).new_batches {
         Some(f) => {
@@ -7644,7 +7667,7 @@ unsafe fn dec_list_metrics_response_batches_element(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -7776,6 +7799,7 @@ unsafe fn dec_chunked_response_items_element(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     let tok = match (*vt).new_items {
         Some(f) => {
@@ -7902,7 +7926,7 @@ unsafe fn dec_chunked_response_items_element(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -7913,14 +7937,14 @@ unsafe fn dec_chunked_response_items_element(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -7963,7 +7987,7 @@ unsafe fn dec_chunked_response_items_element(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -8013,6 +8037,7 @@ unsafe fn dec_chunked_response_wide_items_element(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     let tok = match (*vt).new_items {
         Some(f) => {
@@ -8139,7 +8164,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -8150,14 +8175,14 @@ unsafe fn dec_chunked_response_wide_items_element(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -8200,7 +8225,7 @@ unsafe fn dec_chunked_response_wide_items_element(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -8279,6 +8304,9 @@ pub unsafe extern "C" fn ak_decode_Timestamp(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8361,6 +8389,9 @@ pub unsafe extern "C" fn ak_decode_Duration(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8443,6 +8474,9 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8454,19 +8488,19 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.name = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 0 => {
@@ -8544,7 +8578,7 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.result_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 0 => {
@@ -8554,7 +8588,7 @@ pub unsafe extern "C" fn ak_decode_ResultRaw(
             10 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 2 => {
@@ -8659,6 +8693,9 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8674,7 +8711,7 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_options!();
                 p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 6, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_options += 1;
             }
@@ -8723,37 +8760,37 @@ pub unsafe extern "C" fn ak_decode_TaskOptions(
             5 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.partition_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             6 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_name = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             7 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_version = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_namespace = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_service = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.engine_type = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -8822,6 +8859,9 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -8837,7 +8877,7 @@ pub unsafe extern "C" fn ak_decode_TaskOutput(
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -9025,6 +9065,9 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -9036,26 +9079,26 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_pod_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
@@ -9063,7 +9106,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
@@ -9071,7 +9114,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
@@ -9079,7 +9122,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
@@ -9090,7 +9133,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
@@ -9114,7 +9157,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 18, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -9163,37 +9206,37 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 12) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 13) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 14) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 15) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 16) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 17) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -9399,7 +9442,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 20) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -9417,7 +9460,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             17 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.pod_hostname = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             18 if wire == 2 => {
@@ -9559,7 +9602,7 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             22 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.initial_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             23 if wire == 2 => {
@@ -9667,13 +9710,13 @@ pub unsafe extern "C" fn ak_decode_TaskDetailed(
             26 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 10) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.payload_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             27 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 11) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -9769,6 +9812,9 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -9780,13 +9826,13 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -9810,7 +9856,7 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 10, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -9859,37 +9905,37 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -9945,13 +9991,13 @@ pub unsafe extern "C" fn ak_decode_TaskSummary(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 0 => {
@@ -10024,6 +10070,9 @@ pub unsafe extern "C" fn ak_decode_Probe(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10035,7 +10084,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -10046,7 +10095,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.opt_label = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 out.presence |= AK_DFIX_PROBE_PRESENT_OPT_LABEL;
             }
@@ -10064,7 +10113,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
             11 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.body_as_text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 // Last one wins: a later member replaces the case.
                 out.body_case = 11;
@@ -10092,7 +10141,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
                     out.body_as_stamp = ak_dfix_Timestamp::ZERO;
                     out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
+                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 13;
@@ -10113,7 +10162,7 @@ pub unsafe extern "C" fn ak_decode_Probe(
                     out.body_as_nothing = ak_dfix_Empty::ZERO;
                     out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -10184,6 +10233,9 @@ pub unsafe extern "C" fn ak_decode_Empty(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10258,6 +10310,9 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10269,13 +10324,13 @@ pub unsafe extern "C" fn ak_decode_UploadResultData(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.result_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -10468,6 +10523,9 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10479,7 +10537,7 @@ pub unsafe extern "C" fn ak_decode_MetricsBatch(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -10643,6 +10701,9 @@ pub unsafe extern "C" fn ak_decode_Pair(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10654,7 +10715,7 @@ pub unsafe extern "C" fn ak_decode_Pair(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -10754,6 +10815,9 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10769,7 +10833,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_results!();
                 p.write(ak_dfix_ResultRaw::ZERO);
-                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -10847,6 +10911,9 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10859,7 +10926,7 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_tasks_detailed_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_tasks_detailed_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             2 if wire == 0 => {
@@ -10936,6 +11003,9 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -10948,7 +11018,7 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_task_summary_response_tasks_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -11044,6 +11114,9 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11059,7 +11132,7 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_probes!();
                 p.write(ak_dfix_Probe::ZERO);
-                dec_probe_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_probe_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
@@ -11129,6 +11202,9 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11141,7 +11217,7 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_list_metrics_response_batches_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -11210,6 +11286,9 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11235,13 +11314,13 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.upload.session_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.upload.result_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     3 if wire == 2 => {
@@ -11377,6 +11456,9 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11392,7 +11474,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_left!();
                 p.write(ak_dfix_Pair::ZERO);
-                dec_pair_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -11403,7 +11485,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_right!();
                 p.write(ak_dfix_Pair::ZERO);
-                dec_pair_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(2), sk >> 1, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
@@ -11473,6 +11555,9 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11484,7 +11569,7 @@ pub unsafe extern "C" fn ak_decode_ChunkLeaf(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.k = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -11607,6 +11692,9 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11641,7 +11729,7 @@ pub unsafe extern "C" fn ak_decode_ChunkInner(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_leaves!();
                 p.write(ak_dfix_ChunkLeaf::ZERO);
-                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_leaves += 1;
             }
@@ -11807,6 +11895,9 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11819,7 +11910,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -11830,14 +11921,14 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -11880,7 +11971,7 @@ pub unsafe extern "C" fn ak_decode_ChunkElement(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -11962,6 +12053,9 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -11974,7 +12068,7 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             8 if wire == 0 => {
@@ -12047,6 +12141,9 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12059,7 +12156,7 @@ pub unsafe extern "C" fn ak_decode_ChunkedResponseWide(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_wide_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_wide_items_element(ctx, dcx, obj, vt, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             _ => {
@@ -12128,6 +12225,9 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12139,7 +12239,7 @@ pub unsafe extern "C" fn ak_decode_LeafElement(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -12273,6 +12373,9 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12288,7 +12391,7 @@ pub unsafe extern "C" fn ak_decode_LeafResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_items!();
                 p.write(ak_dfix_LeafElement::ZERO);
-                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_items += 1;
             }
@@ -12408,6 +12511,9 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12419,7 +12525,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
@@ -12439,7 +12545,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.nested.text = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -12461,7 +12567,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_SurrogateAttrsEntry::ZERO);
-                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
+                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), sk >> 3, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -12469,7 +12575,7 @@ pub unsafe extern "C" fn ak_decode_Surrogate(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_texts += 1;
             }
@@ -12544,6 +12650,9 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12555,7 +12664,7 @@ pub unsafe extern "C" fn ak_decode_SurrogateInner(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -12624,6 +12733,9 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
     // Decision 11: the positions this context is armed with, or none (drop mode:
     // every capture below is one null test). The context is bound to its root.
     let u = UnkCx::root(dcx);
+    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).
+    #[allow(unused_variables)]
+    let sk: u64 = (*vt).utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -12655,7 +12767,7 @@ pub unsafe extern "C" fn ak_decode_WireZoo(
             6 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.v_string = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             7 if wire == 2 => {
@@ -13674,6 +13786,441 @@ pub unsafe extern "C" fn ak_dec_ctx_new_WireZoo(opts: *mut ak_dec_WireZoo_opts) 
     ctx
 }
 
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Timestamp` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Timestamp(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Timestamp) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 1 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Duration` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Duration(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Duration) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 2 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ResultRaw` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ResultRaw(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ResultRaw) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 3 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskOptions` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_TaskOptions(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskOptions) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 4 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskOutput` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_TaskOutput(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskOutput) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 5 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskDetailed` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_TaskDetailed(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskDetailed) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 6 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskSummary` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_TaskSummary(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskSummary) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 7 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Probe` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Probe(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Probe) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 8 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Empty` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Empty(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Empty) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 9 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_UploadResultData` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_UploadResultData(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_UploadResultData) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 10 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_MetricsBatch` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_MetricsBatch(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_MetricsBatch) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 11 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Pair` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Pair(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Pair) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 12 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListResultsResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ListResultsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListResultsResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 13 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListTasksDetailedResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTasksDetailedResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 14 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListTaskSummaryResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTaskSummaryResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 15 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListProbeResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ListProbeResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListProbeResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 16 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListMetricsResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ListMetricsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListMetricsResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 17 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_UploadResultDataMessage` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_UploadResultDataMessage(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_UploadResultDataMessage) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 18 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_DualResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_DualResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_DualResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 19 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkLeaf` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ChunkLeaf(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkLeaf) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 20 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkInner` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ChunkInner(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkInner) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 21 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkElement` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ChunkElement(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkElement) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 22 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkedResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ChunkedResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkedResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 23 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkedResponseWide` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_ChunkedResponseWide(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkedResponseWide) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 24 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_LeafElement` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_LeafElement(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_LeafElement) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 25 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_LeafResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_LeafResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_LeafResponse) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 26 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Surrogate` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_Surrogate(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Surrogate) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 27 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_SurrogateInner` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_SurrogateInner(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_SurrogateInner) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 28 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
+/// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_WireZoo` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+#[no_mangle]
+pub unsafe extern "C" fn ak_dec_set_pvt_WireZoo(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_WireZoo) -> i32 {
+    // ABI v1 section 3: every entry point requires `ak_init`.
+    #[cfg(feature = "init-guard")]
+    if !crate::ak_init_ok() {
+        return AK_ERR_UNINITIALIZED;
+    }
+    if ctx.is_null() { return AK_ERR_INVALID_STATE; }
+    let dcx = ctx as *mut DecCtxImpl;
+    if (*dcx).root != 29 { return AK_ERR_INVALID_STATE; }
+    (*dcx).pvt_utf8_skip = if pvt.is_null() { 0 } else { (*pvt).utf8_skip };
+    AK_OK
+}
+
 // ====================================================================================
 // The PULL family (ABI v1 section 7.1). `ak_parse_*` makes NO reverse call:
 // it deposits into the host-owned context's record buffer, and the host reads
@@ -13693,6 +14240,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -13849,26 +14397,26 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_pod_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
@@ -13876,7 +14424,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
@@ -13884,7 +14432,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
@@ -13892,7 +14440,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
@@ -13903,7 +14451,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
@@ -13927,7 +14475,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 18, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -13976,37 +14524,37 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 12) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 13) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 14) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 15) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 16) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 17) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -14212,7 +14760,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 20) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -14230,7 +14778,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             17 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.pod_hostname = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             18 if wire == 2 => {
@@ -14372,7 +14920,7 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             22 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.initial_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             23 if wire == 2 => {
@@ -14480,13 +15028,13 @@ unsafe fn dec_list_tasks_detailed_response_tasks_element_pull(
             26 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 10) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.payload_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             27 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 11) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             _ => {
@@ -14520,6 +15068,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -14572,13 +15121,13 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -14602,7 +15151,7 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 10, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -14651,37 +15200,37 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -14737,13 +15286,13 @@ unsafe fn dec_list_task_summary_response_tasks_element_pull(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 0 => {
@@ -14781,6 +15330,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -14937,7 +15487,7 @@ unsafe fn dec_list_metrics_response_batches_element_pull(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -15066,6 +15616,7 @@ unsafe fn dec_chunked_response_items_element_pull(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -15197,7 +15748,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -15208,14 +15759,14 @@ unsafe fn dec_chunked_response_items_element_pull(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -15258,7 +15809,7 @@ unsafe fn dec_chunked_response_items_element_pull(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -15305,6 +15856,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
     d: &mut Dec,
     base: usize,
     u: UnkCx,
+    sk: u64,
 ) {
     // The codec MINTS the token because there is nobody to ask during a parse.
     // A token is an index (ABI v1 section 10), and the host's replay pushes its
@@ -15436,7 +15988,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -15447,14 +15999,14 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -15497,7 +16049,7 @@ unsafe fn dec_chunked_response_wide_items_element_pull(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -15576,6 +16128,10 @@ pub unsafe extern "C" fn ak_parse_Timestamp(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Timestamp; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15660,6 +16216,10 @@ pub unsafe extern "C" fn ak_parse_Duration(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Duration; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15744,6 +16304,10 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ResultRaw; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15755,19 +16319,19 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.name = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 0 => {
@@ -15845,7 +16409,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.result_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 0 => {
@@ -15855,7 +16419,7 @@ pub unsafe extern "C" fn ak_parse_ResultRaw(
             10 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 2 => {
@@ -15961,6 +16525,10 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_TaskOptions; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -15976,7 +16544,7 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_options!();
                 p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_task_options_options_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 6, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_options += 1;
             }
@@ -16025,37 +16593,37 @@ pub unsafe extern "C" fn ak_parse_TaskOptions(
             5 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.partition_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             6 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_name = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             7 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_version = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_namespace = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.application_service = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.engine_type = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -16126,6 +16694,10 @@ pub unsafe extern "C" fn ak_parse_TaskOutput(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_TaskOutput; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -16141,7 +16713,7 @@ pub unsafe extern "C" fn ak_parse_TaskOutput(
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -16342,6 +16914,10 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_TaskDetailed; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -16353,26 +16929,26 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.owner_pod_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
                 if cur != 1 { flush!(); cur = 1; }
                 if n_parent_task_ids == N_PARENT_TASK_IDS { flush_parent_task_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_parent_task_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_parent_task_ids += 1;
             }
@@ -16380,7 +16956,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_data_dependencies == N_DATA_DEPENDENCIES { flush_data_dependencies!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_data_dependencies!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_data_dependencies += 1;
             }
@@ -16388,7 +16964,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if cur != 3 { flush!(); cur = 3; }
                 if n_expected_output_ids == N_EXPECTED_OUTPUT_IDS { flush_expected_output_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_expected_output_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_expected_output_ids += 1;
             }
@@ -16396,7 +16972,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                 if cur != 4 { flush!(); cur = 4; }
                 if n_retry_of_ids == N_RETRY_OF_IDS { flush_retry_of_ids!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_retry_of_ids!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_retry_of_ids += 1;
             }
@@ -16407,7 +16983,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             10 if wire == 2 => {
@@ -16431,7 +17007,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 18, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -16480,37 +17056,37 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 12) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 13) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 14) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 15) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 16) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 17) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -16716,7 +17292,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 20) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.output.error = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -16734,7 +17310,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             17 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.pod_hostname = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             18 if wire == 2 => {
@@ -16876,7 +17452,7 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             22 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.initial_task_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             23 if wire == 2 => {
@@ -16984,13 +17560,13 @@ pub unsafe extern "C" fn ak_parse_TaskDetailed(
             26 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 10) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.payload_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             27 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 11) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.created_by = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -17087,6 +17663,10 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_TaskSummary; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17098,13 +17678,13 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -17128,7 +17708,7 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_options_options!();
                         p.write(ak_dfix_TaskOptionsOptionsEntry::ZERO);
-                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), &mut *p);
+                        dec_task_options_options_entry_fix_into(&mut es, base1 + off, u.at(2), sk >> 10, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_options_options += 1;
                     }
@@ -17177,37 +17757,37 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
                     5 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 4) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.partition_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     6 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 5) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_name = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     7 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 6) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_version = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     8 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 7) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_namespace = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     9 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 8) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.application_service = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     10 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 9) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.options.engine_type = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -17263,13 +17843,13 @@ pub unsafe extern "C" fn ak_parse_TaskSummary(
             8 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.error = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             9 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 3) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.status_message = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             11 if wire == 0 => {
@@ -17344,6 +17924,10 @@ pub unsafe extern "C" fn ak_parse_Probe(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Probe; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17355,7 +17939,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -17366,7 +17950,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.opt_label = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 out.presence |= AK_DFIX_PROBE_PRESENT_OPT_LABEL;
             }
@@ -17384,7 +17968,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
             11 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.body_as_text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
                 // Last one wins: a later member replaces the case.
                 out.body_case = 11;
@@ -17412,7 +17996,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
                     out.body_as_stamp = ak_dfix_Timestamp::ZERO;
                     out.body_as_stamp.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_stamp);
+                dec_timestamp_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_stamp);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 13;
@@ -17433,7 +18017,7 @@ pub unsafe extern "C" fn ak_parse_Probe(
                     out.body_as_nothing = ak_dfix_Empty::ZERO;
                     out.body_as_nothing.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };
                 }
-                dec_empty_fix_into(&mut os, base0 + off, u.at(1), &mut out.body_as_nothing);
+                dec_empty_fix_into(&mut os, base0 + off, u.at(1), 0, &mut out.body_as_nothing);
                 if os.err != 0 { d.err = os.err; }
                 // Last one wins: a later member replaces the case.
                 out.body_case = 14;
@@ -17506,6 +18090,10 @@ pub unsafe extern "C" fn ak_parse_Empty(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Empty; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17582,6 +18170,10 @@ pub unsafe extern "C" fn ak_parse_UploadResultData(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_UploadResultData; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17593,13 +18185,13 @@ pub unsafe extern "C" fn ak_parse_UploadResultData(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.session_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.result_id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             3 if wire == 2 => {
@@ -17805,6 +18397,10 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_MetricsBatch; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17816,7 +18412,7 @@ pub unsafe extern "C" fn ak_parse_MetricsBatch(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -17982,6 +18578,10 @@ pub unsafe extern "C" fn ak_parse_Pair(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Pair; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -17993,7 +18593,7 @@ pub unsafe extern "C" fn ak_parse_Pair(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.key = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -18094,6 +18694,10 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ListResultsResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18109,7 +18713,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_results!();
                 p.write(ak_dfix_ResultRaw::ZERO);
-                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_result_raw_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_results += 1;
             }
@@ -18189,6 +18793,10 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ListTasksDetailedResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18201,7 +18809,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_tasks_detailed_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1));
+                dec_list_tasks_detailed_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             2 if wire == 0 => {
@@ -18280,6 +18888,10 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ListTaskSummaryResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18292,7 +18904,7 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_task_summary_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1));
+                dec_list_task_summary_response_tasks_element_pull(dcx, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -18389,6 +19001,10 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ListProbeResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18404,7 +19020,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_probes!();
                 p.write(ak_dfix_Probe::ZERO);
-                dec_probe_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_probe_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_probes += 1;
             }
@@ -18476,6 +19092,10 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ListMetricsResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18488,7 +19108,7 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_list_metrics_response_batches_element_pull(dcx, &mut sub, base0 + off, u.at(1));
+                dec_list_metrics_response_batches_element_pull(dcx, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -18559,6 +19179,10 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_UploadResultDataMessage; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18584,13 +19208,13 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.upload.session_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     2 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.upload.result_id = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                     3 if wire == 2 => {
@@ -18730,6 +19354,10 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_DualResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18745,7 +19373,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_left!();
                 p.write(ak_dfix_Pair::ZERO);
-                dec_pair_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_left += 1;
             }
@@ -18756,7 +19384,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_right!();
                 p.write(ak_dfix_Pair::ZERO);
-                dec_pair_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
+                dec_pair_fix_into(&mut es, base0 + off, u.at(2), sk >> 1, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_right += 1;
             }
@@ -18828,6 +19456,10 @@ pub unsafe extern "C" fn ak_parse_ChunkLeaf(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ChunkLeaf; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -18839,7 +19471,7 @@ pub unsafe extern "C" fn ak_parse_ChunkLeaf(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.k = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -18966,6 +19598,10 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ChunkInner; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19000,7 +19636,7 @@ pub unsafe extern "C" fn ak_parse_ChunkInner(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_leaves!();
                 p.write(ak_dfix_ChunkLeaf::ZERO);
-                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_leaf_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_leaves += 1;
             }
@@ -19176,6 +19812,10 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ChunkElement; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19188,7 +19828,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                 if cur != 1 { flush!(); cur = 1; }
                 if n_labels == N_LABELS { flush_labels!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_labels!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_labels += 1;
             }
@@ -19199,14 +19839,14 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_ChunkElementAttrsEntry::ZERO);
-                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_chunk_element_attrs_entry_fix_into(&mut es, base0 + off, u.at(1), sk >> 2, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
             3 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             4 if wire == 2 => {
@@ -19249,7 +19889,7 @@ pub unsafe extern "C" fn ak_parse_ChunkElement(
                         let mut es = Dec::new(&buf1[off..off + n]);
                         let p = at_inner_leaves!();
                         p.write(ak_dfix_ChunkLeaf::ZERO);
-                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), &mut *p);
+                        dec_chunk_leaf_fix_into(&mut es, base1 + off, u.at(3), sk >> 4, &mut *p);
                         if es.err != 0 { c1.err = es.err; }
                         n_inner_leaves += 1;
                     }
@@ -19333,6 +19973,10 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ChunkedResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19345,7 +19989,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponse(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_items_element_pull(dcx, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_items_element_pull(dcx, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             8 if wire == 0 => {
@@ -19420,6 +20064,10 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponseWide(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_ChunkedResponseWide; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19432,7 +20080,7 @@ pub unsafe extern "C" fn ak_parse_ChunkedResponseWide(
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
                 let mut sub = Dec::new(&buf0[off..off + n]);
-                dec_chunked_response_wide_items_element_pull(dcx, &mut sub, base0 + off, u.at(1));
+                dec_chunked_response_wide_items_element_pull(dcx, &mut sub, base0 + off, u.at(1), sk);
                 if sub.err != 0 { d.err = sub.err; }
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -19503,6 +20151,10 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_LeafElement; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19514,7 +20166,7 @@ pub unsafe extern "C" fn ak_parse_LeafElement(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.id = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 0 => {
@@ -19649,6 +20301,10 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_LeafResponse; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19664,7 +20320,7 @@ pub unsafe extern "C" fn ak_parse_LeafResponse(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_items!();
                 p.write(ak_dfix_LeafElement::ZERO);
-                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), &mut *p);
+                dec_leaf_element_fix_into(&mut es, base0 + off, u.at(1), sk, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_items += 1;
             }
@@ -19788,6 +20444,10 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_Surrogate; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19799,7 +20459,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             2 if wire == 2 => {
@@ -19819,7 +20479,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                     1 if wire == 2 => {
                         if cur != 0 { flush!(); cur = 0; }
                         let (off, n) = c1.len_body();
-                        if n != 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
+                        if n != 0 && sk & (1u64 << 2) == 0 && ak_rt::strings::check_utf8(&buf1[off..off + n]).is_err() { c1.err = ak_rt::ERR_TRANSCODE; }
                         out.nested.text = ak_span { off: (base1 + off) as u32, len: n as u32, coder: 0 };
                     }
                         _ => {
@@ -19841,7 +20501,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                 let mut es = Dec::new(&buf0[off..off + n]);
                 let p = at_attrs!();
                 p.write(ak_dfix_SurrogateAttrsEntry::ZERO);
-                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), &mut *p);
+                dec_surrogate_attrs_entry_fix_into(&mut es, base0 + off, u.at(2), sk >> 3, &mut *p);
                 if es.err != 0 { d.err = es.err; }
                 n_attrs += 1;
             }
@@ -19849,7 +20509,7 @@ pub unsafe extern "C" fn ak_parse_Surrogate(
                 if cur != 2 { flush!(); cur = 2; }
                 if n_texts == N_TEXTS { flush_texts!(); }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 1) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 at_texts!().write(ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 });
                 n_texts += 1;
             }
@@ -19926,6 +20586,10 @@ pub unsafe extern "C" fn ak_parse_SurrogateInner(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_SurrogateInner; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -19937,7 +20601,7 @@ pub unsafe extern "C" fn ak_parse_SurrogateInner(
             1 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.text = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             // Decision 11 (WP5 step 7): the same capture as push; the buffers ride in
@@ -20008,6 +20672,10 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
         };
     }
     let u = UnkCx::root(dcx);
+    // D20: the utf8_skip bits of the pull vtable this context was given
+    // (ak_dec_set_pvt_WireZoo; all zero unless it was called).
+    #[allow(unused_variables)]
+    let sk: u64 = (*dcx).pvt_utf8_skip;
     let mut cur = 0u32;
     while !d.at_end() {
         let s0 = d.pos;
@@ -20039,7 +20707,7 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
             6 if wire == 2 => {
                 if cur != 0 { flush!(); cur = 0; }
                 let (off, n) = d.len_body();
-                if n != 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
+                if n != 0 && sk & (1u64 << 0) == 0 && ak_rt::strings::check_utf8(&buf0[off..off + n]).is_err() { d.err = ak_rt::ERR_TRANSCODE; }
                 out.v_string = ak_span { off: (base0 + off) as u32, len: n as u32, coder: 0 };
             }
             7 if wire == 2 => {
@@ -20115,4 +20783,444 @@ pub unsafe extern "C" fn ak_parse_WireZoo(
         );
     }
     if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }
+}
+
+/// D20 (test only): per root, every utf8_skip bit in order as (name, field-number path
+/// from the root to the string field). A path through a repeated field or a map
+/// is one element or entry.
+#[cfg(test)]
+pub(crate) const UTF8_BIT_PATHS: &[(&str, u32, &[(&str, &[u32])])] = &[
+    ("Timestamp", 1, &[]),
+    ("Duration", 2, &[]),
+    ("ResultRaw", 3, &[("session_id", &[1]), ("name", &[2]), ("owner_task_id", &[3]), ("result_id", &[8]), ("created_by", &[10])]),
+    ("TaskOptions", 4, &[("partition_id", &[5]), ("application_name", &[6]), ("application_version", &[7]), ("application_namespace", &[8]), ("application_service", &[9]), ("engine_type", &[10]), ("options_key", &[1, 1]), ("options_value", &[1, 2])]),
+    ("TaskOutput", 5, &[("error", &[2])]),
+    ("TaskDetailed", 6, &[("id", &[1]), ("session_id", &[2]), ("owner_pod_id", &[3]), ("parent_task_ids", &[4]), ("data_dependencies", &[5]), ("expected_output_ids", &[6]), ("retry_of_ids", &[7]), ("status_message", &[9]), ("pod_hostname", &[17]), ("initial_task_id", &[22]), ("payload_id", &[26]), ("created_by", &[27]), ("options_partition_id", &[10, 5]), ("options_application_name", &[10, 6]), ("options_application_version", &[10, 7]), ("options_application_namespace", &[10, 8]), ("options_application_service", &[10, 9]), ("options_engine_type", &[10, 10]), ("options_options_key", &[10, 1, 1]), ("options_options_value", &[10, 1, 2]), ("output_error", &[16, 2])]),
+    ("TaskSummary", 7, &[("id", &[1]), ("session_id", &[2]), ("error", &[8]), ("status_message", &[9]), ("options_partition_id", &[3, 5]), ("options_application_name", &[3, 6]), ("options_application_version", &[3, 7]), ("options_application_namespace", &[3, 8]), ("options_application_service", &[3, 9]), ("options_engine_type", &[3, 10]), ("options_options_key", &[3, 1, 1]), ("options_options_value", &[3, 1, 2])]),
+    ("Probe", 8, &[("id", &[1]), ("opt_label", &[3]), ("as_text", &[11])]),
+    ("Empty", 9, &[]),
+    ("UploadResultData", 10, &[("session_id", &[1]), ("result_id", &[2])]),
+    ("MetricsBatch", 11, &[("id", &[1])]),
+    ("Pair", 12, &[("key", &[1])]),
+    ("ListResultsResponse", 13, &[("results_session_id", &[1, 1]), ("results_name", &[1, 2]), ("results_owner_task_id", &[1, 3]), ("results_result_id", &[1, 8]), ("results_created_by", &[1, 10])]),
+    ("ListTasksDetailedResponse", 14, &[("tasks_id", &[1, 1]), ("tasks_session_id", &[1, 2]), ("tasks_owner_pod_id", &[1, 3]), ("tasks_parent_task_ids", &[1, 4]), ("tasks_data_dependencies", &[1, 5]), ("tasks_expected_output_ids", &[1, 6]), ("tasks_retry_of_ids", &[1, 7]), ("tasks_status_message", &[1, 9]), ("tasks_pod_hostname", &[1, 17]), ("tasks_initial_task_id", &[1, 22]), ("tasks_payload_id", &[1, 26]), ("tasks_created_by", &[1, 27]), ("tasks_options_partition_id", &[1, 10, 5]), ("tasks_options_application_name", &[1, 10, 6]), ("tasks_options_application_version", &[1, 10, 7]), ("tasks_options_application_namespace", &[1, 10, 8]), ("tasks_options_application_service", &[1, 10, 9]), ("tasks_options_engine_type", &[1, 10, 10]), ("tasks_options_options_key", &[1, 10, 1, 1]), ("tasks_options_options_value", &[1, 10, 1, 2]), ("tasks_output_error", &[1, 16, 2])]),
+    ("ListTaskSummaryResponse", 15, &[("tasks_id", &[1, 1]), ("tasks_session_id", &[1, 2]), ("tasks_error", &[1, 8]), ("tasks_status_message", &[1, 9]), ("tasks_options_partition_id", &[1, 3, 5]), ("tasks_options_application_name", &[1, 3, 6]), ("tasks_options_application_version", &[1, 3, 7]), ("tasks_options_application_namespace", &[1, 3, 8]), ("tasks_options_application_service", &[1, 3, 9]), ("tasks_options_engine_type", &[1, 3, 10]), ("tasks_options_options_key", &[1, 3, 1, 1]), ("tasks_options_options_value", &[1, 3, 1, 2])]),
+    ("ListProbeResponse", 16, &[("probes_id", &[1, 1]), ("probes_opt_label", &[1, 3]), ("probes_as_text", &[1, 11])]),
+    ("ListMetricsResponse", 17, &[("batches_id", &[1, 1])]),
+    ("UploadResultDataMessage", 18, &[("upload_session_id", &[1, 1]), ("upload_result_id", &[1, 2])]),
+    ("DualResponse", 19, &[("left_key", &[1, 1]), ("right_key", &[2, 1])]),
+    ("ChunkLeaf", 20, &[("k", &[1])]),
+    ("ChunkInner", 21, &[("leaves_k", &[2, 1])]),
+    ("ChunkElement", 22, &[("labels", &[1]), ("id", &[3]), ("attrs_key", &[2, 1]), ("attrs_value", &[2, 2]), ("inner_leaves_k", &[4, 2, 1])]),
+    ("ChunkedResponse", 23, &[("items_labels", &[7, 1]), ("items_id", &[7, 3]), ("items_attrs_key", &[7, 2, 1]), ("items_attrs_value", &[7, 2, 2]), ("items_inner_leaves_k", &[7, 4, 2, 1])]),
+    ("ChunkedResponseWide", 24, &[("items_labels", &[70000, 1]), ("items_id", &[70000, 3]), ("items_attrs_key", &[70000, 2, 1]), ("items_attrs_value", &[70000, 2, 2]), ("items_inner_leaves_k", &[70000, 4, 2, 1])]),
+    ("LeafElement", 25, &[("id", &[1])]),
+    ("LeafResponse", 26, &[("items_id", &[9, 1])]),
+    ("Surrogate", 27, &[("text", &[1]), ("texts", &[4]), ("nested_text", &[2, 1]), ("attrs_key", &[3, 1]), ("attrs_value", &[3, 2])]),
+    ("SurrogateInner", 28, &[("text", &[1])]),
+    ("WireZoo", 29, &[("v_string", &[6])]),
+];
+
+/// D20 (test only): a context bound to root id `r` (plan.unk_root_id), no options.
+#[cfg(test)]
+pub(crate) unsafe fn d20_ctx_new(r: u32) -> *mut ak_dec_ctx {
+    match r {
+        1 => ak_dec_ctx_new_Timestamp(::core::ptr::null_mut()),
+        2 => ak_dec_ctx_new_Duration(::core::ptr::null_mut()),
+        3 => ak_dec_ctx_new_ResultRaw(::core::ptr::null_mut()),
+        4 => ak_dec_ctx_new_TaskOptions(::core::ptr::null_mut()),
+        5 => ak_dec_ctx_new_TaskOutput(::core::ptr::null_mut()),
+        6 => ak_dec_ctx_new_TaskDetailed(::core::ptr::null_mut()),
+        7 => ak_dec_ctx_new_TaskSummary(::core::ptr::null_mut()),
+        8 => ak_dec_ctx_new_Probe(::core::ptr::null_mut()),
+        9 => ak_dec_ctx_new_Empty(::core::ptr::null_mut()),
+        10 => ak_dec_ctx_new_UploadResultData(::core::ptr::null_mut()),
+        11 => ak_dec_ctx_new_MetricsBatch(::core::ptr::null_mut()),
+        12 => ak_dec_ctx_new_Pair(::core::ptr::null_mut()),
+        13 => ak_dec_ctx_new_ListResultsResponse(::core::ptr::null_mut()),
+        14 => ak_dec_ctx_new_ListTasksDetailedResponse(::core::ptr::null_mut()),
+        15 => ak_dec_ctx_new_ListTaskSummaryResponse(::core::ptr::null_mut()),
+        16 => ak_dec_ctx_new_ListProbeResponse(::core::ptr::null_mut()),
+        17 => ak_dec_ctx_new_ListMetricsResponse(::core::ptr::null_mut()),
+        18 => ak_dec_ctx_new_UploadResultDataMessage(::core::ptr::null_mut()),
+        19 => ak_dec_ctx_new_DualResponse(::core::ptr::null_mut()),
+        20 => ak_dec_ctx_new_ChunkLeaf(::core::ptr::null_mut()),
+        21 => ak_dec_ctx_new_ChunkInner(::core::ptr::null_mut()),
+        22 => ak_dec_ctx_new_ChunkElement(::core::ptr::null_mut()),
+        23 => ak_dec_ctx_new_ChunkedResponse(::core::ptr::null_mut()),
+        24 => ak_dec_ctx_new_ChunkedResponseWide(::core::ptr::null_mut()),
+        25 => ak_dec_ctx_new_LeafElement(::core::ptr::null_mut()),
+        26 => ak_dec_ctx_new_LeafResponse(::core::ptr::null_mut()),
+        27 => ak_dec_ctx_new_Surrogate(::core::ptr::null_mut()),
+        28 => ak_dec_ctx_new_SurrogateInner(::core::ptr::null_mut()),
+        29 => ak_dec_ctx_new_WireZoo(::core::ptr::null_mut()),
+        _ => ::core::ptr::null_mut(),
+    }
+}
+
+/// D20 (test only): the pull family on root id `r`: the pvt setter (`sk`; `None` =
+/// a NULL pvt), then `ak_parse_<Root>`. Returns (setter rc, parse rc).
+#[cfg(test)]
+pub(crate) unsafe fn d20_pull(r: u32, ctx: *mut ak_dec_ctx, b: &[u8], sk: Option<u64>) -> (i32, i32) {
+    match r {
+        1 => {
+            let pvt = sk.map(|v| ak_pvt_Timestamp { utf8_skip: v });
+            let s = ak_dec_set_pvt_Timestamp(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Timestamp(ctx, b.as_ptr(), b.len()))
+        }
+        2 => {
+            let pvt = sk.map(|v| ak_pvt_Duration { utf8_skip: v });
+            let s = ak_dec_set_pvt_Duration(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Duration(ctx, b.as_ptr(), b.len()))
+        }
+        3 => {
+            let pvt = sk.map(|v| ak_pvt_ResultRaw { utf8_skip: v });
+            let s = ak_dec_set_pvt_ResultRaw(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ResultRaw(ctx, b.as_ptr(), b.len()))
+        }
+        4 => {
+            let pvt = sk.map(|v| ak_pvt_TaskOptions { utf8_skip: v });
+            let s = ak_dec_set_pvt_TaskOptions(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_TaskOptions(ctx, b.as_ptr(), b.len()))
+        }
+        5 => {
+            let pvt = sk.map(|v| ak_pvt_TaskOutput { utf8_skip: v });
+            let s = ak_dec_set_pvt_TaskOutput(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_TaskOutput(ctx, b.as_ptr(), b.len()))
+        }
+        6 => {
+            let pvt = sk.map(|v| ak_pvt_TaskDetailed { utf8_skip: v });
+            let s = ak_dec_set_pvt_TaskDetailed(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_TaskDetailed(ctx, b.as_ptr(), b.len()))
+        }
+        7 => {
+            let pvt = sk.map(|v| ak_pvt_TaskSummary { utf8_skip: v });
+            let s = ak_dec_set_pvt_TaskSummary(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_TaskSummary(ctx, b.as_ptr(), b.len()))
+        }
+        8 => {
+            let pvt = sk.map(|v| ak_pvt_Probe { utf8_skip: v });
+            let s = ak_dec_set_pvt_Probe(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Probe(ctx, b.as_ptr(), b.len()))
+        }
+        9 => {
+            let pvt = sk.map(|v| ak_pvt_Empty { utf8_skip: v });
+            let s = ak_dec_set_pvt_Empty(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Empty(ctx, b.as_ptr(), b.len()))
+        }
+        10 => {
+            let pvt = sk.map(|v| ak_pvt_UploadResultData { utf8_skip: v });
+            let s = ak_dec_set_pvt_UploadResultData(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_UploadResultData(ctx, b.as_ptr(), b.len()))
+        }
+        11 => {
+            let pvt = sk.map(|v| ak_pvt_MetricsBatch { utf8_skip: v });
+            let s = ak_dec_set_pvt_MetricsBatch(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_MetricsBatch(ctx, b.as_ptr(), b.len()))
+        }
+        12 => {
+            let pvt = sk.map(|v| ak_pvt_Pair { utf8_skip: v });
+            let s = ak_dec_set_pvt_Pair(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Pair(ctx, b.as_ptr(), b.len()))
+        }
+        13 => {
+            let pvt = sk.map(|v| ak_pvt_ListResultsResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ListResultsResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len()))
+        }
+        14 => {
+            let pvt = sk.map(|v| ak_pvt_ListTasksDetailedResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ListTasksDetailedResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len()))
+        }
+        15 => {
+            let pvt = sk.map(|v| ak_pvt_ListTaskSummaryResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ListTaskSummaryResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len()))
+        }
+        16 => {
+            let pvt = sk.map(|v| ak_pvt_ListProbeResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ListProbeResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ListProbeResponse(ctx, b.as_ptr(), b.len()))
+        }
+        17 => {
+            let pvt = sk.map(|v| ak_pvt_ListMetricsResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ListMetricsResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ListMetricsResponse(ctx, b.as_ptr(), b.len()))
+        }
+        18 => {
+            let pvt = sk.map(|v| ak_pvt_UploadResultDataMessage { utf8_skip: v });
+            let s = ak_dec_set_pvt_UploadResultDataMessage(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_UploadResultDataMessage(ctx, b.as_ptr(), b.len()))
+        }
+        19 => {
+            let pvt = sk.map(|v| ak_pvt_DualResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_DualResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_DualResponse(ctx, b.as_ptr(), b.len()))
+        }
+        20 => {
+            let pvt = sk.map(|v| ak_pvt_ChunkLeaf { utf8_skip: v });
+            let s = ak_dec_set_pvt_ChunkLeaf(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ChunkLeaf(ctx, b.as_ptr(), b.len()))
+        }
+        21 => {
+            let pvt = sk.map(|v| ak_pvt_ChunkInner { utf8_skip: v });
+            let s = ak_dec_set_pvt_ChunkInner(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ChunkInner(ctx, b.as_ptr(), b.len()))
+        }
+        22 => {
+            let pvt = sk.map(|v| ak_pvt_ChunkElement { utf8_skip: v });
+            let s = ak_dec_set_pvt_ChunkElement(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ChunkElement(ctx, b.as_ptr(), b.len()))
+        }
+        23 => {
+            let pvt = sk.map(|v| ak_pvt_ChunkedResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_ChunkedResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ChunkedResponse(ctx, b.as_ptr(), b.len()))
+        }
+        24 => {
+            let pvt = sk.map(|v| ak_pvt_ChunkedResponseWide { utf8_skip: v });
+            let s = ak_dec_set_pvt_ChunkedResponseWide(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_ChunkedResponseWide(ctx, b.as_ptr(), b.len()))
+        }
+        25 => {
+            let pvt = sk.map(|v| ak_pvt_LeafElement { utf8_skip: v });
+            let s = ak_dec_set_pvt_LeafElement(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_LeafElement(ctx, b.as_ptr(), b.len()))
+        }
+        26 => {
+            let pvt = sk.map(|v| ak_pvt_LeafResponse { utf8_skip: v });
+            let s = ak_dec_set_pvt_LeafResponse(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_LeafResponse(ctx, b.as_ptr(), b.len()))
+        }
+        27 => {
+            let pvt = sk.map(|v| ak_pvt_Surrogate { utf8_skip: v });
+            let s = ak_dec_set_pvt_Surrogate(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_Surrogate(ctx, b.as_ptr(), b.len()))
+        }
+        28 => {
+            let pvt = sk.map(|v| ak_pvt_SurrogateInner { utf8_skip: v });
+            let s = ak_dec_set_pvt_SurrogateInner(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_SurrogateInner(ctx, b.as_ptr(), b.len()))
+        }
+        29 => {
+            let pvt = sk.map(|v| ak_pvt_WireZoo { utf8_skip: v });
+            let s = ak_dec_set_pvt_WireZoo(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));
+            (s, ak_parse_WireZoo(ctx, b.as_ptr(), b.len()))
+        }
+        _ => (AK_ERR_INVALID_STATE, AK_ERR_INVALID_STATE),
+    }
+}
+
+/// D20 (test only): the push family on root id `r` with `utf8_skip = sk`; every
+/// callback appends the bytes it is handed to `sink` (`new_*` returns token 0).
+#[cfg(test)]
+pub(crate) unsafe fn d20_push(r: u32, ctx: *mut ak_dec_ctx, b: &[u8], sk: u64, sink: &mut Vec<u8>) -> i32 {
+    unsafe fn put<T>(o: *mut c_void, p: *const T, n: i32) {
+        let s = &mut *(o as *mut Vec<u8>);
+        s.extend_from_slice(::core::slice::from_raw_parts(p as *const u8, ::core::mem::size_of::<T>() * n as usize));
+    }
+    let o = sink as *mut Vec<u8> as *mut c_void;
+    match r {
+        1 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Timestamp) { put(o, g, 1) }
+            let vt = ak_dvt_Timestamp { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_Timestamp(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        2 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Duration) { put(o, g, 1) }
+            let vt = ak_dvt_Duration { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_Duration(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        3 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ResultRaw) { put(o, g, 1) }
+            let vt = ak_dvt_ResultRaw { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_ResultRaw(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        4 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_TaskOptions) { put(o, g, 1) }
+            unsafe extern "C" fn add_options(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_TaskOptionsOptionsEntry, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_TaskOptions { utf8_skip: sk, apply: Some(ap), add_options: Some(add_options) };
+            ak_decode_TaskOptions(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        5 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_TaskOutput) { put(o, g, 1) }
+            let vt = ak_dvt_TaskOutput { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_TaskOutput(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        6 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_TaskDetailed) { put(o, g, 1) }
+            unsafe extern "C" fn add_parent_task_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_data_dependencies(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_expected_output_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_retry_of_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_options_options(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_TaskOptionsOptionsEntry, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_TaskDetailed { utf8_skip: sk, apply: Some(ap), add_parent_task_ids: Some(add_parent_task_ids), add_data_dependencies: Some(add_data_dependencies), add_expected_output_ids: Some(add_expected_output_ids), add_retry_of_ids: Some(add_retry_of_ids), add_options_options: Some(add_options_options) };
+            ak_decode_TaskDetailed(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        7 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_TaskSummary) { put(o, g, 1) }
+            unsafe extern "C" fn add_options_options(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_TaskOptionsOptionsEntry, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_TaskSummary { utf8_skip: sk, apply: Some(ap), add_options_options: Some(add_options_options) };
+            ak_decode_TaskSummary(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        8 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Probe) { put(o, g, 1) }
+            let vt = ak_dvt_Probe { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_Probe(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        9 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Empty) { put(o, g, 1) }
+            let vt = ak_dvt_Empty { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_Empty(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        10 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_UploadResultData) { put(o, g, 1) }
+            let vt = ak_dvt_UploadResultData { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_UploadResultData(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        11 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_MetricsBatch) { put(o, g, 1) }
+            unsafe extern "C" fn add_ticks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_values(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const f64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_codes(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i32, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_flags(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const u8, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_statuses(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i32, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_MetricsBatch { utf8_skip: sk, apply: Some(ap), add_ticks: Some(add_ticks), add_values: Some(add_values), add_codes: Some(add_codes), add_flags: Some(add_flags), add_statuses: Some(add_statuses) };
+            ak_decode_MetricsBatch(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        12 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Pair) { put(o, g, 1) }
+            let vt = ak_dvt_Pair { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_Pair(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        13 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ListResultsResponse) { put(o, g, 1) }
+            unsafe extern "C" fn add_results(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ResultRaw, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ListResultsResponse { utf8_skip: sk, apply: Some(ap), add_results: Some(add_results) };
+            ak_decode_ListResultsResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        14 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ListTasksDetailedResponse) { put(o, g, 1) }
+            unsafe extern "C" fn new_tasks(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }
+            unsafe extern "C" fn apply_tasks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_TaskDetailed) { put(o, g, 1) }
+            unsafe extern "C" fn add_tasks_parent_task_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_tasks_data_dependencies(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_tasks_expected_output_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_tasks_retry_of_ids(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_tasks_options_options(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_TaskOptionsOptionsEntry, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ListTasksDetailedResponse { utf8_skip: sk, apply: Some(ap), new_tasks: Some(new_tasks), apply_tasks: Some(apply_tasks), add_tasks_parent_task_ids: Some(add_tasks_parent_task_ids), add_tasks_data_dependencies: Some(add_tasks_data_dependencies), add_tasks_expected_output_ids: Some(add_tasks_expected_output_ids), add_tasks_retry_of_ids: Some(add_tasks_retry_of_ids), add_tasks_options_options: Some(add_tasks_options_options) };
+            ak_decode_ListTasksDetailedResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        15 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ListTaskSummaryResponse) { put(o, g, 1) }
+            unsafe extern "C" fn new_tasks(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }
+            unsafe extern "C" fn apply_tasks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_TaskSummary) { put(o, g, 1) }
+            unsafe extern "C" fn add_tasks_options_options(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_TaskOptionsOptionsEntry, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ListTaskSummaryResponse { utf8_skip: sk, apply: Some(ap), new_tasks: Some(new_tasks), apply_tasks: Some(apply_tasks), add_tasks_options_options: Some(add_tasks_options_options) };
+            ak_decode_ListTaskSummaryResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        16 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ListProbeResponse) { put(o, g, 1) }
+            unsafe extern "C" fn add_probes(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_Probe, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ListProbeResponse { utf8_skip: sk, apply: Some(ap), add_probes: Some(add_probes) };
+            ak_decode_ListProbeResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        17 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ListMetricsResponse) { put(o, g, 1) }
+            unsafe extern "C" fn new_batches(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }
+            unsafe extern "C" fn apply_batches(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_MetricsBatch) { put(o, g, 1) }
+            unsafe extern "C" fn add_batches_ticks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_batches_values(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const f64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_batches_codes(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i32, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_batches_flags(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const u8, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_batches_statuses(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i32, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ListMetricsResponse { utf8_skip: sk, apply: Some(ap), new_batches: Some(new_batches), apply_batches: Some(apply_batches), add_batches_ticks: Some(add_batches_ticks), add_batches_values: Some(add_batches_values), add_batches_codes: Some(add_batches_codes), add_batches_flags: Some(add_batches_flags), add_batches_statuses: Some(add_batches_statuses) };
+            ak_decode_ListMetricsResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        18 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_UploadResultDataMessage) { put(o, g, 1) }
+            let vt = ak_dvt_UploadResultDataMessage { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_UploadResultDataMessage(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        19 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_DualResponse) { put(o, g, 1) }
+            unsafe extern "C" fn add_left(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_Pair, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_right(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_Pair, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_DualResponse { utf8_skip: sk, apply: Some(ap), add_left: Some(add_left), add_right: Some(add_right) };
+            ak_decode_DualResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        20 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ChunkLeaf) { put(o, g, 1) }
+            let vt = ak_dvt_ChunkLeaf { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_ChunkLeaf(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        21 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ChunkInner) { put(o, g, 1) }
+            unsafe extern "C" fn add_marks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_leaves(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkLeaf, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ChunkInner { utf8_skip: sk, apply: Some(ap), add_marks: Some(add_marks), add_leaves: Some(add_leaves) };
+            ak_decode_ChunkInner(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        22 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ChunkElement) { put(o, g, 1) }
+            unsafe extern "C" fn add_labels(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_attrs(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkElementAttrsEntry, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_inner_marks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_inner_leaves(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkLeaf, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ChunkElement { utf8_skip: sk, apply: Some(ap), add_labels: Some(add_labels), add_attrs: Some(add_attrs), add_inner_marks: Some(add_inner_marks), add_inner_leaves: Some(add_inner_leaves) };
+            ak_decode_ChunkElement(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        23 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ChunkedResponse) { put(o, g, 1) }
+            unsafe extern "C" fn new_items(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }
+            unsafe extern "C" fn apply_items(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_ChunkElement) { put(o, g, 1) }
+            unsafe extern "C" fn add_items_labels(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_attrs(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkElementAttrsEntry, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_inner_marks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_inner_leaves(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkLeaf, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ChunkedResponse { utf8_skip: sk, apply: Some(ap), new_items: Some(new_items), apply_items: Some(apply_items), add_items_labels: Some(add_items_labels), add_items_attrs: Some(add_items_attrs), add_items_inner_marks: Some(add_items_inner_marks), add_items_inner_leaves: Some(add_items_inner_leaves) };
+            ak_decode_ChunkedResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        24 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_ChunkedResponseWide) { put(o, g, 1) }
+            unsafe extern "C" fn new_items(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }
+            unsafe extern "C" fn apply_items(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_ChunkElement) { put(o, g, 1) }
+            unsafe extern "C" fn add_items_labels(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_attrs(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkElementAttrsEntry, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_inner_marks(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const i64, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_items_inner_leaves(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_ChunkLeaf, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_ChunkedResponseWide { utf8_skip: sk, apply: Some(ap), new_items: Some(new_items), apply_items: Some(apply_items), add_items_labels: Some(add_items_labels), add_items_attrs: Some(add_items_attrs), add_items_inner_marks: Some(add_items_inner_marks), add_items_inner_leaves: Some(add_items_inner_leaves) };
+            ak_decode_ChunkedResponseWide(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        25 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_LeafElement) { put(o, g, 1) }
+            let vt = ak_dvt_LeafElement { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_LeafElement(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        26 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_LeafResponse) { put(o, g, 1) }
+            unsafe extern "C" fn add_items(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_LeafElement, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_LeafResponse { utf8_skip: sk, apply: Some(ap), add_items: Some(add_items) };
+            ak_decode_LeafResponse(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        27 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_Surrogate) { put(o, g, 1) }
+            unsafe extern "C" fn add_attrs(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_dfix_SurrogateAttrsEntry, n: i32) { put(o, e, n) }
+            unsafe extern "C" fn add_texts(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const ak_span, n: i32) { put(o, e, n) }
+            let vt = ak_dvt_Surrogate { utf8_skip: sk, apply: Some(ap), add_attrs: Some(add_attrs), add_texts: Some(add_texts) };
+            ak_decode_Surrogate(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        28 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_SurrogateInner) { put(o, g, 1) }
+            let vt = ak_dvt_SurrogateInner { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_SurrogateInner(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        29 => {
+            unsafe extern "C" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_WireZoo) { put(o, g, 1) }
+            let vt = ak_dvt_WireZoo { utf8_skip: sk, apply: Some(ap) };
+            ak_decode_WireZoo(ctx, o, b.as_ptr(), b.len(), &vt)
+        }
+        _ => AK_ERR_INVALID_STATE,
+    }
 }

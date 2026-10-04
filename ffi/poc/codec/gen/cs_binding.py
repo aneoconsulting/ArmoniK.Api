@@ -32,7 +32,8 @@ import re
 from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, elem_type,
                   group_fields, loop_slots, presence_bits, slot_elem, slot_name,
                   ugroup_fields, unk_entry_points, unk_opts_layout, unk_opts_name,
-                  unknown_compiled_out, vtable_messages)
+                  unknown_compiled_out, vtable_messages, dec_vtable, UTF8_MEMBER,
+                  utf8_bit_names, utf8_width, pull_vtable, pvt_name, pvt_entry_points)
 import cs_names as N
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
@@ -225,8 +226,11 @@ def vtable_decls(p):
                 ev.append(("elem_%s" % slot_name(path), "ak_evt_%s*" % et))
         out.append(("ak_evt_%s" % name, ev))
         # WP5 step 7: no `unknown` / `unk_<slot>` members (decision 11: unknown fields travel
-        # as data in the groups); the order is plan.dec_vtable's.
-        dv = [("apply", "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_%s*, void>" % name)]
+        # as data in the groups); the order is plan.dec_vtable's. D20: its first row is the
+        # u64 utf8_skip mask (data, not a callback).
+        assert dec_vtable(p, name)[0][0] == UTF8_MEMBER
+        dv = [(UTF8_MEMBER, "ulong"),
+              ("apply", "delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_%s*, void>" % name)]
         for path, f in slots:
             sn = slot_name(path)
             dty, _ = slot_elem(f)
@@ -260,6 +264,24 @@ def opts_decls(p):
     for root in p.roots:
         out.append((unk_opts_name(root), [("host", "IntPtr")] +
                     [(n, t) for n, _m, t in unk_opts_layout(p, root)]))
+    return out
+
+
+def pvt_decls(p):
+    """[(struct name, [(member, C# type)])]: D20's per-root pull vtable `ak_pvt_<Root>`
+    (plan.pull_vtable), the u64 utf8_skip mask first."""
+    return [(pvt_name(root), [(mn, "ulong") for _k, mn, _w in pull_vtable(p, root)])
+            for root in p.roots]
+
+
+def pvt_imports(p):
+    """[(ret, name, args)]: D20's setter per root (plan.pvt_entry_points)."""
+    out = []
+    for root in p.roots:
+        for name, params, ret, _doc in pvt_entry_points(p, root):
+            out.append((cs_param(ret), name, ", ".join(
+                ("%s* %s" % (pvt_name(root), _pname(pn))) if t == "*const %s" % pvt_name(root)
+                else "%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)))
     return out
 
 
@@ -338,6 +360,19 @@ def emit_abi(x, ns, lib="ak_core"):
     vts = vtable_decls(p)
     for vname, fields in vts:
         _struct(o, vname, fields, unsafe=True)
+    for vname, fields in pvt_decls(p):
+        _struct(o, vname, fields, "D20: the pull family's vtable for %s, COPIED into a root-bound "
+                "context by ak_dec_set_pvt_%s; utf8_skip stays the first member." % (vname[7:], vname[7:]))
+    o.doc("D20: the utf8_skip bits of every decode vtable's tree (plan.utf8_bits); 1 = the core "
+          "skips that string's UTF-8 check. ak_pvt_<Root> uses its root's bits.")
+    o += "public static class AkUtf8Skip"
+    o += "{"
+    for name in vtable_messages(p):
+        for bn, b in utf8_bit_names(p, name):
+            o += "    public const ulong %s_%s = 1ul << %d;" % (name, bn, b)
+        o += "    public const ulong %s_ALL = 0x%xul;" % (name, (1 << utf8_width(p, name)) - 1)
+    o += "}"
+    o += ""
 
     # ---- decision 11: the per-root unknown-field options (plan.unk_opts_layout)
     opts = opts_decls(p)
@@ -365,7 +400,7 @@ def emit_abi(x, ns, lib="ak_core"):
     o += ""
     del _COUNTED[:]
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
-    for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p):
+    for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p) + pvt_imports(p):
         emit_import(o, ret, name, args)
     _emit_counting(o)
     o += "}"

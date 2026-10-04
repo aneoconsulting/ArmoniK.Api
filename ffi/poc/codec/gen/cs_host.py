@@ -1067,6 +1067,7 @@ def _emit_decode(o, p, root, slots):
     o += "                _drun->Buf = b;"
     o += "                var vt = new ak_dvt_%s" % root
     o += "                {"
+    o += "                    utf8_skip = 0,   // D20: every bit 0, the core validates every string"
     o += "                    apply = &ApplyRoot,"
     for s in slots:
         if s.leaf:

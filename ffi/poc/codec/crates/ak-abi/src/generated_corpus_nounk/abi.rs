@@ -1266,10 +1266,17 @@ pub struct ak_evt_Timestamp {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Timestamp {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TIMESTAMP_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Timestamp),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Timestamp, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Timestamp>() == 2 * 8);
+pub const AK_DVT_TIMESTAMP_UTF8_ALL: u64 = 0x0;
 
 /// Encode vtable for `Duration`.
 #[repr(C)]
@@ -1283,10 +1290,17 @@ pub struct ak_evt_Duration {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Duration {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_DURATION_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Duration),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Duration, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Duration>() == 2 * 8);
+pub const AK_DVT_DURATION_UTF8_ALL: u64 = 0x0;
 
 /// Encode vtable for `ResultRaw`.
 #[repr(C)]
@@ -1300,10 +1314,22 @@ pub struct ak_evt_ResultRaw {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ResultRaw {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_RESULTRAW_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ResultRaw),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ResultRaw, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ResultRaw>() == 2 * 8);
+pub const AK_DVT_RESULTRAW_UTF8_SESSION_ID: u64 = 1 << 0;
+pub const AK_DVT_RESULTRAW_UTF8_NAME: u64 = 1 << 1;
+pub const AK_DVT_RESULTRAW_UTF8_OWNER_TASK_ID: u64 = 1 << 2;
+pub const AK_DVT_RESULTRAW_UTF8_RESULT_ID: u64 = 1 << 3;
+pub const AK_DVT_RESULTRAW_UTF8_CREATED_BY: u64 = 1 << 4;
+pub const AK_DVT_RESULTRAW_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `TaskOptions`.
 #[repr(C)]
@@ -1316,6 +1342,9 @@ pub struct ak_evt_TaskOptions {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_TaskOptions {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TASKOPTIONS_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptions),
     >,
@@ -1323,6 +1352,18 @@ pub struct ak_dvt_TaskOptions {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_TaskOptions, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_TaskOptions>() == 3 * 8);
+pub const AK_DVT_TASKOPTIONS_UTF8_PARTITION_ID: u64 = 1 << 0;
+pub const AK_DVT_TASKOPTIONS_UTF8_APPLICATION_NAME: u64 = 1 << 1;
+pub const AK_DVT_TASKOPTIONS_UTF8_APPLICATION_VERSION: u64 = 1 << 2;
+pub const AK_DVT_TASKOPTIONS_UTF8_APPLICATION_NAMESPACE: u64 = 1 << 3;
+pub const AK_DVT_TASKOPTIONS_UTF8_APPLICATION_SERVICE: u64 = 1 << 4;
+pub const AK_DVT_TASKOPTIONS_UTF8_ENGINE_TYPE: u64 = 1 << 5;
+pub const AK_DVT_TASKOPTIONS_UTF8_OPTIONS_KEY: u64 = 1 << 6;
+pub const AK_DVT_TASKOPTIONS_UTF8_OPTIONS_VALUE: u64 = 1 << 7;
+pub const AK_DVT_TASKOPTIONS_UTF8_ALL: u64 = 0xff;
 
 /// Encode vtable for `TaskOutput`.
 #[repr(C)]
@@ -1336,10 +1377,18 @@ pub struct ak_evt_TaskOutput {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_TaskOutput {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TASKOUTPUT_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOutput),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_TaskOutput, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_TaskOutput>() == 2 * 8);
+pub const AK_DVT_TASKOUTPUT_UTF8_ERROR: u64 = 1 << 0;
+pub const AK_DVT_TASKOUTPUT_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `TaskDetailed`.
 #[repr(C)]
@@ -1356,6 +1405,9 @@ pub struct ak_evt_TaskDetailed {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_TaskDetailed {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TASKDETAILED_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskDetailed),
     >,
@@ -1375,6 +1427,31 @@ pub struct ak_dvt_TaskDetailed {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_TaskDetailed, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_TaskDetailed>() == 7 * 8);
+pub const AK_DVT_TASKDETAILED_UTF8_ID: u64 = 1 << 0;
+pub const AK_DVT_TASKDETAILED_UTF8_SESSION_ID: u64 = 1 << 1;
+pub const AK_DVT_TASKDETAILED_UTF8_OWNER_POD_ID: u64 = 1 << 2;
+pub const AK_DVT_TASKDETAILED_UTF8_PARENT_TASK_IDS: u64 = 1 << 3;
+pub const AK_DVT_TASKDETAILED_UTF8_DATA_DEPENDENCIES: u64 = 1 << 4;
+pub const AK_DVT_TASKDETAILED_UTF8_EXPECTED_OUTPUT_IDS: u64 = 1 << 5;
+pub const AK_DVT_TASKDETAILED_UTF8_RETRY_OF_IDS: u64 = 1 << 6;
+pub const AK_DVT_TASKDETAILED_UTF8_STATUS_MESSAGE: u64 = 1 << 7;
+pub const AK_DVT_TASKDETAILED_UTF8_POD_HOSTNAME: u64 = 1 << 8;
+pub const AK_DVT_TASKDETAILED_UTF8_INITIAL_TASK_ID: u64 = 1 << 9;
+pub const AK_DVT_TASKDETAILED_UTF8_PAYLOAD_ID: u64 = 1 << 10;
+pub const AK_DVT_TASKDETAILED_UTF8_CREATED_BY: u64 = 1 << 11;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_PARTITION_ID: u64 = 1 << 12;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_NAME: u64 = 1 << 13;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_VERSION: u64 = 1 << 14;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_NAMESPACE: u64 = 1 << 15;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_SERVICE: u64 = 1 << 16;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_ENGINE_TYPE: u64 = 1 << 17;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_OPTIONS_KEY: u64 = 1 << 18;
+pub const AK_DVT_TASKDETAILED_UTF8_OPTIONS_OPTIONS_VALUE: u64 = 1 << 19;
+pub const AK_DVT_TASKDETAILED_UTF8_OUTPUT_ERROR: u64 = 1 << 20;
+pub const AK_DVT_TASKDETAILED_UTF8_ALL: u64 = 0x1fffff;
 
 /// Encode vtable for `TaskSummary`.
 #[repr(C)]
@@ -1387,6 +1464,9 @@ pub struct ak_evt_TaskSummary {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_TaskSummary {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TASKSUMMARY_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskSummary),
     >,
@@ -1394,6 +1474,22 @@ pub struct ak_dvt_TaskSummary {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_TaskSummary, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_TaskSummary>() == 3 * 8);
+pub const AK_DVT_TASKSUMMARY_UTF8_ID: u64 = 1 << 0;
+pub const AK_DVT_TASKSUMMARY_UTF8_SESSION_ID: u64 = 1 << 1;
+pub const AK_DVT_TASKSUMMARY_UTF8_ERROR: u64 = 1 << 2;
+pub const AK_DVT_TASKSUMMARY_UTF8_STATUS_MESSAGE: u64 = 1 << 3;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_PARTITION_ID: u64 = 1 << 4;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_NAME: u64 = 1 << 5;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_VERSION: u64 = 1 << 6;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_NAMESPACE: u64 = 1 << 7;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_SERVICE: u64 = 1 << 8;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_ENGINE_TYPE: u64 = 1 << 9;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_OPTIONS_KEY: u64 = 1 << 10;
+pub const AK_DVT_TASKSUMMARY_UTF8_OPTIONS_OPTIONS_VALUE: u64 = 1 << 11;
+pub const AK_DVT_TASKSUMMARY_UTF8_ALL: u64 = 0xfff;
 
 /// Encode vtable for `Probe`.
 #[repr(C)]
@@ -1407,10 +1503,20 @@ pub struct ak_evt_Probe {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Probe {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_PROBE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Probe),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Probe, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Probe>() == 2 * 8);
+pub const AK_DVT_PROBE_UTF8_ID: u64 = 1 << 0;
+pub const AK_DVT_PROBE_UTF8_OPT_LABEL: u64 = 1 << 1;
+pub const AK_DVT_PROBE_UTF8_AS_TEXT: u64 = 1 << 2;
+pub const AK_DVT_PROBE_UTF8_ALL: u64 = 0x7;
 
 /// Encode vtable for `Empty`.
 #[repr(C)]
@@ -1424,10 +1530,17 @@ pub struct ak_evt_Empty {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Empty {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_EMPTY_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Empty),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Empty, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Empty>() == 2 * 8);
+pub const AK_DVT_EMPTY_UTF8_ALL: u64 = 0x0;
 
 /// Encode vtable for `UploadResultData`.
 #[repr(C)]
@@ -1441,10 +1554,19 @@ pub struct ak_evt_UploadResultData {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_UploadResultData {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_UPLOADRESULTDATA_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultData),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_UploadResultData, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_UploadResultData>() == 2 * 8);
+pub const AK_DVT_UPLOADRESULTDATA_UTF8_SESSION_ID: u64 = 1 << 0;
+pub const AK_DVT_UPLOADRESULTDATA_UTF8_RESULT_ID: u64 = 1 << 1;
+pub const AK_DVT_UPLOADRESULTDATA_UTF8_ALL: u64 = 0x3;
 
 /// Encode vtable for `MetricsBatch`.
 #[repr(C)]
@@ -1461,6 +1583,9 @@ pub struct ak_evt_MetricsBatch {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_MetricsBatch {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_METRICSBATCH_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_MetricsBatch),
     >,
@@ -1480,6 +1605,11 @@ pub struct ak_dvt_MetricsBatch {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_MetricsBatch, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_MetricsBatch>() == 7 * 8);
+pub const AK_DVT_METRICSBATCH_UTF8_ID: u64 = 1 << 0;
+pub const AK_DVT_METRICSBATCH_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `Pair`.
 #[repr(C)]
@@ -1493,10 +1623,18 @@ pub struct ak_evt_Pair {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Pair {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_PAIR_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Pair),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Pair, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Pair>() == 2 * 8);
+pub const AK_DVT_PAIR_UTF8_KEY: u64 = 1 << 0;
+pub const AK_DVT_PAIR_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `ListResultsResponse`.
 #[repr(C)]
@@ -1509,6 +1647,9 @@ pub struct ak_evt_ListResultsResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ListResultsResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LISTRESULTSRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListResultsResponse),
     >,
@@ -1516,6 +1657,15 @@ pub struct ak_dvt_ListResultsResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ResultRaw, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ListResultsResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ListResultsResponse>() == 3 * 8);
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_SESSION_ID: u64 = 1 << 0;
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_NAME: u64 = 1 << 1;
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_OWNER_TASK_ID: u64 = 1 << 2;
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_RESULT_ID: u64 = 1 << 3;
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_CREATED_BY: u64 = 1 << 4;
+pub const AK_DVT_LISTRESULTSRESPONSE_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `ListTasksDetailedResponse`.
 #[repr(C)]
@@ -1530,6 +1680,9 @@ pub struct ak_evt_ListTasksDetailedResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ListTasksDetailedResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTasksDetailedResponse),
     >,
@@ -1555,6 +1708,31 @@ pub struct ak_dvt_ListTasksDetailedResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ListTasksDetailedResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ListTasksDetailedResponse>() == 9 * 8);
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_ID: u64 = 1 << 0;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_SESSION_ID: u64 = 1 << 1;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OWNER_POD_ID: u64 = 1 << 2;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_PARENT_TASK_IDS: u64 = 1 << 3;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_DATA_DEPENDENCIES: u64 = 1 << 4;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_EXPECTED_OUTPUT_IDS: u64 = 1 << 5;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_RETRY_OF_IDS: u64 = 1 << 6;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_STATUS_MESSAGE: u64 = 1 << 7;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_POD_HOSTNAME: u64 = 1 << 8;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_INITIAL_TASK_ID: u64 = 1 << 9;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_PAYLOAD_ID: u64 = 1 << 10;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_CREATED_BY: u64 = 1 << 11;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_PARTITION_ID: u64 = 1 << 12;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAME: u64 = 1 << 13;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_VERSION: u64 = 1 << 14;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAMESPACE: u64 = 1 << 15;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_SERVICE: u64 = 1 << 16;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_ENGINE_TYPE: u64 = 1 << 17;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_KEY: u64 = 1 << 18;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_VALUE: u64 = 1 << 19;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OUTPUT_ERROR: u64 = 1 << 20;
+pub const AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_ALL: u64 = 0x1fffff;
 
 /// Encode vtable for `ListTaskSummaryResponse`.
 #[repr(C)]
@@ -1569,6 +1747,9 @@ pub struct ak_evt_ListTaskSummaryResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ListTaskSummaryResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListTaskSummaryResponse),
     >,
@@ -1582,6 +1763,22 @@ pub struct ak_dvt_ListTaskSummaryResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_TaskOptionsOptionsEntry, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ListTaskSummaryResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ListTaskSummaryResponse>() == 5 * 8);
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_ID: u64 = 1 << 0;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_SESSION_ID: u64 = 1 << 1;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_ERROR: u64 = 1 << 2;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_STATUS_MESSAGE: u64 = 1 << 3;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_PARTITION_ID: u64 = 1 << 4;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAME: u64 = 1 << 5;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_VERSION: u64 = 1 << 6;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAMESPACE: u64 = 1 << 7;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_SERVICE: u64 = 1 << 8;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_ENGINE_TYPE: u64 = 1 << 9;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_KEY: u64 = 1 << 10;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_VALUE: u64 = 1 << 11;
+pub const AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_ALL: u64 = 0xfff;
 
 /// Encode vtable for `ListProbeResponse`.
 #[repr(C)]
@@ -1594,6 +1791,9 @@ pub struct ak_evt_ListProbeResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ListProbeResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LISTPROBERESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListProbeResponse),
     >,
@@ -1601,6 +1801,13 @@ pub struct ak_dvt_ListProbeResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Probe, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ListProbeResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ListProbeResponse>() == 3 * 8);
+pub const AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_ID: u64 = 1 << 0;
+pub const AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_OPT_LABEL: u64 = 1 << 1;
+pub const AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_AS_TEXT: u64 = 1 << 2;
+pub const AK_DVT_LISTPROBERESPONSE_UTF8_ALL: u64 = 0x7;
 
 /// Encode vtable for `ListMetricsResponse`.
 #[repr(C)]
@@ -1615,6 +1822,9 @@ pub struct ak_evt_ListMetricsResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ListMetricsResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LISTMETRICSRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ListMetricsResponse),
     >,
@@ -1640,6 +1850,11 @@ pub struct ak_dvt_ListMetricsResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const i32, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ListMetricsResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ListMetricsResponse>() == 9 * 8);
+pub const AK_DVT_LISTMETRICSRESPONSE_UTF8_BATCHES_ID: u64 = 1 << 0;
+pub const AK_DVT_LISTMETRICSRESPONSE_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `UploadResultDataMessage`.
 #[repr(C)]
@@ -1653,10 +1868,19 @@ pub struct ak_evt_UploadResultDataMessage {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_UploadResultDataMessage {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_UploadResultDataMessage),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_UploadResultDataMessage, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_UploadResultDataMessage>() == 2 * 8);
+pub const AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_UPLOAD_SESSION_ID: u64 = 1 << 0;
+pub const AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_UPLOAD_RESULT_ID: u64 = 1 << 1;
+pub const AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_ALL: u64 = 0x3;
 
 /// Encode vtable for `DualResponse`.
 #[repr(C)]
@@ -1670,6 +1894,9 @@ pub struct ak_evt_DualResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_DualResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_DUALRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_DualResponse),
     >,
@@ -1680,6 +1907,12 @@ pub struct ak_dvt_DualResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_Pair, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_DualResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_DualResponse>() == 4 * 8);
+pub const AK_DVT_DUALRESPONSE_UTF8_LEFT_KEY: u64 = 1 << 0;
+pub const AK_DVT_DUALRESPONSE_UTF8_RIGHT_KEY: u64 = 1 << 1;
+pub const AK_DVT_DUALRESPONSE_UTF8_ALL: u64 = 0x3;
 
 /// Encode vtable for `ChunkLeaf`.
 #[repr(C)]
@@ -1693,10 +1926,18 @@ pub struct ak_evt_ChunkLeaf {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkLeaf {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKLEAF_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkLeaf),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkLeaf, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkLeaf>() == 2 * 8);
+pub const AK_DVT_CHUNKLEAF_UTF8_K: u64 = 1 << 0;
+pub const AK_DVT_CHUNKLEAF_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `ChunkInner`.
 #[repr(C)]
@@ -1710,6 +1951,9 @@ pub struct ak_evt_ChunkInner {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkInner {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKINNER_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkInner),
     >,
@@ -1720,6 +1964,11 @@ pub struct ak_dvt_ChunkInner {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ChunkLeaf, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkInner, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkInner>() == 4 * 8);
+pub const AK_DVT_CHUNKINNER_UTF8_LEAVES_K: u64 = 1 << 0;
+pub const AK_DVT_CHUNKINNER_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `ChunkElement`.
 #[repr(C)]
@@ -1735,6 +1984,9 @@ pub struct ak_evt_ChunkElement {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkElement {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKELEMENT_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkElement),
     >,
@@ -1751,6 +2003,15 @@ pub struct ak_dvt_ChunkElement {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ChunkLeaf, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkElement, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkElement>() == 6 * 8);
+pub const AK_DVT_CHUNKELEMENT_UTF8_LABELS: u64 = 1 << 0;
+pub const AK_DVT_CHUNKELEMENT_UTF8_ID: u64 = 1 << 1;
+pub const AK_DVT_CHUNKELEMENT_UTF8_ATTRS_KEY: u64 = 1 << 2;
+pub const AK_DVT_CHUNKELEMENT_UTF8_ATTRS_VALUE: u64 = 1 << 3;
+pub const AK_DVT_CHUNKELEMENT_UTF8_INNER_LEAVES_K: u64 = 1 << 4;
+pub const AK_DVT_CHUNKELEMENT_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `ChunkedResponse`.
 #[repr(C)]
@@ -1765,6 +2026,9 @@ pub struct ak_evt_ChunkedResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkedResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKEDRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkedResponse),
     >,
@@ -1787,6 +2051,15 @@ pub struct ak_dvt_ChunkedResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ChunkLeaf, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkedResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkedResponse>() == 8 * 8);
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ITEMS_LABELS: u64 = 1 << 0;
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ITEMS_ID: u64 = 1 << 1;
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ITEMS_ATTRS_KEY: u64 = 1 << 2;
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ITEMS_ATTRS_VALUE: u64 = 1 << 3;
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ITEMS_INNER_LEAVES_K: u64 = 1 << 4;
+pub const AK_DVT_CHUNKEDRESPONSE_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `ChunkedResponseWide`.
 #[repr(C)]
@@ -1801,6 +2074,9 @@ pub struct ak_evt_ChunkedResponseWide {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkedResponseWide {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkedResponseWide),
     >,
@@ -1823,6 +2099,15 @@ pub struct ak_dvt_ChunkedResponseWide {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_ChunkLeaf, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkedResponseWide, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkedResponseWide>() == 8 * 8);
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ITEMS_LABELS: u64 = 1 << 0;
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ITEMS_ID: u64 = 1 << 1;
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ITEMS_ATTRS_KEY: u64 = 1 << 2;
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ITEMS_ATTRS_VALUE: u64 = 1 << 3;
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ITEMS_INNER_LEAVES_K: u64 = 1 << 4;
+pub const AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `LeafElement`.
 #[repr(C)]
@@ -1836,10 +2121,18 @@ pub struct ak_evt_LeafElement {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_LeafElement {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LEAFELEMENT_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_LeafElement),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_LeafElement, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_LeafElement>() == 2 * 8);
+pub const AK_DVT_LEAFELEMENT_UTF8_ID: u64 = 1 << 0;
+pub const AK_DVT_LEAFELEMENT_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `LeafResponse`.
 #[repr(C)]
@@ -1852,6 +2145,9 @@ pub struct ak_evt_LeafResponse {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_LeafResponse {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_LEAFRESPONSE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_LeafResponse),
     >,
@@ -1859,6 +2155,11 @@ pub struct ak_dvt_LeafResponse {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_dfix_LeafElement, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_LeafResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_LeafResponse>() == 3 * 8);
+pub const AK_DVT_LEAFRESPONSE_UTF8_ITEMS_ID: u64 = 1 << 0;
+pub const AK_DVT_LEAFRESPONSE_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `Surrogate`.
 #[repr(C)]
@@ -1872,6 +2173,9 @@ pub struct ak_evt_Surrogate {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_Surrogate {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_SURROGATE_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_Surrogate),
     >,
@@ -1882,6 +2186,15 @@ pub struct ak_dvt_Surrogate {
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_Surrogate, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_Surrogate>() == 4 * 8);
+pub const AK_DVT_SURROGATE_UTF8_TEXT: u64 = 1 << 0;
+pub const AK_DVT_SURROGATE_UTF8_TEXTS: u64 = 1 << 1;
+pub const AK_DVT_SURROGATE_UTF8_NESTED_TEXT: u64 = 1 << 2;
+pub const AK_DVT_SURROGATE_UTF8_ATTRS_KEY: u64 = 1 << 3;
+pub const AK_DVT_SURROGATE_UTF8_ATTRS_VALUE: u64 = 1 << 4;
+pub const AK_DVT_SURROGATE_UTF8_ALL: u64 = 0x1f;
 
 /// Encode vtable for `SurrogateInner`.
 #[repr(C)]
@@ -1895,10 +2208,18 @@ pub struct ak_evt_SurrogateInner {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_SurrogateInner {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_SURROGATEINNER_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_SurrogateInner),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_SurrogateInner, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_SurrogateInner>() == 2 * 8);
+pub const AK_DVT_SURROGATEINNER_UTF8_TEXT: u64 = 1 << 0;
+pub const AK_DVT_SURROGATEINNER_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `WireZoo`.
 #[repr(C)]
@@ -1912,10 +2233,18 @@ pub struct ak_evt_WireZoo {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_WireZoo {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_WIREZOO_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_WireZoo),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_WireZoo, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_WireZoo>() == 2 * 8);
+pub const AK_DVT_WIREZOO_UTF8_V_STRING: u64 = 1 << 0;
+pub const AK_DVT_WIREZOO_UTF8_ALL: u64 = 0x1;
 
 /// Encode vtable for `TaskOptionsOptionsEntry`.
 #[repr(C)]
@@ -1929,10 +2258,19 @@ pub struct ak_evt_TaskOptionsOptionsEntry {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_TaskOptionsOptionsEntry {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_TaskOptionsOptionsEntry),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_TaskOptionsOptionsEntry, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_TaskOptionsOptionsEntry>() == 2 * 8);
+pub const AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_KEY: u64 = 1 << 0;
+pub const AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_VALUE: u64 = 1 << 1;
+pub const AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_ALL: u64 = 0x3;
 
 /// Encode vtable for `ChunkElementAttrsEntry`.
 #[repr(C)]
@@ -1946,10 +2284,19 @@ pub struct ak_evt_ChunkElementAttrsEntry {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_ChunkElementAttrsEntry {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_CHUNKELEMENTATTRSENTRY_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_ChunkElementAttrsEntry),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_ChunkElementAttrsEntry, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_ChunkElementAttrsEntry>() == 2 * 8);
+pub const AK_DVT_CHUNKELEMENTATTRSENTRY_UTF8_KEY: u64 = 1 << 0;
+pub const AK_DVT_CHUNKELEMENTATTRSENTRY_UTF8_VALUE: u64 = 1 << 1;
+pub const AK_DVT_CHUNKELEMENTATTRSENTRY_UTF8_ALL: u64 = 0x3;
 
 /// Encode vtable for `SurrogateAttrsEntry`.
 #[repr(C)]
@@ -1963,10 +2310,309 @@ pub struct ak_evt_SurrogateAttrsEntry {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_dvt_SurrogateAttrsEntry {
+    /// D20: one bit per string field of this decode tree (plan.utf8_bits,
+    /// AK_DVT_SURROGATEATTRSENTRY_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all.
+    pub utf8_skip: u64,
     pub apply: Option<
         unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_SurrogateAttrsEntry),
     >,
 }
+/// D20: the mask first, then one pointer per callback (the C header asserts the same).
+#[cfg(target_pointer_width = "64")]
+const _: () = assert!(::core::mem::offset_of!(ak_dvt_SurrogateAttrsEntry, utf8_skip) == 0 && ::core::mem::size_of::<ak_dvt_SurrogateAttrsEntry>() == 2 * 8);
+pub const AK_DVT_SURROGATEATTRSENTRY_UTF8_KEY: u64 = 1 << 0;
+pub const AK_DVT_SURROGATEATTRSENTRY_UTF8_VALUE: u64 = 1 << 1;
+pub const AK_DVT_SURROGATEATTRSENTRY_UTF8_ALL: u64 = 0x3;
+
+/// D20: the PULL family's vtable for `Timestamp`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Timestamp`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Timestamp`'s (AK_DVT_TIMESTAMP_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Timestamp {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Timestamp, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Timestamp>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `Duration`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Duration`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Duration`'s (AK_DVT_DURATION_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Duration {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Duration, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Duration>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ResultRaw`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ResultRaw`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ResultRaw`'s (AK_DVT_RESULTRAW_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ResultRaw {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ResultRaw, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ResultRaw>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `TaskOptions`, copied into a root-bound context by
+/// `ak_dec_set_pvt_TaskOptions`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_TaskOptions`'s (AK_DVT_TASKOPTIONS_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_TaskOptions {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_TaskOptions, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_TaskOptions>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `TaskOutput`, copied into a root-bound context by
+/// `ak_dec_set_pvt_TaskOutput`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_TaskOutput`'s (AK_DVT_TASKOUTPUT_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_TaskOutput {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_TaskOutput, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_TaskOutput>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `TaskDetailed`, copied into a root-bound context by
+/// `ak_dec_set_pvt_TaskDetailed`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_TaskDetailed`'s (AK_DVT_TASKDETAILED_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_TaskDetailed {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_TaskDetailed, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_TaskDetailed>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `TaskSummary`, copied into a root-bound context by
+/// `ak_dec_set_pvt_TaskSummary`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_TaskSummary`'s (AK_DVT_TASKSUMMARY_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_TaskSummary {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_TaskSummary, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_TaskSummary>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `Probe`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Probe`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Probe`'s (AK_DVT_PROBE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Probe {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Probe, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Probe>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `Empty`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Empty`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Empty`'s (AK_DVT_EMPTY_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Empty {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Empty, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Empty>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `UploadResultData`, copied into a root-bound context by
+/// `ak_dec_set_pvt_UploadResultData`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_UploadResultData`'s (AK_DVT_UPLOADRESULTDATA_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_UploadResultData {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_UploadResultData, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_UploadResultData>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `MetricsBatch`, copied into a root-bound context by
+/// `ak_dec_set_pvt_MetricsBatch`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_MetricsBatch`'s (AK_DVT_METRICSBATCH_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_MetricsBatch {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_MetricsBatch, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_MetricsBatch>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `Pair`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Pair`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Pair`'s (AK_DVT_PAIR_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Pair {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Pair, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Pair>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ListResultsResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ListResultsResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ListResultsResponse`'s (AK_DVT_LISTRESULTSRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ListResultsResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ListResultsResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ListResultsResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ListTasksDetailedResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ListTasksDetailedResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ListTasksDetailedResponse`'s (AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ListTasksDetailedResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ListTasksDetailedResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ListTasksDetailedResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ListTaskSummaryResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ListTaskSummaryResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ListTaskSummaryResponse`'s (AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ListTaskSummaryResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ListTaskSummaryResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ListTaskSummaryResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ListProbeResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ListProbeResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ListProbeResponse`'s (AK_DVT_LISTPROBERESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ListProbeResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ListProbeResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ListProbeResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ListMetricsResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ListMetricsResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ListMetricsResponse`'s (AK_DVT_LISTMETRICSRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ListMetricsResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ListMetricsResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ListMetricsResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `UploadResultDataMessage`, copied into a root-bound context by
+/// `ak_dec_set_pvt_UploadResultDataMessage`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_UploadResultDataMessage`'s (AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_UploadResultDataMessage {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_UploadResultDataMessage, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_UploadResultDataMessage>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `DualResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_DualResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_DualResponse`'s (AK_DVT_DUALRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_DualResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_DualResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_DualResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ChunkLeaf`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ChunkLeaf`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ChunkLeaf`'s (AK_DVT_CHUNKLEAF_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ChunkLeaf {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ChunkLeaf, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ChunkLeaf>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ChunkInner`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ChunkInner`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ChunkInner`'s (AK_DVT_CHUNKINNER_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ChunkInner {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ChunkInner, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ChunkInner>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ChunkElement`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ChunkElement`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ChunkElement`'s (AK_DVT_CHUNKELEMENT_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ChunkElement {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ChunkElement, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ChunkElement>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ChunkedResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ChunkedResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ChunkedResponse`'s (AK_DVT_CHUNKEDRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ChunkedResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ChunkedResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ChunkedResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `ChunkedResponseWide`, copied into a root-bound context by
+/// `ak_dec_set_pvt_ChunkedResponseWide`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_ChunkedResponseWide`'s (AK_DVT_CHUNKEDRESPONSEWIDE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_ChunkedResponseWide {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_ChunkedResponseWide, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_ChunkedResponseWide>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `LeafElement`, copied into a root-bound context by
+/// `ak_dec_set_pvt_LeafElement`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_LeafElement`'s (AK_DVT_LEAFELEMENT_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_LeafElement {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_LeafElement, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_LeafElement>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `LeafResponse`, copied into a root-bound context by
+/// `ak_dec_set_pvt_LeafResponse`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_LeafResponse`'s (AK_DVT_LEAFRESPONSE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_LeafResponse {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_LeafResponse, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_LeafResponse>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `Surrogate`, copied into a root-bound context by
+/// `ak_dec_set_pvt_Surrogate`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_Surrogate`'s (AK_DVT_SURROGATE_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_Surrogate {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_Surrogate, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_Surrogate>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `SurrogateInner`, copied into a root-bound context by
+/// `ak_dec_set_pvt_SurrogateInner`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_SurrogateInner`'s (AK_DVT_SURROGATEINNER_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_SurrogateInner {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_SurrogateInner, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_SurrogateInner>() == 1 * 8);
+
+/// D20: the PULL family's vtable for `WireZoo`, copied into a root-bound context by
+/// `ak_dec_set_pvt_WireZoo`. `utf8_skip` stays the first member; its bits are
+/// `ak_dvt_WireZoo`'s (AK_DVT_WIREZOO_UTF8_*).
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct ak_pvt_WireZoo {
+    pub utf8_skip: u64,
+}
+const _: () = assert!(::core::mem::offset_of!(ak_pvt_WireZoo, utf8_skip) == 0 && ::core::mem::size_of::<ak_pvt_WireZoo>() == 1 * 8);
 
 // ABI v1 section 6: what a host calls in the codec are PLAIN EXPORTS, not a
 // table, so a missing symbol is a load failure, which is loud.
@@ -1986,6 +2632,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Timestamp() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Timestamp` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Timestamp(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Timestamp) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2009,6 +2657,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Duration() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Duration` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Duration(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Duration) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2032,6 +2682,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ResultRaw() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ResultRaw` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ResultRaw(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ResultRaw) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2055,6 +2707,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_TaskOptions() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskOptions` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_TaskOptions(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskOptions) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2078,6 +2732,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_TaskOutput() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskOutput` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_TaskOutput(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskOutput) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2101,6 +2757,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_TaskDetailed() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskDetailed` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_TaskDetailed(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskDetailed) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2124,6 +2782,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_TaskSummary() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_TaskSummary` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_TaskSummary(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_TaskSummary) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2147,6 +2807,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Probe() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Probe` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Probe(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Probe) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2170,6 +2832,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Empty() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Empty` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Empty(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Empty) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2196,6 +2860,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_UploadResultData() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_UploadResultData` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_UploadResultData(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_UploadResultData) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2219,6 +2885,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_MetricsBatch() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_MetricsBatch` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_MetricsBatch(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_MetricsBatch) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2242,6 +2910,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Pair() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Pair` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Pair(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Pair) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2265,6 +2935,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ListResultsResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListResultsResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ListResultsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListResultsResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2288,6 +2960,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ListTasksDetailedResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListTasksDetailedResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTasksDetailedResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2311,6 +2985,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ListTaskSummaryResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListTaskSummaryResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTaskSummaryResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2334,6 +3010,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ListProbeResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListProbeResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ListProbeResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListProbeResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2357,6 +3035,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ListMetricsResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ListMetricsResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ListMetricsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListMetricsResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2383,6 +3063,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_UploadResultDataMessage() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_UploadResultDataMessage` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_UploadResultDataMessage(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_UploadResultDataMessage) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2406,6 +3088,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_DualResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_DualResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_DualResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_DualResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2429,6 +3113,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ChunkLeaf() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkLeaf` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ChunkLeaf(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkLeaf) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2452,6 +3138,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ChunkInner() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkInner` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ChunkInner(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkInner) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2475,6 +3163,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ChunkElement() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkElement` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ChunkElement(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkElement) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2498,6 +3188,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ChunkedResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkedResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ChunkedResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkedResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2521,6 +3213,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_ChunkedResponseWide() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_ChunkedResponseWide` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_ChunkedResponseWide(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ChunkedResponseWide) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2544,6 +3238,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_LeafElement() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_LeafElement` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_LeafElement(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_LeafElement) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2567,6 +3263,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_LeafResponse() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_LeafResponse` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_LeafResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_LeafResponse) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2590,6 +3288,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_Surrogate() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_Surrogate` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_Surrogate(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_Surrogate) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2613,6 +3313,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_SurrogateInner() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_SurrogateInner` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_SurrogateInner(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_SurrogateInner) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.
@@ -2636,6 +3338,8 @@ unsafe extern "C" {
     ) -> i32;
     /// A decode context BOUND to this root (rule 6); unknown fields are compiled out.
     pub fn ak_dec_ctx_new_WireZoo() -> *mut ak_dec_ctx;
+    /// D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every string); every later `ak_parse_WireZoo` on it uses it. AK_ERR_INVALID_STATE for a context bound to another root.
+    pub fn ak_dec_set_pvt_WireZoo(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_WireZoo) -> i32;
     /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse
     /// call. The decoded values land in the context's record buffer and the
     /// host reads them with `ak_bdr_drain` or `ak_bdr_ptr`.

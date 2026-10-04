@@ -548,6 +548,7 @@ public unsafe struct ak_evt_ListResultsResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ListResultsResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListResultsResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_ResultRaw*, int, void> add_results;
 }
@@ -562,6 +563,7 @@ public unsafe struct ak_evt_ListTasksDetailedResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ListTasksDetailedResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListTasksDetailedResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_tasks;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskDetailed*, void> apply_tasks;
@@ -581,6 +583,7 @@ public unsafe struct ak_evt_ListProbeResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ListProbeResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListProbeResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_Probe*, int, void> add_probes;
 }
@@ -595,6 +598,7 @@ public unsafe struct ak_evt_ListTaskSummaryResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ListTaskSummaryResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListTaskSummaryResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_tasks;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskSummary*, void> apply_tasks;
@@ -610,6 +614,7 @@ public unsafe struct ak_evt_UploadResultDataMessage
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_UploadResultDataMessage
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_UploadResultDataMessage*, void> apply;
 }
 
@@ -623,6 +628,7 @@ public unsafe struct ak_evt_ListMetricsResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ListMetricsResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ListMetricsResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long> new_batches;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_MetricsBatch*, void> apply_batches;
@@ -643,6 +649,7 @@ public unsafe struct ak_evt_DualResponse
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_DualResponse
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_DualResponse*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_Pair*, int, void> add_left;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_Pair*, int, void> add_right;
@@ -657,6 +664,7 @@ public unsafe struct ak_evt_TaskOptionsOptionsEntry
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_TaskOptionsOptionsEntry
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_TaskOptionsOptionsEntry*, void> apply;
 }
 
@@ -669,6 +677,7 @@ public unsafe struct ak_evt_ResultRaw
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_ResultRaw
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_ResultRaw*, void> apply;
 }
 
@@ -685,6 +694,7 @@ public unsafe struct ak_evt_TaskDetailed
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_TaskDetailed
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_TaskDetailed*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_parent_task_ids;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_span*, int, void> add_data_dependencies;
@@ -702,6 +712,7 @@ public unsafe struct ak_evt_TaskSummary
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_TaskSummary
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_TaskSummary*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, ak_dfix_TaskOptionsOptionsEntry*, int, void> add_options_options;
 }
@@ -715,6 +726,7 @@ public unsafe struct ak_evt_Probe
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_Probe
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_Probe*, void> apply;
 }
 
@@ -731,6 +743,7 @@ public unsafe struct ak_evt_MetricsBatch
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_MetricsBatch
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_MetricsBatch*, void> apply;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, long*, int, void> add_ticks;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, long, double*, int, void> add_values;
@@ -748,7 +761,176 @@ public unsafe struct ak_evt_Pair
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct ak_dvt_Pair
 {
+    public ulong utf8_skip;
     public delegate* unmanaged[Cdecl]<IntPtr, void*, ak_dfix_Pair*, void> apply;
+}
+
+/// D20: the pull family's vtable for ListResultsResponse, COPIED into a root-bound
+/// context by ak_dec_set_pvt_ListResultsResponse; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_ListResultsResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for ListTasksDetailedResponse, COPIED into a root-
+/// bound context by ak_dec_set_pvt_ListTasksDetailedResponse; utf8_skip stays the first
+/// member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_ListTasksDetailedResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for ListProbeResponse, COPIED into a root-bound
+/// context by ak_dec_set_pvt_ListProbeResponse; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_ListProbeResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for ListTaskSummaryResponse, COPIED into a root-bound
+/// context by ak_dec_set_pvt_ListTaskSummaryResponse; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_ListTaskSummaryResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for UploadResultDataMessage, COPIED into a root-bound
+/// context by ak_dec_set_pvt_UploadResultDataMessage; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_UploadResultDataMessage
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for ListMetricsResponse, COPIED into a root-bound
+/// context by ak_dec_set_pvt_ListMetricsResponse; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_ListMetricsResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the pull family's vtable for DualResponse, COPIED into a root-bound context by
+/// ak_dec_set_pvt_DualResponse; utf8_skip stays the first member.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_pvt_DualResponse
+{
+    public ulong utf8_skip;
+}
+
+/// D20: the utf8_skip bits of every decode vtable's tree (plan.utf8_bits); 1 = the core
+/// skips that string's UTF-8 check. ak_pvt_<Root> uses its root's bits.
+public static class AkUtf8Skip
+{
+    public const ulong ListResultsResponse_results_session_id = 1ul << 0;
+    public const ulong ListResultsResponse_results_name = 1ul << 1;
+    public const ulong ListResultsResponse_results_owner_task_id = 1ul << 2;
+    public const ulong ListResultsResponse_results_result_id = 1ul << 3;
+    public const ulong ListResultsResponse_results_created_by = 1ul << 4;
+    public const ulong ListResultsResponse_ALL = 0x1ful;
+    public const ulong ListTasksDetailedResponse_tasks_id = 1ul << 0;
+    public const ulong ListTasksDetailedResponse_tasks_session_id = 1ul << 1;
+    public const ulong ListTasksDetailedResponse_tasks_owner_pod_id = 1ul << 2;
+    public const ulong ListTasksDetailedResponse_tasks_parent_task_ids = 1ul << 3;
+    public const ulong ListTasksDetailedResponse_tasks_data_dependencies = 1ul << 4;
+    public const ulong ListTasksDetailedResponse_tasks_expected_output_ids = 1ul << 5;
+    public const ulong ListTasksDetailedResponse_tasks_retry_of_ids = 1ul << 6;
+    public const ulong ListTasksDetailedResponse_tasks_status_message = 1ul << 7;
+    public const ulong ListTasksDetailedResponse_tasks_pod_hostname = 1ul << 8;
+    public const ulong ListTasksDetailedResponse_tasks_initial_task_id = 1ul << 9;
+    public const ulong ListTasksDetailedResponse_tasks_payload_id = 1ul << 10;
+    public const ulong ListTasksDetailedResponse_tasks_created_by = 1ul << 11;
+    public const ulong ListTasksDetailedResponse_tasks_options_partition_id = 1ul << 12;
+    public const ulong ListTasksDetailedResponse_tasks_options_application_name = 1ul << 13;
+    public const ulong ListTasksDetailedResponse_tasks_options_application_version = 1ul << 14;
+    public const ulong ListTasksDetailedResponse_tasks_options_application_namespace = 1ul << 15;
+    public const ulong ListTasksDetailedResponse_tasks_options_application_service = 1ul << 16;
+    public const ulong ListTasksDetailedResponse_tasks_options_engine_type = 1ul << 17;
+    public const ulong ListTasksDetailedResponse_tasks_options_options_key = 1ul << 18;
+    public const ulong ListTasksDetailedResponse_tasks_options_options_value = 1ul << 19;
+    public const ulong ListTasksDetailedResponse_tasks_output_error = 1ul << 20;
+    public const ulong ListTasksDetailedResponse_ALL = 0x1ffffful;
+    public const ulong ListProbeResponse_probes_id = 1ul << 0;
+    public const ulong ListProbeResponse_probes_opt_label = 1ul << 1;
+    public const ulong ListProbeResponse_probes_as_text = 1ul << 2;
+    public const ulong ListProbeResponse_ALL = 0x7ul;
+    public const ulong ListTaskSummaryResponse_tasks_id = 1ul << 0;
+    public const ulong ListTaskSummaryResponse_tasks_session_id = 1ul << 1;
+    public const ulong ListTaskSummaryResponse_tasks_error = 1ul << 2;
+    public const ulong ListTaskSummaryResponse_tasks_status_message = 1ul << 3;
+    public const ulong ListTaskSummaryResponse_tasks_options_partition_id = 1ul << 4;
+    public const ulong ListTaskSummaryResponse_tasks_options_application_name = 1ul << 5;
+    public const ulong ListTaskSummaryResponse_tasks_options_application_version = 1ul << 6;
+    public const ulong ListTaskSummaryResponse_tasks_options_application_namespace = 1ul << 7;
+    public const ulong ListTaskSummaryResponse_tasks_options_application_service = 1ul << 8;
+    public const ulong ListTaskSummaryResponse_tasks_options_engine_type = 1ul << 9;
+    public const ulong ListTaskSummaryResponse_tasks_options_options_key = 1ul << 10;
+    public const ulong ListTaskSummaryResponse_tasks_options_options_value = 1ul << 11;
+    public const ulong ListTaskSummaryResponse_ALL = 0xffful;
+    public const ulong UploadResultDataMessage_upload_session_id = 1ul << 0;
+    public const ulong UploadResultDataMessage_upload_result_id = 1ul << 1;
+    public const ulong UploadResultDataMessage_ALL = 0x3ul;
+    public const ulong ListMetricsResponse_batches_id = 1ul << 0;
+    public const ulong ListMetricsResponse_ALL = 0x1ul;
+    public const ulong DualResponse_left_key = 1ul << 0;
+    public const ulong DualResponse_right_key = 1ul << 1;
+    public const ulong DualResponse_ALL = 0x3ul;
+    public const ulong TaskOptionsOptionsEntry_key = 1ul << 0;
+    public const ulong TaskOptionsOptionsEntry_value = 1ul << 1;
+    public const ulong TaskOptionsOptionsEntry_ALL = 0x3ul;
+    public const ulong ResultRaw_session_id = 1ul << 0;
+    public const ulong ResultRaw_name = 1ul << 1;
+    public const ulong ResultRaw_owner_task_id = 1ul << 2;
+    public const ulong ResultRaw_result_id = 1ul << 3;
+    public const ulong ResultRaw_created_by = 1ul << 4;
+    public const ulong ResultRaw_ALL = 0x1ful;
+    public const ulong TaskDetailed_id = 1ul << 0;
+    public const ulong TaskDetailed_session_id = 1ul << 1;
+    public const ulong TaskDetailed_owner_pod_id = 1ul << 2;
+    public const ulong TaskDetailed_parent_task_ids = 1ul << 3;
+    public const ulong TaskDetailed_data_dependencies = 1ul << 4;
+    public const ulong TaskDetailed_expected_output_ids = 1ul << 5;
+    public const ulong TaskDetailed_retry_of_ids = 1ul << 6;
+    public const ulong TaskDetailed_status_message = 1ul << 7;
+    public const ulong TaskDetailed_pod_hostname = 1ul << 8;
+    public const ulong TaskDetailed_initial_task_id = 1ul << 9;
+    public const ulong TaskDetailed_payload_id = 1ul << 10;
+    public const ulong TaskDetailed_created_by = 1ul << 11;
+    public const ulong TaskDetailed_options_partition_id = 1ul << 12;
+    public const ulong TaskDetailed_options_application_name = 1ul << 13;
+    public const ulong TaskDetailed_options_application_version = 1ul << 14;
+    public const ulong TaskDetailed_options_application_namespace = 1ul << 15;
+    public const ulong TaskDetailed_options_application_service = 1ul << 16;
+    public const ulong TaskDetailed_options_engine_type = 1ul << 17;
+    public const ulong TaskDetailed_options_options_key = 1ul << 18;
+    public const ulong TaskDetailed_options_options_value = 1ul << 19;
+    public const ulong TaskDetailed_output_error = 1ul << 20;
+    public const ulong TaskDetailed_ALL = 0x1ffffful;
+    public const ulong TaskSummary_id = 1ul << 0;
+    public const ulong TaskSummary_session_id = 1ul << 1;
+    public const ulong TaskSummary_error = 1ul << 2;
+    public const ulong TaskSummary_status_message = 1ul << 3;
+    public const ulong TaskSummary_options_partition_id = 1ul << 4;
+    public const ulong TaskSummary_options_application_name = 1ul << 5;
+    public const ulong TaskSummary_options_application_version = 1ul << 6;
+    public const ulong TaskSummary_options_application_namespace = 1ul << 7;
+    public const ulong TaskSummary_options_application_service = 1ul << 8;
+    public const ulong TaskSummary_options_engine_type = 1ul << 9;
+    public const ulong TaskSummary_options_options_key = 1ul << 10;
+    public const ulong TaskSummary_options_options_value = 1ul << 11;
+    public const ulong TaskSummary_ALL = 0xffful;
+    public const ulong Probe_id = 1ul << 0;
+    public const ulong Probe_opt_label = 1ul << 1;
+    public const ulong Probe_as_text = 1ul << 2;
+    public const ulong Probe_ALL = 0x7ul;
+    public const ulong MetricsBatch_id = 1ul << 0;
+    public const ulong MetricsBatch_ALL = 0x1ul;
+    public const ulong Pair_key = 1ul << 0;
+    public const ulong Pair_ALL = 0x1ul;
 }
 
 /// ABI v1 section 6: plain exports, declared per symbol, so a missing one is a load
@@ -1798,6 +1980,97 @@ public static unsafe partial class Abi
     internal static extern IntPtr ak_dec_ctx_new_DualResponse();
 #endif
 #if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_ListResultsResponse__raw(IntPtr ctx, ak_pvt_ListResultsResponse* pvt);
+    internal static long N_ak_dec_set_pvt_ListResultsResponse;
+    internal static int ak_dec_set_pvt_ListResultsResponse(IntPtr ctx, ak_pvt_ListResultsResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_ListResultsResponse); return ak_dec_set_pvt_ListResultsResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_ListResultsResponse(IntPtr ctx, ak_pvt_ListResultsResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_ListResultsResponse(IntPtr ctx, ak_pvt_ListResultsResponse* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_ListTasksDetailedResponse__raw(IntPtr ctx, ak_pvt_ListTasksDetailedResponse* pvt);
+    internal static long N_ak_dec_set_pvt_ListTasksDetailedResponse;
+    internal static int ak_dec_set_pvt_ListTasksDetailedResponse(IntPtr ctx, ak_pvt_ListTasksDetailedResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_ListTasksDetailedResponse); return ak_dec_set_pvt_ListTasksDetailedResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_ListTasksDetailedResponse(IntPtr ctx, ak_pvt_ListTasksDetailedResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_ListTasksDetailedResponse(IntPtr ctx, ak_pvt_ListTasksDetailedResponse* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_ListProbeResponse__raw(IntPtr ctx, ak_pvt_ListProbeResponse* pvt);
+    internal static long N_ak_dec_set_pvt_ListProbeResponse;
+    internal static int ak_dec_set_pvt_ListProbeResponse(IntPtr ctx, ak_pvt_ListProbeResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_ListProbeResponse); return ak_dec_set_pvt_ListProbeResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_ListProbeResponse(IntPtr ctx, ak_pvt_ListProbeResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_ListProbeResponse(IntPtr ctx, ak_pvt_ListProbeResponse* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_ListTaskSummaryResponse__raw(IntPtr ctx, ak_pvt_ListTaskSummaryResponse* pvt);
+    internal static long N_ak_dec_set_pvt_ListTaskSummaryResponse;
+    internal static int ak_dec_set_pvt_ListTaskSummaryResponse(IntPtr ctx, ak_pvt_ListTaskSummaryResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_ListTaskSummaryResponse); return ak_dec_set_pvt_ListTaskSummaryResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_ListTaskSummaryResponse(IntPtr ctx, ak_pvt_ListTaskSummaryResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_ListTaskSummaryResponse(IntPtr ctx, ak_pvt_ListTaskSummaryResponse* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_UploadResultDataMessage__raw(IntPtr ctx, ak_pvt_UploadResultDataMessage* pvt);
+    internal static long N_ak_dec_set_pvt_UploadResultDataMessage;
+    internal static int ak_dec_set_pvt_UploadResultDataMessage(IntPtr ctx, ak_pvt_UploadResultDataMessage* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_UploadResultDataMessage); return ak_dec_set_pvt_UploadResultDataMessage__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_UploadResultDataMessage(IntPtr ctx, ak_pvt_UploadResultDataMessage* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_UploadResultDataMessage(IntPtr ctx, ak_pvt_UploadResultDataMessage* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_ListMetricsResponse__raw(IntPtr ctx, ak_pvt_ListMetricsResponse* pvt);
+    internal static long N_ak_dec_set_pvt_ListMetricsResponse;
+    internal static int ak_dec_set_pvt_ListMetricsResponse(IntPtr ctx, ak_pvt_ListMetricsResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_ListMetricsResponse); return ak_dec_set_pvt_ListMetricsResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_ListMetricsResponse(IntPtr ctx, ak_pvt_ListMetricsResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_ListMetricsResponse(IntPtr ctx, ak_pvt_ListMetricsResponse* pvt);
+#endif
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_dec_set_pvt_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_dec_set_pvt_DualResponse__raw(IntPtr ctx, ak_pvt_DualResponse* pvt);
+    internal static long N_ak_dec_set_pvt_DualResponse;
+    internal static int ak_dec_set_pvt_DualResponse(IntPtr ctx, ak_pvt_DualResponse* pvt) { System.Threading.Interlocked.Increment(ref N_ak_dec_set_pvt_DualResponse); return ak_dec_set_pvt_DualResponse__raw(ctx, pvt); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib)]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    internal static partial int ak_dec_set_pvt_DualResponse(IntPtr ctx, ak_pvt_DualResponse* pvt);
+#else
+    [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ak_dec_set_pvt_DualResponse(IntPtr ctx, ak_pvt_DualResponse* pvt);
+#endif
+#if AK_HOST_COUNT
     /// CAMPAIGN req 19: every entry point called since the last EntryReset, by name.
     public static System.Collections.Generic.List<(string Name, long Calls)> EntryCounts()
     {
@@ -1880,6 +2153,13 @@ public static unsafe partial class Abi
         if (N_ak_dec_ctx_new_UploadResultDataMessage != 0) l.Add(("ak_dec_ctx_new_UploadResultDataMessage", N_ak_dec_ctx_new_UploadResultDataMessage));
         if (N_ak_dec_ctx_new_ListMetricsResponse != 0) l.Add(("ak_dec_ctx_new_ListMetricsResponse", N_ak_dec_ctx_new_ListMetricsResponse));
         if (N_ak_dec_ctx_new_DualResponse != 0) l.Add(("ak_dec_ctx_new_DualResponse", N_ak_dec_ctx_new_DualResponse));
+        if (N_ak_dec_set_pvt_ListResultsResponse != 0) l.Add(("ak_dec_set_pvt_ListResultsResponse", N_ak_dec_set_pvt_ListResultsResponse));
+        if (N_ak_dec_set_pvt_ListTasksDetailedResponse != 0) l.Add(("ak_dec_set_pvt_ListTasksDetailedResponse", N_ak_dec_set_pvt_ListTasksDetailedResponse));
+        if (N_ak_dec_set_pvt_ListProbeResponse != 0) l.Add(("ak_dec_set_pvt_ListProbeResponse", N_ak_dec_set_pvt_ListProbeResponse));
+        if (N_ak_dec_set_pvt_ListTaskSummaryResponse != 0) l.Add(("ak_dec_set_pvt_ListTaskSummaryResponse", N_ak_dec_set_pvt_ListTaskSummaryResponse));
+        if (N_ak_dec_set_pvt_UploadResultDataMessage != 0) l.Add(("ak_dec_set_pvt_UploadResultDataMessage", N_ak_dec_set_pvt_UploadResultDataMessage));
+        if (N_ak_dec_set_pvt_ListMetricsResponse != 0) l.Add(("ak_dec_set_pvt_ListMetricsResponse", N_ak_dec_set_pvt_ListMetricsResponse));
+        if (N_ak_dec_set_pvt_DualResponse != 0) l.Add(("ak_dec_set_pvt_DualResponse", N_ak_dec_set_pvt_DualResponse));
         return l;
     }
     public static void EntryReset()
@@ -1962,6 +2242,13 @@ public static unsafe partial class Abi
         N_ak_dec_ctx_new_UploadResultDataMessage = 0;
         N_ak_dec_ctx_new_ListMetricsResponse = 0;
         N_ak_dec_ctx_new_DualResponse = 0;
+        N_ak_dec_set_pvt_ListResultsResponse = 0;
+        N_ak_dec_set_pvt_ListTasksDetailedResponse = 0;
+        N_ak_dec_set_pvt_ListProbeResponse = 0;
+        N_ak_dec_set_pvt_ListTaskSummaryResponse = 0;
+        N_ak_dec_set_pvt_UploadResultDataMessage = 0;
+        N_ak_dec_set_pvt_ListMetricsResponse = 0;
+        N_ak_dec_set_pvt_DualResponse = 0;
     }
 #endif
 }
@@ -2495,6 +2782,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ListResultsResponse", Size = sizeof(ak_dvt_ListResultsResponse), Fields = typeof(ak_dvt_ListResultsResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ListResultsResponse); ak_dvt_ListResultsResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_results", (int)((byte*)&z->add_results - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
@@ -2509,6 +2797,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ListTasksDetailedResponse", Size = sizeof(ak_dvt_ListTasksDetailedResponse), Fields = typeof(ak_dvt_ListTasksDetailedResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ListTasksDetailedResponse); ak_dvt_ListTasksDetailedResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("new_tasks", (int)((byte*)&z->new_tasks - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("apply_tasks", (int)((byte*)&z->apply_tasks - (byte*)z), sizeof(IntPtr)));
@@ -2528,6 +2817,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ListProbeResponse", Size = sizeof(ak_dvt_ListProbeResponse), Fields = typeof(ak_dvt_ListProbeResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ListProbeResponse); ak_dvt_ListProbeResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_probes", (int)((byte*)&z->add_probes - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
@@ -2542,6 +2832,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ListTaskSummaryResponse", Size = sizeof(ak_dvt_ListTaskSummaryResponse), Fields = typeof(ak_dvt_ListTaskSummaryResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ListTaskSummaryResponse); ak_dvt_ListTaskSummaryResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("new_tasks", (int)((byte*)&z->new_tasks - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("apply_tasks", (int)((byte*)&z->apply_tasks - (byte*)z), sizeof(IntPtr)));
@@ -2557,6 +2848,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_UploadResultDataMessage", Size = sizeof(ak_dvt_UploadResultDataMessage), Fields = typeof(ak_dvt_UploadResultDataMessage).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_UploadResultDataMessage); ak_dvt_UploadResultDataMessage* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }
@@ -2570,6 +2862,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ListMetricsResponse", Size = sizeof(ak_dvt_ListMetricsResponse), Fields = typeof(ak_dvt_ListMetricsResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ListMetricsResponse); ak_dvt_ListMetricsResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("new_batches", (int)((byte*)&z->new_batches - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("apply_batches", (int)((byte*)&z->apply_batches - (byte*)z), sizeof(IntPtr)));
@@ -2590,6 +2883,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_DualResponse", Size = sizeof(ak_dvt_DualResponse), Fields = typeof(ak_dvt_DualResponse).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_DualResponse); ak_dvt_DualResponse* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_left", (int)((byte*)&z->add_left - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_right", (int)((byte*)&z->add_right - (byte*)z), sizeof(IntPtr)));
@@ -2604,6 +2898,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_TaskOptionsOptionsEntry", Size = sizeof(ak_dvt_TaskOptionsOptionsEntry), Fields = typeof(ak_dvt_TaskOptionsOptionsEntry).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_TaskOptionsOptionsEntry); ak_dvt_TaskOptionsOptionsEntry* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }
@@ -2616,6 +2911,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_ResultRaw", Size = sizeof(ak_dvt_ResultRaw), Fields = typeof(ak_dvt_ResultRaw).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_ResultRaw); ak_dvt_ResultRaw* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }
@@ -2632,6 +2928,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_TaskDetailed", Size = sizeof(ak_dvt_TaskDetailed), Fields = typeof(ak_dvt_TaskDetailed).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_TaskDetailed); ak_dvt_TaskDetailed* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_parent_task_ids", (int)((byte*)&z->add_parent_task_ids - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_data_dependencies", (int)((byte*)&z->add_data_dependencies - (byte*)z), sizeof(IntPtr)));
@@ -2649,6 +2946,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_TaskSummary", Size = sizeof(ak_dvt_TaskSummary), Fields = typeof(ak_dvt_TaskSummary).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_TaskSummary); ak_dvt_TaskSummary* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_options_options", (int)((byte*)&z->add_options_options - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
@@ -2662,6 +2960,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_Probe", Size = sizeof(ak_dvt_Probe), Fields = typeof(ak_dvt_Probe).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_Probe); ak_dvt_Probe* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }
@@ -2678,6 +2977,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_MetricsBatch", Size = sizeof(ak_dvt_MetricsBatch), Fields = typeof(ak_dvt_MetricsBatch).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_MetricsBatch); ak_dvt_MetricsBatch* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_ticks", (int)((byte*)&z->add_ticks - (byte*)z), sizeof(IntPtr)));
             s.F.Add(("add_values", (int)((byte*)&z->add_values - (byte*)z), sizeof(IntPtr)));
@@ -2695,6 +2995,7 @@ public static unsafe class AbiLayout
         {
             var s = new S { Name = "ak_dvt_Pair", Size = sizeof(ak_dvt_Pair), Fields = typeof(ak_dvt_Pair).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
             var v = default(ak_dvt_Pair); ak_dvt_Pair* z = &v;
+            s.F.Add(("utf8_skip", (int)((byte*)&z->utf8_skip - (byte*)z), Fsz(&z->utf8_skip)));
             s.F.Add(("apply", (int)((byte*)&z->apply - (byte*)z), sizeof(IntPtr)));
             all.Add(s);
         }

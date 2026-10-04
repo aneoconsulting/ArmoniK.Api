@@ -992,7 +992,8 @@ def emit_root_decode(p, root, b):
           "  if (h->failed) return;",
           "  if (setgroup_%s_%s(h, h->root, fx)) %s" % (b, root, FAILD),
           "}"]
-    vt = [".apply = apply_%s_%s" % (b, R)]
+    # D20: every utf8_skip bit 0, so the core validates every string field.
+    vt = [".utf8_skip = 0", ".apply = apply_%s_%s" % (b, R)]
     for path, f in loop_slots(p, root):
         sn = slot_name(path)
         et = elem_type(f)
@@ -1655,7 +1656,7 @@ def emit_unk_tables(p):
     L.append("  switch (b) {")
     for i, r in enumerate(p.roots):
         L.append("  case %d: {" % i)
-        L.append("    static const struct ak_dvt_%s VT = {.apply = trap_apply_%s};" % (r, r))
+        L.append("    static const struct ak_dvt_%s VT = {.utf8_skip = 0, .apply = trap_apply_%s};" % (r, r))
         if not NOUNK[0]:
             L.append("    *reset_rc = ak_dec_reset_%s(ctx, NULL);" % r)
         L.append("    *decode_rc = ak_decode_%s(ctx, NULL, empty, 0, &VT);" % r)

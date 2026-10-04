@@ -7315,7 +7315,7 @@ static PyObject *decode_attr_ListResultsResponse(PyObject *buf, PyObject *acc, H
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {.apply = apply_attr_RListResultsResponse, .add_results = add_attr_RListResultsResponse_results};
+  static const struct ak_dvt_ListResultsResponse VT = {.utf8_skip = 0, .apply = apply_attr_RListResultsResponse, .add_results = add_attr_RListResultsResponse_results};
   struct ak_dec_ListResultsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -7511,7 +7511,7 @@ static PyObject *decode_attr_ListTasksDetailedResponse(PyObject *buf, PyObject *
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTasksDetailedResponse VT = {.apply = apply_attr_RListTasksDetailedResponse, .new_tasks = new_attr_RListTasksDetailedResponse_tasks, .apply_tasks = apply_attr_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_attr_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_attr_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_attr_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_attr_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_attr_RListTasksDetailedResponse_tasks_options_options};
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {.utf8_skip = 0, .apply = apply_attr_RListTasksDetailedResponse, .new_tasks = new_attr_RListTasksDetailedResponse_tasks, .apply_tasks = apply_attr_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_attr_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_attr_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_attr_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_attr_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_attr_RListTasksDetailedResponse_tasks_options_options};
   struct ak_dec_ListTasksDetailedResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -7598,7 +7598,7 @@ static PyObject *decode_attr_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListProbeResponse VT = {.apply = apply_attr_RListProbeResponse, .add_probes = add_attr_RListProbeResponse_probes};
+  static const struct ak_dvt_ListProbeResponse VT = {.utf8_skip = 0, .apply = apply_attr_RListProbeResponse, .add_probes = add_attr_RListProbeResponse_probes};
   struct ak_dec_ListProbeResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -7709,7 +7709,7 @@ static PyObject *decode_attr_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTaskSummaryResponse VT = {.apply = apply_attr_RListTaskSummaryResponse, .new_tasks = new_attr_RListTaskSummaryResponse_tasks, .apply_tasks = apply_attr_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_attr_RListTaskSummaryResponse_tasks_options_options};
+  static const struct ak_dvt_ListTaskSummaryResponse VT = {.utf8_skip = 0, .apply = apply_attr_RListTaskSummaryResponse, .new_tasks = new_attr_RListTaskSummaryResponse_tasks, .apply_tasks = apply_attr_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_attr_RListTaskSummaryResponse_tasks_options_options};
   struct ak_dec_ListTaskSummaryResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -7757,7 +7757,7 @@ static PyObject *decode_attr_UploadResultDataMessage(PyObject *buf, PyObject *ac
   memset(&h, 0, sizeof h);
   h.root = rootobj; h.base = (const uint8_t *)pp; h.acc = acc;
   memcpy(&h.ty_Timestamp, T, sizeof *T);
-  static const struct ak_dvt_UploadResultDataMessage VT = {.apply = apply_attr_RUploadResultDataMessage};
+  static const struct ak_dvt_UploadResultDataMessage VT = {.utf8_skip = 0, .apply = apply_attr_RUploadResultDataMessage};
   struct ak_dec_UploadResultDataMessage_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -7934,7 +7934,7 @@ static PyObject *decode_attr_ListMetricsResponse(PyObject *buf, PyObject *acc, H
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListMetricsResponse VT = {.apply = apply_attr_RListMetricsResponse, .new_batches = new_attr_RListMetricsResponse_batches, .apply_batches = apply_attr_RListMetricsResponse_batches, .add_batches_ticks = add_attr_RListMetricsResponse_batches_ticks, .add_batches_values = add_attr_RListMetricsResponse_batches_values, .add_batches_codes = add_attr_RListMetricsResponse_batches_codes, .add_batches_flags = add_attr_RListMetricsResponse_batches_flags, .add_batches_statuses = add_attr_RListMetricsResponse_batches_statuses};
+  static const struct ak_dvt_ListMetricsResponse VT = {.utf8_skip = 0, .apply = apply_attr_RListMetricsResponse, .new_batches = new_attr_RListMetricsResponse_batches, .apply_batches = apply_attr_RListMetricsResponse_batches, .add_batches_ticks = add_attr_RListMetricsResponse_batches_ticks, .add_batches_values = add_attr_RListMetricsResponse_batches_values, .add_batches_codes = add_attr_RListMetricsResponse_batches_codes, .add_batches_flags = add_attr_RListMetricsResponse_batches_flags, .add_batches_statuses = add_attr_RListMetricsResponse_batches_statuses};
   struct ak_dec_ListMetricsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -8032,7 +8032,7 @@ static PyObject *decode_attr_DualResponse(PyObject *buf, PyObject *acc, HostType
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
   h.lists[1] = PyList_New(0);
   if (!h.lists[1]) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_DualResponse VT = {.apply = apply_attr_RDualResponse, .add_left = add_attr_RDualResponse_left, .add_right = add_attr_RDualResponse_right};
+  static const struct ak_dvt_DualResponse VT = {.utf8_skip = 0, .apply = apply_attr_RDualResponse, .add_left = add_attr_RDualResponse_left, .add_right = add_attr_RDualResponse_right};
   struct ak_dec_DualResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -11712,7 +11712,7 @@ static PyObject *decode_cext_ListResultsResponse(PyObject *buf, PyObject *acc, H
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {.apply = apply_cext_RListResultsResponse, .add_results = add_cext_RListResultsResponse_results};
+  static const struct ak_dvt_ListResultsResponse VT = {.utf8_skip = 0, .apply = apply_cext_RListResultsResponse, .add_results = add_cext_RListResultsResponse_results};
   struct ak_dec_ListResultsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -11891,7 +11891,7 @@ static PyObject *decode_cext_ListTasksDetailedResponse(PyObject *buf, PyObject *
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTasksDetailedResponse VT = {.apply = apply_cext_RListTasksDetailedResponse, .new_tasks = new_cext_RListTasksDetailedResponse_tasks, .apply_tasks = apply_cext_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_cext_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_cext_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_cext_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_cext_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_cext_RListTasksDetailedResponse_tasks_options_options};
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {.utf8_skip = 0, .apply = apply_cext_RListTasksDetailedResponse, .new_tasks = new_cext_RListTasksDetailedResponse_tasks, .apply_tasks = apply_cext_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_cext_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_cext_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_cext_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_cext_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_cext_RListTasksDetailedResponse_tasks_options_options};
   struct ak_dec_ListTasksDetailedResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -11975,7 +11975,7 @@ static PyObject *decode_cext_ListProbeResponse(PyObject *buf, PyObject *acc, Hos
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListProbeResponse VT = {.apply = apply_cext_RListProbeResponse, .add_probes = add_cext_RListProbeResponse_probes};
+  static const struct ak_dvt_ListProbeResponse VT = {.utf8_skip = 0, .apply = apply_cext_RListProbeResponse, .add_probes = add_cext_RListProbeResponse_probes};
   struct ak_dec_ListProbeResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -12077,7 +12077,7 @@ static PyObject *decode_cext_ListTaskSummaryResponse(PyObject *buf, PyObject *ac
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTaskSummaryResponse VT = {.apply = apply_cext_RListTaskSummaryResponse, .new_tasks = new_cext_RListTaskSummaryResponse_tasks, .apply_tasks = apply_cext_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_cext_RListTaskSummaryResponse_tasks_options_options};
+  static const struct ak_dvt_ListTaskSummaryResponse VT = {.utf8_skip = 0, .apply = apply_cext_RListTaskSummaryResponse, .new_tasks = new_cext_RListTaskSummaryResponse_tasks, .apply_tasks = apply_cext_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_cext_RListTaskSummaryResponse_tasks_options_options};
   struct ak_dec_ListTaskSummaryResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -12125,7 +12125,7 @@ static PyObject *decode_cext_UploadResultDataMessage(PyObject *buf, PyObject *ac
   memset(&h, 0, sizeof h);
   h.root = rootobj; h.base = (const uint8_t *)pp; h.acc = acc;
   memcpy(&h.ty_Timestamp, T, sizeof *T);
-  static const struct ak_dvt_UploadResultDataMessage VT = {.apply = apply_cext_RUploadResultDataMessage};
+  static const struct ak_dvt_UploadResultDataMessage VT = {.utf8_skip = 0, .apply = apply_cext_RUploadResultDataMessage};
   struct ak_dec_UploadResultDataMessage_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -12289,7 +12289,7 @@ static PyObject *decode_cext_ListMetricsResponse(PyObject *buf, PyObject *acc, H
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListMetricsResponse VT = {.apply = apply_cext_RListMetricsResponse, .new_batches = new_cext_RListMetricsResponse_batches, .apply_batches = apply_cext_RListMetricsResponse_batches, .add_batches_ticks = add_cext_RListMetricsResponse_batches_ticks, .add_batches_values = add_cext_RListMetricsResponse_batches_values, .add_batches_codes = add_cext_RListMetricsResponse_batches_codes, .add_batches_flags = add_cext_RListMetricsResponse_batches_flags, .add_batches_statuses = add_cext_RListMetricsResponse_batches_statuses};
+  static const struct ak_dvt_ListMetricsResponse VT = {.utf8_skip = 0, .apply = apply_cext_RListMetricsResponse, .new_batches = new_cext_RListMetricsResponse_batches, .apply_batches = apply_cext_RListMetricsResponse_batches, .add_batches_ticks = add_cext_RListMetricsResponse_batches_ticks, .add_batches_values = add_cext_RListMetricsResponse_batches_values, .add_batches_codes = add_cext_RListMetricsResponse_batches_codes, .add_batches_flags = add_cext_RListMetricsResponse_batches_flags, .add_batches_statuses = add_cext_RListMetricsResponse_batches_statuses};
   struct ak_dec_ListMetricsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -12381,7 +12381,7 @@ static PyObject *decode_cext_DualResponse(PyObject *buf, PyObject *acc, HostType
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
   h.lists[1] = PyList_New(0);
   if (!h.lists[1]) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_DualResponse VT = {.apply = apply_cext_RDualResponse, .add_left = add_cext_RDualResponse_left, .add_right = add_cext_RDualResponse_right};
+  static const struct ak_dvt_DualResponse VT = {.utf8_skip = 0, .apply = apply_cext_RDualResponse, .add_left = add_cext_RDualResponse_left, .add_right = add_cext_RDualResponse_right};
   struct ak_dec_DualResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -17612,7 +17612,7 @@ static PyObject *decode_pyacc_ListResultsResponse(PyObject *buf, PyObject *acc, 
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListResultsResponse VT = {.apply = apply_pyacc_RListResultsResponse, .add_results = add_pyacc_RListResultsResponse_results};
+  static const struct ak_dvt_ListResultsResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RListResultsResponse, .add_results = add_pyacc_RListResultsResponse_results};
   struct ak_dec_ListResultsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -17824,7 +17824,7 @@ static PyObject *decode_pyacc_ListTasksDetailedResponse(PyObject *buf, PyObject 
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTasksDetailedResponse VT = {.apply = apply_pyacc_RListTasksDetailedResponse, .new_tasks = new_pyacc_RListTasksDetailedResponse_tasks, .apply_tasks = apply_pyacc_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_pyacc_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_pyacc_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_pyacc_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_pyacc_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_pyacc_RListTasksDetailedResponse_tasks_options_options};
+  static const struct ak_dvt_ListTasksDetailedResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RListTasksDetailedResponse, .new_tasks = new_pyacc_RListTasksDetailedResponse_tasks, .apply_tasks = apply_pyacc_RListTasksDetailedResponse_tasks, .add_tasks_parent_task_ids = add_pyacc_RListTasksDetailedResponse_tasks_parent_task_ids, .add_tasks_data_dependencies = add_pyacc_RListTasksDetailedResponse_tasks_data_dependencies, .add_tasks_expected_output_ids = add_pyacc_RListTasksDetailedResponse_tasks_expected_output_ids, .add_tasks_retry_of_ids = add_pyacc_RListTasksDetailedResponse_tasks_retry_of_ids, .add_tasks_options_options = add_pyacc_RListTasksDetailedResponse_tasks_options_options};
   struct ak_dec_ListTasksDetailedResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -17913,7 +17913,7 @@ static PyObject *decode_pyacc_ListProbeResponse(PyObject *buf, PyObject *acc, Ho
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListProbeResponse VT = {.apply = apply_pyacc_RListProbeResponse, .add_probes = add_pyacc_RListProbeResponse_probes};
+  static const struct ak_dvt_ListProbeResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RListProbeResponse, .add_probes = add_pyacc_RListProbeResponse_probes};
   struct ak_dec_ListProbeResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -18032,7 +18032,7 @@ static PyObject *decode_pyacc_ListTaskSummaryResponse(PyObject *buf, PyObject *a
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListTaskSummaryResponse VT = {.apply = apply_pyacc_RListTaskSummaryResponse, .new_tasks = new_pyacc_RListTaskSummaryResponse_tasks, .apply_tasks = apply_pyacc_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_pyacc_RListTaskSummaryResponse_tasks_options_options};
+  static const struct ak_dvt_ListTaskSummaryResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RListTaskSummaryResponse, .new_tasks = new_pyacc_RListTaskSummaryResponse_tasks, .apply_tasks = apply_pyacc_RListTaskSummaryResponse_tasks, .add_tasks_options_options = add_pyacc_RListTaskSummaryResponse_tasks_options_options};
   struct ak_dec_ListTaskSummaryResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -18080,7 +18080,7 @@ static PyObject *decode_pyacc_UploadResultDataMessage(PyObject *buf, PyObject *a
   memset(&h, 0, sizeof h);
   h.root = rootobj; h.base = (const uint8_t *)pp; h.acc = acc;
   memcpy(&h.ty_Timestamp, T, sizeof *T);
-  static const struct ak_dvt_UploadResultDataMessage VT = {.apply = apply_pyacc_RUploadResultDataMessage};
+  static const struct ak_dvt_UploadResultDataMessage VT = {.utf8_skip = 0, .apply = apply_pyacc_RUploadResultDataMessage};
   struct ak_dec_UploadResultDataMessage_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -18269,7 +18269,7 @@ static PyObject *decode_pyacc_ListMetricsResponse(PyObject *buf, PyObject *acc, 
   memcpy(&h.ty_Timestamp, T, sizeof *T);
   h.lists[0] = PyList_New(0);
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_ListMetricsResponse VT = {.apply = apply_pyacc_RListMetricsResponse, .new_batches = new_pyacc_RListMetricsResponse_batches, .apply_batches = apply_pyacc_RListMetricsResponse_batches, .add_batches_ticks = add_pyacc_RListMetricsResponse_batches_ticks, .add_batches_values = add_pyacc_RListMetricsResponse_batches_values, .add_batches_codes = add_pyacc_RListMetricsResponse_batches_codes, .add_batches_flags = add_pyacc_RListMetricsResponse_batches_flags, .add_batches_statuses = add_pyacc_RListMetricsResponse_batches_statuses};
+  static const struct ak_dvt_ListMetricsResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RListMetricsResponse, .new_batches = new_pyacc_RListMetricsResponse_batches, .apply_batches = apply_pyacc_RListMetricsResponse_batches, .add_batches_ticks = add_pyacc_RListMetricsResponse_batches_ticks, .add_batches_values = add_pyacc_RListMetricsResponse_batches_values, .add_batches_codes = add_pyacc_RListMetricsResponse_batches_codes, .add_batches_flags = add_pyacc_RListMetricsResponse_batches_flags, .add_batches_statuses = add_pyacc_RListMetricsResponse_batches_statuses};
   struct ak_dec_ListMetricsResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -18371,7 +18371,7 @@ static PyObject *decode_pyacc_DualResponse(PyObject *buf, PyObject *acc, HostTyp
   if (!h.lists[0]) {  Py_DECREF(rootobj); return NULL; }
   h.lists[1] = PyList_New(0);
   if (!h.lists[1]) { Py_DECREF(h.lists[0]); Py_DECREF(rootobj); return NULL; }
-  static const struct ak_dvt_DualResponse VT = {.apply = apply_pyacc_RDualResponse, .add_left = add_pyacc_RDualResponse_left, .add_right = add_pyacc_RDualResponse_right};
+  static const struct ak_dvt_DualResponse VT = {.utf8_skip = 0, .apply = apply_pyacc_RDualResponse, .add_left = add_pyacc_RDualResponse_left, .add_right = add_pyacc_RDualResponse_right};
   struct ak_dec_DualResponse_opts o;
   memset(&o, 0, sizeof o);
   o.host = &h;
@@ -18498,37 +18498,37 @@ static void ak_py_wrong_root(int a, int b, int32_t *reset_rc, int32_t *decode_rc
   static const uint8_t empty[1] = {0};
   switch (b) {
   case 0: {
-    static const struct ak_dvt_ListResultsResponse VT = {.apply = trap_apply_ListResultsResponse};
+    static const struct ak_dvt_ListResultsResponse VT = {.utf8_skip = 0, .apply = trap_apply_ListResultsResponse};
     *reset_rc = ak_dec_reset_ListResultsResponse(ctx, NULL);
     *decode_rc = ak_decode_ListResultsResponse(ctx, NULL, empty, 0, &VT);
     break; }
   case 1: {
-    static const struct ak_dvt_ListTasksDetailedResponse VT = {.apply = trap_apply_ListTasksDetailedResponse};
+    static const struct ak_dvt_ListTasksDetailedResponse VT = {.utf8_skip = 0, .apply = trap_apply_ListTasksDetailedResponse};
     *reset_rc = ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
     *decode_rc = ak_decode_ListTasksDetailedResponse(ctx, NULL, empty, 0, &VT);
     break; }
   case 2: {
-    static const struct ak_dvt_ListProbeResponse VT = {.apply = trap_apply_ListProbeResponse};
+    static const struct ak_dvt_ListProbeResponse VT = {.utf8_skip = 0, .apply = trap_apply_ListProbeResponse};
     *reset_rc = ak_dec_reset_ListProbeResponse(ctx, NULL);
     *decode_rc = ak_decode_ListProbeResponse(ctx, NULL, empty, 0, &VT);
     break; }
   case 3: {
-    static const struct ak_dvt_ListTaskSummaryResponse VT = {.apply = trap_apply_ListTaskSummaryResponse};
+    static const struct ak_dvt_ListTaskSummaryResponse VT = {.utf8_skip = 0, .apply = trap_apply_ListTaskSummaryResponse};
     *reset_rc = ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
     *decode_rc = ak_decode_ListTaskSummaryResponse(ctx, NULL, empty, 0, &VT);
     break; }
   case 4: {
-    static const struct ak_dvt_UploadResultDataMessage VT = {.apply = trap_apply_UploadResultDataMessage};
+    static const struct ak_dvt_UploadResultDataMessage VT = {.utf8_skip = 0, .apply = trap_apply_UploadResultDataMessage};
     *reset_rc = ak_dec_reset_UploadResultDataMessage(ctx, NULL);
     *decode_rc = ak_decode_UploadResultDataMessage(ctx, NULL, empty, 0, &VT);
     break; }
   case 5: {
-    static const struct ak_dvt_ListMetricsResponse VT = {.apply = trap_apply_ListMetricsResponse};
+    static const struct ak_dvt_ListMetricsResponse VT = {.utf8_skip = 0, .apply = trap_apply_ListMetricsResponse};
     *reset_rc = ak_dec_reset_ListMetricsResponse(ctx, NULL);
     *decode_rc = ak_decode_ListMetricsResponse(ctx, NULL, empty, 0, &VT);
     break; }
   case 6: {
-    static const struct ak_dvt_DualResponse VT = {.apply = trap_apply_DualResponse};
+    static const struct ak_dvt_DualResponse VT = {.utf8_skip = 0, .apply = trap_apply_DualResponse};
     *reset_rc = ak_dec_reset_DualResponse(ctx, NULL);
     *decode_rc = ak_decode_DualResponse(ctx, NULL, empty, 0, &VT);
     break; }

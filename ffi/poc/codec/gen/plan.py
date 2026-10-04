@@ -162,6 +162,9 @@ DECODE RULES (stated once, applied by every backend)
       recursion limit is the same number);
     * `string` fields are validated as UTF-8 under utf8="reject" (the default, proto3's
       rule) -> ERR_TRANSCODE; "lossy" substitutes U+FFFD and is the one alternative;
+    * EXCEPT a string field whose bit the host set in the decode's `utf8_skip` mask (FIX-PLAN
+      D20, see UTF-8 SKIP BITS below): not validated, its bytes delivered as they are. All
+      zero (the default) = every string validated, as before. `bytes` fields have no bit;
     * the first error stops the decode; NOTHING is delivered after it (no flush, no apply,
       no record), and the host's output object is UNSPECIFIED and discarded (R-G6);
     * a host that reports failure (`ak_fail`, or a negative token) stops the decode at the
@@ -243,6 +246,34 @@ UNKNOWN FIELDS ON DECODE, THROUGH THE C ABI (ABI v1 decision 11: mechanism speci
       one `grow` (counted as a reverse crossing and a grow);
     * recursive messages stay refused from the C ABI (owner, 2026-09-24), so the positions
       of an expressible root are finite.
+
+UTF-8 SKIP BITS ON DECODE (FIX-PLAN D20, owner 2026-10-04)
+-------------------------
+    The host may tell the core NOT to validate a string field; it then validates it itself.
+    * ONE `u64` mask, `utf8_skip`, bit = 1: skip that field's check; 0: validate (reject
+      malformed UTF-8 with ERR_TRANSCODE, as before). All zero keeps today's behaviour.
+    * PUSH: the FIRST member of every `ak_dvt_M` (`dec_vtable` row kind `utf8_skip`), read
+      at every `ak_decode_<Root>` from the vtable the call is given.
+    * PULL: a per-root vtable `ak_pvt_<Root>` (`pull_vtable`), `utf8_skip` its FIRST member,
+      handed to a root-bound context by the additive setter `ak_dec_set_pvt_<Root>(ctx,
+      pvt)` (`pvt_entry_points`), which COPIES it into the context (NULL = all zero); every
+      later `ak_parse_<Root>` on that context uses it. A context starts all zero; neither
+      `ak_dec_reset_<Root>` nor a parse changes it. AK_ERR_INVALID_STATE for a context bound
+      to another root. The push family ignores it (push reads its call's vtable).
+    * NUMBERING (`utf8_bits(p, M)`): the decode TREE of M, preorder: first M's own `string`
+      fields in field-number order (singular, repeated and oneof members alike; a repeated
+      field is ONE bit for all its elements), then, for each message-typed field of M in
+      field-number order (a singular child, a repeated message, a map's entry message, a
+      oneof message member), the child's whole numbering. So bits 0..k-1 of M's mask are
+      M's own k string fields, and a child's bits are a contiguous run (`utf8_child_offset`)
+      in its parent's: an element or entry type's numbering is the same wherever it is
+      reached. A message reached at two positions has a bit per position. Refused above
+      UTF8_MASK_BITS (64): the shapes' widest tree has 21 and the corpus's 21 (both
+      ListTasksDetailedResponse / TaskDetailed); the proposed representation past 64 is
+      `uint64_t utf8_skip[ceil(n/64)]`, still the first member, bit i in word i/64.
+    * names (`utf8_bit_names`): the field path joined by `_` (a collision is refused).
+    * the mask selects ONLY whether the check runs: dispatch, spans, lengths, every other
+      rule and every crossing are the same whatever it holds.
 
 THE NO-UNKNOWN VARIANT (Options(unknown="drop") for the C ABI; WP5 step 10)
 ----------------------
@@ -1364,8 +1395,10 @@ def dec_vtable(p, name):
     row is (kind, slot name, x): x is the element type (add, new, applyelem), the inner
     FieldPlan (addinner) or None. A non-leaf element inside a non-leaf element is refused.
     WP5 step 7: the `unknown` and `unk_<slot>` callbacks are gone; unknown fields travel as
-    data in the groups (decision 11, see UNKNOWN FIELDS ON DECODE)."""
-    rows = [("apply", "", None)]
+    data in the groups (decision 11, see UNKNOWN FIELDS ON DECODE).
+    D20: the FIRST row is DATA, not a callback: ("utf8_skip", "utf8_skip", width), the
+    `u64` mask of UTF-8 SKIP BITS ON DECODE, numbered by `utf8_bits(p, name)`."""
+    rows = [(UTF8_MEMBER, UTF8_MEMBER, utf8_width(p, name)), ("apply", "", None)]
     for path, f in loop_slots(p, name):
         sn = slot_name(path)
         et = elem_type(f)
@@ -1395,10 +1428,13 @@ def enc_slots(p):
 
 
 def dec_slots(p):
-    """Every decode callback of a ROOT's vtable, as (root, kind, slot name, x)."""
+    """Every decode callback of a ROOT's vtable, as (root, kind, slot name, x). The D20
+    mask row is data, not a callback, and is not listed."""
     out = []
     for name in p.roots:
         for kind, sn, x in dec_vtable(p, name):
+            if kind == UTF8_MEMBER:
+                continue
             out.append((name, kind, sn, x))
     return out
 
@@ -1426,6 +1462,122 @@ def pull_records(p, root):
             for k, (ipath, _iff) in enumerate(loop_slots(p, et)):
                 out.append((BDR["AK_BDR_ADD"], pull_slot(j, k), "addinner", "%s_%s" % (sn, slot_name(ipath))))
     return out
+
+
+# =================================================================== UTF-8 skip bits (D20)
+#
+# FIX-PLAN D20 (owner, 2026-10-04); the contract is the module docstring's UTF-8 SKIP BITS
+# ON DECODE. Stated once here: the numbering, the member, the pull vtable and its setter.
+
+UTF8_MASK_BITS = 64
+UTF8_MEMBER = "utf8_skip"
+
+
+def _utf8_child(f):
+    """The message type a field opens in the decode tree, or None."""
+    if f.card == "map":
+        return f.entry
+    if f.kind == "message":
+        return f.of
+    return None
+
+
+def utf8_bits(p, name, _trail=None):
+    """[(path tuple, FieldPlan)] of message `name`'s `utf8_skip` bits: entry i is bit i.
+    `name`'s own `string` fields in field-number order, then each message-typed field's
+    child numbering, whole, in field-number order (preorder). Refused above UTF8_MASK_BITS
+    and for a recursive message (it has no finite tree)."""
+    memo = p.__dict__.setdefault("_utf8_memo", {})
+    if _trail is None and name in memo:
+        return memo[name]
+    trail = (_trail or frozenset()) | {name}
+    m = p.msg(name)
+    out = [((f.name,), f) for f in m.fields if f.kind == "string"]
+    for f in m.fields:
+        c = _utf8_child(f)
+        if c is None:
+            continue
+        if c in trail:
+            raise NotExpressible("REFUSED: %s reaches %s again (%s.%s): a recursive message has "
+                                 "no finite set of utf8_skip bits" % (name, c, name, f.name))
+        out.extend(((f.name,) + path, g) for path, g in utf8_bits(p, c, trail))
+    if _trail is None:
+        if len(out) > UTF8_MASK_BITS:
+            raise NotImplementedError(
+                "REFUSED: %s has %d string fields in its decode tree; utf8_skip is one u64 (%d "
+                "bits). Proposed representation: uint64_t utf8_skip[%d], still the first member, "
+                "bit i in word i/64" % (name, len(out), UTF8_MASK_BITS, (len(out) + 63) // 64))
+        memo[name] = out
+    return out
+
+
+def utf8_width(p, name):
+    """How many `utf8_skip` bits message `name`'s tree has."""
+    return len(utf8_bits(p, name))
+
+
+def utf8_bit(p, name, f):
+    """The bit of `name`'s own string field `f` (its rank among the string fields, in
+    field-number order)."""
+    own = [g for g in p.msg(name).fields if g.kind == "string"]
+    for i, g in enumerate(own):
+        if g is f or (g.tag == f.tag and g.name == f.name):
+            return i
+    raise KeyError("%s.%s is not a string field" % (name, f.name))
+
+
+def utf8_child_offset(p, name, f):
+    """Where the numbering of the child that message-typed field `f` opens starts, within
+    `name`'s numbering. The child's bits are [offset, offset + utf8_width(child))."""
+    m = p.msg(name)
+    off = sum(1 for g in m.fields if g.kind == "string")
+    for g in m.fields:
+        c = _utf8_child(g)
+        if c is None:
+            continue
+        if g is f or (g.tag == f.tag and g.name == f.name):
+            return off
+        off += utf8_width(p, c)
+    raise KeyError("%s.%s does not open a message" % (name, f.name))
+
+
+def utf8_bit_names(p, name):
+    """[(member name, bit)]: each bit named by its field path joined by `_`; refused on a
+    collision rather than renamed."""
+    out, seen = [], set()
+    for i, (path, _f) in enumerate(utf8_bits(p, name)):
+        n = "_".join(path)
+        if n in seen:
+            raise NotImplementedError("utf8_skip bit name %r occurs twice under %s" % (n, name))
+        seen.add(n)
+        out.append((n, i))
+    return out
+
+
+def utf8_all(p, name):
+    """The mask with every bit of `name`'s tree set."""
+    w = utf8_width(p, name)
+    return (1 << w) - 1
+
+
+def pvt_name(root):
+    return "ak_pvt_%s" % root
+
+
+def pull_vtable(p, root):
+    """`ak_pvt_<Root>` members, in order, as (kind, member name, x): today only the mask,
+    which stays FIRST whatever is added after it. x is the mask's width in bits."""
+    return [(UTF8_MEMBER, UTF8_MEMBER, utf8_width(p, root))]
+
+
+def pvt_entry_points(p, root):
+    """The pull vtable's setter, (name, [(param, type)], return, doc). Additive: the same in
+    both variants (the UTF-8 rule does not depend on unknown-field support)."""
+    return [("ak_dec_set_pvt_%s" % root,
+             [("ctx", "*mut ak_dec_ctx"), ("pvt", "*const %s" % pvt_name(root))], "i32",
+             "D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every "
+             "string); every later `ak_parse_%s` on it uses it. AK_ERR_INVALID_STATE for a "
+             "context bound to another root." % root)]
 
 
 # =================================================================== unknown fields (decision 11)

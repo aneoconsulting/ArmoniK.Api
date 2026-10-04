@@ -558,9 +558,17 @@ struct ak_evt_ListResultsResponse {
 
 /* Decode vtable for `ListResultsResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListResultsResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_LISTRESULTSRESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListResultsResponse *);
   void (*add_results)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_ResultRaw *, int32_t);
 };
+/* D20: `utf8_skip` bits of `ListResultsResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_SESSION_ID (1ull << 0)
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_NAME (1ull << 1)
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_OWNER_TASK_ID (1ull << 2)
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_RESULT_ID (1ull << 3)
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_RESULTS_CREATED_BY (1ull << 4)
+#define AK_DVT_LISTRESULTSRESPONSE_UTF8_ALL 0x1full
 
 /* Encode vtable for `ListTasksDetailedResponse`. */
 struct ak_evt_ListTasksDetailedResponse {
@@ -570,6 +578,7 @@ struct ak_evt_ListTasksDetailedResponse {
 
 /* Decode vtable for `ListTasksDetailedResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListTasksDetailedResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListTasksDetailedResponse *);
   int64_t (*new_tasks)(ak_dec_ctx *, void *);
   void (*apply_tasks)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskDetailed *);
@@ -579,6 +588,29 @@ struct ak_dvt_ListTasksDetailedResponse {
   void (*add_tasks_retry_of_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_tasks_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
+/* D20: `utf8_skip` bits of `ListTasksDetailedResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_ID (1ull << 0)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_SESSION_ID (1ull << 1)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OWNER_POD_ID (1ull << 2)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_PARENT_TASK_IDS (1ull << 3)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_DATA_DEPENDENCIES (1ull << 4)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_EXPECTED_OUTPUT_IDS (1ull << 5)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_RETRY_OF_IDS (1ull << 6)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_STATUS_MESSAGE (1ull << 7)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_POD_HOSTNAME (1ull << 8)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_INITIAL_TASK_ID (1ull << 9)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_PAYLOAD_ID (1ull << 10)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_CREATED_BY (1ull << 11)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_PARTITION_ID (1ull << 12)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAME (1ull << 13)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_VERSION (1ull << 14)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAMESPACE (1ull << 15)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_SERVICE (1ull << 16)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_ENGINE_TYPE (1ull << 17)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_KEY (1ull << 18)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_VALUE (1ull << 19)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_TASKS_OUTPUT_ERROR (1ull << 20)
+#define AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_ALL 0x1fffffull
 
 /* Encode vtable for `ListProbeResponse`. */
 struct ak_evt_ListProbeResponse {
@@ -587,9 +619,15 @@ struct ak_evt_ListProbeResponse {
 
 /* Decode vtable for `ListProbeResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListProbeResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_LISTPROBERESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListProbeResponse *);
   void (*add_probes)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Probe *, int32_t);
 };
+/* D20: `utf8_skip` bits of `ListProbeResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_ID (1ull << 0)
+#define AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_OPT_LABEL (1ull << 1)
+#define AK_DVT_LISTPROBERESPONSE_UTF8_PROBES_AS_TEXT (1ull << 2)
+#define AK_DVT_LISTPROBERESPONSE_UTF8_ALL 0x7ull
 
 /* Encode vtable for `ListTaskSummaryResponse`. */
 struct ak_evt_ListTaskSummaryResponse {
@@ -599,11 +637,26 @@ struct ak_evt_ListTaskSummaryResponse {
 
 /* Decode vtable for `ListTaskSummaryResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListTaskSummaryResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListTaskSummaryResponse *);
   int64_t (*new_tasks)(ak_dec_ctx *, void *);
   void (*apply_tasks)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskSummary *);
   void (*add_tasks_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
+/* D20: `utf8_skip` bits of `ListTaskSummaryResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_ID (1ull << 0)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_SESSION_ID (1ull << 1)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_ERROR (1ull << 2)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_STATUS_MESSAGE (1ull << 3)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_PARTITION_ID (1ull << 4)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAME (1ull << 5)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_VERSION (1ull << 6)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_NAMESPACE (1ull << 7)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_APPLICATION_SERVICE (1ull << 8)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_ENGINE_TYPE (1ull << 9)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_KEY (1ull << 10)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_TASKS_OPTIONS_OPTIONS_VALUE (1ull << 11)
+#define AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_ALL 0xfffull
 
 /* Encode vtable for `UploadResultDataMessage`. */
 struct ak_evt_UploadResultDataMessage {
@@ -612,8 +665,13 @@ struct ak_evt_UploadResultDataMessage {
 
 /* Decode vtable for `UploadResultDataMessage` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_UploadResultDataMessage {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_UploadResultDataMessage *);
 };
+/* D20: `utf8_skip` bits of `UploadResultDataMessage`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_UPLOAD_SESSION_ID (1ull << 0)
+#define AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_UPLOAD_RESULT_ID (1ull << 1)
+#define AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_ALL 0x3ull
 
 /* Encode vtable for `ListMetricsResponse`. */
 struct ak_evt_ListMetricsResponse {
@@ -623,6 +681,7 @@ struct ak_evt_ListMetricsResponse {
 
 /* Decode vtable for `ListMetricsResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ListMetricsResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_LISTMETRICSRESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ListMetricsResponse *);
   int64_t (*new_batches)(ak_dec_ctx *, void *);
   void (*apply_batches)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_MetricsBatch *);
@@ -632,6 +691,9 @@ struct ak_dvt_ListMetricsResponse {
   void (*add_batches_flags)(ak_dec_ctx *, void *, int64_t, const uint8_t *, int32_t);
   void (*add_batches_statuses)(ak_dec_ctx *, void *, int64_t, const int32_t *, int32_t);
 };
+/* D20: `utf8_skip` bits of `ListMetricsResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_LISTMETRICSRESPONSE_UTF8_BATCHES_ID (1ull << 0)
+#define AK_DVT_LISTMETRICSRESPONSE_UTF8_ALL 0x1ull
 
 /* Encode vtable for `DualResponse`. */
 struct ak_evt_DualResponse {
@@ -641,10 +703,15 @@ struct ak_evt_DualResponse {
 
 /* Decode vtable for `DualResponse` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_DualResponse {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_DUALRESPONSE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_DualResponse *);
   void (*add_left)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Pair *, int32_t);
   void (*add_right)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_Pair *, int32_t);
 };
+/* D20: `utf8_skip` bits of `DualResponse`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_DUALRESPONSE_UTF8_LEFT_KEY (1ull << 0)
+#define AK_DVT_DUALRESPONSE_UTF8_RIGHT_KEY (1ull << 1)
+#define AK_DVT_DUALRESPONSE_UTF8_ALL 0x3ull
 
 /* Encode vtable for `TaskOptionsOptionsEntry`. */
 struct ak_evt_TaskOptionsOptionsEntry {
@@ -653,8 +720,13 @@ struct ak_evt_TaskOptionsOptionsEntry {
 
 /* Decode vtable for `TaskOptionsOptionsEntry` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskOptionsOptionsEntry {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskOptionsOptionsEntry *);
 };
+/* D20: `utf8_skip` bits of `TaskOptionsOptionsEntry`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_KEY (1ull << 0)
+#define AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_VALUE (1ull << 1)
+#define AK_DVT_TASKOPTIONSOPTIONSENTRY_UTF8_ALL 0x3ull
 
 /* Encode vtable for `ResultRaw`. */
 struct ak_evt_ResultRaw {
@@ -663,8 +735,16 @@ struct ak_evt_ResultRaw {
 
 /* Decode vtable for `ResultRaw` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_ResultRaw {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_RESULTRAW_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_ResultRaw *);
 };
+/* D20: `utf8_skip` bits of `ResultRaw`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_RESULTRAW_UTF8_SESSION_ID (1ull << 0)
+#define AK_DVT_RESULTRAW_UTF8_NAME (1ull << 1)
+#define AK_DVT_RESULTRAW_UTF8_OWNER_TASK_ID (1ull << 2)
+#define AK_DVT_RESULTRAW_UTF8_RESULT_ID (1ull << 3)
+#define AK_DVT_RESULTRAW_UTF8_CREATED_BY (1ull << 4)
+#define AK_DVT_RESULTRAW_UTF8_ALL 0x1full
 
 /* Encode vtable for `TaskDetailed`. */
 struct ak_evt_TaskDetailed {
@@ -677,6 +757,7 @@ struct ak_evt_TaskDetailed {
 
 /* Decode vtable for `TaskDetailed` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskDetailed {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_TASKDETAILED_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskDetailed *);
   void (*add_parent_task_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_data_dependencies)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
@@ -684,6 +765,29 @@ struct ak_dvt_TaskDetailed {
   void (*add_retry_of_ids)(ak_dec_ctx *, void *, int64_t, const struct ak_span *, int32_t);
   void (*add_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
+/* D20: `utf8_skip` bits of `TaskDetailed`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_TASKDETAILED_UTF8_ID (1ull << 0)
+#define AK_DVT_TASKDETAILED_UTF8_SESSION_ID (1ull << 1)
+#define AK_DVT_TASKDETAILED_UTF8_OWNER_POD_ID (1ull << 2)
+#define AK_DVT_TASKDETAILED_UTF8_PARENT_TASK_IDS (1ull << 3)
+#define AK_DVT_TASKDETAILED_UTF8_DATA_DEPENDENCIES (1ull << 4)
+#define AK_DVT_TASKDETAILED_UTF8_EXPECTED_OUTPUT_IDS (1ull << 5)
+#define AK_DVT_TASKDETAILED_UTF8_RETRY_OF_IDS (1ull << 6)
+#define AK_DVT_TASKDETAILED_UTF8_STATUS_MESSAGE (1ull << 7)
+#define AK_DVT_TASKDETAILED_UTF8_POD_HOSTNAME (1ull << 8)
+#define AK_DVT_TASKDETAILED_UTF8_INITIAL_TASK_ID (1ull << 9)
+#define AK_DVT_TASKDETAILED_UTF8_PAYLOAD_ID (1ull << 10)
+#define AK_DVT_TASKDETAILED_UTF8_CREATED_BY (1ull << 11)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_PARTITION_ID (1ull << 12)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_NAME (1ull << 13)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_VERSION (1ull << 14)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_NAMESPACE (1ull << 15)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_APPLICATION_SERVICE (1ull << 16)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_ENGINE_TYPE (1ull << 17)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_OPTIONS_KEY (1ull << 18)
+#define AK_DVT_TASKDETAILED_UTF8_OPTIONS_OPTIONS_VALUE (1ull << 19)
+#define AK_DVT_TASKDETAILED_UTF8_OUTPUT_ERROR (1ull << 20)
+#define AK_DVT_TASKDETAILED_UTF8_ALL 0x1fffffull
 
 /* Encode vtable for `TaskSummary`. */
 struct ak_evt_TaskSummary {
@@ -692,9 +796,24 @@ struct ak_evt_TaskSummary {
 
 /* Decode vtable for `TaskSummary` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_TaskSummary {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_TASKSUMMARY_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_TaskSummary *);
   void (*add_options_options)(ak_dec_ctx *, void *, int64_t, const struct ak_dfix_TaskOptionsOptionsEntry *, int32_t);
 };
+/* D20: `utf8_skip` bits of `TaskSummary`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_TASKSUMMARY_UTF8_ID (1ull << 0)
+#define AK_DVT_TASKSUMMARY_UTF8_SESSION_ID (1ull << 1)
+#define AK_DVT_TASKSUMMARY_UTF8_ERROR (1ull << 2)
+#define AK_DVT_TASKSUMMARY_UTF8_STATUS_MESSAGE (1ull << 3)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_PARTITION_ID (1ull << 4)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_NAME (1ull << 5)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_VERSION (1ull << 6)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_NAMESPACE (1ull << 7)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_APPLICATION_SERVICE (1ull << 8)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_ENGINE_TYPE (1ull << 9)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_OPTIONS_KEY (1ull << 10)
+#define AK_DVT_TASKSUMMARY_UTF8_OPTIONS_OPTIONS_VALUE (1ull << 11)
+#define AK_DVT_TASKSUMMARY_UTF8_ALL 0xfffull
 
 /* Encode vtable for `Probe`. */
 struct ak_evt_Probe {
@@ -703,8 +822,14 @@ struct ak_evt_Probe {
 
 /* Decode vtable for `Probe` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_Probe {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_PROBE_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_Probe *);
 };
+/* D20: `utf8_skip` bits of `Probe`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_PROBE_UTF8_ID (1ull << 0)
+#define AK_DVT_PROBE_UTF8_OPT_LABEL (1ull << 1)
+#define AK_DVT_PROBE_UTF8_AS_TEXT (1ull << 2)
+#define AK_DVT_PROBE_UTF8_ALL 0x7ull
 
 /* Encode vtable for `MetricsBatch`. */
 struct ak_evt_MetricsBatch {
@@ -717,6 +842,7 @@ struct ak_evt_MetricsBatch {
 
 /* Decode vtable for `MetricsBatch` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_MetricsBatch {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_METRICSBATCH_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_MetricsBatch *);
   void (*add_ticks)(ak_dec_ctx *, void *, int64_t, const int64_t *, int32_t);
   void (*add_values)(ak_dec_ctx *, void *, int64_t, const double *, int32_t);
@@ -724,6 +850,9 @@ struct ak_dvt_MetricsBatch {
   void (*add_flags)(ak_dec_ctx *, void *, int64_t, const uint8_t *, int32_t);
   void (*add_statuses)(ak_dec_ctx *, void *, int64_t, const int32_t *, int32_t);
 };
+/* D20: `utf8_skip` bits of `MetricsBatch`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_METRICSBATCH_UTF8_ID (1ull << 0)
+#define AK_DVT_METRICSBATCH_UTF8_ALL 0x1ull
 
 /* Encode vtable for `Pair`. */
 struct ak_evt_Pair {
@@ -732,7 +861,60 @@ struct ak_evt_Pair {
 
 /* Decode vtable for `Pair` (the push family, ABI v1 section 7.1). */
 struct ak_dvt_Pair {
+  uint64_t utf8_skip;  /* D20: 1 = skip that string's UTF-8 check (AK_DVT_PAIR_UTF8_*) */
   void (*apply)(ak_dec_ctx *, void *, const struct ak_dfix_Pair *);
+};
+/* D20: `utf8_skip` bits of `Pair`'s decode tree (plan.utf8_bits). */
+#define AK_DVT_PAIR_UTF8_KEY (1ull << 0)
+#define AK_DVT_PAIR_UTF8_ALL 0x1ull
+
+/* D20: the PULL family's vtable for `ListResultsResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_ListResultsResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_LISTRESULTSRESPONSE_UTF8_*. */
+struct ak_pvt_ListResultsResponse {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `ListTasksDetailedResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_ListTasksDetailedResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_LISTTASKSDETAILEDRESPONSE_UTF8_*. */
+struct ak_pvt_ListTasksDetailedResponse {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `ListProbeResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_ListProbeResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_LISTPROBERESPONSE_UTF8_*. */
+struct ak_pvt_ListProbeResponse {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `ListTaskSummaryResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_ListTaskSummaryResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_LISTTASKSUMMARYRESPONSE_UTF8_*. */
+struct ak_pvt_ListTaskSummaryResponse {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `UploadResultDataMessage`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_UploadResultDataMessage (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_UPLOADRESULTDATAMESSAGE_UTF8_*. */
+struct ak_pvt_UploadResultDataMessage {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `ListMetricsResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_ListMetricsResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_LISTMETRICSRESPONSE_UTF8_*. */
+struct ak_pvt_ListMetricsResponse {
+  uint64_t utf8_skip;
+};
+
+/* D20: the PULL family's vtable for `DualResponse`, COPIED into a root-bound context by
+ * ak_dec_set_pvt_DualResponse (NULL = all zero = validate every string). `utf8_skip`
+ * stays the first member; its bits are AK_DVT_DUALRESPONSE_UTF8_*. */
+struct ak_pvt_DualResponse {
+  uint64_t utf8_skip;
 };
 
 /* ABI v1 section 6: what the host calls are PLAIN EXPORTS, not a table. */
@@ -740,30 +922,37 @@ intptr_t ak_encode_ListResultsResponse(const void *obj, ak_enc_ctx *ctx, const s
 int32_t ak_decode_ListResultsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListResultsResponse *vt);
 int32_t ak_parse_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListResultsResponse(void);
+int32_t ak_dec_set_pvt_ListResultsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListResultsResponse *pvt);
 intptr_t ak_encode_ListTasksDetailedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTasksDetailedResponse *vt, const struct ak_efix_ListTasksDetailedResponse *fix);
 int32_t ak_decode_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTasksDetailedResponse *vt);
 int32_t ak_parse_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTasksDetailedResponse(void);
+int32_t ak_dec_set_pvt_ListTasksDetailedResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTasksDetailedResponse *pvt);
 intptr_t ak_encode_ListProbeResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListProbeResponse *vt, const struct ak_efix_ListProbeResponse *fix);
 int32_t ak_decode_ListProbeResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListProbeResponse *vt);
 int32_t ak_parse_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListProbeResponse(void);
+int32_t ak_dec_set_pvt_ListProbeResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListProbeResponse *pvt);
 intptr_t ak_encode_ListTaskSummaryResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTaskSummaryResponse *vt, const struct ak_efix_ListTaskSummaryResponse *fix);
 int32_t ak_decode_ListTaskSummaryResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTaskSummaryResponse *vt);
 int32_t ak_parse_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTaskSummaryResponse(void);
+int32_t ak_dec_set_pvt_ListTaskSummaryResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTaskSummaryResponse *pvt);
 intptr_t ak_encode_UploadResultDataMessage(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultDataMessage *vt, const struct ak_efix_UploadResultDataMessage *fix, const uint8_t *direct, size_t direct_len);
 int32_t ak_decode_UploadResultDataMessage(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultDataMessage *vt);
 int32_t ak_parse_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_UploadResultDataMessage(void);
+int32_t ak_dec_set_pvt_UploadResultDataMessage(ak_dec_ctx *ctx, const struct ak_pvt_UploadResultDataMessage *pvt);
 intptr_t ak_encode_ListMetricsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListMetricsResponse *vt, const struct ak_efix_ListMetricsResponse *fix);
 int32_t ak_decode_ListMetricsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListMetricsResponse *vt);
 int32_t ak_parse_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListMetricsResponse(void);
+int32_t ak_dec_set_pvt_ListMetricsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListMetricsResponse *pvt);
 intptr_t ak_encode_DualResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_DualResponse *vt, const struct ak_efix_DualResponse *fix);
 int32_t ak_decode_DualResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_DualResponse *vt);
 int32_t ak_parse_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_DualResponse(void);
+int32_t ak_dec_set_pvt_DualResponse(ak_dec_ctx *ctx, const struct ak_pvt_DualResponse *pvt);
 int32_t ak_elemu_MetricsBatch(ak_enc_ctx *ctx, const struct ak_efix_MetricsBatch *elems, int32_t n, int64_t tok0);
 int32_t ak_elem_Pair(ak_enc_ctx *ctx, const struct ak_efix_Pair *elems, int32_t n);
 int32_t ak_elem_Probe(ak_enc_ctx *ctx, const struct ak_efix_Probe *elems, int32_t n);
@@ -990,6 +1179,27 @@ AK_SASSERT(sizeof(struct ak_init_opts) == 24, "sizeof ak_init_opts");
 AK_SASSERT(sizeof(struct AkCounters) == 48, "sizeof AkCounters");
 AK_SASSERT(sizeof(struct ak_bdr_rec) == 24, "sizeof ak_bdr_rec");
 AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, "ak_bdr_rec.token");
+AK_SASSERT(offsetof(struct ak_dvt_ListResultsResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListResultsResponse) == 3 * 8, "ak_dvt_ListResultsResponse");
+AK_SASSERT(offsetof(struct ak_dvt_ListTasksDetailedResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListTasksDetailedResponse) == 9 * 8, "ak_dvt_ListTasksDetailedResponse");
+AK_SASSERT(offsetof(struct ak_dvt_ListProbeResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListProbeResponse) == 3 * 8, "ak_dvt_ListProbeResponse");
+AK_SASSERT(offsetof(struct ak_dvt_ListTaskSummaryResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListTaskSummaryResponse) == 5 * 8, "ak_dvt_ListTaskSummaryResponse");
+AK_SASSERT(offsetof(struct ak_dvt_UploadResultDataMessage, utf8_skip) == 0 && sizeof(struct ak_dvt_UploadResultDataMessage) == 2 * 8, "ak_dvt_UploadResultDataMessage");
+AK_SASSERT(offsetof(struct ak_dvt_ListMetricsResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListMetricsResponse) == 9 * 8, "ak_dvt_ListMetricsResponse");
+AK_SASSERT(offsetof(struct ak_dvt_DualResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_DualResponse) == 4 * 8, "ak_dvt_DualResponse");
+AK_SASSERT(offsetof(struct ak_dvt_TaskOptionsOptionsEntry, utf8_skip) == 0 && sizeof(struct ak_dvt_TaskOptionsOptionsEntry) == 2 * 8, "ak_dvt_TaskOptionsOptionsEntry");
+AK_SASSERT(offsetof(struct ak_dvt_ResultRaw, utf8_skip) == 0 && sizeof(struct ak_dvt_ResultRaw) == 2 * 8, "ak_dvt_ResultRaw");
+AK_SASSERT(offsetof(struct ak_dvt_TaskDetailed, utf8_skip) == 0 && sizeof(struct ak_dvt_TaskDetailed) == 7 * 8, "ak_dvt_TaskDetailed");
+AK_SASSERT(offsetof(struct ak_dvt_TaskSummary, utf8_skip) == 0 && sizeof(struct ak_dvt_TaskSummary) == 3 * 8, "ak_dvt_TaskSummary");
+AK_SASSERT(offsetof(struct ak_dvt_Probe, utf8_skip) == 0 && sizeof(struct ak_dvt_Probe) == 2 * 8, "ak_dvt_Probe");
+AK_SASSERT(offsetof(struct ak_dvt_MetricsBatch, utf8_skip) == 0 && sizeof(struct ak_dvt_MetricsBatch) == 7 * 8, "ak_dvt_MetricsBatch");
+AK_SASSERT(offsetof(struct ak_dvt_Pair, utf8_skip) == 0 && sizeof(struct ak_dvt_Pair) == 2 * 8, "ak_dvt_Pair");
+AK_SASSERT(offsetof(struct ak_pvt_ListResultsResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_ListResultsResponse) == 1 * 8, "ak_pvt_ListResultsResponse");
+AK_SASSERT(offsetof(struct ak_pvt_ListTasksDetailedResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_ListTasksDetailedResponse) == 1 * 8, "ak_pvt_ListTasksDetailedResponse");
+AK_SASSERT(offsetof(struct ak_pvt_ListProbeResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_ListProbeResponse) == 1 * 8, "ak_pvt_ListProbeResponse");
+AK_SASSERT(offsetof(struct ak_pvt_ListTaskSummaryResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_ListTaskSummaryResponse) == 1 * 8, "ak_pvt_ListTaskSummaryResponse");
+AK_SASSERT(offsetof(struct ak_pvt_UploadResultDataMessage, utf8_skip) == 0 && sizeof(struct ak_pvt_UploadResultDataMessage) == 1 * 8, "ak_pvt_UploadResultDataMessage");
+AK_SASSERT(offsetof(struct ak_pvt_ListMetricsResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_ListMetricsResponse) == 1 * 8, "ak_pvt_ListMetricsResponse");
+AK_SASSERT(offsetof(struct ak_pvt_DualResponse, utf8_skip) == 0 && sizeof(struct ak_pvt_DualResponse) == 1 * 8, "ak_pvt_DualResponse");
 #endif
 #if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu
 AK_SASSERT(sizeof(struct ak_bytes) == 24, "sizeof ak_bytes");

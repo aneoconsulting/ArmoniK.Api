@@ -1211,6 +1211,8 @@ def emit_binding(ir):
         o.append("    let rc = unsafe {")
         o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };" % root)
         o.append("        let vt = ak_dvt_%s {" % root)
+        o.append("            // D20: every bit 0, so the core validates every string field.")
+        o.append("            utf8_skip: 0,")
         o.append("            apply: Some(apply_%s)," % rs)
         for path, f in loop_slots(ir, root):
             sn = slot_name(path)

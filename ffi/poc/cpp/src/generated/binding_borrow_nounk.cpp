@@ -2921,6 +2921,7 @@ static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListResultsResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_results_response;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
@@ -3135,6 +3136,7 @@ static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const u
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListTasksDetailedResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_tasks_detailed_response;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
   vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
@@ -3272,6 +3274,7 @@ static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListProbeResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_probe_response;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
@@ -3416,6 +3419,7 @@ static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uin
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListTaskSummaryResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_task_summary_response;
   vt.new_tasks = new_list_task_summary_response_tasks;
   vt.apply_tasks = apply_list_task_summary_response_tasks;
@@ -3527,6 +3531,7 @@ static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uin
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_UploadResultDataMessage vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_upload_result_data_message;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
@@ -3701,6 +3706,7 @@ static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListMetricsResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_metrics_response;
   vt.new_batches = new_list_metrics_response_batches;
   vt.apply_batches = apply_list_metrics_response_batches;
@@ -3850,6 +3856,7 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_DualResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_dual_response;
   vt.add_left = add_dual_response_left;
   vt.add_right = add_dual_response_right;

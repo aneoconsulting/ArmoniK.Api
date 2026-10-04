@@ -1555,6 +1555,7 @@ Tcs tcs_host() {
             o.append("  sink.refill = refill;")
             o.append("  sink.hold = hold;")
         o.append("  struct ak_dvt_%s vt;" % root)
+        o.append("  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */")
         o.append("  vt.apply = apply_%s;" % snake(root))
         for path, f in slots:
             sn = slot_name(path)

@@ -6724,6 +6724,7 @@ static int32_t decode_impl_timestamp(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Timestamp vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_timestamp;
   return ak_decode_Timestamp(ctx, &sink, b, n, &vt);
 }
@@ -6824,6 +6825,7 @@ static int32_t decode_impl_duration(ak_dec_ctx *ctx, const uint8_t *b, size_t n,
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Duration vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_duration;
   return ak_decode_Duration(ctx, &sink, b, n, &vt);
 }
@@ -6935,6 +6937,7 @@ static int32_t decode_impl_result_raw(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ResultRaw vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_result_raw;
   return ak_decode_ResultRaw(ctx, &sink, b, n, &vt);
 }
@@ -7060,6 +7063,7 @@ static int32_t decode_impl_task_options(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_TaskOptions vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_task_options;
   vt.add_options = add_task_options_options;
   return ak_decode_TaskOptions(ctx, &sink, b, n, &vt);
@@ -7163,6 +7167,7 @@ static int32_t decode_impl_task_output(ak_dec_ctx *ctx, const uint8_t *b, size_t
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_TaskOutput vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_task_output;
   return ak_decode_TaskOutput(ctx, &sink, b, n, &vt);
 }
@@ -7391,6 +7396,7 @@ static int32_t decode_impl_task_detailed(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_TaskDetailed vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_task_detailed;
   vt.add_parent_task_ids = add_task_detailed_parent_task_ids;
   vt.add_data_dependencies = add_task_detailed_data_dependencies;
@@ -7531,6 +7537,7 @@ static int32_t decode_impl_task_summary(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_TaskSummary vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_task_summary;
   vt.add_options_options = add_task_summary_options_options;
   return ak_decode_TaskSummary(ctx, &sink, b, n, &vt);
@@ -7651,6 +7658,7 @@ static int32_t decode_impl_probe(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pr
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Probe vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_probe;
   return ak_decode_Probe(ctx, &sink, b, n, &vt);
 }
@@ -7749,6 +7757,7 @@ static int32_t decode_impl_empty(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Em
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Empty vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_empty;
   return ak_decode_Empty(ctx, &sink, b, n, &vt);
 }
@@ -7850,6 +7859,7 @@ static int32_t decode_impl_upload_result_data(ak_dec_ctx *ctx, const uint8_t *b,
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_UploadResultData vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_upload_result_data;
   return ak_decode_UploadResultData(ctx, &sink, b, n, &vt);
 }
@@ -7995,6 +8005,7 @@ static int32_t decode_impl_metrics_batch(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_MetricsBatch vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_metrics_batch;
   vt.add_ticks = add_metrics_batch_ticks;
   vt.add_values = add_metrics_batch_values;
@@ -8110,6 +8121,7 @@ static int32_t decode_impl_pair(ak_dec_ctx *ctx, const uint8_t *b, size_t n, Pai
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Pair vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_pair;
   return ak_decode_Pair(ctx, &sink, b, n, &vt);
 }
@@ -8222,6 +8234,7 @@ static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListResultsResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_results_response;
   vt.add_results = add_list_results_response_results;
   return ak_decode_ListResultsResponse(ctx, &sink, b, n, &vt);
@@ -8436,6 +8449,7 @@ static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const u
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListTasksDetailedResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_tasks_detailed_response;
   vt.new_tasks = new_list_tasks_detailed_response_tasks;
   vt.apply_tasks = apply_list_tasks_detailed_response_tasks;
@@ -8604,6 +8618,7 @@ static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uin
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListTaskSummaryResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_task_summary_response;
   vt.new_tasks = new_list_task_summary_response_tasks;
   vt.apply_tasks = apply_list_task_summary_response_tasks;
@@ -8725,6 +8740,7 @@ static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListProbeResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_probe_response;
   vt.add_probes = add_list_probe_response_probes;
   return ak_decode_ListProbeResponse(ctx, &sink, b, n, &vt);
@@ -8902,6 +8918,7 @@ static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ListMetricsResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_list_metrics_response;
   vt.new_batches = new_list_metrics_response_batches;
   vt.apply_batches = apply_list_metrics_response_batches;
@@ -9029,6 +9046,7 @@ static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uin
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_UploadResultDataMessage vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_upload_result_data_message;
   return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &vt);
 }
@@ -9151,6 +9169,7 @@ static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_DualResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_dual_response;
   vt.add_left = add_dual_response_left;
   vt.add_right = add_dual_response_right;
@@ -9257,6 +9276,7 @@ static int32_t decode_impl_chunk_leaf(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ChunkLeaf vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_chunk_leaf;
   return ak_decode_ChunkLeaf(ctx, &sink, b, n, &vt);
 }
@@ -9376,6 +9396,7 @@ static int32_t decode_impl_chunk_inner(ak_dec_ctx *ctx, const uint8_t *b, size_t
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ChunkInner vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_chunk_inner;
   vt.add_marks = add_chunk_inner_marks;
   vt.add_leaves = add_chunk_inner_leaves;
@@ -9540,6 +9561,7 @@ static int32_t decode_impl_chunk_element(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ChunkElement vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_chunk_element;
   vt.add_labels = add_chunk_element_labels;
   vt.add_attrs = add_chunk_element_attrs;
@@ -9734,6 +9756,7 @@ static int32_t decode_impl_chunked_response(ak_dec_ctx *ctx, const uint8_t *b, s
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ChunkedResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_chunked_response;
   vt.new_items = new_chunked_response_items;
   vt.apply_items = apply_chunked_response_items;
@@ -9938,6 +9961,7 @@ static int32_t decode_impl_chunked_response_wide(ak_dec_ctx *ctx, const uint8_t 
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_ChunkedResponseWide vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_chunked_response_wide;
   vt.new_items = new_chunked_response_wide_items;
   vt.apply_items = apply_chunked_response_wide_items;
@@ -10063,6 +10087,7 @@ static int32_t decode_impl_leaf_element(ak_dec_ctx *ctx, const uint8_t *b, size_
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_LeafElement vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_leaf_element;
   return ak_decode_LeafElement(ctx, &sink, b, n, &vt);
 }
@@ -10173,6 +10198,7 @@ static int32_t decode_impl_leaf_response(ak_dec_ctx *ctx, const uint8_t *b, size
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_LeafResponse vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_leaf_response;
   vt.add_items = add_leaf_response_items;
   return ak_decode_LeafResponse(ctx, &sink, b, n, &vt);
@@ -10314,6 +10340,7 @@ static int32_t decode_impl_surrogate(ak_dec_ctx *ctx, const uint8_t *b, size_t n
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_Surrogate vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_surrogate;
   vt.add_attrs = add_surrogate_attrs;
   vt.add_texts = add_surrogate_texts;
@@ -10419,6 +10446,7 @@ static int32_t decode_impl_surrogate_inner(ak_dec_ctx *ctx, const uint8_t *b, si
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_SurrogateInner vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_surrogate_inner;
   return ak_decode_SurrogateInner(ctx, &sink, b, n, &vt);
 }
@@ -10528,6 +10556,7 @@ static int32_t decode_impl_wire_zoo(ak_dec_ctx *ctx, const uint8_t *b, size_t n,
   sink.base = b;
   (void)refill; (void)hold;
   struct ak_dvt_WireZoo vt;
+  vt.utf8_skip = 0;  /* D20: every bit 0, the core validates every string */
   vt.apply = apply_wire_zoo;
   return ak_decode_WireZoo(ctx, &sink, b, n, &vt);
 }

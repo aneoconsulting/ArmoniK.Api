@@ -9604,6 +9604,8 @@ fn decode_with_timestamp_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Timestamp, i32
     let rc = unsafe {
         let mut sink = SinkTimestamp { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Timestamp {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_timestamp),
         };
         ak_decode_Timestamp(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -9946,6 +9948,8 @@ fn decode_with_duration_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Duration, i32> 
     let rc = unsafe {
         let mut sink = SinkDuration { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Duration {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_duration),
         };
         ak_decode_Duration(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -10305,6 +10309,8 @@ fn decode_with_result_raw_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ResultRaw, i3
     let rc = unsafe {
         let mut sink = SinkResultRaw { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ResultRaw {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_result_raw),
         };
         ak_decode_ResultRaw(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -10685,6 +10691,8 @@ fn decode_with_task_options_armed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOptions
     let rc = unsafe {
         let mut sink = SinkTaskOptions { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_TaskOptions {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_task_options),
             add_options: Some(add_task_options_options),
         };
@@ -11039,6 +11047,8 @@ fn decode_with_task_output_armed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskOutput, 
     let rc = unsafe {
         let mut sink = SinkTaskOutput { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_TaskOutput {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_task_output),
         };
         ak_decode_TaskOutput(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -11550,6 +11560,8 @@ fn decode_with_task_detailed_armed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskDetail
     let rc = unsafe {
         let mut sink = SinkTaskDetailed { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_TaskDetailed {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_task_detailed),
             add_parent_task_ids: Some(add_task_detailed_parent_task_ids),
             add_data_dependencies: Some(add_task_detailed_data_dependencies),
@@ -12002,6 +12014,8 @@ fn decode_with_task_summary_armed(ctxs: DecCtxs, b: &[u8]) -> Result<TaskSummary
     let rc = unsafe {
         let mut sink = SinkTaskSummary { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_TaskSummary {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_task_summary),
             add_options_options: Some(add_task_summary_options_options),
         };
@@ -12370,6 +12384,8 @@ fn decode_with_probe_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Probe, i32> {
     let rc = unsafe {
         let mut sink = SinkProbe { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Probe {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_probe),
         };
         ak_decode_Probe(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -12712,6 +12728,8 @@ fn decode_with_empty_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Empty, i32> {
     let rc = unsafe {
         let mut sink = SinkEmpty { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Empty {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_empty),
         };
         ak_decode_Empty(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -13055,6 +13073,8 @@ fn decode_with_upload_result_data_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Uploa
     let rc = unsafe {
         let mut sink = SinkUploadResultData { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_UploadResultData {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_upload_result_data),
         };
         ak_decode_UploadResultData(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -13481,6 +13501,8 @@ fn decode_with_metrics_batch_armed(ctxs: DecCtxs, b: &[u8]) -> Result<MetricsBat
     let rc = unsafe {
         let mut sink = SinkMetricsBatch { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_MetricsBatch {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_metrics_batch),
             add_ticks: Some(add_metrics_batch_ticks),
             add_values: Some(add_metrics_batch_values),
@@ -13863,6 +13885,8 @@ fn decode_with_pair_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Pair, i32> {
     let rc = unsafe {
         let mut sink = SinkPair { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Pair {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_pair),
         };
         ak_decode_Pair(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -14222,6 +14246,8 @@ fn decode_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Li
     let rc = unsafe {
         let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListResultsResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_results_response),
             add_results: Some(add_list_results_response_results),
         };
@@ -14690,6 +14716,8 @@ fn decode_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8]) -> Re
     let rc = unsafe {
         let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTasksDetailedResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_tasks_detailed_response),
             new_tasks: Some(new_list_tasks_detailed_response_tasks),
             apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
@@ -15157,6 +15185,8 @@ fn decode_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8]) -> Resu
     let rc = unsafe {
         let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTaskSummaryResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_task_summary_response),
             new_tasks: Some(new_list_task_summary_response_tasks),
             apply_tasks: Some(apply_list_task_summary_response_tasks),
@@ -15541,6 +15571,8 @@ fn decode_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<List
     let rc = unsafe {
         let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListProbeResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_probe_response),
             add_probes: Some(add_list_probe_response_probes),
         };
@@ -15999,6 +16031,8 @@ fn decode_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Li
     let rc = unsafe {
         let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListMetricsResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_metrics_response),
             new_batches: Some(new_list_metrics_response_batches),
             apply_batches: Some(apply_list_metrics_response_batches),
@@ -16395,6 +16429,8 @@ fn decode_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8]) -> Resu
     let rc = unsafe {
         let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_UploadResultDataMessage {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_upload_result_data_message),
         };
         ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -16771,6 +16807,8 @@ fn decode_with_dual_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<DualRespon
     let rc = unsafe {
         let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_DualResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_dual_response),
             add_left: Some(add_dual_response_left),
             add_right: Some(add_dual_response_right),
@@ -17133,6 +17171,8 @@ fn decode_with_chunk_leaf_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkLeaf, i3
     let rc = unsafe {
         let mut sink = SinkChunkLeaf { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ChunkLeaf {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_chunk_leaf),
         };
         ak_decode_ChunkLeaf(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -17507,6 +17547,8 @@ fn decode_with_chunk_inner_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkInner, 
     let rc = unsafe {
         let mut sink = SinkChunkInner { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ChunkInner {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_chunk_inner),
             add_marks: Some(add_chunk_inner_marks),
             add_leaves: Some(add_chunk_inner_leaves),
@@ -17946,6 +17988,8 @@ fn decode_with_chunk_element_armed(ctxs: DecCtxs, b: &[u8]) -> Result<ChunkEleme
     let rc = unsafe {
         let mut sink = SinkChunkElement { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ChunkElement {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_chunk_element),
             add_labels: Some(add_chunk_element_labels),
             add_attrs: Some(add_chunk_element_attrs),
@@ -18420,6 +18464,8 @@ fn decode_with_chunked_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Chunked
     let rc = unsafe {
         let mut sink = SinkChunkedResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ChunkedResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_chunked_response),
             new_items: Some(new_chunked_response_items),
             apply_items: Some(apply_chunked_response_items),
@@ -18904,6 +18950,8 @@ fn decode_with_chunked_response_wide_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Ch
     let rc = unsafe {
         let mut sink = SinkChunkedResponseWide { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ChunkedResponseWide {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_chunked_response_wide),
             new_items: Some(new_chunked_response_wide_items),
             apply_items: Some(apply_chunked_response_wide_items),
@@ -19300,6 +19348,8 @@ fn decode_with_leaf_element_armed(ctxs: DecCtxs, b: &[u8]) -> Result<LeafElement
     let rc = unsafe {
         let mut sink = SinkLeafElement { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_LeafElement {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_leaf_element),
         };
         ak_decode_LeafElement(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -19659,6 +19709,8 @@ fn decode_with_leaf_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<LeafRespon
     let rc = unsafe {
         let mut sink = SinkLeafResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_LeafResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_leaf_response),
             add_items: Some(add_leaf_response_items),
         };
@@ -20058,6 +20110,8 @@ fn decode_with_surrogate_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogate, i32
     let rc = unsafe {
         let mut sink = SinkSurrogate { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_Surrogate {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_surrogate),
             add_attrs: Some(add_surrogate_attrs),
             add_texts: Some(add_surrogate_texts),
@@ -20419,6 +20473,8 @@ fn decode_with_surrogate_inner_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Surrogat
     let rc = unsafe {
         let mut sink = SinkSurrogateInner { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_SurrogateInner {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_surrogate_inner),
         };
         ak_decode_SurrogateInner(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -20773,6 +20829,8 @@ fn decode_with_wire_zoo_armed(ctxs: DecCtxs, b: &[u8]) -> Result<WireZoo, i32> {
     let rc = unsafe {
         let mut sink = SinkWireZoo { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_WireZoo {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_wire_zoo),
         };
         ak_decode_WireZoo(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)

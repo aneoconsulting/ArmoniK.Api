@@ -824,6 +824,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Timestamp
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -1063,6 +1064,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Duration
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -1302,6 +1304,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ResultRaw
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -1581,6 +1584,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskOptions
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_options = &Add_options,
                 };
@@ -1829,6 +1833,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskOutput
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -2276,6 +2281,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskDetailed
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_parent_task_ids = &Add_parent_task_ids,
                     add_data_dependencies = &Add_data_dependencies,
@@ -2596,6 +2602,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskSummary
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_options_options = &Add_options_options,
                 };
@@ -2844,6 +2851,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Probe
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -3083,6 +3091,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Empty
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -3324,6 +3333,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultData
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -3772,6 +3782,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_MetricsBatch
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_ticks = &Add_ticks,
                     add_values = &Add_values,
@@ -4051,6 +4062,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Pair
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -4338,6 +4350,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListResultsResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_results = &Add_results,
                 };
@@ -4892,6 +4905,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
@@ -5281,6 +5295,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
@@ -5583,6 +5598,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListProbeResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_probes = &Add_probes,
                 };
@@ -6138,6 +6154,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListMetricsResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     new_batches = &New_batches,
                     apply_batches = &Apply_batches,
@@ -6426,6 +6443,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -6762,6 +6780,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_DualResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_left = &Add_left,
                     add_right = &Add_right,
@@ -7017,6 +7036,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkLeaf
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -7346,6 +7366,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkInner
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_marks = &Add_marks,
                     add_leaves = &Add_leaves,
@@ -7774,6 +7795,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkElement
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_labels = &Add_labels,
                     add_attrs = &Add_attrs,
@@ -8301,6 +8323,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkedResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     new_items = &New_items,
                     apply_items = &Apply_items,
@@ -8834,6 +8857,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkedResponseWide
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     new_items = &New_items,
                     apply_items = &Apply_items,
@@ -9112,6 +9136,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_LeafElement
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -9399,6 +9424,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_LeafResponse
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_items = &Add_items,
                 };
@@ -9728,6 +9754,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_Surrogate
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                     add_attrs = &Add_attrs,
                     add_texts = &Add_texts,
@@ -9984,6 +10011,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_SurrogateInner
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -10223,6 +10251,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_WireZoo
                 {
+                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
                     apply = &ApplyRoot,
                 };
                 _fwd++;

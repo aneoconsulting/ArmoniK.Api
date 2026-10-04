@@ -331,6 +331,10 @@ pub struct DecCtxImpl {
     /// Decision 11 rule 6 (WP5 step 8): the root this context is BOUND to
     /// (`plan.unk_root_id`); decoding another root with it is refused.
     pub root: u32,
+    /// FIX-PLAN D20: the pull vtable's `utf8_skip` (`ak_pvt_<Root>`, COPIED in by
+    /// `ak_dec_set_pvt_<Root>`), read by every `ak_parse_<Root>` on this context. 0 (the
+    /// default) = validate every string. The push family reads its call's vtable instead.
+    pub pvt_utf8_skip: u64,
     /// Rule 1: the host's options struct, read IN PLACE (never copied); NULL = drop mode.
     /// Its first word is the ONE host pointer handed to every grow.
     #[cfg(feature = "unknown-fields")]
@@ -429,6 +433,7 @@ pub(crate) fn dec_ctx_alloc(root: u32) -> *mut ak_dec_ctx {
         c: Default::default(),
         bdr: ak_rt::Bdr::new(),
         root,
+        pvt_utf8_skip: 0,
         #[cfg(feature = "unknown-fields")]
         unk_opts: core::ptr::null_mut(),
         #[cfg(feature = "unknown-fields")]
@@ -1890,5 +1895,150 @@ mod unk_limit_tests {
         let mut slot = ak_unk_buf { data: b.as_mut_ptr() as *mut c_void, len: 0, cap: 4 };
         assert_eq!(unsafe { put(&mut slot, &[1, 2, 3, 4, 5]) }, AK_ERR_CAPACITY);
         assert_eq!(unsafe { put(&mut slot, &[1, 2, 3, 4]) }, AK_OK);
+    }
+}
+
+#[cfg(test)]
+mod d20_utf8_skip_tests {
+    //! FIX-PLAN D20: per string field, the `utf8_skip` bit set skips that field's UTF-8 check
+    //! (malformed bytes are accepted and delivered as they are: the span the host gets points
+    //! at them), and the bit clear rejects them as before (AK_ERR_TRANSCODE), in the push
+    //! family (the call's vtable, first member) and the pull family (the pvt the context was
+    //! given), at EVERY bit of EVERY root of this build's plan: leaf elements in a batched run,
+    //! inlined children, non-leaf elements, their inner runs, map entries, oneof members. The
+    //! bit paths come from the generator (`UTF8_BIT_PATHS`), the wire is built here.
+    use super::*;
+    use crate::generated::codec::{d20_ctx_new, d20_pull, d20_push, UTF8_BIT_PATHS};
+
+    /// Malformed UTF-8 (0xFF never occurs in UTF-8).
+    const BAD: &[u8] = &[0xFF, 0xFE, 0x41, 0x4B];
+
+    fn varint(mut v: u64, o: &mut Vec<u8>) {
+        while v >= 0x80 {
+            o.push((v as u8) | 0x80);
+            v >>= 7;
+        }
+        o.push(v as u8);
+    }
+
+    /// The root's wire bytes with `leaf` as the string at field-number path `path` (every
+    /// step a LEN field), the leaf's bytes LAST in the buffer.
+    fn nest(path: &[u32], leaf: &[u8]) -> Vec<u8> {
+        let mut body = leaf.to_vec();
+        for &t in path.iter().rev() {
+            let mut o = Vec::new();
+            varint(((t as u64) << 3) | 2, &mut o);
+            varint(body.len() as u64, &mut o);
+            o.extend_from_slice(&body);
+            body = o;
+        }
+        body
+    }
+
+    /// Was the span (off, len, coder 0) delivered (somewhere in these bytes)?
+    fn has_span(bytes: &[u8], off: usize, len: usize) -> bool {
+        let mut want = [0u8; 12];
+        want[..4].copy_from_slice(&(off as u32).to_ne_bytes());
+        want[4..8].copy_from_slice(&(len as u32).to_ne_bytes());
+        bytes.windows(12).any(|w| w == want)
+    }
+
+    unsafe fn records(ctx: *mut ak_dec_ctx) -> Vec<u8> {
+        let (mut p, mut n) = (core::ptr::null(), 0usize);
+        assert_eq!(ak_bdr_ptr(ctx, &mut p, &mut n), AK_OK);
+        core::slice::from_raw_parts(p, n).to_vec()
+    }
+
+    fn all(w: usize) -> u64 {
+        if w >= 64 { u64::MAX } else { (1u64 << w) - 1 }
+    }
+
+    #[test]
+    fn every_bit_both_families() {
+        let mut checks = 0usize;
+        for &(root, rid, bits) in UTF8_BIT_PATHS {
+            let a = all(bits.len());
+            unsafe {
+                let ctx = d20_ctx_new(rid);
+                assert!(!ctx.is_null(), "{root}");
+                for (b, &(name, path)) in bits.iter().enumerate() {
+                    let wire = nest(path, BAD);
+                    let off = wire.len() - BAD.len();
+                    let me = 1u64 << b;
+                    for (sk, ok) in [(0u64, false), (me, true), (a & !me, false), (a, true)] {
+                        let mut sink = Vec::new();
+                        let rc = d20_push(rid, ctx, &wire, sk, &mut sink);
+                        let (s, rp) = d20_pull(rid, ctx, &wire, Some(sk));
+                        assert_eq!(s, AK_OK, "{root}.{name}: pvt setter");
+                        if ok {
+                            assert_eq!(rc, AK_OK, "{root}.{name} bit {b} push sk={sk:#x}");
+                            assert_eq!(rp, AK_OK, "{root}.{name} bit {b} pull sk={sk:#x}");
+                            assert!(has_span(&sink, off, BAD.len()), "{root}.{name}: push did not deliver the bytes");
+                            assert!(has_span(&records(ctx), off, BAD.len()), "{root}.{name}: pull did not deliver the bytes");
+                        } else {
+                            assert_eq!(rc, AK_ERR_TRANSCODE, "{root}.{name} bit {b} push sk={sk:#x}");
+                            assert_eq!(rp, AK_ERR_TRANSCODE, "{root}.{name} bit {b} pull sk={sk:#x}");
+                        }
+                        checks += 2;
+                    }
+                    // Valid UTF-8 at the same field: accepted with every bit clear.
+                    let good = nest(path, "ok \u{e9}\u{1F600}".as_bytes());
+                    let mut sink = Vec::new();
+                    assert_eq!(d20_push(rid, ctx, &good, 0, &mut sink), AK_OK, "{root}.{name} valid");
+                    assert_eq!(d20_pull(rid, ctx, &good, Some(0)).1, AK_OK, "{root}.{name} valid");
+                    // The pull vtable is per context and the push family ignores it: with
+                    // every pull bit set, a push with its own mask 0 still rejects.
+                    assert_eq!(d20_pull(rid, ctx, &wire, Some(a)), (AK_OK, AK_OK));
+                    assert_eq!(d20_push(rid, ctx, &wire, 0, &mut Vec::new()), AK_ERR_TRANSCODE, "{root}.{name}");
+                    // ... and the setter given NULL restores "validate everything".
+                    assert_eq!(d20_pull(rid, ctx, &wire, None), (AK_OK, AK_ERR_TRANSCODE), "{root}.{name}");
+                    checks += 5;
+                }
+                // Root-bound: the setter on a context bound to another root is refused.
+                let other = UTF8_BIT_PATHS.iter().map(|r| r.1).find(|&r| r != rid).unwrap();
+                assert_eq!(d20_pull(other, ctx, &[], Some(0)).0, AK_ERR_INVALID_STATE, "{root}");
+                ak_dec_ctx_free(ctx);
+            }
+        }
+        assert!(checks > 0);
+        eprintln!("d20 every_bit_both_families: {checks} checks");
+    }
+
+    /// One message with a malformed string at EVERY bit at once (several string fields, nested
+    /// and repeated): accepted only when every bit is set, refused when any one is clear, and
+    /// with every bit set every planted span is delivered.
+    #[test]
+    fn several_fields_some_set_some_not() {
+        for &(root, rid, bits) in UTF8_BIT_PATHS {
+            if bits.is_empty() {
+                continue;
+            }
+            let a = all(bits.len());
+            let mut wire = Vec::new();
+            let mut spans = Vec::new();
+            for &(_n, path) in bits {
+                let piece = nest(path, BAD);
+                spans.push(wire.len() + piece.len() - BAD.len());
+                wire.extend_from_slice(&piece);
+            }
+            unsafe {
+                let ctx = d20_ctx_new(rid);
+                let mut sink = Vec::new();
+                assert_eq!(d20_push(rid, ctx, &wire, a, &mut sink), AK_OK, "{root}");
+                assert_eq!(d20_pull(rid, ctx, &wire, Some(a)), (AK_OK, AK_OK), "{root}");
+                let rec = records(ctx);
+                for &off in &spans {
+                    assert!(has_span(&sink, off, BAD.len()), "{root}: push span at {off}");
+                    assert!(has_span(&rec, off, BAD.len()), "{root}: pull span at {off}");
+                }
+                for (b, &(name, _)) in bits.iter().enumerate() {
+                    let sk = a & !(1u64 << b);
+                    assert_eq!(d20_push(rid, ctx, &wire, sk, &mut Vec::new()), AK_ERR_TRANSCODE, "{root}: {name} clear");
+                    assert_eq!(d20_pull(rid, ctx, &wire, Some(sk)).1, AK_ERR_TRANSCODE, "{root}: {name} clear");
+                }
+                assert_eq!(d20_push(rid, ctx, &wire, 0, &mut Vec::new()), AK_ERR_TRANSCODE, "{root}");
+                ak_dec_ctx_free(ctx);
+            }
+        }
     }
 }

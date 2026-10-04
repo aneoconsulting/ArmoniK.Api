@@ -26,7 +26,9 @@ from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
                   oneof_message_members, presence_bits, slot_elem, slot_name, ugroup_fields,
                   vtable_messages, unk_positions, unk_offset, unk_opts_name,
                   unk_opts_members, unk_root_id, unk_entry_points,
-                  unk_opts_layout, unknown_compiled_out)
+                  unk_opts_layout, unknown_compiled_out,
+                  UTF8_MEMBER, utf8_bit, utf8_bit_names, utf8_child_offset, utf8_width,
+                  pull_vtable, pvt_name, pvt_entry_points, utf8_bits)
 from rustnames import SCALAR  # noqa: F401
 
 # Historical name, imported by the cpp and java generators until they are ported.
@@ -177,7 +179,11 @@ def emit_abi(ir):
         o.append("#[derive(Clone, Copy)]")
         o.append("pub struct ak_dvt_%s {" % name)
         for kind, sn, x in dec_vtable(ir, name):
-            if kind == "apply":
+            if kind == UTF8_MEMBER:
+                o.append("    /// D20: one bit per string field of this decode tree (plan.utf8_bits,")
+                o.append("    /// AK_DVT_%s_UTF8_*); 1 = skip its UTF-8 check. 0 = validate all." % name.upper())
+                o.append("    pub %s: u64," % UTF8_MEMBER)
+            elif kind == "apply":
                 o.append("    pub apply: Option<")
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, *const ak_dfix_%s)," % name)
                 o.append("    >,")
@@ -200,6 +206,28 @@ def emit_abi(ir):
                 o.append("        unsafe extern \"C\" fn(*mut ak_dec_ctx, *mut c_void, i64, *const %s, i32)," % idty)
                 o.append("    >,")
         o.append("}")
+        o.append("/// D20: the mask first, then one pointer per callback (the C header asserts the same).")
+        o.append("#[cfg(target_pointer_width = \"64\")]")
+        o.append("const _: () = assert!(::core::mem::offset_of!(ak_dvt_%s, %s) == 0 && ::core::mem::size_of::<ak_dvt_%s>() == %d * 8);"
+                 % (name, UTF8_MEMBER, name, len(dec_vtable(ir, name))))
+        for bn, b in utf8_bit_names(ir, name):
+            o.append("pub const AK_DVT_%s_UTF8_%s: u64 = 1 << %d;" % (name.upper(), bn.upper(), b))
+        o.append("pub const AK_DVT_%s_UTF8_ALL: u64 = 0x%x;" % (name.upper(), (1 << utf8_width(ir, name)) - 1))
+        o.append("")
+
+    # D20: the pull family's per-root vtable, handed to a root-bound context by its setter.
+    for root in ir.roots:
+        o.append("/// D20: the PULL family's vtable for `%s`, copied into a root-bound context by" % root)
+        o.append("/// `ak_dec_set_pvt_%s`. `utf8_skip` stays the first member; its bits are" % root)
+        o.append("/// `ak_dvt_%s`'s (AK_DVT_%s_UTF8_*)." % (root, root.upper()))
+        o.append("#[repr(C)]")
+        o.append("#[derive(Clone, Copy)]")
+        o.append("pub struct %s {" % pvt_name(root))
+        for kind, mn, _w in pull_vtable(ir, root):
+            o.append("    pub %s: u64," % mn)
+        o.append("}")
+        o.append("const _: () = assert!(::core::mem::offset_of!(%s, %s) == 0 && ::core::mem::size_of::<%s>() == %d * 8);"
+                 % (pvt_name(root), UTF8_MEMBER, pvt_name(root), len(pull_vtable(ir, root))))
         o.append("")
 
     # Decision 11 (WP5 step 7): the per-root unknown-field options, from the plan.
@@ -253,7 +281,7 @@ def emit_abi(ir):
         o.append("        len: usize,")
         o.append("        vt: *const ak_dvt_%s," % root)
         o.append("    ) -> i32;")
-        for fname, params, ret, doc in unk_entry_points(ir, root):
+        for fname, params, ret, doc in unk_entry_points(ir, root) + pvt_entry_points(ir, root):
             o.append("    /// %s" % doc)
             o.append("    pub fn %s;" % _rsig(fname, params, ret))
         o.append("    /// ABI v1 section 7.1's PULL family: no `obj`, no vtable and no reverse")
@@ -837,17 +865,17 @@ PACKED_KIND = {"int32": 1, "int64": 2, "bool": 3, "double": 4, "enum": 5}
 
 # ============================================================== the core, decode
 
-def _push_elemcall(root, sn, dexpr, baseexpr, ux):
+def _push_elemcall(root, sn, dexpr, baseexpr, ux, skx):
     """The push family's deposit for a non-leaf element: a call that will make reverse
     calls of its own."""
-    return "dec_%s_%s_element(ctx, dcx, obj, vt, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux)
+    return "dec_%s_%s_element(ctx, dcx, obj, vt, %s, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux, skx)
 
 
-def _pull_elemcall(root, sn, dexpr, baseexpr, ux):
+def _pull_elemcall(root, sn, dexpr, baseexpr, ux, skx):
     """The pull family's, into the record buffer. Same arguments, no `obj` and no `vt`,
     because a parse makes no upcall at all -- which is the property the JVM needs and the
     reason section 7.1 carries two families."""
-    return "dec_%s_%s_element_pull(dcx, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux)
+    return "dec_%s_%s_element_pull(dcx, %s, %s, %s, %s)" % (snake(root), sn, dexpr, baseexpr, ux, skx)
 
 
 # Decision 11 (WP5 step 7): an unknown run of the function's base message, copied into its
@@ -898,7 +926,7 @@ def _emit_decode(ir, sites):
     out = []
 
     def dec_walk(root, name, fxexpr, prefix, bufname, basename, depth, slot_id, o,
-                 elemcall=None, rel=0):
+                 elemcall=None, rel=0, sb=0):
         """Render one message's DECODE PLAN (`plan.MessagePlan.decode`) as match arms.
 
         Every (field number, wire type) pair in the table becomes one arm; a pair that is
@@ -925,11 +953,22 @@ def _emit_decode(ir, sites):
         rd = "d" if depth == 0 else "c%d" % depth
         pol_reject = ir.options.utf8 == "reject"
 
+        def skx(f):
+            # D20: the utf8_skip mask of the child `f` opens, as the callee's own numbering
+            # (plan.utf8_child_offset, relative to this function's base message at `sb`); a
+            # child with no string field in its tree gets 0.
+            c = elem_type(f) if f.card in ("repeated", "map") else f.of
+            if utf8_width(ir, c) == 0:
+                return "0"
+            k = sb + utf8_child_offset(ir, name, f)
+            return "sk" if k == 0 else "sk >> %d" % k
+
         def utf8_check(f, bufx, off, n, reader):
-            # Plan rule: a `string` is validated on decode under utf8="reject".
+            # Plan rule: a `string` is validated on decode under utf8="reject", unless the
+            # host set its bit in the decode's utf8_skip mask (D20, plan.utf8_bits).
             if f.utf8 and pol_reject:
-                o.append("                if %s != 0 && ak_rt::strings::check_utf8(&%s[%s..%s + %s]).is_err() { %s.err = ak_rt::ERR_TRANSCODE; }"
-                         % (n, bufx, off, off, n, reader))
+                o.append("                if %s != 0 && sk & (1u64 << %d) == 0 && ak_rt::strings::check_utf8(&%s[%s..%s + %s]).is_err() { %s.err = ak_rt::ERR_TRANSCODE; }"
+                         % (n, sb + utf8_bit(ir, name, f), bufx, off, off, n, reader))
 
         def rd_expr(read, reader):
             return {"varint_i32": "%s.varint() as i32", "varint_i64": "%s.varint() as i64",
@@ -964,7 +1003,7 @@ def _emit_decode(ir, sites):
                 sub = []
                 crel = rel + unk_offset(ir, name, f)
                 dec_walk(root, f.of, "%s.%s" % (fxexpr, f.name), path, nbuf, nb, nd, slot_id,
-                         sub, elemcall, crel)
+                         sub, elemcall, crel, sb + utf8_child_offset(ir, name, f))
                 o.extend("        " + ln for ln in sub)
                 o.append("                        _ => {")
                 o.append("                            %s.skip(tag, wire);" % crd)
@@ -1003,7 +1042,7 @@ def _emit_decode(ir, sites):
                 o.append("                if cur != 0 { flush!(); cur = 0; }")
                 o.append("                let (off, n) = %s.len_body();" % rd)
                 o.append("                let mut sub = Dec::new(&%s[off..off + n]);" % bufname)
-                o.append("                %s;" % elemcall(root, sn, "&mut sub", "%s + off" % basename, ux(f)))
+                o.append("                %s;" % elemcall(root, sn, "&mut sub", "%s + off" % basename, ux(f), skx(f)))
                 o.append("                if sub.err != 0 { %s.err = sub.err; }" % rd)
                 o.append("            }")
             elif op in ("append_message", "map_entry"):
@@ -1019,8 +1058,8 @@ def _emit_decode(ir, sites):
                 # value and copied there.
                 o.append("                let p = at_%s!();" % sn)
                 o.append("                p.write(ak_dfix_%s::ZERO);" % et)
-                o.append("                dec_%s_fix_into(&mut es, %s + off, %s, &mut *p);"
-                         % (snake(et), basename, ux(f)))
+                o.append("                dec_%s_fix_into(&mut es, %s + off, %s, %s, &mut *p);"
+                         % (snake(et), basename, ux(f), skx(f)))
                 o.append("                if es.err != 0 { %s.err = es.err; }" % rd)
                 o.append("                n_%s += 1;" % sn)
                 o.append("            }")
@@ -1100,8 +1139,8 @@ def _emit_decode(ir, sites):
                         o.append("                    %s = ak_dfix_%s::ZERO;" % (n, f.of))
                         o.append("                    %s.unknown = ak_unk_buf { data: k.data, len: 0, cap: k.cap };" % n)
                         o.append("                }")
-                    o.append("                dec_%s_fix_into(&mut os, %s + off, %s, &mut %s);"
-                             % (snake(f.of), basename, ux(f), n))
+                    o.append("                dec_%s_fix_into(&mut os, %s + off, %s, %s, &mut %s);"
+                             % (snake(f.of), basename, ux(f), skx(f), n))
                     o.append("                if os.err != 0 { %s.err = os.err; }" % rd)
                 else:
                     o.append("                %s = %s;" % (n, rd_expr(act.read, rd)))
@@ -1201,16 +1240,18 @@ def _emit_decode(ir, sites):
         if not ir.msg(name).leaf:
             continue
         out.append("#[inline]")
-        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize, u: UnkCx) -> ak_dfix_%s {" % (snake(name), name))
+        out.append("unsafe fn dec_%s_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_%s {" % (snake(name), name))
         out.append("    let mut out = ak_dfix_%s::ZERO;" % name)
-        out.append("    dec_%s_fix_into(d, base, u, &mut out);" % snake(name))
+        out.append("    dec_%s_fix_into(d, base, u, sk, &mut out);" % snake(name))
         out.append("    out")
         out.append("}")
         out.append("")
         out.append("/// Decode INTO an existing group: what a oneof's message member needs to merge a")
         out.append("/// repeated occurrence (plan rule), and what `dec_%s_fix` wraps." % snake(name))
         out.append("#[inline]")
-        out.append("unsafe fn dec_%s_fix_into(d: &mut Dec, base: usize, u: UnkCx, out: &mut ak_dfix_%s) {" % (snake(name), name))
+        out.append("/// `sk`: this message's utf8_skip bits (D20, plan.utf8_bits numbering).")
+        out.append("#[allow(unused_variables)]")
+        out.append("unsafe fn dec_%s_fix_into(d: &mut Dec, base: usize, u: UnkCx, sk: u64, out: &mut ak_dfix_%s) {" % (snake(name), name))
         out.append("    #[allow(unused_variables)]")
         out.append("    let buf0 = d.buf;")
         out.append("    let base0 = base;")
@@ -1256,6 +1297,7 @@ def _emit_decode(ir, sites):
             out.append("    d: &mut Dec,")
             out.append("    base: usize,")
             out.append("    u: UnkCx,")
+            out.append("    sk: u64,")
             out.append(") {")
             out.append("    let tok = match (*vt).new_%s {" % sn)
             out.append("        Some(f) => {")
@@ -1362,6 +1404,9 @@ def _emit_decode(ir, sites):
         out.append("    // Decision 11: the positions this context is armed with, or none (drop mode:")
         out.append("    // every capture below is one null test). The context is bound to its root.")
         out.append("    let u = UnkCx::root(dcx);")
+        out.append("    // D20: the host's utf8_skip bits, from THIS call's vtable (0 = validate all).")
+        out.append("    #[allow(unused_variables)]")
+        out.append("    let sk: u64 = (*vt).%s;" % UTF8_MEMBER)
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
         out.append("        let s0 = d.pos;")
@@ -1437,6 +1482,21 @@ def _emit_decode(ir, sites):
         out.append("}")
         out.append("")
 
+    # ============================================ D20: the pull vtable's setter (both variants)
+    for root in ir.roots:
+        rid = unk_root_id(ir, root)
+        for fname, _params, _ret, doc in pvt_entry_points(ir, root):
+            out.append("/// %s" % doc)
+            out.append("#[no_mangle]")
+            out.append("pub unsafe extern \"C\" fn %s(ctx: *mut ak_dec_ctx, pvt: *const %s) -> i32 {" % (fname, pvt_name(root)))
+            out.append("    if ctx.is_null() { return AK_ERR_INVALID_STATE; }")
+            out.append("    let dcx = ctx as *mut DecCtxImpl;")
+            out.append("    if (*dcx).root != %d { return AK_ERR_INVALID_STATE; }" % rid)
+            out.append("    (*dcx).pvt_%s = if pvt.is_null() { 0 } else { (*pvt).%s };" % (UTF8_MEMBER, UTF8_MEMBER))
+            out.append("    AK_OK")
+            out.append("}")
+            out.append("")
+
     # ================================================== the pull family (ABI v1 7.1)
     #
     # The same `dec_walk` above, the same `arena_decl` above, the same `flush_macros`
@@ -1472,6 +1532,7 @@ def _emit_decode(ir, sites):
             out.append("    d: &mut Dec,")
             out.append("    base: usize,")
             out.append("    u: UnkCx,")
+            out.append("    sk: u64,")
             out.append(") {")
             out.append("    // The codec MINTS the token because there is nobody to ask during a parse.")
             out.append("    // A token is an index (ABI v1 section 10), and the host's replay pushes its")
@@ -1568,6 +1629,10 @@ def _emit_decode(ir, sites):
             slots.append((sn, dty, i + 1))
         flush_macros(slots, "AK_TOKEN_ROOT", out, family="pull")
         out.append("    let u = UnkCx::root(dcx);")
+        out.append("    // D20: the utf8_skip bits of the pull vtable this context was given")
+        out.append("    // (ak_dec_set_pvt_%s; all zero unless it was called)." % root)
+        out.append("    #[allow(unused_variables)]")
+        out.append("    let sk: u64 = (*dcx).pvt_%s;" % UTF8_MEMBER)
         out.append("    let mut cur = 0u32;")
         out.append("    while !d.at_end() {")
         out.append("        let s0 = d.pos;")
@@ -1604,6 +1669,96 @@ def _emit_decode(ir, sites):
         out.append("    if (*dcx).hdr.err != AK_OK { (*dcx).hdr.err } else if d.err != 0 { d.err } else { AK_OK }")
         out.append("}")
         out.append("")
+
+    # D20: each root's utf8_skip bits as FIELD-NUMBER PATHS, for the core's own test that
+    # plants malformed UTF-8 at every bit's field (lib.rs, d20_utf8_skip_tests).
+    out.append("/// D20 (test only): per root, every utf8_skip bit in order as (name, field-number path")
+    out.append("/// from the root to the string field). A path through a repeated field or a map")
+    out.append("/// is one element or entry.")
+    out.append("#[cfg(test)]")
+    out.append("pub(crate) const UTF8_BIT_PATHS: &[(&str, u32, &[(&str, &[u32])])] = &[")
+    for root in ir.roots:
+        rows = []
+        for path, _f in utf8_bits(ir, root):
+            m, tags = ir.msg(root), []
+            for k in path:
+                g = [x for x in m.fields if x.name == k][0]
+                tags.append(g.tag)
+                c = g.entry if g.card == "map" else (g.of if g.kind == "message" else None)
+                if c:
+                    m = ir.msg(c)
+            rows.append("(\"%s\", &[%s])" % ("_".join(path), ", ".join(str(t) for t in tags)))
+        out.append("    (\"%s\", %d, &[%s])," % (root, unk_root_id(ir, root), ", ".join(rows)))
+    out.append("];")
+    out.append("")
+    # ... and, per root, test-only drivers: a root-bound context, a push decode through a
+    # vtable whose every callback copies what it is handed (groups and runs, raw bytes) into
+    # the sink, and a pull parse after the pvt setter. The test then finds the planted span.
+    out.append("/// D20 (test only): a context bound to root id `r` (plan.unk_root_id), no options.")
+    out.append("#[cfg(test)]")
+    out.append("pub(crate) unsafe fn d20_ctx_new(r: u32) -> *mut ak_dec_ctx {")
+    out.append("    match r {")
+    for root in ir.roots:
+        out.append("        %d => ak_dec_ctx_new_%s(%s)," % (unk_root_id(ir, root), root,
+                                                      "" if NOUNK else "::core::ptr::null_mut()"))
+    out.append("        _ => ::core::ptr::null_mut(),")
+    out.append("    }")
+    out.append("}")
+    out.append("")
+    out.append("/// D20 (test only): the pull family on root id `r`: the pvt setter (`sk`; `None` =")
+    out.append("/// a NULL pvt), then `ak_parse_<Root>`. Returns (setter rc, parse rc).")
+    out.append("#[cfg(test)]")
+    out.append("pub(crate) unsafe fn d20_pull(r: u32, ctx: *mut ak_dec_ctx, b: &[u8], sk: Option<u64>) -> (i32, i32) {")
+    out.append("    match r {")
+    for root in ir.roots:
+        out.append("        %d => {" % unk_root_id(ir, root))
+        out.append("            let pvt = sk.map(|v| %s { %s: v });" % (pvt_name(root), UTF8_MEMBER))
+        out.append("            let s = ak_dec_set_pvt_%s(ctx, pvt.as_ref().map_or(::core::ptr::null(), |p| p as *const _));" % root)
+        out.append("            (s, ak_parse_%s(ctx, b.as_ptr(), b.len()))" % root)
+        out.append("        }")
+    out.append("        _ => (AK_ERR_INVALID_STATE, AK_ERR_INVALID_STATE),")
+    out.append("    }")
+    out.append("}")
+    out.append("")
+    out.append("/// D20 (test only): the push family on root id `r` with `utf8_skip = sk`; every")
+    out.append("/// callback appends the bytes it is handed to `sink` (`new_*` returns token 0).")
+    out.append("#[cfg(test)]")
+    out.append("pub(crate) unsafe fn d20_push(r: u32, ctx: *mut ak_dec_ctx, b: &[u8], sk: u64, sink: &mut Vec<u8>) -> i32 {")
+    out.append("    unsafe fn put<T>(o: *mut c_void, p: *const T, n: i32) {")
+    out.append("        let s = &mut *(o as *mut Vec<u8>);")
+    out.append("        s.extend_from_slice(::core::slice::from_raw_parts(p as *const u8, ::core::mem::size_of::<T>() * n as usize));")
+    out.append("    }")
+    out.append("    let o = sink as *mut Vec<u8> as *mut c_void;")
+    out.append("    match r {")
+    for root in ir.roots:
+        rs = snake(root)
+        slots = {slot_name(path): f for path, f in loop_slots(ir, root)}
+        out.append("        %d => {" % unk_root_id(ir, root))
+        members = []
+        for kind, sn, x in dec_vtable(ir, root):
+            if kind == UTF8_MEMBER:
+                members.append("%s: sk" % UTF8_MEMBER)
+            elif kind == "apply":
+                out.append("            unsafe extern \"C\" fn ap(_c: *mut ak_dec_ctx, o: *mut c_void, g: *const ak_dfix_%s) { put(o, g, 1) }" % root)
+                members.append("apply: Some(ap)")
+            elif kind == "new":
+                out.append("            unsafe extern \"C\" fn new_%s(_c: *mut ak_dec_ctx, _o: *mut c_void) -> i64 { 0 }" % sn)
+                members.append("new_%s: Some(new_%s)" % (sn, sn))
+            elif kind == "applyelem":
+                out.append("            unsafe extern \"C\" fn apply_%s(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, g: *const ak_dfix_%s) { put(o, g, 1) }" % (sn, x))
+                members.append("apply_%s: Some(apply_%s)" % (sn, sn))
+            else:
+                dty, _ = slot_elem(slots[sn] if kind == "add" else x)
+                out.append("            unsafe extern \"C\" fn add_%s(_c: *mut ak_dec_ctx, o: *mut c_void, _t: i64, e: *const %s, n: i32) { put(o, e, n) }" % (sn, dty))
+                members.append("add_%s: Some(add_%s)" % (sn, sn))
+        out.append("            let vt = ak_dvt_%s { %s };" % (root, ", ".join(members)))
+        out.append("            ak_decode_%s(ctx, o, b.as_ptr(), b.len(), &vt)" % root)
+        out.append("        }")
+        del rs
+    out.append("        _ => AK_ERR_INVALID_STATE,")
+    out.append("    }")
+    out.append("}")
+    out.append("")
     return out
 
 

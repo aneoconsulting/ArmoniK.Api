@@ -4934,6 +4934,8 @@ fn decode_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Li
     let rc = unsafe {
         let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListResultsResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_results_response),
             add_results: Some(add_list_results_response_results),
         };
@@ -5402,6 +5404,8 @@ fn decode_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8]) -> Re
     let rc = unsafe {
         let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTasksDetailedResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_tasks_detailed_response),
             new_tasks: Some(new_list_tasks_detailed_response_tasks),
             apply_tasks: Some(apply_list_tasks_detailed_response_tasks),
@@ -5842,6 +5846,8 @@ fn decode_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<List
     let rc = unsafe {
         let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListProbeResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_probe_response),
             add_probes: Some(add_list_probe_response_probes),
         };
@@ -6238,6 +6244,8 @@ fn decode_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8]) -> Resu
     let rc = unsafe {
         let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListTaskSummaryResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_task_summary_response),
             new_tasks: Some(new_list_task_summary_response_tasks),
             apply_tasks: Some(apply_list_task_summary_response_tasks),
@@ -6610,6 +6618,8 @@ fn decode_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8]) -> Resu
     let rc = unsafe {
         let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_UploadResultDataMessage {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_upload_result_data_message),
         };
         ak_decode_UploadResultDataMessage(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &vt)
@@ -7058,6 +7068,8 @@ fn decode_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<Li
     let rc = unsafe {
         let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_ListMetricsResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_list_metrics_response),
             new_batches: Some(new_list_metrics_response_batches),
             apply_batches: Some(apply_list_metrics_response_batches),
@@ -7483,6 +7495,8 @@ fn decode_with_dual_response_armed(ctxs: DecCtxs, b: &[u8]) -> Result<DualRespon
     let rc = unsafe {
         let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
         let vt = ak_dvt_DualResponse {
+            // D20: every bit 0, so the core validates every string field.
+            utf8_skip: 0,
             apply: Some(apply_dual_response),
             add_left: Some(add_dual_response_left),
             add_right: Some(add_dual_response_right),

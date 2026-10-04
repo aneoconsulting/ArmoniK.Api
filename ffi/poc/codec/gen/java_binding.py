@@ -891,7 +891,10 @@ def emit(ir, level=17, ns=N.PKG, facade_ns=None, layout="ak.shapes.Layout",
         base = vt_addr[("d", name)]
         for j, (kind, sn, et) in enumerate(A.dec_vtable(ir, name)):
             at = base + j
-            if kind in ("unknown", "unk"):
+            if kind == A.UTF8_MEMBER:
+                o.append("    Mem.U.putLong(vt + %d * 8, 0L);   // %s.%s: D20, every bit 0 (validate every string)"
+                         % (at, name, kind))
+            elif kind in ("unknown", "unk"):
                 o.append("    Mem.U.putLong(vt + %d * 8, 0L);   // %s.%s %s: decision 11's"
                          " bag is not built" % (at, name, kind, sn))
             else:
