@@ -59,10 +59,25 @@ public static class CountRun
         // and E2's rows carry `tc N`: of rev, the core's calls into the C# transcoder (TcManaged),
         // one per non-empty string the encode hands it; E1's and ETH's carry `pin N`, the strings
         // handed pinned (no boundary call: the core's own transcoder). Under E0 the file is unchanged.
-        bool e2 = Armonik.Ffi.Harness.Stage.Mode == Armonik.Ffi.Harness.Stage.E2;
-        bool pinm = Armonik.Ffi.Harness.Stage.Mode == Armonik.Ffi.Harness.Stage.E1 || Armonik.Ffi.Harness.Stage.Mode == Armonik.Ffi.Harness.Stage.ETH;
-        if (Armonik.Ffi.Harness.Stage.Mode != Armonik.Ffi.Harness.Stage.E0)
-            o.Insert(1, "# string encode path (D21, AK_STR_ENC): " + Armonik.Ffi.Harness.Stage.ModeName + (e2 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per non-empty string)" : "; `pin N` = the strings handed pinned as UTF-16 (ak_tc_utf16), not a boundary call"));
+        // D21 step 7: E3 / E3L rows carry `tc N` (of rev, as E2) and `u16 N` (`u16len N` for E3L):
+        // the callback's calls into the core's additive exports ak_utf16_to_utf8 /
+        // ak_utf16_utf8_len (forward calls the ABI does not count, so not in fwd); E1R / E1C rows
+        // carry `mark N patch N` (strings the fill marked, marks a frame patched: equal), `hpin N`
+        // (map strings on the GCHandle fallback); E1R's stack bytes per frame go to FILE.frames.
+        var M = Armonik.Ffi.Harness.Stage.Mode;
+        bool e2 = M == Armonik.Ffi.Harness.Stage.E2;
+        bool e3 = M == Armonik.Ffi.Harness.Stage.E3 || M == Armonik.Ffi.Harness.Stage.E3L;
+        bool defer = M == Armonik.Ffi.Harness.Stage.E1R || M == Armonik.Ffi.Harness.Stage.E1C;
+        bool pinm = M == Armonik.Ffi.Harness.Stage.E1 || M == Armonik.Ffi.Harness.Stage.ETH;
+        if (M != Armonik.Ffi.Harness.Stage.E0)
+            o.Insert(1, "# string encode path (D21, AK_STR_ENC): " + Armonik.Ffi.Harness.Stage.ModeName
+                + (e2 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per non-empty string)"
+                   : e3 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per string); `u16 N` / `u16len N` = the transcoder's calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (additive exports, not in fwd)"
+                   : defer ? "; `mark N patch N` = strings marked by the fill / patched by a frame; `hpin N` = map strings pinned by GCHandle (fallback); fwd includes the chunked element and ak_blob_run calls (K = " + Armonik.Ffi.Harness.Stage.PinK + ")"
+                   : "; `pin N` = the strings handed pinned as UTF-16 (ak_tc_utf16), not a boundary call"));
+        // E1R's stack bytes per recursion frame depend on the JIT tier the frame ran at, so they are
+        // written apart (FILE.frames), not in the compared rows.
+        var frames = new List<string> { "# E1R: stack bytes per recursion frame (largest in the case), counting build, JIT tier as run (DOTNET_TieredCompilation=" + (Environment.GetEnvironmentVariable("DOTNET_TieredCompilation") ?? "default") + ")" };
         int n = 0;
         foreach (var k in Cases.CountKeys())
         {
@@ -75,6 +90,9 @@ public static class CountRun
             ops.FfiCallsReset();
             Armonik.Ffi.Harness.Stage.TcCalls = 0;   // D21 E2: the C# transcoder's reverse calls
             Armonik.Ffi.Harness.Stage.PinCalls = 0;  // D21 E1 / ETH: the strings handed pinned
+            Armonik.Ffi.Harness.Stage.U16Calls = 0; Armonik.Ffi.Harness.Stage.U16LenCalls = 0;
+            Armonik.Ffi.Harness.Stage.Marked = 0; Armonik.Ffi.Harness.Stage.Patched = 0;
+            Armonik.Ffi.Harness.Stage.HandlePins = 0; Armonik.Ffi.Harness.Stage.FrameBytes = 0;
 #if !AK_NO_UNKNOWN_FIELDS
             Armonik.Ffi.Harness.UnkHost.Grows = 0;
 #endif
@@ -90,12 +108,20 @@ public static class CountRun
             }
             o.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} {1} {2} {3} {4} | fwd {5} rev {6} grow {7} reset {8}{10} | {9}",
                 c.Payload, c.Content, c.Arm, c.Dir, c.Mode, fwd, ops.FfiReverse() + Armonik.Ffi.Harness.Stage.TcCalls, Grows(), resets,
-                string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls)), e2 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls : pinm ? " pin " + Armonik.Ffi.Harness.Stage.PinCalls : ""));
-            if (!pinm && Armonik.Ffi.Harness.Stage.PinCalls != 0) { Console.Error.WriteLine("string pinned outside E1 / ETH on " + k); return 1; }
-            if (!e2 && Armonik.Ffi.Harness.Stage.TcCalls != 0) { Console.Error.WriteLine("C# transcoder called outside E2 on " + k); return 1; }
+                string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls)), e2 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls
+                : pinm ? " pin " + Armonik.Ffi.Harness.Stage.PinCalls
+                : e3 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls + " u16 " + Armonik.Ffi.Harness.Stage.U16Calls + (M == Armonik.Ffi.Harness.Stage.E3L ? " u16len " + Armonik.Ffi.Harness.Stage.U16LenCalls : "")
+                : defer ? " mark " + Armonik.Ffi.Harness.Stage.Marked + " patch " + Armonik.Ffi.Harness.Stage.Patched + " hpin " + Armonik.Ffi.Harness.Stage.HandlePins
+
+                : ""));
+            if (!pinm && !defer && Armonik.Ffi.Harness.Stage.PinCalls != 0) { Console.Error.WriteLine("string pinned outside E1 / ETH / the E1R-E1C map fallback on " + k); return 1; }
+            if (!e2 && !e3 && Armonik.Ffi.Harness.Stage.TcCalls != 0) { Console.Error.WriteLine("C# transcoder called outside E2 / E3 on " + k); return 1; }
+            if (M == Armonik.Ffi.Harness.Stage.E1R) frames.Add(c.Payload + " " + c.Content + " " + c.Dir + " " + c.Mode + " frame " + Armonik.Ffi.Harness.Stage.FrameBytes);
+            if (Armonik.Ffi.Harness.Stage.Marked != Armonik.Ffi.Harness.Stage.Patched) { Console.Error.WriteLine("E1R/E1C: " + Armonik.Ffi.Harness.Stage.Marked + " marked, " + Armonik.Ffi.Harness.Stage.Patched + " patched on " + k); return 1; }
             n++;
         }
         File.WriteAllLines(path, o);
+        if (frames.Count > 1) File.WriteAllLines(path + ".frames", frames);
         Console.WriteLine("counts: {0} core-ffi cases written to {1}", n, path);
         return n > 0 ? 0 : 1;
 #endif

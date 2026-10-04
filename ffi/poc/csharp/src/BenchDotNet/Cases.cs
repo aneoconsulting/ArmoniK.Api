@@ -332,12 +332,19 @@ public static class Cases
         // D21: every string encode path gives the same bytes, whatever path this process times
         // (AK_STR_ENC): E0, E1 (pinned UTF-16, ak_tc_utf16), E2 (the C# transcoder), and a
         // threshold split, on every payload and content set (Latin-1, wide; astral by the sweep).
+        // D21 step 7: E3, E3L (the core's ak_utf16_to_utf8 from the callback), E1R (fixed frames,
+        // chunks of K elements: K 3 so every chunk boundary and the recursion's unwinding are
+        // crossed, and the default), E1C (GCHandles per chunk), and the threshold and ASCII splits.
         var mode0 = Armonik.Ffi.Harness.Stage.Mode; var th0 = Armonik.Ffi.Harness.Stage.Threshold;
+        var na0 = Armonik.Ffi.Harness.Stage.NonAsciiOnly; var k0 = Armonik.Ffi.Harness.Stage.PinK;
         try
         {
-            foreach (var (m, th) in new[] { (Armonik.Ffi.Harness.Stage.E0, 0), (Armonik.Ffi.Harness.Stage.E1, 0), (Armonik.Ffi.Harness.Stage.E2, 0), (Armonik.Ffi.Harness.Stage.ETH, 16) })
+            foreach (var spec in new[] { "E0", "E1", "E2", "ETH:16", "E3", "E3L", "E1R", "E1R:0:x3", "E1C:0:x3", "E1R:16", "E1R:16:na", "E3:16:na" })
             {
-                Armonik.Ffi.Harness.Stage.Mode = m; Armonik.Ffi.Harness.Stage.Threshold = th;
+                var sp = spec.Replace(":x3", "");
+                Armonik.Ffi.Harness.Stage.Mode = Armonik.Ffi.Harness.Stage.ParseMode(sp, out Armonik.Ffi.Harness.Stage.Threshold, out Armonik.Ffi.Harness.Stage.NonAsciiOnly);
+                Armonik.Ffi.Harness.Stage.PinK = spec.EndsWith(":x3", StringComparison.Ordinal) ? 3 : 64;
+                var m = spec;
                 foreach (var pid in OpsTable.Payloads)
                     foreach (var cs in SetsOf(pid))
                     {
@@ -371,7 +378,7 @@ public static class Cases
                 }
             }
         }
-        finally { Armonik.Ffi.Harness.Stage.Mode = mode0; Armonik.Ffi.Harness.Stage.Threshold = th0; }
+        finally { Armonik.Ffi.Harness.Stage.Mode = mode0; Armonik.Ffi.Harness.Stage.Threshold = th0; Armonik.Ffi.Harness.Stage.NonAsciiOnly = na0; Armonik.Ffi.Harness.Stage.PinK = k0; }
         foreach (var id in UnknownRows())
         {
             var (ops, b) = Row(id);

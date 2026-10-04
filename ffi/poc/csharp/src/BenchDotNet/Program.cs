@@ -42,12 +42,35 @@ public static class Program
         var art = Opt(a, "--artifacts", "BenchmarkDotNet.Artifacts");
         if (a.Contains("--list-units")) { foreach (var u in Cases.Units(launch)) Console.WriteLine(u); return 0; }
         if (a.Contains("--counts")) return CountRun.Run(Opt(a, "--counts", "counts.txt"));
+        if (a.Contains("--kernels"))
+        {
+            // D21 step 7 item 3: the vector widths .NET 8 uses here (its UTF-16 <-> UTF-8 and ASCII
+            // helpers branch on Vector512/256/128.IsHardwareAccelerated and the ISA classes).
+            Console.WriteLine("runtime " + Environment.Version + ", " + RuntimeInformation.ProcessArchitecture);
+            Console.WriteLine("Vector512.IsHardwareAccelerated=" + System.Runtime.Intrinsics.Vector512.IsHardwareAccelerated);
+            Console.WriteLine("Vector256.IsHardwareAccelerated=" + System.Runtime.Intrinsics.Vector256.IsHardwareAccelerated);
+            Console.WriteLine("Vector128.IsHardwareAccelerated=" + System.Runtime.Intrinsics.Vector128.IsHardwareAccelerated);
+            Console.WriteLine("Vector<byte>.Count=" + System.Numerics.Vector<byte>.Count);
+            Console.WriteLine("Avx512F=" + System.Runtime.Intrinsics.X86.Avx512F.IsSupported + " Avx512BW=" + System.Runtime.Intrinsics.X86.Avx512BW.IsSupported
+                + " Avx512CD=" + System.Runtime.Intrinsics.X86.Avx512CD.IsSupported + " Avx512DQ=" + System.Runtime.Intrinsics.X86.Avx512DQ.IsSupported
+                + " Avx512Vbmi=" + System.Runtime.Intrinsics.X86.Avx512Vbmi.IsSupported + " Avx2=" + System.Runtime.Intrinsics.X86.Avx2.IsSupported
+                + " Sse42=" + System.Runtime.Intrinsics.X86.Sse42.IsSupported);
+            foreach (var v in new[] { "DOTNET_PreferredVectorBitWidth", "DOTNET_EnableAVX512F", "DOTNET_EnableAVX2", "DOTNET_TieredCompilation" })
+                Console.WriteLine(v + "=" + (Environment.GetEnvironmentVariable(v) ?? "(unset)"));
+            return 0;
+        }
+        if (a.Contains("--pinbench"))
+        {
+            Alloc.Startup();
+            return PinBench.Run(Opt(a, "--pinbench", "pinbench.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture));
+        }
         if (a.Contains("--strsweep"))
         {
             Alloc.Startup();   // the allocator and single-CPU checks
             return StrSweep.Run(Opt(a, "--strsweep", "strsweep.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture),
                 Opt(a, "--lengths", "4,16,64,256,1024,16384").Split(',').Select(x => int.Parse(x, CultureInfo.InvariantCulture)).ToArray(),
-                Opt(a, "--contents", "ascii,latin1,wide,astral").Split(','));
+                Opt(a, "--contents", "ascii,latin1,wide,astral").Split(','),
+                Opt(a, "--paths", "E0,E1,E2").Split(','));
         }
         Cases.Unit = Opt(a, "--unit", null);
         // CAMPAIGN req 22a (e6c909630): the campaign runs BDN's native isolation, one child
@@ -72,6 +95,7 @@ public static class Program
         if (awhy != null) { Console.Error.WriteLine("allocator mode mismatch: " + awhy); return 3; }
         Environment.SetEnvironmentVariable("AK_CORPUS_DIR", Cases.CorpusDir());   // for BDN's child processes
         int checks = Cases.Verify();
+        if (a.Contains("--verify")) { Console.WriteLine("verify: " + checks + " pre-timing checks passed (byte identity of every arm, every string path)"); return 0; }
         Alloc.Startup();   // once per process; the mismatch was refused above
         // Requirement 24, the tier: a process-level pre-warm before BDN starts. Every case of
         // this process is called 64 times per round, rounds 0.5 s apart, until a round causes

@@ -466,19 +466,134 @@ public sealed unsafe class Stage : IDisposable
     //       C# transcoder TcManaged ([UnmanagedCallersOnly]), which writes UTF-8 straight into the
     //       core's buffer (one reverse call per string);
     //   ETH:<n>  E1 for a string of at least n UTF-16 code units, E0 below.
-    public const int E0 = 0, E1 = 1, E2 = 2, ETH = 3;
-    public static int Mode = ParseMode(Environment.GetEnvironmentVariable("AK_STR_ENC"), out Threshold);
+    // D21 step 7 (owner, 2026-10-04):
+    //   E3  E2's table and callback, but the callback pins the string with `fixed` and calls the
+    //       core's additive export ak_utf16_to_utf8 (simdutf) into `dst`, after growing to the
+    //       worst case (3 bytes per code unit) when `cap` is below it;
+    //   E3L the same, sized by ak_utf16_utf8_len first (grow to the exact length when short);
+    //   E1R E1 WITHOUT GCHandles: the fill marks the string (data = PinPending, len, ak_tc_utf16)
+    //       and the generated frames pin it with `fixed` around the call that reads it: the root
+    //       group's strings in one nested `fixed` scope around ak_encode; an element chunk by
+    //       BOUNDED RECURSION, one frame per ELEMENT (every singular string of the element and of
+    //       its inlined children in one `fixed`), the deepest frame making the element call; a
+    //       repeated string field by bounded recursion, one frame per string, delivered as several
+    //       ak_blob_run calls of at most PinK strings; a map's strings by GCHandle (fallback, `hpin`);
+    //   E1C the same marks and chunks as E1R, pinned by GCHandles that are freed after each chunk's
+    //       call (the attribution control: E1's handles, at most one chunk live).
+    //   <MODE>:<n> the mode for a string of at least n code units, E0 below; <MODE>:<n>:na also
+    //       sends an ASCII-only string to E0 (content-aware: one Ascii.IsValid scan per string).
+    public const int E0 = 0, E1 = 1, E2 = 2, ETH = 3, E3 = 4, E3L = 5, E1R = 6, E1C = 7;
+    public static int Mode = ParseMode(Environment.GetEnvironmentVariable("AK_STR_ENC"), out Threshold, out NonAsciiOnly);
     public static int Threshold;
-    public static int ParseMode(string v, out int th)
+    public static bool NonAsciiOnly;
+    public static int ParseMode(string v, out int th, out bool na)
     {
-        th = int.MaxValue;
+        th = 0; na = false;
         if (string.IsNullOrEmpty(v) || v == "E0") return E0;
-        if (v == "E1") return E1;
-        if (v == "E2") return E2;
-        if (v.StartsWith("ETH:", StringComparison.Ordinal)) { th = int.Parse(v.Substring(4), System.Globalization.CultureInfo.InvariantCulture); return ETH; }
-        throw new ArgumentException("AK_STR_ENC: E0 | E1 | E2 | ETH:<chars>, not " + v);
+        var parts = v.Split(':');
+        int m;
+        switch (parts[0])
+        {
+            case "E1": m = E1; break;
+            case "E2": m = E2; break;
+            case "ETH": m = ETH; break;
+            case "E3": m = E3; break;
+            case "E3L": m = E3L; break;
+            case "E1R": m = E1R; break;
+            case "E1C": m = E1C; break;
+            default: throw new ArgumentException("AK_STR_ENC: E0 | E1 | E2 | E3 | E3L | E1R | E1C [:<chars>[:na]] | ETH:<chars>, not " + v);
+        }
+        if (parts.Length > 1) th = int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
+        else if (m == ETH) throw new ArgumentException("AK_STR_ENC: ETH needs a threshold (ETH:<chars>)");
+        if (parts.Length > 2) { if (parts[2] != "na") throw new ArgumentException("AK_STR_ENC: the third part is `na`, not " + parts[2]); na = true; }
+        if (parts.Length > 3) throw new ArgumentException("AK_STR_ENC: " + v);
+        return m;
     }
-    public static string ModeName => Mode switch { E1 => "E1", E2 => "E2", ETH => "ETH:" + Threshold, _ => "E0" };
+    public static string ModeName => Mode switch
+    {
+        E0 => "E0",
+        ETH => "ETH:" + Threshold,
+        _ => (Mode switch { E1 => "E1", E2 => "E2", E3 => "E3", E3L => "E3L", E1R => "E1R", _ => "E1C" })
+             + (Threshold > 0 || NonAsciiOnly ? ":" + Threshold : "") + (NonAsciiOnly ? ":na" : "")
+             + (Mode == E1R || Mode == E1C ? " (K " + PinK + ")" : ""),
+    };
+    /// E1R / E1C: 1 or 2 when the generated frames pin (the fill marks), 0 otherwise.
+    public static int Defer => Mode == E1R ? 1 : Mode == E1C ? 2 : 0;
+    /// E1R / E1C: the marker the fill leaves in ak_str.data until a frame patches it; never a small
+    /// value (ABI v1 section 8 reserves those) and never read by the core (patched before the call).
+    public static readonly IntPtr PinPending = (IntPtr)0x30000;
+    /// E1R / E1C: the elements (and repeated strings) per chunk, so per recursion depth. AK_STR_PINK.
+    public static int PinK = ParsePinK(Environment.GetEnvironmentVariable("AK_STR_PINK"));
+    /// The largest K accepted: the recursion uses at most 2 K frames (an element chunk, then a
+    /// repeated-string or map chunk inside one element call) plus the core's frames, on a thread
+    /// stack that may be .NET's 1.5 MB secondary-thread default. The largest frame the counting
+    /// build measured over the shapes and U-* rows is 1,152 bytes at the default JIT tiers (336
+    /// fully optimised; logs/csharp/opt/s7/frames/): 2 x 256 x 1,152 = 590 KB, 38 % of 1.5 MB;
+    /// a larger K is refused.
+    public const int MaxPinK = 256;
+    public static int ParsePinK(string v)
+    {
+        if (string.IsNullOrEmpty(v)) return 64;
+        int k = int.Parse(v, System.Globalization.CultureInfo.InvariantCulture);
+        if (k < 1 || k > MaxPinK) throw new ArgumentException("AK_STR_PINK: 1.." + MaxPinK + " (stack bound), not " + v);
+        return k;
+    }
+    /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call).
+    public static long Marked, Patched;
+    /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
+    public static long HandlePins;
+    /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
+    /// does not count these additive exports).
+    public static long U16Calls, U16LenCalls;
+    /// Stack bytes per recursion frame: the largest (address at depth 0 - address at depth d) / d
+    /// seen by the counting build (AK_HOST_COUNT).
+    public static long FrameBytes;
+    [ThreadStatic] private static byte* _sp0;
+    public static void Sp(int depth, byte* sp)
+    {
+        if (depth == 0) { _sp0 = sp; return; }
+        long b = (_sp0 - sp) / depth;
+        if (b > FrameBytes) FrameBytes = b;
+    }
+    [ThreadStatic] private static System.Collections.Generic.List<GCHandle> _chunkPins;
+    /// E1C: a GCHandle pin held until ReleaseChunk (after the chunk's call).
+    public static IntPtr PinChunk(string s)
+    {
+        Patched++;
+        var h = GCHandle.Alloc(s, GCHandleType.Pinned);
+        (_chunkPins ??= new System.Collections.Generic.List<GCHandle>()).Add(h);
+        return h.AddrOfPinnedObject();
+    }
+    public static void ReleaseChunk()
+    {
+        var l = _chunkPins;
+        if (l == null) return;
+        for (int i = 0; i < l.Count; i++) l[i].Free();
+        l.Clear();
+    }
+    /// A GATE CONTROL, not a mode: AK_GATE_PIN_STRESS=1 runs a blocking compacting GC after every
+    /// chunk's call (E1R / E1C), so a core that read a string after its frame had released it
+    /// would read moved memory; the byte checks then run under it.
+    internal static readonly bool PinStress = Environment.GetEnvironmentVariable("AK_GATE_PIN_STRESS") == "1";
+    public static void AfterChunk()
+    {
+        if (PinStress) GC.Collect(2, GCCollectionMode.Forced, true, true);
+    }
+    /// A GATE CONTROL for the stress check: AK_GATE_PLANT_EARLY_UNPIN=1 makes E1C release a
+    /// chunk's handles BEFORE its call and run the compacting GC, so the core reads strings that
+    /// are no longer pinned; under it the byte checks must fail (the stress check can see a
+    /// string read after its release).
+    internal static readonly bool PlantEarlyUnpin = Environment.GetEnvironmentVariable("AK_GATE_PLANT_EARLY_UNPIN") == "1";
+    public static void BeforeChunkCall()
+    {
+        if (!PlantEarlyUnpin) return;
+        ReleaseChunk();
+        GC.Collect(2, GCCollectionMode.Forced, true, true);
+    }
+    [DllImport(Abi.Lib, EntryPoint = "ak_utf16_to_utf8", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_utf16_to_utf8(char* src, nuint len, byte* dst, nuint cap);
+    [DllImport(Abi.Lib, EntryPoint = "ak_utf16_utf8_len", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern int ak_utf16_utf8_len(char* src, nuint len);
     private readonly System.Collections.Generic.List<GCHandle> _pins = new System.Collections.Generic.List<GCHandle>();
     private static IntPtr _tcU16;
     /// E2's table: the strings of the encode running on this thread (the core calls the
@@ -512,7 +627,7 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); }
+    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); ReleaseChunk(); }
 
     /// E1: the pins of the last codec call, released once it has returned (the core copied
     /// the strings into its own buffer during the call).
@@ -538,13 +653,68 @@ public sealed unsafe class Stage : IDisposable
     }
 
     private const nint TabBase = 0x10000;
-    private static ak_str Tab(string s)
+    private static ak_str Tab(string s, int m)
     {
         var t = _tab ??= new System.Collections.Generic.List<string>();
         t.Add(s);
         // data = TabBase + index: never a small value (ABI v1 section 8 reserves small ak_str.data
         // values as sentinels: 1 is AK_STR_DIRECT; a first attempt with index + 1 was taken for it).
-        return new ak_str { data = (IntPtr)(TabBase + t.Count - 1), len = (nuint)s.Length, tc = (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcManaged };
+        IntPtr tc = m == E3 ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCore
+            : m == E3L ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCoreLen
+            : (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcManaged;
+        return new ak_str { data = (IntPtr)(TabBase + t.Count - 1), len = (nuint)s.Length, tc = tc };
+    }
+
+    /// E3: ak_transcode_fn. As TcManaged, but the UTF-16 is pinned with `fixed` and converted by the
+    /// core's ak_utf16_to_utf8 (simdutf, the bytes ak_tc_utf16 writes); `dst` grown to the worst
+    /// case (3 bytes per code unit) first when `cap` is below it.
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int TcCore(void* src, nuint len, byte* dst, int cap, IntPtr grow, IntPtr sink)
+    {
+        try
+        {
+#if AK_HOST_COUNT
+            TcCalls++; U16Calls++;
+#endif
+            var s = _tab[(int)((nint)src - TabBase)];
+            long worst = (long)s.Length * 3;
+            if (cap < worst)
+            {
+                int rc = ((delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)grow)(sink, (int)Math.Min(worst, int.MaxValue), &dst, &cap);
+                if (rc < 0) return rc;
+            }
+            int w;
+            fixed (char* c = s) w = ak_utf16_to_utf8(c, (nuint)s.Length, dst, (nuint)cap);
+            return PlantStr && w > 0 ? w - 1 : w;
+        }
+        catch { return Abi.AK_ERR_HOST; }
+    }
+
+    /// E3L: as TcCore, sized by ak_utf16_utf8_len first (a grow to the exact length when short).
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int TcCoreLen(void* src, nuint len, byte* dst, int cap, IntPtr grow, IntPtr sink)
+    {
+        try
+        {
+#if AK_HOST_COUNT
+            TcCalls++; U16Calls++; U16LenCalls++;
+#endif
+            var s = _tab[(int)((nint)src - TabBase)];
+            int w;
+            fixed (char* c = s)
+            {
+                int need = ak_utf16_utf8_len(c, (nuint)s.Length);
+                if (need < 0) return need;
+                if (need > cap)
+                {
+                    int rc = ((delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)grow)(sink, need, &dst, &cap);
+                    if (rc < 0) return rc;
+                }
+                w = ak_utf16_to_utf8(c, (nuint)s.Length, dst, (nuint)cap);
+            }
+            return PlantStr && w > 0 ? w - 1 : w;
+        }
+        catch { return Abi.AK_ERR_HOST; }
     }
 
     /// E2: ak_transcode_fn. `src` is TabBase + the string's index in this thread's table; writes the
@@ -612,10 +782,17 @@ public sealed unsafe class Stage : IDisposable
     {
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
         int m = Mode;
-        if (m != E0 && !Utf16)
+        if (m != E0 && !Utf16 && s.Length >= Threshold && !(NonAsciiOnly && IsAscii(s)))
         {
-            if (m == E1 || (m == ETH && s.Length >= Threshold)) return Pin(s);
-            if (m == E2) return Tab(s);
+            switch (m)
+            {
+                case E1: case ETH: return Pin(s);
+                case E2: case E3: case E3L: return Tab(s, m);
+                default:   // E1R, E1C: marked here, pinned by the frame around the call that reads it
+                    Marked++;
+                    if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
+                    return new ak_str { data = PinPending, len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
+            }
         }
         if (Utf16)
         {
@@ -630,6 +807,30 @@ public sealed unsafe class Stage : IDisposable
         fixed (char* c = s) n = Encoding.UTF8.GetBytes(c, s.Length, q, max);
         Commit(n);
         return new ak_str { data = (IntPtr)q, len = (nuint)n, tc = Tc };
+    }
+
+    private static bool IsAscii(string s)
+    {
+#if NET8_0_OR_GREATER
+        return System.Text.Ascii.IsValid(s);
+#else
+        foreach (char c in s) if (c > 0x7F) return false;
+        return true;
+#endif
+    }
+
+    /// A map entry's key or value. E1R / E1C have no frame around a map's element call: their
+    /// strings take E1's GCHandle (freed when the codec call returns), counted as `hpin`.
+    public ak_str StrH(string s)
+    {
+        if (Defer != 0 && s != null && s.Length != 0 && s.Length >= Threshold && !Utf16 && !(NonAsciiOnly && IsAscii(s)))
+        {
+#if AK_HOST_COUNT
+            HandlePins++;
+#endif
+            return Pin(s);
+        }
+        return Str(s);
     }
 
     public ak_str Bytes(byte[] b)
@@ -717,8 +918,8 @@ def _stage_elem(o, s, arr, idx, src, ind, retain_expr):
     elif s.kind == "packed":
         o += "%s((%s*)%s)[%s] = %s;" % (ind, s.cs_e, arr, idx, _enc(s.f, src))
     elif s.kind == "map":
-        o += "%s{ ref var e = ref ((%s*)%s)[%s]; e = default; e.key = _st.Str(%s.Key); e.value = _st.Str(%s.Value); }" % (
-            ind, s.cs_e, arr, idx, src, src)
+        o += "%s{ ref var e = ref ((%s*)%s)[%s]; e = default; e.key = _st.%s(%s.Key); e.value = _st.%s(%s.Value); }" % (
+            ind, s.cs_e, arr, idx, "StrH" if s.top else "Str", src, "StrH" if s.top else "Str", src)
     else:
         if retain_expr and s.top and not _NO:
             o += "%sif (%s) G.U_%s(ref ((%s*)%s)[%s], %s, _st);" % (ind, retain_expr, s.et, s.u_elem(), arr, idx, src)
@@ -774,6 +975,322 @@ def _add_body(o, s, lst, xs, n, ind, var="i"):
             ind, var, var, n, var, s.et, s.et, xs, var, lst)
 
 
+# ---------------------------------------------------------------- D21 step 7: E1R / E1C frames
+
+def _pin_fields(p, mname, sv):
+    """Every string a group of `mname` carries as an ak_str member (its own singular and explicit
+    strings, its oneof string members, and those of every inlined singular or oneof message
+    child), as (facade expression, group member path), with the local declarations the
+    expressions use (`sv` is the facade object, never null). The fill (_emit_fill) assigns
+    exactly these members from exactly these facade fields."""
+    decls, pins, n = [], [], [0]
+
+    def walk(mn, v, gpath, nullable):
+        m = p.msg(mn)
+        dot = "?." if nullable else "."
+        for f in m.plain:
+            if f.card != "singular" or f.direct:
+                continue
+            if f.kind == "string":
+                pins.append(("%s%s%s" % (v, dot, N.field(f.name)), gpath + f.name))
+            elif f.kind == "message":
+                n[0] += 1
+                cv = "__c%d" % n[0]
+                decls.append("var %s = %s%s%s;" % (cv, v, dot, N.field(f.name)))
+                walk(f.of, cv, gpath + f.name + ".", True)
+        for oname, members in m.oneofs.items():
+            ct = N.oneof_case_type(m.name, oname)
+            for gm in members:
+                cond = "%s%s.%s == %s.%s" % ("%s != null && " % v if nullable else "", v, N.oneof_case_field(oname), ct, N.pascal(gm.name))
+                if gm.kind == "string":
+                    pins.append(("(%s ? (%s.%s ?? \"\") : null)" % (cond, v, N.field(gm.name)), gpath + "%s_%s" % (oname, gm.name)))
+                elif gm.kind == "message":
+                    n[0] += 1
+                    cv = "__c%d" % n[0]
+                    decls.append("var %s = (%s) ? %s.%s : null;" % (cv, cond, v, N.field(gm.name)))
+                    walk(gm.of, cv, gpath + "%s_%s." % (oname, gm.name), True)
+    walk(mname, sv, "", False)
+    # Only the children a pin reaches (a child with no string needs no local).
+    import re
+    used = set(re.findall(r"__c\d+", " ".join(e for e, _ in pins)))
+    for d in reversed(decls):
+        name = d.split()[1]
+        if name in used:
+            used |= set(re.findall(r"__c\d+", d.split("=", 1)[1]))
+    return [d for d in decls if d.split()[1] in used], pins
+
+
+def _pin_patch_r(o, ind, gp, pins):
+    """E1R: patch each marked member with its `fixed` pointer __p<i>."""
+    for k, (_, path) in enumerate(pins):
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; Stage.Patched++; }" % (ind, gp, path, gp, path, k)
+
+
+def _pin_patch_h(o, ind, gp, pins):
+    """E1C: patch each marked member with a chunk-lived GCHandle pin."""
+    for expr, path in pins:
+        o += "%sif (%s->%s.data == Stage.PinPending) %s->%s.data = Stage.PinChunk(%s);" % (ind, gp, path, gp, path, expr)
+
+
+def _fixed_open(pins):
+    return "fixed (char* %s)" % ", ".join("__p%d = %s" % (k, e) for k, (e, _) in enumerate(pins))
+
+
+def _emit_pin_frames(o, p, root, s):
+    """E1R's recursion (one frame per ELEMENT of a chunk) and E1C's chunk pinning for the element
+    slot `s` of `root` (a top-level message slot); None when its element carries no string."""
+    decls, pins = _pin_fields(p, s.et, "__e")
+    if not pins:
+        return False
+    lst = "System.Collections.Generic.List<%s>" % s.et
+    fwd_u = _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off") if not _NO else None
+    fwd_e = _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+    o += "    /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of"
+    o += "    /// its element, patches the element's marked members, and recurses; the deepest frame"
+    o += "    /// makes the element call, and unwinding releases the pins."
+    o += "    private static int Rec_%s(IntPtr ctx, Run_%s* run, %s lst, int off, int k, int i)" % (s.name, root, lst)
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        Stage.Sp(i, (byte*)&i);"
+    o += "#endif"
+    o += "        if (i == k)"
+    o += "        {"
+    o += "            _fwd++;"
+    if _NO:
+        o += "            return %s;" % fwd_e
+    else:
+        o += "            return run->Retain != 0 ? %s : %s;" % (fwd_u, fwd_e)
+    o += "        }"
+    o += "        var __e = lst[off + i];"
+    for d in decls:
+        o += "        %s" % d
+    o += "        %s" % _fixed_open(pins)
+    o += "        {"
+    if not _NO:
+        o += "            if (run->Retain != 0)"
+        o += "            {"
+        o += "                var __g = (%s*)run->S_%s + off + i;" % (s.u_elem(), s.name)
+        _pin_patch_r(o, "                ", "__g", pins)
+        o += "            }"
+        o += "            else"
+    o += "            {"
+    o += "                var __g = (%s*)run->S_%s + off + i;" % (s.cs_e, s.name)
+    _pin_patch_r(o, "                ", "__g", pins)
+    o += "            }"
+    o += "            return Rec_%s(ctx, run, lst, off, k, i + 1);" % s.name
+    o += "        }"
+    o += "    }"
+    o += ""
+    o += "    /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned."
+    o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, %s lst, int off, int k)" % (s.name, root, lst)
+    o += "    {"
+    o += "        for (int i = 0; i < k; i++)"
+    o += "        {"
+    o += "            var __e = lst[off + i];"
+    for d in decls:
+        o += "            %s" % d
+    if not _NO:
+        o += "            if (run->Retain != 0)"
+        o += "            {"
+        o += "                var __g = (%s*)run->S_%s + off + i;" % (s.u_elem(), s.name)
+        _pin_patch_h(o, "                ", "__g", pins)
+        o += "            }"
+        o += "            else"
+    o += "            {"
+    o += "                var __g = (%s*)run->S_%s + off + i;" % (s.cs_e, s.name)
+    _pin_patch_h(o, "                ", "__g", pins)
+    o += "            }"
+    o += "        }"
+    o += "        Stage.BeforeChunkCall();"
+    o += "        _fwd++;"
+    if _NO:
+        o += "        int rc = %s;" % fwd_e
+    else:
+        o += "        int rc = run->Retain != 0 ? %s : %s;" % (fwd_u, fwd_e)
+    o += "        Stage.ReleaseChunk();"
+    o += "        return rc;"
+    o += "    }"
+    o += ""
+    return True
+
+
+def _emit_pin_elems_inner(o, p, s, i):
+    """E1R / E1C for a nested element slot `i` (leaf elements inside each element of `s`): the
+    same per-element frames, over the element's run in I_<s>_<i>, chunks of at most Stage.PinK."""
+    decls, pins = _pin_fields(p, i.et, "__e")
+    name = "%s_%s" % (s.name, i.name)
+    lst = "System.Collections.Generic.List<%s>" % i.et
+    o += "    private static int Rec_%s(IntPtr ctx, %s* arr, %s lst, int off, int k, int j)" % (name, i.cs_e, lst)
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "#endif"
+    o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        var __e = lst[off + j];"
+    for d in decls:
+        o += "        %s" % d
+    o += "        %s" % _fixed_open(pins)
+    o += "        {"
+    o += "            var __g = arr + off + j;"
+    _pin_patch_r(o, "            ", "__g", pins)
+    o += "            return Rec_%s(ctx, arr, lst, off, k, j + 1);" % name
+    o += "        }"
+    o += "    }"
+    o += ""
+    o += "    private static int ChunkH_%s(IntPtr ctx, %s* arr, %s lst, int off, int k)" % (name, i.cs_e, lst)
+    o += "    {"
+    o += "        for (int j = 0; j < k; j++)"
+    o += "        {"
+    o += "            var __e = lst[off + j];"
+    for d in decls:
+        o += "            %s" % d
+    o += "            var __g = arr + off + j;"
+    _pin_patch_h(o, "            ", "__g", pins)
+    o += "        }"
+    o += "        Stage.BeforeChunkCall();"
+    o += "        _fwd++;"
+    o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        Stage.ReleaseChunk();"
+    o += "        return rc;"
+    o += "    }"
+    o += ""
+    o += "    private static int PinElems_%s(IntPtr ctx, %s* arr, %s lst, int n)" % (name, i.cs_e, lst)
+    o += "    {"
+    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        for (int off = 0; off < n; off += K)"
+    o += "        {"
+    o += "            int k = n - off; if (k > K) k = K;"
+    o += "            int rc = d == 1 ? Rec_%s(ctx, arr, lst, off, k, 0) : ChunkH_%s(ctx, arr, lst, off, k);" % (name, name)
+    o += "            Stage.AfterChunk();"
+    o += "            if (rc < 0) return rc;"
+    o += "        }"
+    o += "        return 0;"
+    o += "    }"
+    o += ""
+
+
+def _emit_pin_map_inner(o, s, i):
+    """E1R / E1C for a map nested in each element of `s`: one frame per ENTRY (its key and value
+    in one `fixed`), chunks of at most Stage.PinK entries, each one ak_elem_<Entry> call."""
+    name = "%s_%s" % (s.name, i.name)
+    m = "OrderedMap<string, string>"
+    o += "    private static int RecM_%s(IntPtr ctx, %s* arr, %s m, int off, int k, int j)" % (name, i.cs_e, m)
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "#endif"
+    o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        var kv = m.At(off + j);"
+    o += "        fixed (char* __p0 = kv.Key, __p1 = kv.Value)"
+    o += "        {"
+    o += "            var __g = arr + off + j;"
+    _pin_patch_r(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")])
+    o += "            return RecM_%s(ctx, arr, m, off, k, j + 1);" % name
+    o += "        }"
+    o += "    }"
+    o += ""
+    o += "    private static int ChunkHM_%s(IntPtr ctx, %s* arr, %s m, int off, int k)" % (name, i.cs_e, m)
+    o += "    {"
+    o += "        for (int j = 0; j < k; j++)"
+    o += "        {"
+    o += "            var kv = m.At(off + j);"
+    o += "            var __g = arr + off + j;"
+    _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")])
+    o += "        }"
+    o += "        Stage.BeforeChunkCall();"
+    o += "        _fwd++;"
+    o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        Stage.ReleaseChunk();"
+    o += "        return rc;"
+    o += "    }"
+    o += ""
+    o += "    private static int PinMap_%s(IntPtr ctx, %s* arr, %s m, int n)" % (name, i.cs_e, m)
+    o += "    {"
+    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        for (int off = 0; off < n; off += K)"
+    o += "        {"
+    o += "            int k = n - off; if (k > K) k = K;"
+    o += "            int rc = d == 1 ? RecM_%s(ctx, arr, m, off, k, 0) : ChunkHM_%s(ctx, arr, m, off, k);" % (name, name)
+    o += "            Stage.AfterChunk();"
+    o += "            if (rc < 0) return rc;"
+    o += "        }"
+    o += "        return 0;"
+    o += "    }"
+    o += ""
+
+
+def _emit_pin_strs(o, name):
+    """E1R / E1C for a repeated string field: one frame per string (E1R) or the chunk's handles
+    (E1C), each chunk one ak_blob_run of at most Stage.PinK strings."""
+    o += "    /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest"
+    o += "    /// frame makes the chunk's ak_blob_run."
+    o += "    private static int RecS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)" % name
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "#endif"
+    o += "        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }"
+    o += "        fixed (char* __p = l[off + j])"
+    o += "        {"
+    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }"
+    o += "            return RecS_%s(ctx, arr, l, off, k, j + 1);" % name
+    o += "        }"
+    o += "    }"
+    o += ""
+    o += "    private static int ChunkHS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)" % name
+    o += "    {"
+    o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);"
+    o += "        Stage.BeforeChunkCall();"
+    o += "        _fwd++;"
+    o += "        int rc = Abi.ak_blob_run(ctx, arr + off, k);"
+    o += "        Stage.ReleaseChunk();"
+    o += "        return rc;"
+    o += "    }"
+    o += ""
+    o += "    private static int PinStrs_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)" % name
+    o += "    {"
+    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        for (int off = 0; off < n; off += K)"
+    o += "        {"
+    o += "            int k = n - off; if (k > K) k = K;"
+    o += "            int rc = d == 1 ? RecS_%s(ctx, arr, l, off, k, 0) : ChunkHS_%s(ctx, arr, l, off, k);" % (name, name)
+    o += "            Stage.AfterChunk();"
+    o += "            if (rc < 0) return rc;"
+    o += "        }"
+    o += "        return 0;"
+    o += "    }"
+    o += ""
+
+
+def _root_call(o, ind, call, rpins):
+    """The root encode call; under E1R / E1C wrapped in the root group's pin frame."""
+    decls, pins = rpins
+    if not pins:
+        o += ind + call
+        return
+    o += ind + "if (Stage.Defer == 1)"
+    o += ind + "{"
+    for d in decls:
+        o += ind + "    " + d.replace("__e", "src")
+    o += ind + "    " + _fixed_open(pins)
+    o += ind + "    {"
+    o += ind + "        var __g = &fix;"
+    _pin_patch_r(o, ind + "        ", "__g", pins)
+    o += ind + "        " + call
+    o += ind + "    }"
+    o += ind + "}"
+    o += ind + "else if (Stage.Defer == 2)"
+    o += ind + "{"
+    for d in decls:
+        o += ind + "    " + d
+    o += ind + "    var __g = &fix;"
+    _pin_patch_h(o, ind + "    ", "__g", pins)
+    o += ind + "    " + call
+    o += ind + "    Stage.ReleaseChunk();"
+    o += ind + "}"
+    o += ind + "else " + call
+
+
 def _emit_root(o, p, root, facade_ns):
     slots = [Slot(p, root, path, f, True) for path, f in loop_slots(p, root)]
     ds = direct_fields(p, root)
@@ -825,7 +1342,21 @@ def _emit_root(o, p, root, facade_ns):
     o += "    }"
     o += ""
     # ---------------- loops
+    o += "    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the"
+    o += "    /// frames inside the loop callbacks to pin its strings."
+    o += "    [ThreadStatic] private static %s _pinSrc;" % root
+    o += ""
     for s in slots:
+        pinned = s.kind == "msg" and _emit_pin_frames(o, p, root, s)
+        if s.kind == "blob" and s.f.kind == "string":
+            _emit_pin_strs(o, s.name)
+        for i in s.inner:
+            if i.kind == "blob" and i.f.kind == "string":
+                _emit_pin_strs(o, "%s_%s" % (s.name, i.name))
+            elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
+                _emit_pin_elems_inner(o, p, s, i)
+            elif i.kind == "map":
+                _emit_pin_map_inner(o, s, i)
         o += "    %s" % UCO
         o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % s.name
         o += "    {"
@@ -837,9 +1368,21 @@ def _emit_root(o, p, root, facade_ns):
         o += "            if (n == 0) return 0;"
         if s.kind == "msg":
             o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
+            if pinned:
+                o += "            int d = Stage.Defer;"
+                o += "            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;"
             o += "            for (int off = 0; off < n; off += chunk)"
             o += "            {"
             o += "                int k = n - off; if (k > chunk) k = chunk;"
+            if pinned:
+                lst = _get("_pinSrc", p, root, s.path)
+                o += "                if (d != 0)"
+                o += "                {"
+                o += "                    int rp = d == 1 ? Rec_%s(ctx, run, %s, off, k, 0) : ChunkH_%s(ctx, run, %s, off, k);" % (s.name, lst, s.name, lst)
+                o += "                    Stage.AfterChunk();"
+                o += "                    if (rp < 0) return rp;"
+                o += "                    continue;"
+                o += "                }"
             o += "                _fwd++;"
             if _NO:
                 o += "                int rc = %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
@@ -851,6 +1394,8 @@ def _emit_root(o, p, root, facade_ns):
             o += "            }"
             o += "            return 0;"
         else:
+            if s.kind == "blob" and s.f.kind == "string":
+                o += "            if (Stage.Defer != 0) return PinStrs_%s(ctx, (ak_str*)run->S_%s, %s, n);" % (s.name, s.name, _get("_pinSrc", p, root, s.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
         o += "        }"
@@ -868,6 +1413,18 @@ def _emit_root(o, p, root, facade_ns):
             o += "            int e = (int)token;"
             o += "            int n = run->C_%s_%s[e];" % (s.name, i.name)
             o += "            if (n == 0) return 0;"
+            if i.kind == "blob" and i.f.kind == "string":
+                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
+                o += "            if (Stage.Defer != 0) return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                    s.name, i.name, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
+            elif i.kind == "map":
+                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
+                o += "            if (Stage.Defer != 0) return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                    s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
+            elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
+                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
+                o += "            if (Stage.Defer != 0) return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                    s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(
                 i, "((%s*)run->I_%s_%s + run->O_%s_%s[e])" % (i.cs_e, s.name, i.name, s.name, i.name), "n", None)
@@ -915,6 +1472,7 @@ def _emit_root(o, p, root, facade_ns):
     o += "        outPtr = null; outLen = 0;"
     o += "        Abi.ak_enc_reset(_ctx);"
     o += "        _st.Reset();"
+    o += "        long __mk0 = Stage.Marked, __pt0 = Stage.Patched;   // E1R / E1C: this encode's marks and patches"
     o += "        _run->Chunk = Chunk;"
     if _NO:
         o += "        if (retain) throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10): no ak_uencode\");"
@@ -978,16 +1536,16 @@ def _emit_root(o, p, root, facade_ns):
         o += "        byte[] direct = %s ?? Array.Empty<byte>();" % _get("src", p, root, dpath)
         dargs = ", dp, (nuint)direct.Length"
     o += "        nint rc;"
+    rpins = _pin_fields(p, root, "src")
+    o += "        if (Stage.Defer != 0) _pinSrc = src;"
     if _NO:
         o += "        {"
         o += "            var fix = new ak_efix_%s();" % root
         o += "            G.E_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
-        if ds:
-            o += "            fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
-        else:
-            o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
+        _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
+                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
         o += "        }"
     else:
         o += "        if (retain)"
@@ -996,10 +1554,8 @@ def _emit_root(o, p, root, facade_ns):
         o += "            G.U_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
-        if ds:
-            o += "            fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
-        else:
-            o += "            rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root
+        _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
+                   else ("rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
         o += "        }"
         o += "        else"
         o += "        {"
@@ -1007,12 +1563,16 @@ def _emit_root(o, p, root, facade_ns):
         o += "            G.E_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
         o += "            _fwd++;"
-        if ds:
-            o += "            fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)
-        else:
-            o += "            rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root
+        _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
+                   else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins)
         o += "        }"
     o += "        _st.ReleasePins();   // D21 E1: the core has copied every pinned string"
+    o += "        if (Stage.Defer != 0)"
+    o += "        {"
+    o += "            _pinSrc = null;"
+    o += "            // E1R / E1C: every mark the fill left was patched by a frame before the core read it."
+    o += "            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;"
+    o += "        }"
     o += "        if (rc < 0) return (int)rc;"
     o += "        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)"
     o += "        byte* bp; nuint blen;"

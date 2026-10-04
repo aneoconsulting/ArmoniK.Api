@@ -47,11 +47,27 @@ public static class StrSweep
         return sb.ToString();
     }
 
-    public static unsafe int Run(string outp, int rounds, double blockMs, int[] lengths, string[] contents)
+    private static string Env()
+    {
+        var l = new List<string>();
+        foreach (var v in new[] { "SIMDUTF_FORCE_IMPLEMENTATION", "DOTNET_EnableAVX512F", "DOTNET_PreferredVectorBitWidth", "DOTNET_EnableAVX2" })
+        {
+            var x = Environment.GetEnvironmentVariable(v);
+            if (x != null) l.Add(v + "=" + x);
+        }
+        l.Add("Vector512.IsHardwareAccelerated=" + System.Runtime.Intrinsics.Vector512.IsHardwareAccelerated);
+        return string.Join(", ", l);
+    }
+
+    public static unsafe int Run(string outp, int rounds, double blockMs, int[] lengths, string[] contents, string[] paths)
     {
         var core = new CoreFfi_UploadResultDataMessage();
-        var modes = new[] { Stage.E0, Stage.E1, Stage.E2 };
-        var names = new[] { "E0", "E1", "E2" };
+        // D21 step 7: the paths are AK_STR_ENC specs (E0 first: the incumbent the bytes are checked
+        // against is Google.Protobuf's); each is set with its threshold and ASCII split.
+        var names = paths;
+        int[] modes = new int[names.Length], ths = new int[names.Length]; bool[] nas = new bool[names.Length];
+        for (int q = 0; q < names.Length; q++) modes[q] = Stage.ParseMode(names[q], out ths[q], out nas[q]);
+        void Set(int q) { Stage.Mode = modes[q]; Stage.Threshold = ths[q]; Stage.NonAsciiOnly = nas[q]; }
         var lines = new List<string> { "content\tlen\tutf8_bytes\tpath\tround\tcpu_ns_per_op\twall_ns_per_op\tops" };
         var summary = new List<string>();
         int bad = 0;
@@ -65,14 +81,14 @@ public static class StrSweep
                 int utf8 = Encoding.UTF8.GetByteCount(s);
                 for (int k = 0; k < modes.Length; k++)
                 {
-                    Stage.Mode = modes[k];
+                    Set(k);
                     if (core.EncodeInto(f, false) < 0) { Console.Error.WriteLine("encode failed " + names[k]); return 1; }
                     if (!core.ContextBytes().AsSpan().SequenceEqual(want)) { Console.Error.WriteLine("BYTE IDENTITY FAILED: " + content + " " + n + " " + names[k]); bad++; }
                 }
                 // per-op cost estimate for block sizing, then a warm-up of >= 1 s across the paths
                 long Iters(int k)
                 {
-                    Stage.Mode = modes[k];
+                    Set(k);
                     long it = 1; double t;
                     while (true)
                     {
@@ -95,7 +111,7 @@ public static class StrSweep
                     for (int j = 0; j < modes.Length; j++)
                     {
                         int k = (j + r) % modes.Length;
-                        Stage.Mode = modes[k];
+                        Set(k);
                         long c0 = ProcCpu.Ns(), w0 = ProcCpu.Wall();
                         for (long i = 0; i < iters[k]; i++) core.EncodeInto(f, false);
                         long c1 = ProcCpu.Ns(), w1 = ProcCpu.Wall();
@@ -104,26 +120,26 @@ public static class StrSweep
                         lines.Add(string.Join("\t", content, n, utf8, names[k], r + 1, cpu.ToString("F1", CultureInfo.InvariantCulture), wall.ToString("F1", CultureInfo.InvariantCulture), iters[k]));
                     }
                 // the pin alone (E1's per-string cost beside the core's transcode)
-                long pi = Math.Max(1000, iters[1]);
+                long pi = Math.Max(1000, iters[Math.Min(1, iters.Length - 1)]);
                 for (int w = 0; w < 3; w++) { var h0 = GCHandle.Alloc(s, GCHandleType.Pinned); h0.Free(); }
                 long pc0 = ProcCpu.Ns();
                 for (long i = 0; i < pi; i++) { var h = GCHandle.Alloc(s, GCHandleType.Pinned); h.Free(); }
                 double pin = (double)(ProcCpu.Ns() - pc0) / pi;
                 for (int k = 0; k < modes.Length; k++) { var a = per[k].OrderBy(x => x).ToList(); med[k] = a[a.Count / 2]; }
                 string Fm(List<double> v) { var a = v.OrderBy(x => x).ToList(); return string.Format(CultureInfo.InvariantCulture, "{0:F0} [{1:F0}-{2:F0}]", a[a.Count / 2], a[0], a[^1]); }
-                summary.Add(string.Format(CultureInfo.InvariantCulture, "| {0} | {1} | {2} | {3} | {4} | {5} | {6:F1} | {7} |", content, n, utf8, Fm(per[0]), Fm(per[1]), Fm(per[2]), pin,
-                    names[Array.IndexOf(med, med.Min())]));
-                Stage.Mode = Stage.E0;
+                summary.Add(string.Format(CultureInfo.InvariantCulture, "| {0} | {1} | {2} | {3} | {4:F1} | {5} |", content, n, utf8,
+                    string.Join(" | ", Enumerable.Range(0, names.Length).Select(q => Fm(per[q]))), pin, names[Array.IndexOf(med, med.Min())]));
+                Set(0); Stage.Mode = Stage.E0; Stage.Threshold = 0; Stage.NonAsciiOnly = false;
             }
         File.WriteAllLines(outp, lines);
         var md = new List<string>
         {
             "# D21 string-length sweep: process CPU per encode (ns), median [min-max] over " + rounds + " rounds, one process, paths interleaved and rotated per round",
             "",
-            "CONTAINER INSTRUMENTATION. One core-ffi EncodeInto of UploadResultDataMessage{upload.session_id = the string}; E0 = .NET UTF-8 into native staging + ak_tc_bytes; E1 = the string pinned (GCHandle) + ak_tc_utf16 (simdutf); E2 = the C# transcoder callback writing into the core's buffer. `pin` = GCHandle.Alloc(Pinned) + Free alone, ns. Byte identity of every path checked first: " + (bad == 0 ? "all identical" : bad + " FAILURES") + ".",
+            "CONTAINER INSTRUMENTATION. One core-ffi EncodeInto of UploadResultDataMessage{upload.session_id = the string}; E0 = .NET UTF-8 into native staging + ak_tc_bytes; E1 = the string pinned (GCHandle) + ak_tc_utf16 (simdutf); E2 = the C# transcoder callback writing into the core's buffer; E3 = that callback calling the core's ak_utf16_to_utf8 (worst-case grow), E3L = sized by ak_utf16_utf8_len first; E1R = the string pinned by `fixed` in the root frame + ak_tc_utf16; E1C = a GCHandle per chunk. Environment: " + Env() + ". `pin` = GCHandle.Alloc(Pinned) + Free alone, ns. Byte identity of every path checked first: " + (bad == 0 ? "all identical" : bad + " FAILURES") + ".",
             "",
-            "| content | chars | UTF-8 bytes | E0 | E1 | E2 | pin | fastest |",
-            "|---|---:|---:|---:|---:|---:|---:|---|",
+            "| content | chars | UTF-8 bytes | " + string.Join(" | ", names) + " | pin | fastest |",
+            "|---|---:|---:|" + string.Concat(names.Select(_ => "---:|")) + "---:|---|",
         };
         md.AddRange(summary);
         File.WriteAllLines(Path.ChangeExtension(outp, ".md"), md);
