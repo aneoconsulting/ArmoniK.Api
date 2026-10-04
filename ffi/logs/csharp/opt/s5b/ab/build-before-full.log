@@ -1,0 +1,19 @@
+MSBuild version 17.8.49+7806cbf7b for .NET
+  Determining projects to restore...
+  Restored /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/Harness.csproj (in 606 ms).
+  Restored /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/BenchDotNet.csproj (in 606 ms).
+  Restored /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Facade/Facade.csproj (in 606 ms).
+  Facade -> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+  Harness -> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll
+/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(67,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/BenchDotNet.csproj]
+  BenchDotNet -> /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll
+
+Build succeeded.
+
+/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(67,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s5b/ffi/poc/csharp/src/BenchDotNet/BenchDotNet.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:20.71

@@ -1,0 +1,32 @@
+| payload | dir | arm | mode | after: CPU us/op median [min-max] (per-rep medians); B/op; minflt/op | before: CPU us/op median [min-max] (per-rep medians); B/op; minflt/op |
+|---|---|---|---|---|---|
+| P1.1 | decode-read | core-ffi | drop | 1.641 [1.517-1.83] (1.78 1.544); 2728; 0 | 1.689 [1.585-3.824] (1.705 1.601); 2728; 0 |
+| P1.1 | decode-read | core-ffi | no-unknown | 1.452 [1.396-1.501] (1.413 1.471); 2624; 0 | 1.586 [1.453-1.707] (1.693 1.489); 2624; 0 |
+| P1.1 | decode-read | core-ffi | retain | 1.709 [1.573-2.762] (1.757 1.586); 2728; 0 | 1.679 [1.602-1.774] (1.756 1.609); 2728; 0 |
+| P5.1 | decode-read | core-ffi | drop | 0.2162 [0.2013-0.2672] (0.2267 0.2067); 336; 0 | 0.2236 [0.2114-0.2312] (0.2232 0.2236); 336; 0 |
+| P5.1 | decode-read | core-ffi | no-unknown | 0.1931 [0.1833-0.1998] (0.188 0.1932); 320; 0 | 0.1978 [0.1893-0.2116] (0.2056 0.1914); 320; 0 |
+| P5.1 | decode-read | core-ffi | retain | 0.2331 [0.2158-0.2487] (0.2448 0.2247); 336; 0 | 0.2241 [0.2155-0.2399] (0.227 0.2174); 336; 0 |
+| P7.1 | decode-read | core-ffi | drop | 0.5797 [0.5488-0.613] (0.5981 0.5625); 712; 0 | 0.5779 [0.561-0.672] (0.5804 0.5668); 712; 0 |
+| P7.1 | decode-read | core-ffi | no-unknown | 0.4988 [0.4856-0.6559] (0.503 0.4951); 656; 0 | 0.5233 [0.4942-0.8518] (0.5465 0.5028); 656; 0 |
+| P7.1 | decode-read | core-ffi | retain | 0.6263 [0.609-0.6591] (0.6132 0.6375); 712; 0 | 0.6071 [0.5634-0.7088] (0.6239 0.571); 712; 0 |
+| U-deep-u-repeated | decode-read | core-ffi | drop | 3.2 [3.018-3.393] (3.346 3.069); 4096; 0 | 3.109 [3.013-3.247] (3.121 3.106); 4096; 0 |
+| U-deep-u-repeated | decode-read | core-ffi | no-unknown | 2.8 [2.633-2.985] (2.783 2.8); 3960; 0 | 2.856 [2.619-3.035] (2.954 2.726); 3960; 0 |
+| U-deep-u-repeated | decode-read | core-ffi | retain | 3.087 [3.005-3.682] (3.188 3.021); 4152; 0 | 3.29 [3.165-3.483] (3.332 3.246); 4152; 0 |
+| U-nested-before | decode-read | core-ffi | drop | 0.6043 [0.5922-0.6539] (0.6266 0.5939); 784; 0 | 0.5969 [0.5607-0.6119] (0.6016 0.5834); 784; 0 |
+| U-nested-before | decode-read | core-ffi | no-unknown | 0.4947 [0.4774-0.526] (0.4893 0.4976); 752; 0 | 0.5277 [0.4921-0.6554] (0.5782 0.4934); 752; 0 |
+| U-nested-before | decode-read | core-ffi | retain | 0.7458 [0.7012-0.8769] (0.7869 0.7026); 904; 0 | 0.7251 [0.7057-0.8678] (0.7453 0.7168); 904; 0 |
+| U-oneof-u-repeated | decode-read | core-ffi | drop | 0.3013 [0.273-0.3175] (0.3071 0.285); 352; 0 | 0.2917 [0.2764-0.3121] (0.3059 0.2808); 352; 0 |
+| U-oneof-u-repeated | decode-read | core-ffi | no-unknown | 0.2475 [0.2363-0.2579] (0.2505 0.241); 336; 0 | 0.2626 [0.2442-0.2793] (0.277 0.2462); 336; 0 |
+| U-oneof-u-repeated | decode-read | core-ffi | retain | 0.3678 [0.3466-0.4606] (0.3987 0.352); 400; 0 | 0.3743 [0.3547-0.4024] (0.382 0.3613); 400; 0 |
+| U-wire-DualResponse-left-as-wt5 | decode-read | core-ffi | drop | 0.4827 [0.4399-0.8984] (0.4905 0.4596); 536; 0 | 0.4629 [0.4305-0.4919] (0.4867 0.4392); 536; 0 |
+| U-wire-DualResponse-left-as-wt5 | decode-read | core-ffi | no-unknown | 0.406 [0.3939-0.4781] (0.409 0.4042); 496; 0 | 0.4247 [0.4108-0.4457] (0.4272 0.415); 496; 0 |
+| U-wire-DualResponse-left-as-wt5 | decode-read | core-ffi | retain | 0.5544 [0.5078-0.6692] (0.5606 0.5107); 568; 0 | 0.5384 [0.5107-0.5944] (0.5569 0.5134); 568; 0 |
+| U-wire-ListMetricsResponse-batches-as-wt0 | decode-read | core-ffi | drop | 3.509 [3.345-4.102] (3.695 3.396); 4744; 0 | 3.528 [3.343-3.905] (3.653 3.367); 4744; 0 |
+| U-wire-ListMetricsResponse-batches-as-wt0 | decode-read | core-ffi | no-unknown | 3.339 [3.234-3.571] (3.275 3.374); 4720; 0 | 3.614 [3.538-3.759] (3.614 3.611); 4720; 0 |
+| U-wire-ListMetricsResponse-batches-as-wt0 | decode-read | core-ffi | retain | 3.535 [3.361-3.678] (3.611 3.422); 4776; 0 | 3.784 [3.468-4.154] (3.858 3.608); 4776; 0 |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | decode-read | core-ffi | drop | 3.011 [2.652-3.133] (3.094 2.715); 3688; 0 | 3.038 [2.844-3.317] (3.095 2.913); 3688; 0 |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | decode-read | core-ffi | no-unknown | 2.736 [2.675-2.854] (2.748 2.713); 3616; 0 | 2.884 [2.742-3.753] (3.064 2.766); 3616; 0 |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | decode-read | core-ffi | retain | 3.02 [2.778-4.035] (3.148 2.894); 3720; 0 | 3.379 [3.155-6.276] (3.319 3.425); 3720; 0 |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | decode-read | core-ffi | drop | 0.2155 [0.2075-0.2429] (0.2185 0.2096); 312; 0 | 0.2241 [0.215-0.2399] (0.2322 0.2169); 312; 0 |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | decode-read | core-ffi | no-unknown | 0.1906 [0.1881-0.1954] (0.1904 0.1909); 296; 0 | 0.1976 [0.1921-0.5284] (0.2051 0.1933); 296; 0 |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | decode-read | core-ffi | retain | 0.2756 [0.2696-0.3039] (0.279 0.2719); 344; 0 | 0.2893 [0.2739-0.3188] (0.301 0.276); 344; 0 |
