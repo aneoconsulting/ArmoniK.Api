@@ -175,9 +175,11 @@ public static unsafe class Arr
     }
 }
 /// Decision 11: the one grow callback every position of every root's options names
-/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
-/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
-/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
+/// (`ak_grow_fn`, i32 sizes). `*dst` NULL with `*cap` 0 is a fresh buffer, otherwise the
+/// first `*cap` bytes are preserved (realloc semantics; it may move). Step a2 (iv,
+/// 2026-10-04): the memory is the running decode's ARENA (`G.Arena`, geometric chunks kept
+/// across decodes; a grow of the arena's last allocation extends it in place), not
+/// malloc/realloc/free per buffer; the arena counts what it hands out (UNDELIVERED check).
 public static unsafe class UnkHost
 {
     public static long Grows;
@@ -195,11 +197,9 @@ public static unsafe class UnkHost
             int c = *cap;
             long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
             if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
-            void* old = *dst;
-            void* np = NativeMemory.Realloc(old, (nuint)nc);
-            var live = G.Live;
-            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
-            *dst = (byte*)np;
+            var a = G.Arena;
+            if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
+            *dst = a.Grow(*dst, c, (int)nc);
             *cap = (int)nc;
             Grows++;
             return 0;
@@ -210,21 +210,86 @@ public static unsafe class UnkHost
     public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
 }
 
+/// Step a2 (iv): the native arena of one decode context's retained decodes. Chunks are kept
+/// for the context's life and reused in order (the first 64 KiB; a new chunk is max(need, 2 x
+/// the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and never
+/// moves until the next Begin, except that growing the LAST allocation extends it in place
+/// when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and not yet
+/// given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
+public sealed unsafe class UnkArena : IDisposable
+{
+    private readonly System.Collections.Generic.List<IntPtr> _chunks = new System.Collections.Generic.List<IntPtr>();
+    private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
+    private int _ci = -1;
+    private byte* _cur, _last;
+    private int _cap, _at;
+    public int Outstanding;
+
+    public void Begin() { _ci = -1; _cur = null; _cap = 0; _at = 0; _last = null; Outstanding = 0; }
+
+    private void Next(int n)
+    {
+        int i = _ci + 1;
+        if (i >= _chunks.Count || _caps[i] < n)
+        {
+            int big = 1 << 15;
+            foreach (var c in _caps) big = Math.Max(big, c);
+            long size = Math.Max((long)n, 2L * big);
+            if (size > int.MaxValue) size = Math.Max(n, int.MaxValue - 4095);
+            _chunks.Insert(i, (IntPtr)NativeMemory.Alloc((nuint)size));
+            _caps.Insert(i, (int)size);
+        }
+        _ci = i; _cur = (byte*)_chunks[i]; _cap = _caps[i]; _at = 0;
+    }
+
+    private static int Al(int n) => (n + 7) & ~7;
+
+    /// realloc semantics on the arena: `old` (null, or this decode's allocation of `oldCap`
+    /// bytes) to `n` bytes.
+    public byte* Grow(byte* old, int oldCap, int n)
+    {
+        if (old != null && old == _last && (long)(old - _cur) + n <= _cap)
+        {
+            _at = (int)(old - _cur) + Al(n);   // the last allocation, extended in place
+            return old;
+        }
+        if (_cur == null || (long)_cap - _at < n) Next(n);
+        byte* p = _cur + _at;
+        _at += Al(n);
+        _last = p;
+        if (old != null) Buffer.MemoryCopy(old, p, n, Math.Min(oldCap, n));
+        else Outstanding++;
+        return p;
+    }
+
+    public void Dispose()
+    {
+        foreach (var c in _chunks) NativeMemory.Free((void*)c);
+        _chunks.Clear(); _caps.Clear(); Begin();
+    }
+}
+
 public static unsafe class G
 {
     /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode
     /// materialises no string at all.
     public static bool SkipStrings;
+    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_HOST_FAIL=apply (1) makes every
+    /// root apply callback throw, =add (2) every add/new callback, so the host reports
+    /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i)).
+    internal static readonly int PlantHostFail = Environment.GetEnvironmentVariable("AK_GATE_PLANT_HOST_FAIL") switch { "apply" => 1, "add" => 2, _ => 0 };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
 
-    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken
-    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread.
-    [ThreadStatic] internal static HashSet<IntPtr> Live;
+    /// Decision 11: the arena of the RETAINED decode running on this thread (null in drop
+    /// mode): every buffer grow hands out comes from it, and it counts the buffers handed
+    /// out and not yet taken back (step a2 iv, 2026-10-04: replaced a HashSet of malloc'd
+    /// buffers). Thread-static: the core calls grow on the decoding thread.
+    [ThreadStatic] internal static UnkArena Arena;
 
     /// A delivered message's buffer into its facade bag (null when none or empty); the
-    /// native buffer is freed and the slot cleared.
+    /// buffer is given back to the arena's count (its memory is the arena's) and the slot cleared.
     /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the
     /// release (the buffer is neither freed nor untracked), so the UNDELIVERED check of a
     /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it).
@@ -236,18 +301,16 @@ public static unsafe class G
         byte[] r = null;
         if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
         if (PlantSkipRelease) { u = default; return r; }
-        Live?.Remove(u.data);
-        NativeMemory.Free((void*)u.data);
+        var a = Arena; if (a != null) a.Outstanding--;
         u = default;
         return r;
     }
 
-    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): freed.
+    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): given back.
     internal static void Drop(ref ak_unk_buf u)
     {
         if (u.data == IntPtr.Zero) return;
-        Live?.Remove(u.data);
-        NativeMemory.Free((void*)u.data);
+        var a = Arena; if (a != null) a.Outstanding--;
         u = default;
     }
 
@@ -1339,7 +1402,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Timestamp* fix)
     {
         _rev++;
-        try { G.D_Timestamp(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Timestamp(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1354,7 +1417,8 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Timestamp_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -1374,8 +1438,12 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Timestamp_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Timestamp_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Timestamp_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -1386,25 +1454,23 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Timestamp(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Timestamp(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Timestamp(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -1434,15 +1500,20 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Timestamp result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Timestamp result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Timestamp();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1451,7 +1522,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Timestamp
                 {
@@ -1459,10 +1530,9 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Timestamp(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -1533,6 +1603,8 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -1652,7 +1724,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Duration* fix)
     {
         _rev++;
-        try { G.D_Duration(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Duration(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1667,7 +1739,8 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Duration_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -1687,8 +1760,12 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Duration_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Duration_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Duration_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -1699,25 +1776,23 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Duration(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Duration(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Duration(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -1747,15 +1822,20 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Duration result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Duration result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Duration();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1764,7 +1844,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Duration
                 {
@@ -1772,10 +1852,9 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Duration(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -1846,6 +1925,8 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -1965,7 +2046,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ResultRaw* fix)
     {
         _rev++;
-        try { G.D_ResultRaw(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ResultRaw(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1980,7 +2061,8 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ResultRaw_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -2000,8 +2082,12 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ResultRaw_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ResultRaw_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ResultRaw_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->created_at.grow = g;
@@ -2014,25 +2100,23 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ResultRaw(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ResultRaw(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ResultRaw(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -2078,15 +2162,20 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ResultRaw result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ResultRaw result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ResultRaw();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -2095,7 +2184,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ResultRaw
                 {
@@ -2103,10 +2192,9 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ResultRaw(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2177,6 +2265,8 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -2321,7 +2411,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskOptions* fix)
     {
         _rev++;
-        try { G.D_TaskOptions(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskOptions(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2331,6 +2421,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Options;
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
@@ -2351,7 +2442,8 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_TaskOptions_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -2371,8 +2463,12 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_TaskOptions_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_TaskOptions_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskOptions_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->options.grow = g;
@@ -2385,25 +2481,23 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskOptions(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_TaskOptions(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_TaskOptions(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -2446,15 +2540,20 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out TaskOptions result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out TaskOptions result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskOptions();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -2463,7 +2562,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskOptions
                 {
@@ -2472,10 +2571,9 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_TaskOptions(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2554,6 +2652,8 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -2674,7 +2774,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskOutput* fix)
     {
         _rev++;
-        try { G.D_TaskOutput(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskOutput(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2689,7 +2789,8 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_TaskOutput_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -2709,8 +2810,12 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_TaskOutput_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_TaskOutput_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskOutput_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -2721,25 +2826,23 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskOutput(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_TaskOutput(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_TaskOutput(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -2769,15 +2872,20 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out TaskOutput result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out TaskOutput result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskOutput();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -2786,7 +2894,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskOutput
                 {
@@ -2794,10 +2902,9 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_TaskOutput(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2868,6 +2975,8 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -3124,7 +3233,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskDetailed* fix)
     {
         _rev++;
-        try { G.D_TaskDetailed(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskDetailed(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -3134,6 +3243,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).ParentTaskIds;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -3147,6 +3257,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).DataDependencies;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -3160,6 +3271,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).ExpectedOutputIds;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -3173,6 +3285,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).RetryOfIds;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -3186,6 +3299,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
@@ -3206,7 +3320,8 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_TaskDetailed_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -3226,8 +3341,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_TaskDetailed_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_TaskDetailed_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskDetailed_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->options.grow = g;
@@ -3254,25 +3373,23 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskDetailed(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_TaskDetailed(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_TaskDetailed(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -3433,15 +3550,20 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out TaskDetailed result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out TaskDetailed result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskDetailed();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -3450,7 +3572,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskDetailed
                 {
@@ -3463,10 +3585,9 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_TaskDetailed(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -3569,6 +3690,8 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -3718,7 +3841,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskSummary* fix)
     {
         _rev++;
-        try { G.D_TaskSummary(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskSummary(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -3728,6 +3851,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
@@ -3748,7 +3872,8 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_TaskSummary_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -3768,8 +3893,12 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_TaskSummary_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_TaskSummary_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_TaskSummary_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->options.grow = g;
@@ -3784,25 +3913,23 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_TaskSummary(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_TaskSummary(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_TaskSummary(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -3867,15 +3994,20 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out TaskSummary result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out TaskSummary result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new TaskSummary();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -3884,7 +4016,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_TaskSummary
                 {
@@ -3893,10 +4025,9 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_TaskSummary(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -3975,6 +4106,8 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -4095,7 +4228,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Probe* fix)
     {
         _rev++;
-        try { G.D_Probe(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Probe(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -4110,7 +4243,8 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Probe_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -4130,8 +4264,12 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Probe_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Probe_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Probe_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->body.grow = g;
@@ -4143,25 +4281,23 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Probe(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Probe(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Probe(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -4197,15 +4333,20 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Probe result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Probe result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Probe();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -4214,7 +4355,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Probe
                 {
@@ -4222,10 +4363,9 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Probe(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -4296,6 +4436,8 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -4415,7 +4557,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Empty* fix)
     {
         _rev++;
-        try { G.D_Empty(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Empty(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -4430,7 +4572,8 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Empty_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -4450,8 +4593,12 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Empty_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Empty_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Empty_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -4462,25 +4609,23 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Empty(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Empty(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Empty(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -4510,15 +4655,20 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Empty result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Empty result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Empty();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -4527,7 +4677,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Empty
                 {
@@ -4535,10 +4685,9 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Empty(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -4609,6 +4758,8 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -4730,7 +4881,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultData* fix)
     {
         _rev++;
-        try { G.D_UploadResultData(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultData(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -4745,7 +4896,8 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_UploadResultData_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -4765,8 +4917,12 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_UploadResultData_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_UploadResultData_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultData_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -4777,25 +4933,23 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_UploadResultData(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_UploadResultData(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_UploadResultData(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -4825,15 +4979,20 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out UploadResultData result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultData result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultData();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -4842,7 +5001,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultData
                 {
@@ -4850,10 +5009,9 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_UploadResultData(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -4924,6 +5082,8 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -5182,7 +5342,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_MetricsBatch* fix)
     {
         _rev++;
-        try { G.D_MetricsBatch(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_MetricsBatch(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5192,6 +5352,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Ticks;
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
@@ -5205,6 +5366,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Values;
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
@@ -5218,6 +5380,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Codes;
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
@@ -5231,6 +5394,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Flags;
             for (int i = 0; i < n; i++) lst.Add((xs[i] != 0));
@@ -5244,6 +5408,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Statuses;
             for (int i = 0; i < n; i++) lst.Add((TaskStatus)xs[i]);
@@ -5262,7 +5427,8 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_MetricsBatch_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -5282,8 +5448,12 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_MetricsBatch_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_MetricsBatch_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_MetricsBatch_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -5294,25 +5464,23 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_MetricsBatch(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_MetricsBatch(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_MetricsBatch(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -5342,15 +5510,20 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out MetricsBatch result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out MetricsBatch result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new MetricsBatch();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -5359,7 +5532,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_MetricsBatch
                 {
@@ -5372,10 +5545,9 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_MetricsBatch(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -5476,6 +5648,8 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -5600,7 +5774,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Pair* fix)
     {
         _rev++;
-        try { G.D_Pair(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Pair(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5615,7 +5789,8 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Pair_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -5635,8 +5810,12 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Pair_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Pair_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Pair_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -5647,25 +5826,23 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Pair(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Pair(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Pair(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -5695,15 +5872,20 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Pair result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Pair result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Pair();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -5712,7 +5894,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Pair
                 {
@@ -5720,10 +5902,9 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Pair(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -5794,6 +5975,8 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -5950,7 +6133,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListResultsResponse* fix)
     {
         _rev++;
-        try { G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5960,6 +6143,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Results;
             for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
@@ -5978,7 +6162,8 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ListResultsResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -5998,8 +6183,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ListResultsResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ListResultsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListResultsResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->results.grow = g;
@@ -6013,25 +6202,23 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListResultsResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListResultsResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ListResultsResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -6091,15 +6278,20 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ListResultsResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListResultsResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -6108,7 +6300,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListResultsResponse
                 {
@@ -6117,10 +6309,9 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -6197,6 +6388,8 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -6540,7 +6733,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTasksDetailedResponse* fix)
     {
         _rev++;
-        try { G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -6548,7 +6741,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; lst.Add(new TaskDetailed()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskDetailed()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -6643,7 +6836,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ListTasksDetailedResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -6663,8 +6857,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ListTasksDetailedResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ListTasksDetailedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTasksDetailedResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->tasks.grow = g;
@@ -6692,25 +6890,23 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -6927,15 +7123,20 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ListTasksDetailedResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTasksDetailedResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -6944,7 +7145,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
@@ -6959,10 +7160,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -7067,6 +7267,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -7268,7 +7470,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTaskSummaryResponse* fix)
     {
         _rev++;
-        try { G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -7276,7 +7478,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; lst.Add(new TaskSummary()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskSummary()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -7315,7 +7517,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ListTaskSummaryResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -7335,8 +7538,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ListTaskSummaryResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ListTaskSummaryResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTaskSummaryResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->tasks.grow = g;
@@ -7352,25 +7559,23 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -7455,15 +7660,20 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ListTaskSummaryResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTaskSummaryResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -7472,7 +7682,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
@@ -7483,10 +7693,9 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -7567,6 +7776,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -7726,7 +7937,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListProbeResponse* fix)
     {
         _rev++;
-        try { G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -7736,6 +7947,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Probes;
             for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
@@ -7754,7 +7966,8 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ListProbeResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -7774,8 +7987,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ListProbeResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ListProbeResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListProbeResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->probes.grow = g;
@@ -7788,25 +8005,23 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListProbeResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListProbeResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ListProbeResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -7853,15 +8068,20 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ListProbeResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListProbeResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -7870,7 +8090,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListProbeResponse
                 {
@@ -7879,10 +8099,9 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -7959,6 +8178,8 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -8304,7 +8525,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListMetricsResponse* fix)
     {
         _rev++;
-        try { G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -8312,7 +8533,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static long New_batches(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Batches; lst.Add(new MetricsBatch()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Batches; lst.Add(new MetricsBatch()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -8405,7 +8626,8 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ListMetricsResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -8425,8 +8647,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ListMetricsResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ListMetricsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListMetricsResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->batches.grow = g;
@@ -8438,25 +8664,23 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ListMetricsResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ListMetricsResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -8494,15 +8718,20 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ListMetricsResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListMetricsResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -8511,7 +8740,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListMetricsResponse
                 {
@@ -8526,10 +8755,9 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -8632,6 +8860,8 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -8761,7 +8991,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultDataMessage* fix)
     {
         _rev++;
-        try { G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -8776,7 +9006,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_UploadResultDataMessage_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -8796,8 +9027,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_UploadResultDataMessage_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_UploadResultDataMessage_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultDataMessage_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->upload.grow = g;
@@ -8809,25 +9044,23 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -8865,15 +9098,20 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out UploadResultDataMessage result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultDataMessage();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -8882,7 +9120,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
@@ -8890,10 +9128,9 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -8964,6 +9201,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -9158,7 +9397,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_DualResponse* fix)
     {
         _rev++;
-        try { G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -9168,6 +9407,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Left;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
@@ -9181,6 +9421,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Right;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
@@ -9199,7 +9440,8 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_DualResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -9219,8 +9461,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_DualResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_DualResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_DualResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->left.grow = g;
@@ -9233,25 +9479,23 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_DualResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_DualResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_DualResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -9297,15 +9541,20 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out DualResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new DualResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -9314,7 +9563,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_DualResponse
                 {
@@ -9324,10 +9573,9 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -9410,6 +9658,8 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -9531,7 +9781,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkLeaf* fix)
     {
         _rev++;
-        try { G.D_ChunkLeaf(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkLeaf(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -9546,7 +9796,8 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ChunkLeaf_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -9566,8 +9817,12 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ChunkLeaf_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ChunkLeaf_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkLeaf_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -9578,25 +9833,23 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkLeaf(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ChunkLeaf(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ChunkLeaf(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -9626,15 +9879,20 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkLeaf result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ChunkLeaf result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkLeaf();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -9643,7 +9901,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkLeaf
                 {
@@ -9651,10 +9909,9 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ChunkLeaf(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -9725,6 +9982,8 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -9909,7 +10168,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkInner* fix)
     {
         _rev++;
-        try { G.D_ChunkInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -9919,6 +10178,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Marks;
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
@@ -9932,6 +10192,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Leaves;
             for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
@@ -9950,7 +10211,8 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ChunkInner_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -9970,8 +10232,12 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ChunkInner_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ChunkInner_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkInner_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->leaves.grow = g;
@@ -9983,25 +10249,23 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkInner(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ChunkInner(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ChunkInner(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -10039,15 +10303,20 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkInner result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ChunkInner result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkInner();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -10056,7 +10325,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkInner
                 {
@@ -10066,10 +10335,9 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ChunkInner(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -10152,6 +10420,8 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -10392,7 +10662,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkElement* fix)
     {
         _rev++;
-        try { G.D_ChunkElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -10402,6 +10672,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Labels;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -10415,6 +10686,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
@@ -10430,6 +10702,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Inner ??= new ChunkInner()).Marks;
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
@@ -10443,6 +10716,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Inner ??= new ChunkInner()).Leaves;
             for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
@@ -10461,7 +10735,8 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ChunkElement_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -10481,8 +10756,12 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ChunkElement_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ChunkElement_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkElement_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->attrs.grow = g;
@@ -10496,25 +10775,23 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkElement(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ChunkElement(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ChunkElement(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -10568,15 +10845,20 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkElement result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ChunkElement result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkElement();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -10585,7 +10867,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkElement
                 {
@@ -10597,10 +10879,9 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ChunkElement(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -10697,6 +10978,8 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -11005,7 +11288,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkedResponse* fix)
     {
         _rev++;
-        try { G.D_ChunkedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -11013,7 +11296,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private static long New_items(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -11094,7 +11377,8 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ChunkedResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -11114,8 +11398,12 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ChunkedResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ChunkedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkedResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->items.grow = g;
@@ -11130,25 +11418,23 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkedResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ChunkedResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ChunkedResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -11219,15 +11505,20 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkedResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ChunkedResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkedResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -11236,7 +11527,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkedResponse
                 {
@@ -11250,10 +11541,9 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ChunkedResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -11352,6 +11642,8 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -11662,7 +11954,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkedResponseWide* fix)
     {
         _rev++;
-        try { G.D_ChunkedResponseWide(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkedResponseWide(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -11670,7 +11962,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private static long New_items(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -11751,7 +12043,8 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_ChunkedResponseWide_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -11771,8 +12064,12 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_ChunkedResponseWide_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_ChunkedResponseWide_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ChunkedResponseWide_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->items.grow = g;
@@ -11787,25 +12084,23 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_ChunkedResponseWide(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ChunkedResponseWide(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_ChunkedResponseWide(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -11876,15 +12171,20 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out ChunkedResponseWide result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ChunkedResponseWide result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ChunkedResponseWide();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -11893,7 +12193,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ChunkedResponseWide
                 {
@@ -11907,10 +12207,9 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ChunkedResponseWide(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -12009,6 +12308,8 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -12134,7 +12435,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_LeafElement* fix)
     {
         _rev++;
-        try { G.D_LeafElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_LeafElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -12149,7 +12450,8 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_LeafElement_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -12169,8 +12471,12 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_LeafElement_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_LeafElement_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_LeafElement_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->stamp.grow = g;
@@ -12182,25 +12488,23 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_LeafElement(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_LeafElement(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_LeafElement(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -12238,15 +12542,20 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out LeafElement result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out LeafElement result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new LeafElement();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -12255,7 +12564,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_LeafElement
                 {
@@ -12263,10 +12572,9 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_LeafElement(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -12337,6 +12645,8 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -12493,7 +12803,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_LeafResponse* fix)
     {
         _rev++;
-        try { G.D_LeafResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_LeafResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -12503,6 +12813,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Items;
             for (int i = 0; i < n; i++) { var x = new LeafElement(); G.D_LeafElement(ref xs[i], x, b); lst.Add(x); }
@@ -12521,7 +12832,8 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_LeafResponse_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -12541,8 +12853,12 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_LeafResponse_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_LeafResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_LeafResponse_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->items.grow = g;
@@ -12555,25 +12871,23 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_LeafResponse(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_LeafResponse(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_LeafResponse(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -12622,15 +12936,20 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out LeafResponse result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out LeafResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new LeafResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -12639,7 +12958,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_LeafResponse
                 {
@@ -12648,10 +12967,9 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_LeafResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -12728,6 +13046,8 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -12901,7 +13221,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Surrogate* fix)
     {
         _rev++;
-        try { G.D_Surrogate(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Surrogate(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -12911,6 +13231,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
@@ -12926,6 +13247,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Texts;
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
@@ -12944,7 +13266,8 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_Surrogate_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -12964,8 +13287,12 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_Surrogate_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_Surrogate_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_Surrogate_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->nested.grow = g;
@@ -12978,25 +13305,23 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_Surrogate(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_Surrogate(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_Surrogate(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -13039,15 +13364,20 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out Surrogate result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out Surrogate result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new Surrogate();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -13056,7 +13386,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_Surrogate
                 {
@@ -13066,10 +13396,9 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_Surrogate(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -13154,6 +13483,8 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -13275,7 +13606,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_SurrogateInner* fix)
     {
         _rev++;
-        try { G.D_SurrogateInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_SurrogateInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -13290,7 +13621,8 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_SurrogateInner_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -13310,8 +13642,12 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_SurrogateInner_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_SurrogateInner_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_SurrogateInner_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         return _uo;
@@ -13322,25 +13658,23 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_SurrogateInner(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_SurrogateInner(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_SurrogateInner(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -13370,15 +13704,20 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out SurrogateInner result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out SurrogateInner result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new SurrogateInner();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -13387,7 +13726,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_SurrogateInner
                 {
@@ -13395,10 +13734,9 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_SurrogateInner(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -13469,6 +13807,8 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {
@@ -13588,7 +13928,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_WireZoo* fix)
     {
         _rev++;
-        try { G.D_WireZoo(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_WireZoo(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -13603,7 +13943,8 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
     private ak_dec_WireZoo_opts* _uo;
-    private HashSet<IntPtr> _live;
+    private UnkArena _arena;
+    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
@@ -13623,8 +13964,12 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD).
     private ak_dec_WireZoo_opts* Arm(int zero)
     {
+        // Step a2 (iii): rewritten only when the mode changed. The core never writes a
+        // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
+        if (_uo != null && _armed == zero) return _uo;
         if (_uo == null) _uo = (ak_dec_WireZoo_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_WireZoo_opts));
         *_uo = default;
+        _armed = zero;
         var g = UnkHost.Fn;
         if (zero != 0) _uo->self.grow = g;
         if (zero != 1) _uo->v_msg.grow = g;
@@ -13636,25 +13981,23 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_WireZoo(_dctx, null); }
-        _live ??= new HashSet<IntPtr>();
-        _live.Clear();
-        G.Live = _live;
+        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_WireZoo(_dctx, null); }
+        _arena ??= new UnkArena();
+        _arena.Begin();
+        G.Arena = _arena;
         return Abi.ak_dec_reset_WireZoo(_dctx, Arm(mode));
     }
 
-    /// After every decode: a buffer still outstanding is freed; after a success that is
+    /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
     /// stable native address (_uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var live = G.Live;
-        G.Live = null;
-        if (live == null || live.Count == 0) return rc;
-        foreach (var q in live) NativeMemory.Free((void*)q);
-        int left = live.Count;
-        live.Clear();
+        var a = G.Arena;
+        G.Arena = null;
+        if (a == null || a.Outstanding == 0) return rc;
+        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -13692,15 +14035,20 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     /// UnkPositionNames), whose entry is all zero when armed.
     public int TryDecodeZeroing(byte[] src, int len, int position, out WireZoo result) => DecodeArmed(src, len, position, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out WireZoo result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new WireZoo();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -13709,7 +14057,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_WireZoo
                 {
@@ -13717,10 +14065,9 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_WireZoo(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -13791,6 +14138,8 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
+        _arena?.Dispose();
         _st.Dispose();
         if (_run != null)
         {

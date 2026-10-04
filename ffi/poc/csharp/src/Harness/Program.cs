@@ -50,6 +50,12 @@ public static class Program
                 Console.Error.WriteLine("core-ffi host half is not built on net48: no UnmanagedCallersOnly.");
                 return 2;
 #endif
+            case "hostfail":
+#if NET5_0_OR_GREATER
+                return HostFail.Run();
+#else
+                return 2;
+#endif
             case "mapforms":
                 return MapForms.Run(argv.Skip(1).ToArray());
             case "counts":

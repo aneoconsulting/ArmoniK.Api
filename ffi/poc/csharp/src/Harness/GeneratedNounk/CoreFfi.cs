@@ -170,6 +170,10 @@ public static unsafe class G
     /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode
     /// materialises no string at all.
     public static bool SkipStrings;
+    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_HOST_FAIL=apply (1) makes every
+    /// root apply callback throw, =add (2) every add/new callback, so the host reports
+    /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i)).
+    internal static readonly int PlantHostFail = Environment.GetEnvironmentVariable("AK_GATE_PLANT_HOST_FAIL") switch { "apply" => 1, "add" => 2, _ => 0 };
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
@@ -665,7 +669,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListResultsResponse* fix)
     {
         _rev++;
-        try { G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -675,6 +679,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Results;
             for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
@@ -706,15 +711,20 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListResultsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListResultsResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -723,7 +733,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListResultsResponse
                 {
@@ -732,10 +742,9 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -811,6 +820,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -1140,7 +1150,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTasksDetailedResponse* fix)
     {
         _rev++;
-        try { G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1148,7 +1158,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; lst.Add(new TaskDetailed()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskDetailed()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -1255,15 +1265,20 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTasksDetailedResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1272,7 +1287,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
@@ -1287,10 +1302,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -1393,6 +1407,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -1542,7 +1557,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListProbeResponse* fix)
     {
         _rev++;
-        try { G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1552,6 +1567,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Probes;
             for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
@@ -1583,15 +1599,20 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListProbeResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListProbeResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1600,7 +1621,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListProbeResponse
                 {
@@ -1609,10 +1630,9 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -1688,6 +1708,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -1869,7 +1890,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTaskSummaryResponse* fix)
     {
         _rev++;
-        try { G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1877,7 +1898,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static long New_tasks(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; lst.Add(new TaskSummary()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskSummary()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -1928,15 +1949,20 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTaskSummaryResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1945,7 +1971,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
@@ -1956,10 +1982,9 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2038,6 +2063,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -2152,7 +2178,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultDataMessage* fix)
     {
         _rev++;
-        try { G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2180,15 +2206,20 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out UploadResultDataMessage result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultDataMessage();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -2197,7 +2228,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
@@ -2205,10 +2236,9 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2278,6 +2308,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -2608,7 +2639,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListMetricsResponse* fix)
     {
         _rev++;
-        try { G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2616,7 +2647,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static long New_batches(IntPtr ctx, void* obj)
     {
         _rev++;
-        try { var lst = Tgt(obj).Batches; lst.Add(new MetricsBatch()); return lst.Count - 1; }
+        try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Batches; lst.Add(new MetricsBatch()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
 
@@ -2722,15 +2753,20 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out ListMetricsResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListMetricsResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -2739,7 +2775,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListMetricsResponse
                 {
@@ -2754,10 +2790,9 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -2859,6 +2894,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {
@@ -3043,7 +3079,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_DualResponse* fix)
     {
         _rev++;
-        try { G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -3053,6 +3089,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Left;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
@@ -3066,6 +3103,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         _rev++;
         try
         {
+            if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Right;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
@@ -3097,15 +3135,20 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// The core's code (< 0) on failure; the output is then unspecified and discarded (R-G6).
     public int TryDecode(byte[] src, int len, bool retain, out DualResponse result) => DecodeArmed(src, len, retain ? -1 : -2, out result);
 
+    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
         result = null;
         EnsureDec();
-        Abi.ak_dec_err_reset(_dctx);
+        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's
+        // sticky slot on entry and returns it (a host failure reported through ak_fail
+        // from a reverse call included), so its return value carries every error.
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new DualResponse();
-        var h = GCHandle.Alloc(target);
+        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        _th.Target = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -3114,7 +3157,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(h);
+                _drun->Target = GCHandle.ToIntPtr(_th);
                 _drun->Buf = b;
                 var vt = new ak_dvt_DualResponse
                 {
@@ -3124,10 +3167,9 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 };
                 _fwd++;
                 rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, &vt);
-                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }
             }
         }
-        finally { h.Free(); rc = Disarm(rc); }
+        finally { _th.Target = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -3209,6 +3251,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
         if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
+        if (_th.IsAllocated) _th.Free();
         _st.Dispose();
         if (_run != null)
         {

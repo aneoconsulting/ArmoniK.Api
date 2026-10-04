@@ -8,14 +8,14 @@ RPC B a P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unar
 RPC B a+read P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
 RPC B b P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
 RPC Bf b P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
-RPC C-nounk a P2.2 no-unknown | fwd 5 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
-RPC C-nounk a+read P2.2 no-unknown | fwd 5 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-nounk a P2.2 no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-nounk a+read P2.2 no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_decode_ListTasksDetailedResponse=1
 RPC C-nounk b P2.2 no-unknown | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
 RPC Cf-nounk b P2.2 no-unknown | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
 RPC Cc-nounk b P2.2 no-unknown | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 RPC Ef-nounk b P2.2 no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
-RPC D-nounk a P2.2 no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
-RPC D-nounk a+read P2.2 no-unknown | fwd 3 rev 3501 grow 0 reset 0 | ak_dec_err=1 ak_dec_err_reset=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-nounk a P2.2 no-unknown | fwd 1 rev 3501 grow 0 reset 0 | ak_decode_ListTasksDetailedResponse=1
+RPC D-nounk a+read P2.2 no-unknown | fwd 1 rev 3501 grow 0 reset 0 | ak_decode_ListTasksDetailedResponse=1
 RPC D-nounk b P2.2 no-unknown | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 RPC E-nounk a P2.2 no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
 RPC E-nounk a+read P2.2 no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1

@@ -119,6 +119,11 @@ for lvl in $LEVELS; do
   run "net$lvl groups" "${HX[@]}" groups
   run "net$lvl utf8" "${HX[@]}" utf8
   run "net$lvl mapforms" "${HX[@]}" mapforms
+  # Step a2 (i): a host failure from a reverse call reaches the caller through ak_decode_*'s
+  # return value alone (no ak_dec_err): the planted failure must come back as AK_ERR_HOST.
+  run "net$lvl hostfail" "${HX[@]}" hostfail
+  AK_GATE_PLANT_HOST_FAIL=apply run "net$lvl hostfail, apply throws (AK_ERR_HOST from the return value)" "${HX[@]}" hostfail
+  AK_GATE_PLANT_HOST_FAIL=add run "net$lvl hostfail, add/new throws (AK_ERR_HOST from the return value)" "${HX[@]}" hostfail
   run "net$lvl layout" "${HX[@]}" layout "$LAY"
   control "net$lvl layout plant" "${HX[@]}" layout "$LAY" --plant
   AK_LAYOUT_PROBE="$LAY" run "net$lvl coreffi" "${HX[@]}" coreffi
@@ -198,6 +203,8 @@ for lvl in $LEVELS; do
   core "$H" target-core-nounk
   run "net$lvl nounk layout (by name both ways, 240 section-10 facts)" "${HX[@]}" layout "$SLICE/target-core-nounk/layout.json"
   run "net$lvl nounk conformance (byte identity)" "${HX[@]}" conformance
+  AK_GATE_PLANT_HOST_FAIL=apply run "net$lvl nounk hostfail, apply throws" "${HX[@]}" hostfail
+  AK_GATE_PLANT_HOST_FAIL=add run "net$lvl nounk hostfail, add/new throws" "${HX[@]}" hostfail
   run "net$lvl nounk coreffi (the loaded core is the variant)" "${HX[@]}" coreffi
   core "$H" target-core
   control "net$lvl nounk binding on the FULL core (the variant check must refuse it)" "${HX[@]}" coreffi

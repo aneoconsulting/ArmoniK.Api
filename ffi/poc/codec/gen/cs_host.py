@@ -139,6 +139,10 @@ def _emit_groups(o, p):
     o += "    /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode"
     o += "    /// materialises no string at all."
     o += "    public static bool SkipStrings;"
+    o += "    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_HOST_FAIL=apply (1) makes every"
+    o += "    /// root apply callback throw, =add (2) every add/new callback, so the host reports"
+    o += "    /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i))."
+    o += "    internal static readonly int PlantHostFail = Environment.GetEnvironmentVariable(\"AK_GATE_PLANT_HOST_FAIL\") switch { \"apply\" => 1, \"add\" => 2, _ => 0 };"
     o += ""
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
     o += '    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
@@ -168,12 +172,14 @@ def _emit_groups(o, p):
 
 
 def _emit_unk_helpers(o):
-    o += "    /// Decision 11: the buffers a RETAINED decode has been handed by grow and not yet taken"
-    o += "    /// back (null in drop mode). Thread-static: the core calls grow on the decoding thread."
-    o += "    [ThreadStatic] internal static HashSet<IntPtr> Live;"
+    o += "    /// Decision 11: the arena of the RETAINED decode running on this thread (null in drop"
+    o += "    /// mode): every buffer grow hands out comes from it, and it counts the buffers handed"
+    o += "    /// out and not yet taken back (step a2 iv, 2026-10-04: replaced a HashSet of malloc'd"
+    o += "    /// buffers). Thread-static: the core calls grow on the decoding thread."
+    o += "    [ThreadStatic] internal static UnkArena Arena;"
     o += ""
     o += "    /// A delivered message's buffer into its facade bag (null when none or empty); the"
-    o += "    /// native buffer is freed and the slot cleared."
+    o += "    /// buffer is given back to the arena's count (its memory is the arena's) and the slot cleared."
     o += "    /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the"
     o += "    /// release (the buffer is neither freed nor untracked), so the UNDELIVERED check of a"
     o += "    /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it)."
@@ -185,18 +191,16 @@ def _emit_unk_helpers(o):
     o += "        byte[] r = null;"
     o += "        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }"
     o += "        if (PlantSkipRelease) { u = default; return r; }"
-    o += "        Live?.Remove(u.data);"
-    o += "        NativeMemory.Free((void*)u.data);"
+    o += "        var a = Arena; if (a != null) a.Outstanding--;"
     o += "        u = default;"
     o += "        return r;"
     o += "    }"
     o += ""
-    o += "    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): freed."
+    o += "    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): given back."
     o += "    internal static void Drop(ref ak_unk_buf u)"
     o += "    {"
     o += "        if (u.data == IntPtr.Zero) return;"
-    o += "        Live?.Remove(u.data);"
-    o += "        NativeMemory.Free((void*)u.data);"
+    o += "        var a = Arena; if (a != null) a.Outstanding--;"
     o += "        u = default;"
     o += "    }"
     o += ""
@@ -336,9 +340,11 @@ def _emit_free(o, p, m):
 
 UNKHOST = r'''
 /// Decision 11: the one grow callback every position of every root's options names
-/// (`ak_grow_fn`, i32 sizes). NativeMemory.Realloc: `*dst` NULL with `*cap` 0 is a fresh
-/// buffer, otherwise the first `*cap` bytes are preserved (realloc semantics; it may move).
-/// A retained decode tracks what it hands out (`G.Live`), so nothing leaks on failure.
+/// (`ak_grow_fn`, i32 sizes). `*dst` NULL with `*cap` 0 is a fresh buffer, otherwise the
+/// first `*cap` bytes are preserved (realloc semantics; it may move). Step a2 (iv,
+/// 2026-10-04): the memory is the running decode's ARENA (`G.Arena`, geometric chunks kept
+/// across decodes; a grow of the arena's last allocation extends it in place), not
+/// malloc/realloc/free per buffer; the arena counts what it hands out (UNDELIVERED check).
 public static unsafe class UnkHost
 {
     public static long Grows;
@@ -356,11 +362,9 @@ public static unsafe class UnkHost
             int c = *cap;
             long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
             if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
-            void* old = *dst;
-            void* np = NativeMemory.Realloc(old, (nuint)nc);
-            var live = G.Live;
-            if (live != null) { if (old != null) live.Remove((IntPtr)old); live.Add((IntPtr)np); }
-            *dst = (byte*)np;
+            var a = G.Arena;
+            if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
+            *dst = a.Grow(*dst, c, (int)nc);
             *cap = (int)nc;
             Grows++;
             return 0;
@@ -369,6 +373,65 @@ public static unsafe class UnkHost
     }
 
     public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
+}
+
+/// Step a2 (iv): the native arena of one decode context's retained decodes. Chunks are kept
+/// for the context's life and reused in order (the first 64 KiB; a new chunk is max(need, 2 x
+/// the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and never
+/// moves until the next Begin, except that growing the LAST allocation extends it in place
+/// when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and not yet
+/// given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
+public sealed unsafe class UnkArena : IDisposable
+{
+    private readonly System.Collections.Generic.List<IntPtr> _chunks = new System.Collections.Generic.List<IntPtr>();
+    private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
+    private int _ci = -1;
+    private byte* _cur, _last;
+    private int _cap, _at;
+    public int Outstanding;
+
+    public void Begin() { _ci = -1; _cur = null; _cap = 0; _at = 0; _last = null; Outstanding = 0; }
+
+    private void Next(int n)
+    {
+        int i = _ci + 1;
+        if (i >= _chunks.Count || _caps[i] < n)
+        {
+            int big = 1 << 15;
+            foreach (var c in _caps) big = Math.Max(big, c);
+            long size = Math.Max((long)n, 2L * big);
+            if (size > int.MaxValue) size = Math.Max(n, int.MaxValue - 4095);
+            _chunks.Insert(i, (IntPtr)NativeMemory.Alloc((nuint)size));
+            _caps.Insert(i, (int)size);
+        }
+        _ci = i; _cur = (byte*)_chunks[i]; _cap = _caps[i]; _at = 0;
+    }
+
+    private static int Al(int n) => (n + 7) & ~7;
+
+    /// realloc semantics on the arena: `old` (null, or this decode's allocation of `oldCap`
+    /// bytes) to `n` bytes.
+    public byte* Grow(byte* old, int oldCap, int n)
+    {
+        if (old != null && old == _last && (long)(old - _cur) + n <= _cap)
+        {
+            _at = (int)(old - _cur) + Al(n);   // the last allocation, extended in place
+            return old;
+        }
+        if (_cur == null || (long)_cap - _at < n) Next(n);
+        byte* p = _cur + _at;
+        _at += Al(n);
+        _last = p;
+        if (old != null) Buffer.MemoryCopy(old, p, n, Math.Min(oldCap, n));
+        else Outstanding++;
+        return p;
+    }
+
+    public void Dispose()
+    {
+        foreach (var c in _chunks) NativeMemory.Free((void*)c);
+        _chunks.Clear(); _caps.Clear(); Begin();
+    }
 }
 
 '''
@@ -865,6 +928,9 @@ def _emit_root(o, p, root, facade_ns):
     o += "    {"
     o += "        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }"
     o += "        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }"
+    o += "        if (_th.IsAllocated) _th.Free();"
+    if not _NO:
+        o += "        _arena?.Dispose();"
     o += "        _st.Dispose();"
     o += "        if (_run != null)"
     o += "        {"
@@ -907,7 +973,7 @@ def _emit_decode(o, p, root, slots):
     o += "    private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_%s* fix)" % root
     o += "    {"
     o += "        _rev++;"
-    o += "        try { G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }" % root
+    o += "        try { if (G.PlantHostFail == 1) throw new InvalidOperationException(\"planted host failure (apply)\"); G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }" % root
     o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
     o += ""
@@ -920,6 +986,7 @@ def _emit_decode(o, p, root, slots):
             o += "        _rev++;"
             o += "        try"
             o += "        {"
+            o += "            if (G.PlantHostFail == 2) throw new InvalidOperationException(\"planted host failure (add)\");"
             o += "            byte* b = ((DecRun*)obj)->Buf;"
             o += "            var lst = %s;" % lst
             _add_body(o, s, "lst", "xs", "n", "            ")
@@ -932,7 +999,7 @@ def _emit_decode(o, p, root, slots):
         o += "    private static long New_%s(IntPtr ctx, void* obj)" % s.name
         o += "    {"
         o += "        _rev++;"
-        o += "        try { var lst = %s; lst.Add(new %s()); return lst.Count - 1; }" % (lst, s.et)
+        o += "        try { if (G.PlantHostFail == 2) throw new InvalidOperationException(\"planted host failure (new)\"); var lst = %s; lst.Add(new %s()); return lst.Count - 1; }" % (lst, s.et)
         o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }"
         o += "    }"
         o += ""
@@ -974,15 +1041,20 @@ def _emit_decode(o, p, root, slots):
         o += "    /// UnkPositionNames), whose entry is all zero when armed."
         o += "    public int TryDecodeZeroing(byte[] src, int len, int position, out %s result) => DecodeArmed(src, len, position, out result);" % root
         o += ""
+    o += "    private GCHandle _th;"
     o += "    private int DecodeArmed(byte[] src, int len, int mode, out %s result)" % root
     o += "    {"
     o += "        result = null;"
     o += "        EnsureDec();"
-    o += "        Abi.ak_dec_err_reset(_dctx);"
+    o += "        // Step a2 (i): no ak_dec_err_reset / ak_dec_err: ak_decode_* clears the context's"
+    o += "        // sticky slot on entry and returns it (a host failure reported through ak_fail"
+    o += "        // from a reverse call included), so its return value carries every error."
     o += "        int ar = ArmFor(mode);"
     o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var target = new %s();" % root
-    o += "        var h = GCHandle.Alloc(target);"
+    o += "        // Step a2 (ii): one GCHandle per instance, its Target set for this decode."
+    o += "        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);"
+    o += "        _th.Target = target;"
     o += "        int rc = Abi.AK_ERR_HOST;"
     o += "        try"
     o += "        {"
@@ -991,7 +1063,7 @@ def _emit_decode(o, p, root, slots):
     o += "            {"
     o += "                // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0."
     o += "                byte* b = len == 0 ? one : b0;"
-    o += "                _drun->Target = GCHandle.ToIntPtr(h);"
+    o += "                _drun->Target = GCHandle.ToIntPtr(_th);"
     o += "                _drun->Buf = b;"
     o += "                var vt = new ak_dvt_%s" % root
     o += "                {"
@@ -1007,10 +1079,9 @@ def _emit_decode(o, p, root, slots):
     o += "                };"
     o += "                _fwd++;"
     o += "                rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, &vt);" % root
-    o += "                if (rc >= 0) { int he = Abi.ak_dec_err(_dctx); if (he != 0) rc = he; }"
     o += "            }"
     o += "        }"
-    o += "        finally { h.Free(); rc = Disarm(rc); }"
+    o += "        finally { _th.Target = null; rc = Disarm(rc); }"
     o += "        if (rc < 0) return rc;"
     o += "        result = target;"
     o += "        return 0;"
@@ -1087,7 +1158,8 @@ def _emit_unk(o, p, root):
     o += "    public const int UNDELIVERED = -1001;"
     o += "    public int Undelivered { get; private set; }"
     o += "    private %s* _uo;" % on
-    o += "    private HashSet<IntPtr> _live;"
+    o += "    private UnkArena _arena;"
+    o += "    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for"
     o += "    /// The one reset that arms each decode (rule 7): a forward crossing, counted"
     o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
     o += "    private static long _resets;"
@@ -1107,8 +1179,12 @@ def _emit_unk(o, p, root):
     o += "    /// a refill); `zero` >= 0 leaves that position's entry all zero (DISCARD)."
     o += "    private %s* Arm(int zero)" % on
     o += "    {"
+    o += "        // Step a2 (iii): rewritten only when the mode changed. The core never writes a"
+    o += "        // grow-only entry (it takes and clears pre-placed buffers only, and there are none)."
+    o += "        if (_uo != null && _armed == zero) return _uo;"
     o += "        if (_uo == null) _uo = (%s*)NativeMemory.AllocZeroed((nuint)sizeof(%s));" % (on, on)
     o += "        *_uo = default;"
+    o += "        _armed = zero;"
     o += "        var g = UnkHost.Fn;"
     for i, (n, _m, _t) in enumerate(lay):
         o += "        if (zero != %d) _uo->%s.grow = g;" % (i, n)
@@ -1120,25 +1196,23 @@ def _emit_unk(o, p, root):
     o += "    {"
     o += "        Undelivered = 0;"
     o += "        _resets++;"
-    o += "        if (mode == -2) { G.Live = null; return Abi.ak_dec_reset_%s(_dctx, null); }" % root
-    o += "        _live ??= new HashSet<IntPtr>();"
-    o += "        _live.Clear();"
-    o += "        G.Live = _live;"
+    o += "        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_%s(_dctx, null); }" % root
+    o += "        _arena ??= new UnkArena();"
+    o += "        _arena.Begin();"
+    o += "        G.Arena = _arena;"
     o += "        return Abi.ak_dec_reset_%s(_dctx, Arm(mode));" % root
     o += "    }"
     o += ""
-    o += "    /// After every decode: a buffer still outstanding is freed; after a success that is"
+    o += "    /// After every decode: a buffer still outstanding (the arena's count) after a success is"
     o += "    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE"
     o += "    /// reset per decode, the arming one before it (ArmFor); the options stay at their"
     o += "    /// stable native address (_uo) until the next decode's reset rewrites them."
     o += "    private int Disarm(int rc)"
     o += "    {"
-    o += "        var live = G.Live;"
-    o += "        G.Live = null;"
-    o += "        if (live == null || live.Count == 0) return rc;"
-    o += "        foreach (var q in live) NativeMemory.Free((void*)q);"
-    o += "        int left = live.Count;"
-    o += "        live.Clear();"
+    o += "        var a = G.Arena;"
+    o += "        G.Arena = null;"
+    o += "        if (a == null || a.Outstanding == 0) return rc;"
+    o += "        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin"
     o += "        if (rc < 0) return rc;"
     o += "        Undelivered = left;"
     o += "        return UNDELIVERED;"
