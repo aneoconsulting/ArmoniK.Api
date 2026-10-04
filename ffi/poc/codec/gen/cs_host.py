@@ -144,8 +144,17 @@ def _emit_groups(o, p):
     o += "    /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i))."
     o += "    internal static readonly int PlantHostFail = Environment.GetEnvironmentVariable(\"AK_GATE_PLANT_HOST_FAIL\") switch { \"apply\" => 1, \"add\" => 2, _ => 0 };"
     o += ""
+    o += "    /// D20 (owner, 2026-10-04, FIX-PLAN D20): every push vtable and every pull context sets all its"
+    o += "    /// utf8_skip bits, so the core hands strings over unchecked and the host validates here with"
+    o += "    /// a STRICT decoder: malformed UTF-8 throws DecoderFallbackException, which the reverse"
+    o += "    /// callbacks report as AK_ERR_TRANSCODE through ak_fail (and the pull replay returns), the"
+    o += "    /// code the core returns for it when it validates (proto3's reject rule kept)."
+    o += "    private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);"
+    o += "    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_LOSSY=1 decodes with the lossy"
+    o += "    /// Encoding.UTF8 (U+FFFD), so a malformed string is accepted and the corpus must fail."
+    o += "    internal static readonly bool PlantLossy = Environment.GetEnvironmentVariable(\"AK_GATE_PLANT_LOSSY\") == \"1\";"
     o += "    [MethodImpl(MethodImplOptions.AggressiveInlining)]"
-    o += '    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);'
+    o += '    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : (PlantLossy ? Encoding.UTF8 : Strict).GetString(b + s.off, (int)s.len);'
     o += ""
     if not _NO:
         _emit_unk_helpers(o)
@@ -974,7 +983,7 @@ def _emit_decode(o, p, root, slots):
     o += "    {"
     o += "        _rev++;"
     o += "        try { if (G.PlantHostFail == 1) throw new InvalidOperationException(\"planted host failure (apply)\"); G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }" % root
-    o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
+    o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
     o += ""
     for si, s in enumerate(slots, 1):
@@ -991,7 +1000,7 @@ def _emit_decode(o, p, root, slots):
             o += "            var lst = %s;" % lst
             _add_body(o, s, "lst", "xs", "n", "            ")
             o += "        }"
-            o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
+            o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
             o += "    }"
             o += ""
             continue
@@ -1008,7 +1017,7 @@ def _emit_decode(o, p, root, slots):
         o += "    {"
         o += "        _rev++;"
         o += "        try { var lst = %s; G.D_%s(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }" % (lst, s.et)
-        o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
+        o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
         o += "    }"
         o += ""
         for i in s.inner:
@@ -1023,7 +1032,7 @@ def _emit_decode(o, p, root, slots):
             o += "            var il = %s;" % _make("e", p, s.et, i.path)
             _add_body(o, i, "il", "xs", "n", "            ", "k")
             o += "        }"
-            o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
+            o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
             o += "    }"
             o += ""
     o += "    private static readonly byte[] One = new byte[1];"
@@ -1067,7 +1076,7 @@ def _emit_decode(o, p, root, slots):
     o += "                _drun->Buf = b;"
     o += "                var vt = new ak_dvt_%s" % root
     o += "                {"
-    o += "                    utf8_skip = 0,   // D20: every bit 0, the core validates every string"
+    o += "                    utf8_skip = AkUtf8Skip.%s_ALL,   // D20: every bit set, G.Str validates (strict)" % root
     o += "                    apply = &ApplyRoot,"
     for s in slots:
         if s.leaf:
@@ -1132,6 +1141,10 @@ def _emit_unk_nounk(o, p, root):
     o += "        if (_dctx != IntPtr.Zero) return;"
     o += "        _dctx = Abi.ak_dec_ctx_new_%s();   // rule 6: bound to this root; no options exist" % root
     o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
+    o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
+    o += "        var pvt = new ak_pvt_%s { utf8_skip = AkUtf8Skip.%s_ALL };" % (root, root)
+    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, &pvt);" % root
+    o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
     o += ""
@@ -1172,6 +1185,10 @@ def _emit_unk(o, p, root):
     o += "        if (_dctx != IntPtr.Zero) return;"
     o += "        _dctx = Abi.ak_dec_ctx_new_%s(null);   // rule 6: bound to this root, drop mode" % root
     o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
+    o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
+    o += "        var pvt = new ak_pvt_%s { utf8_skip = AkUtf8Skip.%s_ALL };" % (root, root)
+    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, &pvt);" % root
+    o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
     o += ""
@@ -1265,7 +1282,7 @@ def _emit_pull(o, p, root, slots):
     o += "                    byte* recs; nuint rlen;"
     o += "                    _fwd++;"
     o += "                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);"
-    o += "                    if (rc == 0) Replay(t, b, recs, (int)rlen);"
+    o += "                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }"
     o += "                }"
     o += "            }"
     o += "        }"

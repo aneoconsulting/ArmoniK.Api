@@ -278,8 +278,17 @@ public static unsafe class G
     /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i)).
     internal static readonly int PlantHostFail = Environment.GetEnvironmentVariable("AK_GATE_PLANT_HOST_FAIL") switch { "apply" => 1, "add" => 2, _ => 0 };
 
+    /// D20 (owner, 2026-10-04, FIX-PLAN D20): every push vtable and every pull context sets all its
+    /// utf8_skip bits, so the core hands strings over unchecked and the host validates here with
+    /// a STRICT decoder: malformed UTF-8 throws DecoderFallbackException, which the reverse
+    /// callbacks report as AK_ERR_TRANSCODE through ak_fail (and the pull replay returns), the
+    /// code the core returns for it when it validates (proto3's reject rule kept).
+    private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);
+    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_LOSSY=1 decodes with the lossy
+    /// Encoding.UTF8 (U+FFFD), so a malformed string is accepted and the corpus must fail.
+    internal static readonly bool PlantLossy = Environment.GetEnvironmentVariable("AK_GATE_PLANT_LOSSY") == "1";
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : Encoding.UTF8.GetString(b + s.off, (int)s.len);
+    internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : (PlantLossy ? Encoding.UTF8 : Strict).GetString(b + s.off, (int)s.len);
 
     /// Decision 11: the arena of the RETAINED decode running on this thread (null in drop
     /// mode): every buffer grow hands out comes from it, and it counts the buffers handed
@@ -1159,7 +1168,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1173,7 +1182,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             var lst = Tgt(obj).Results;
             for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -1200,6 +1209,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_ListResultsResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_ListResultsResponse { utf8_skip = AkUtf8Skip.ListResultsResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_ListResultsResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListResultsResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -1329,7 +1342,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListResultsResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.ListResultsResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     add_results = &Add_results,
                 };
@@ -1370,7 +1383,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -1760,7 +1773,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1776,7 +1789,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         _rev++;
         try { var lst = Tgt(obj).Tasks; G.D_TaskDetailed(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1790,7 +1803,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var il = e.ParentTaskIds;
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1804,7 +1817,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var il = e.DataDependencies;
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1818,7 +1831,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var il = e.ExpectedOutputIds;
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1832,7 +1845,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var il = e.RetryOfIds;
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1848,7 +1861,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
             for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -1875,6 +1888,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_ListTasksDetailedResponse { utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTasksDetailedResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -2175,7 +2192,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTasksDetailedResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
@@ -2222,7 +2239,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -2460,7 +2477,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -2474,7 +2491,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             var lst = Tgt(obj).Probes;
             for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -2501,6 +2518,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_ListProbeResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_ListProbeResponse { utf8_skip = AkUtf8Skip.ListProbeResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_ListProbeResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListProbeResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -2616,7 +2637,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListProbeResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.ListProbeResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     add_probes = &Add_probes,
                 };
@@ -2657,7 +2678,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -2899,7 +2920,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -2915,7 +2936,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         _rev++;
         try { var lst = Tgt(obj).Tasks; G.D_TaskSummary(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -2931,7 +2952,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
             for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -2958,6 +2979,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_ListTaskSummaryResponse { utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTaskSummaryResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -3114,7 +3139,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListTaskSummaryResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     new_tasks = &New_tasks,
                     apply_tasks = &Apply_tasks,
@@ -3157,7 +3182,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -3333,7 +3358,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -3360,6 +3385,10 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_UploadResultDataMessage { utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL };
+        int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_UploadResultDataMessage: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -3465,7 +3494,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_UploadResultDataMessage
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                 };
                 _fwd++;
@@ -3505,7 +3534,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -3890,7 +3919,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3906,7 +3935,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         _rev++;
         try { var lst = Tgt(obj).Batches; G.D_MetricsBatch(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3920,7 +3949,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var il = e.Ticks;
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3934,7 +3963,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var il = e.Values;
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3948,7 +3977,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var il = e.Codes;
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3962,7 +3991,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var il = e.Flags;
             for (int k = 0; k < n; k++) il.Add((xs[k] != 0));
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -3976,7 +4005,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var il = e.Statuses;
             for (int k = 0; k < n; k++) il.Add((TaskStatus)xs[k]);
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -4003,6 +4032,10 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_ListMetricsResponse { utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListMetricsResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -4108,7 +4141,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_ListMetricsResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     new_batches = &New_batches,
                     apply_batches = &Apply_batches,
@@ -4155,7 +4188,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -4429,7 +4462,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         _rev++;
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -4443,7 +4476,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var lst = Tgt(obj).Left;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -4457,7 +4490,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var lst = Tgt(obj).Right;
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
         }
-        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
+        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
     private static readonly byte[] One = new byte[1];
@@ -4484,6 +4517,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         if (_dctx != IntPtr.Zero) return;
         _dctx = Abi.ak_dec_ctx_new_DualResponse(null);   // rule 6: bound to this root, drop mode
         if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
+        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+        var pvt = new ak_pvt_DualResponse { utf8_skip = AkUtf8Skip.DualResponse_ALL };
+        int sp = Abi.ak_dec_set_pvt_DualResponse(_dctx, &pvt);
+        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_DualResponse: " + sp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -4598,7 +4635,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 _drun->Buf = b;
                 var vt = new ak_dvt_DualResponse
                 {
-                    utf8_skip = 0,   // D20: every bit 0, the core validates every string
+                    utf8_skip = AkUtf8Skip.DualResponse_ALL,   // D20: every bit set, G.Str validates (strict)
                     apply = &ApplyRoot,
                     add_left = &Add_left,
                     add_right = &Add_right,
@@ -4640,7 +4677,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                     byte* recs; nuint rlen;
                     _fwd++;
                     rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) Replay(t, b, recs, (int)rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }

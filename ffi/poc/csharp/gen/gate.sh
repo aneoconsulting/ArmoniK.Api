@@ -171,6 +171,10 @@ for lvl in $LEVELS; do
   AK_CORPUS_RETAIN_STRICT=1 run "net$lvl corpus" "${CX[@]}"
   AK_CORPUS_RETAIN_STRICT=1 AK_CORPUS_PLANT=unkdrop control "net$lvl corpus unkdrop (ffi-retain in drop mode, strict retain)" "${CX[@]}" --only "U-"
   run "net$lvl decision 11 controls (discard per position, pull == push, wrong root)" "${CX[@]}" --unk-controls
+  # D20 (2026-10-04): the core skips every string's UTF-8 check (utf8_skip all bits); the host's
+  # strict decoder must refuse the malformed-UTF-8 rows (T-dec-*, AK_ERR_TRANSCODE). With a lossy
+  # decoder planted, those rows are accepted and the corpus must fail.
+  AK_GATE_PLANT_LOSSY=1 control "net$lvl corpus with a lossy host string decoder (D20: the host's check is live)" "${CX[@]}" --only "T-dec-"
   control "net$lvl decision 11 plant (the expectation's clearing skipped)" "${CX[@]}" --unk-controls --plant
   AK_GATE_PLANT_SKIP_RELEASE=1 control "net$lvl decision 11 skipped release (the undelivered check's twin, R-H9)" "${CX[@]}" --only U- --unk-controls
   SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root"
