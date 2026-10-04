@@ -53,6 +53,8 @@ public sealed unsafe class Stage : IDisposable
     [ThreadStatic] private static System.Collections.Generic.List<string> _tab;
     /// Reverse calls into TcManaged (E2), counted in the counting build only (AK_HOST_COUNT).
     public static long TcCalls;
+    /// Strings handed by E1's pin (E1, or ETH at or above the threshold), counting build only.
+    public static long PinCalls;
     private byte* _cur;
     private int _cap, _at;
     public readonly bool Utf16;
@@ -93,6 +95,9 @@ public sealed unsafe class Stage : IDisposable
 
     private ak_str Pin(string s)
     {
+#if AK_HOST_COUNT
+        PinCalls++;
+#endif
         var h = GCHandle.Alloc(s, GCHandleType.Pinned);
         _pins.Add(h);
         if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();

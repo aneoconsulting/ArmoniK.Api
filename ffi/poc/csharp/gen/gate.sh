@@ -259,7 +259,7 @@ cmp_counts() {  # name committed produced
 }
 run "codec counts, full build (= gen/counts.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts full '$SLICE/gen/counts.txt' '$SCRATCH/counts.txt'"
 run "codec counts, no-unknown build (= gen/counts-nounk.txt)" bash -c "dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts nounk '$SLICE/gen/counts-nounk.txt' '$SCRATCH/counts-nounk.txt'"
-# D21: the string encode paths' counts (AK_STR_ENC): E1 and ETH:256 equal the base rows; E2's
+# D21: the string encode paths' counts (AK_STR_ENC): E1's and ETH:256's rows are the base rows plus `pin N` (strings handed pinned); E2's
 # rows add `tc N` to rev (the core's calls into the C# transcoder). Committed: gen/counts-str-*.txt.
 for m in E1 E2 ETH:256; do t=$(echo "$m" | tr -d ':' | tr 'A-Z' 'a-z')
   AK_STR_ENC=$m run "codec counts, string path $m, full build (= gen/counts-str-$t.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-str-$t.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts str-$t '$SLICE/gen/counts-str-$t.txt' '$SCRATCH/counts-str-$t.txt'"
