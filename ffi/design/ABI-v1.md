@@ -1729,7 +1729,12 @@ Each blocks something. None is settled by a measurement that exists today.
    in C# and Java it interacts with pinning, in C++ it means a facade type that is
    not `std::string`, and a hybrid facade that borrows some fields and owns others
    has a public surface nobody has drafted. **Settled by**: drafting that contract
-   and pricing what a host pays to honour it in the campaign. **Blocks: nothing
+   and pricing what a host pays to honour it in the campaign. **Owner, 2026-10-04
+   (FIX-PLAN D22): strings stay owned for now; in C#, only the message types that
+   carry one large bytes field (upload and download result data) decode their bytes
+   as views, over a core response through a finalizer-released `MemoryManager`.** A
+   `Span` taken from such a view does not keep the buffer alive (a caller holding
+   only a span needs `GC.KeepAlive` on the message). **Blocks: nothing
    today; it is an additive option. Which decode claim the campaign can support
    depends on it: the report states whether a decode figure was taken with
    borrowed or owned spans.**
