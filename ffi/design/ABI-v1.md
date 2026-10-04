@@ -774,6 +774,36 @@ re-entrancy hazard; the push family declares it at the top of the entry point
 (per decode, reentrant by construction) and the pull family puts it in the
 host-owned context.
 
+### 7.3b Per-field UTF-8 validation (owner, 2026-10-04, FIX-PLAN D20)
+
+The host may tell the core not to validate a string field on decode; by default it
+validates and rejects (decision 3). A set bit means the core hands the bytes over
+unchecked, and the host then owns the check (a host that skips must validate itself,
+or it breaks proto3's reject rule).
+
+- **Push:** the first member of every `ak_dvt_<M>` is `uint64_t utf8_skip`. It is data,
+  not a callback, so the callback numbering is unchanged.
+- **Bit numbering** (`plan.utf8_bits`) runs over the root's whole decode tree in preorder:
+  the message's own `string` fields in field-number order (one bit for all elements of a
+  repeated field, oneof members included), then, for each message-typed field in
+  field-number order, that child's numbering. Bits are per position, not per type
+  (`DualResponse.left` and `.right` get two). The tree, not the message's own fields,
+  because only roots have decode entries and no root has a string field of its own. The
+  widest tree today has 21 bits; above 64 the generator refuses and the representation
+  becomes `uint64_t utf8_skip[ceil(n/64)]`, still first. Names: `AK_DVT_<M>_UTF8_<PATH>`
+  and `_ALL` in the C header and `abi.rs`.
+- **Pull:** each root has `struct ak_pvt_<Root> { uint64_t utf8_skip; }`, handed to a
+  root-bound context by the additive setter
+  `int32_t ak_dec_set_pvt_<Root>(ak_dec_ctx*, const ak_pvt_<Root>*)` (copied; NULL means
+  all zero; `AK_ERR_INVALID_STATE` on a context bound to another root). Every later
+  `ak_parse_<Root>` uses it; resets and parses keep it; push ignores it. A setter rather
+  than a context-creation option, so `ak_dec_ctx_new_<Root>` keeps its signature.
+- **Cost:** all bits zero is within the control's spread on every row of the Rust decode
+  grid (median 1.008 of before). Every bit set takes string-dense decodes to 0.73 to 0.92
+  of the all-zero time inside the core (P2.2 ascii 2.08 to 1.62 ms); container
+  instrumentation, `logs/rust/opt/d20-utf8-bits/`. Every host sets every bit to zero
+  today.
+
 ### 7.4 Two rules for a facade author
 
 **Resolve spans against the base pointer you already hold.** The host pinned the
