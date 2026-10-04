@@ -157,6 +157,7 @@ fn drive_ffi(label: &str, buf: &[u8]) {
         apply_called: false,
     };
     let vt = ak_dvt_ListResultsResponse {
+        utf8_skip: 0, // D20: validate every string
         apply: Some(obs_apply),
         add_results: Some(obs_add),
     };
@@ -246,6 +247,7 @@ fn main() {
                 apply_called: false,
             };
             let vt = ak_dvt_ListResultsResponse {
+                utf8_skip: 0, // D20: validate every string
                 apply: Some(obs_apply),
                 add_results: Some(obs_add),
             };

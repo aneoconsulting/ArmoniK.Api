@@ -181,6 +181,7 @@ fn dec_m1_add_fails() -> bool {
     let mut o = Obs::default();
     let b = m1_bytes();
     let vt = ak_dvt_ListResultsResponse {
+        utf8_skip: 0, // D20: validate every string
         apply: Some(d_apply_m1),
         add_results: Some(d1_add),
     };
@@ -210,6 +211,7 @@ fn dec_m1_unknown_fails() -> bool {
     let mut o = Obs::default();
     let b = m1_unknown_bytes();
     let vt = ak_dvt_ListResultsResponse {
+        utf8_skip: 0, // D20: validate every string
         apply: Some(d_apply_m1),
         add_results: Some(d_add_ok),
     };
@@ -278,6 +280,7 @@ fn m2_vt(
     add_parent: unsafe extern "C" fn(*mut ak_dec_ctx, *mut c_void, i64, *const ak_span, i32),
 ) -> ak_dvt_ListTasksDetailedResponse {
     ak_dvt_ListTasksDetailedResponse {
+        utf8_skip: 0, // D20: validate every string
         apply: Some(d_apply_m2),
         new_tasks: Some(new),
         apply_tasks: Some(d2_apply_el),
