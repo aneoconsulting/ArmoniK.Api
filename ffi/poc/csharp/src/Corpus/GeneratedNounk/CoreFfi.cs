@@ -24,6 +24,35 @@ public sealed unsafe class Stage : IDisposable
     private readonly System.Collections.Generic.List<IntPtr> _blocks = new System.Collections.Generic.List<IntPtr>();
     private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
     private int _bi;          // the block in use
+
+    // ---- D21 (owner, 2026-10-04): the string encode path, chosen at run time (AK_STR_ENC):
+    //   E0  (default) the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
+    //   E1  the managed string PINNED (a GCHandle per string, freed when the codec call returns)
+    //       and handed as UTF-16 with ak_tc_utf16 (the core's simdutf transcoder, D19): no copy here;
+    //   E2  no pin: ak_str.data is 0x10000 + an index into this thread's string table and `tc` is the
+    //       C# transcoder TcManaged ([UnmanagedCallersOnly]), which writes UTF-8 straight into the
+    //       core's buffer (one reverse call per string);
+    //   ETH:<n>  E1 for a string of at least n UTF-16 code units, E0 below.
+    public const int E0 = 0, E1 = 1, E2 = 2, ETH = 3;
+    public static int Mode = ParseMode(Environment.GetEnvironmentVariable("AK_STR_ENC"), out Threshold);
+    public static int Threshold;
+    public static int ParseMode(string v, out int th)
+    {
+        th = int.MaxValue;
+        if (string.IsNullOrEmpty(v) || v == "E0") return E0;
+        if (v == "E1") return E1;
+        if (v == "E2") return E2;
+        if (v.StartsWith("ETH:", StringComparison.Ordinal)) { th = int.Parse(v.Substring(4), System.Globalization.CultureInfo.InvariantCulture); return ETH; }
+        throw new ArgumentException("AK_STR_ENC: E0 | E1 | E2 | ETH:<chars>, not " + v);
+    }
+    public static string ModeName => Mode switch { E1 => "E1", E2 => "E2", ETH => "ETH:" + Threshold, _ => "E0" };
+    private readonly System.Collections.Generic.List<GCHandle> _pins = new System.Collections.Generic.List<GCHandle>();
+    private static IntPtr _tcU16;
+    /// E2's table: the strings of the encode running on this thread (the core calls the
+    /// transcoder on the encoding thread, inside the codec call).
+    [ThreadStatic] private static System.Collections.Generic.List<string> _tab;
+    /// Reverse calls into TcManaged (E2), counted in the counting build only (AK_HOST_COUNT).
+    public static long TcCalls;
     private byte* _cur;
     private int _cap, _at;
     public readonly bool Utf16;
@@ -48,7 +77,59 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() => Use(0);
+    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); }
+
+    /// E1: the pins of the last codec call, released once it has returned (the core copied
+    /// the strings into its own buffer during the call).
+    public void ReleasePins()
+    {
+        for (int i = 0; i < _pins.Count; i++) _pins[i].Free();
+        _pins.Clear();
+    }
+
+    private ak_str Pin(string s)
+    {
+        var h = GCHandle.Alloc(s, GCHandleType.Pinned);
+        _pins.Add(h);
+        if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
+        return new ak_str { data = h.AddrOfPinnedObject(), len = (nuint)s.Length, tc = _tcU16 };
+    }
+
+    private const nint TabBase = 0x10000;
+    private static ak_str Tab(string s)
+    {
+        var t = _tab ??= new System.Collections.Generic.List<string>();
+        t.Add(s);
+        // data = TabBase + index: never a small value (ABI v1 section 8 reserves small ak_str.data
+        // values as sentinels: 1 is AK_STR_DIRECT; a first attempt with index + 1 was taken for it).
+        return new ak_str { data = (IntPtr)(TabBase + t.Count - 1), len = (nuint)s.Length, tc = (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcManaged };
+    }
+
+    /// E2: ak_transcode_fn. `src` is TabBase + the string's index in this thread's table; writes the
+    /// string's UTF-8 at `dst` (a lone surrogate becomes EF BF BD, as ak_tc_utf16 writes it),
+    /// asking `grow` for the exact size when the worst case does not fit.
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int TcManaged(void* src, nuint len, byte* dst, int cap, IntPtr grow, IntPtr sink)
+    {
+        try
+        {
+#if AK_HOST_COUNT
+            TcCalls++;
+#endif
+            var s = _tab[(int)((nint)src - TabBase)];
+            if ((long)cap < (long)s.Length * 3)
+            {
+                int need = Encoding.UTF8.GetByteCount(s);
+                if (need > cap)
+                {
+                    int rc = ((delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)grow)(sink, need, &dst, &cap);
+                    if (rc < 0) return rc;
+                }
+            }
+            return Encoding.UTF8.GetBytes(s, new Span<byte>(dst, cap));
+        }
+        catch { return Abi.AK_ERR_HOST; }
+    }
 
     /// `n` contiguous bytes at the cursor: the next kept block if it is large enough, else a
     /// new block of max(n, 2 x the largest), placed next so the order of reuse is stable.
@@ -87,6 +168,12 @@ public sealed unsafe class Stage : IDisposable
     public ak_str StrPresent(string s)
     {
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
+        int m = Mode;
+        if (m != E0 && !Utf16)
+        {
+            if (m == E1 || (m == ETH && s.Length >= Threshold)) return Pin(s);
+            if (m == E2) return Tab(s);
+        }
         if (Utf16)
         {
             // `len` counts CODE UNITS: ak_tc_utf16 reads `*const u16`.
@@ -761,6 +848,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Timestamp(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -1016,6 +1104,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Duration(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -1271,6 +1360,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ResultRaw(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -1551,6 +1641,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             _fwd++;
             rc = Abi.ak_encode_TaskOptions(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -1830,6 +1921,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             _fwd++;
             rc = Abi.ak_encode_TaskOutput(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -2222,6 +2314,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             _fwd++;
             rc = Abi.ak_encode_TaskDetailed(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -2614,6 +2707,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             _fwd++;
             rc = Abi.ak_encode_TaskSummary(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -2893,6 +2987,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Probe(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -3148,6 +3243,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Empty(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -3405,6 +3501,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             _fwd++;
             fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultData(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -3799,6 +3896,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             _fwd++;
             rc = Abi.ak_encode_MetricsBatch(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -4164,6 +4262,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Pair(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -4453,6 +4552,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -4950,6 +5050,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -5411,6 +5512,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -5746,6 +5848,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -6245,6 +6348,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -6635,6 +6739,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             _fwd++;
             fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -6959,6 +7064,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -7258,6 +7364,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ChunkLeaf(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -7575,6 +7682,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ChunkInner(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -7990,6 +8098,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ChunkElement(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -8517,6 +8626,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ChunkedResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -9066,6 +9176,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             _fwd++;
             rc = Abi.ak_encode_ChunkedResponseWide(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -9433,6 +9544,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             _fwd++;
             rc = Abi.ak_encode_LeafElement(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -9722,6 +9834,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             _fwd++;
             rc = Abi.ak_encode_LeafResponse(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -10052,6 +10165,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             _fwd++;
             rc = Abi.ak_encode_Surrogate(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -10353,6 +10467,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             _fwd++;
             rc = Abi.ak_encode_SurrogateInner(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;
@@ -10608,6 +10723,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             _fwd++;
             rc = Abi.ak_encode_WireZoo(_run, _ctx, &vt, &fix);
         }
+        _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
         byte* bp; nuint blen;

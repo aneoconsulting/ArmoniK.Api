@@ -21,9 +21,9 @@ unset GLIBC_TUNABLES
 UNITS="${UNITS:-Cf-retain}" INFLIGHT="${INFLIGHT:-1,8}"
 { echo "# opt_ab_rpc.sh (narrowed RPC A/B), CONTAINER INSTRUMENTATION, not gated (every call checked); $(date -u +%FT%TZ)"
   echo "# client CPUs $AK_CPU_CLIENT, server $AK_CPU_SERVER; BDN default toolchain, warm-up 10 x 100 ms, 6 rounds x 100 ms, MemoryDiagnoser on; transport armonik, stock h2, full build; units $UNITS, AK_RPC_ONLY_DIRS=${AK_RPC_ONLY_DIRS:-} inflight $INFLIGHT; reps $REPS (order alternated)"
-  for v in "${VARS[@]}"; do d="${v#*=}"; echo "# variant ${v%%=*}: $d at $(git -C "$d" rev-parse --short HEAD)$(git -C "$d" diff --quiet HEAD -- src gen || echo ' + uncommitted')"; done; } >> "$OUT/header.txt"
+  for v in "${VARS[@]}"; do d="${v#*=}"; d="${d%%@*}"; echo "# variant ${v%%=*}: $d$( [ "${v#*@}" != "$v" ] && echo " env ${v#*@}") at $(git -C "$d" rev-parse --short HEAD)$(git -C "$d" diff --quiet HEAD -- src gen || echo ' + uncommitted')"; done; } >> "$OUT/header.txt"
 for v in "${VARS[@]}"; do
-  d="${v#*=}"
+  d="${v#*=}"; d="${d%%@*}"
   for t in target-core target-core-nounk target-armonik-client; do [ -e "$d/$t" ] || ln -s "$SLICE/$t" "$d/$t"; done
   ( cd "$d" && dotnet build src/Rpc/akrpc.csproj -c Release > "$OUT/build-${v%%=*}.log" 2>&1 ) || { echo "build ${v%%=*} failed" >&2; exit 1; }
   cp "$SLICE/target-core/release/libak_core.so" "$d/src/Rpc/bin/Release/net8.0/"
@@ -37,8 +37,8 @@ TL=$(sed -n 's/^tcp //p' "$SCRATCH/srv.start")
 for r in $(seq 1 "$REPS"); do
   if [ $((r % 2)) = 1 ]; then ORD=("${VARS[@]}"); else ORD=(); for ((i=${#VARS[@]}-1; i>=0; i--)); do ORD+=("${VARS[$i]}"); done; fi
   for v in "${ORD[@]}"; do
-    name="${v%%=*}"; sd="${v#*=}"; f="$OUT/$name-r$r.jsonl"; t0=$(date +%s)
-    ( cd "$sd" && exec taskset -c "$AK_CPU_CLIENT" dotnet "$sd/src/Rpc/bin/Release/net8.0/akrpc.dll" bench --sock "tcp:$TL" --transport armonik --unit "$UNITS" \
+    name="${v%%=*}"; sd="${v#*=}"; venv=(); [ "${sd#*@}" != "$sd" ] && IFS=, read -r -a venv <<< "${sd#*@}"; sd="${sd%%@*}"; f="$OUT/$name-r$r.jsonl"; t0=$(date +%s)
+    ( cd "$sd" && exec env "${venv[@]}" taskset -c "$AK_CPU_CLIENT" dotnet "$sd/src/Rpc/bin/Release/net8.0/akrpc.dll" bench --sock "tcp:$TL" --transport armonik --unit "$UNITS" \
         --launch "$r" --out "$f" --toolchain process --rounds 6 --warmup 10 --iteration-ms 100 --artifacts "$SCRATCH/bdn-$name-$r" --inflight "$INFLIGHT" ) > "$OUT/$name-r$r.bdn.log" 2>&1
     rc=$?
     echo "# rep $r $name: rc=$rc $(( $(date +%s) - t0 )) s, $(grep -c '^{' "$f") rows" | tee -a "$OUT/header.txt"

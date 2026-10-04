@@ -42,6 +42,13 @@ public static class Program
         var art = Opt(a, "--artifacts", "BenchmarkDotNet.Artifacts");
         if (a.Contains("--list-units")) { foreach (var u in Cases.Units(launch)) Console.WriteLine(u); return 0; }
         if (a.Contains("--counts")) return CountRun.Run(Opt(a, "--counts", "counts.txt"));
+        if (a.Contains("--strsweep"))
+        {
+            Alloc.Startup();   // the allocator and single-CPU checks
+            return StrSweep.Run(Opt(a, "--strsweep", "strsweep.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture),
+                Opt(a, "--lengths", "4,16,64,256,1024,16384").Split(',').Select(x => int.Parse(x, CultureInfo.InvariantCulture)).ToArray(),
+                Opt(a, "--contents", "ascii,latin1,wide,astral").Split(','));
+        }
         Cases.Unit = Opt(a, "--unit", null);
         // CAMPAIGN req 22a (e6c909630): the campaign runs BDN's native isolation, one child
         // process per case (the default toolchain); `--toolchain grouped` (InProcessEmit, every
@@ -100,6 +107,7 @@ public static class Program
 #endif
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)",
         };
+        hdr = hdr.Append("# strings:        D21 string encode path AK_STR_ENC=" + Armonik.Ffi.Harness.Stage.ModeName + " (E0 .NET UTF-8 into native staging + ak_tc_bytes; E1 the string pinned + ak_tc_utf16; E2 the C# transcoder callback into the core's buffer; ETH:<n> E1 from n UTF-16 units, E0 below); Cases.Verify checks every path's bytes").ToArray();
         if (MemStats.On) hdr = hdr.Append(MemStats.Header).ToArray();
         hdr = hdr.Append(CpuGuard.Header).ToArray();
         File.AppendAllLines(outp, hdr);

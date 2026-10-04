@@ -55,6 +55,12 @@ public static class CountRun
             "# CAMPAIGN req 19 (R-H31): per core-ffi case of the codec suite (" + Armonik.Ffi.Harness.AbiVariant.Name + " build), one call of the timed operation, counted by name in the host (AK_HOST_COUNT).",
             "# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...",
         };
+        // D21: under a string path other than the incumbent E0 (AK_STR_ENC), the file says which,
+        // and E2's rows carry `tc N`: of rev, the core's calls into the C# transcoder (TcManaged),
+        // one per non-empty string the encode hands it. Under E0 the file is unchanged.
+        bool e2 = Armonik.Ffi.Harness.Stage.Mode == Armonik.Ffi.Harness.Stage.E2;
+        if (Armonik.Ffi.Harness.Stage.Mode != Armonik.Ffi.Harness.Stage.E0)
+            o.Insert(1, "# string encode path (D21, AK_STR_ENC): " + Armonik.Ffi.Harness.Stage.ModeName + (e2 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per non-empty string)" : ""));
         int n = 0;
         foreach (var k in Cases.CountKeys())
         {
@@ -65,6 +71,7 @@ public static class CountRun
             op();
             Armonik.Ffi.Harness.Abi.EntryReset();
             ops.FfiCallsReset();
+            Armonik.Ffi.Harness.Stage.TcCalls = 0;   // D21 E2: the C# transcoder's reverse calls
 #if !AK_NO_UNKNOWN_FIELDS
             Armonik.Ffi.Harness.UnkHost.Grows = 0;
 #endif
@@ -78,9 +85,10 @@ public static class CountRun
                 Console.Error.WriteLine("reset tally mismatch on " + k + ": imports " + resets + ", host " + ops.FfiResets());
                 return 1;
             }
-            o.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} {1} {2} {3} {4} | fwd {5} rev {6} grow {7} reset {8} | {9}",
-                c.Payload, c.Content, c.Arm, c.Dir, c.Mode, fwd, ops.FfiReverse(), Grows(), resets,
-                string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls))));
+            o.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0} {1} {2} {3} {4} | fwd {5} rev {6} grow {7} reset {8}{10} | {9}",
+                c.Payload, c.Content, c.Arm, c.Dir, c.Mode, fwd, ops.FfiReverse() + Armonik.Ffi.Harness.Stage.TcCalls, Grows(), resets,
+                string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls)), e2 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls : ""));
+            if (!e2 && Armonik.Ffi.Harness.Stage.TcCalls != 0) { Console.Error.WriteLine("C# transcoder called outside E2 on " + k); return 1; }
             n++;
         }
         File.WriteAllLines(path, o);

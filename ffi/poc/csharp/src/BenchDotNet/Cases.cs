@@ -329,6 +329,49 @@ public static class Cases
                     n += 13;
                 }
             }
+        // D21: every string encode path gives the same bytes, whatever path this process times
+        // (AK_STR_ENC): E0, E1 (pinned UTF-16, ak_tc_utf16), E2 (the C# transcoder), and a
+        // threshold split, on every payload and content set (Latin-1, wide; astral by the sweep).
+        var mode0 = Armonik.Ffi.Harness.Stage.Mode; var th0 = Armonik.Ffi.Harness.Stage.Threshold;
+        try
+        {
+            foreach (var (m, th) in new[] { (Armonik.Ffi.Harness.Stage.E0, 0), (Armonik.Ffi.Harness.Stage.E1, 0), (Armonik.Ffi.Harness.Stage.E2, 0), (Armonik.Ffi.Harness.Stage.ETH, 16) })
+            {
+                Armonik.Ffi.Harness.Stage.Mode = m; Armonik.Ffi.Harness.Stage.Threshold = th;
+                foreach (var pid in OpsTable.Payloads)
+                    foreach (var cs in SetsOf(pid))
+                    {
+                        Values.ContentSet = cs;
+                        var ops = OpsTable.ForPayload(pid);
+                        Values.ContentSet = Values.Ascii;
+                        var wire = ops.IncumbentBytes();
+                        var what = pid + "/" + Values.SetNames[cs] + " string path " + m;
+                        Same(ops.EncFfiBytes(false), wire, what + " core-ffi drop/no-unknown");
+                        Same(ops.EncFfiCoreBytes(false), wire, what + " core-ffi drop/no-unknown (encode-core)");
+#if !AK_NO_UNKNOWN_FIELDS
+                        Same(ops.EncFfiBytes(true), wire, what + " core-ffi retain");
+                        Same(ops.EncFfiCoreBytes(true), wire, what + " core-ffi retain (encode-core)");
+                        n += 2;
+#endif
+                        n += 2;
+                    }
+                foreach (var id in UnknownRows())
+                {
+                    var (ops, b) = Row(id);
+                    var w = new BufWriter(b.Length * 2 + 4096);
+                    ops.FromWire(b, 0).EncIncProd(w);
+                    var inc = w.WrittenSpan.ToArray();
+#if AK_NO_UNKNOWN_FIELDS
+                    var e = Enc.New(Armonik.Ffi.Facade.Codec.Sites, b.Length + 4096); ops.FromWire(b, 1).EncHost(ref e, false);
+                    Same(ops.FromWire(b, 3).EncFfiCoreBytes(false), e.ToArray(), id + " string path " + m + " core-ffi no-unknown (encode-core)");
+#else
+                    Same(ops.FromWire(b, 4).EncFfiCoreBytes(true), inc, id + " string path " + m + " core-ffi retain (encode-core)");
+#endif
+                    n++;
+                }
+            }
+        }
+        finally { Armonik.Ffi.Harness.Stage.Mode = mode0; Armonik.Ffi.Harness.Stage.Threshold = th0; }
         foreach (var id in UnknownRows())
         {
             var (ops, b) = Row(id);
