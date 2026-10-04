@@ -1,0 +1,4 @@
+# refinement sweep (crossing region), commit caa0559f + uncommitted step-6 changes; 2026-10-04T15:49:10Z; client CPUs 0,1
+# load1 before: 0.31; top: 20.0 bash  3.1 claude  0.0 environment-man 
+rc=0 64 s
+# same note as ../sweep/header.txt

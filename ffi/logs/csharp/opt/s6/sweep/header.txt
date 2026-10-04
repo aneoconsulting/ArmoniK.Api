@@ -1,0 +1,2 @@
+# load1 before the sweep: 0.48; 16.2 dotnet 11.3 dotnet  5.9 dotnet 
+# note (added after the run): the sweeps ran on the step-6 code before commit 44f4f304, whose only later change to the timed path guards E2's TcCalls++ with AK_HOST_COUNT (the sweep's E2 column includes that one increment per string)

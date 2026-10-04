@@ -1,0 +1,1641 @@
+# D21 step 6: the corpus (net8.0, the corpus core kept from checks.log, a9b0944005c94f70) under the string paths E1, E2 and ETH:16 (all pass), then the planted controls (AK_GATE_PLANT_STR=1, one code unit / byte short; each must fail) on the whole corpus and in the gate's --only S- form. CORRECTNESS ONLY. The plain runs were taken at 44f4f304; the planted ones after the plant was added (next commit).
+######## AK_STR_ENC=E1 corpus (net8.0, core-corpus kept from checks.log)
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 4 arms
+exit status: 0 (106 s)
+######## AK_STR_ENC=E2 corpus (net8.0, core-corpus kept from checks.log)
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 4 arms
+exit status: 0 (107 s)
+######## AK_STR_ENC=ETH:16 corpus (net8.0, core-corpus kept from checks.log)
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 4 arms
+exit status: 0 (108 s)
+######## CONTROL (must fail): AK_STR_ENC=E1 AK_GATE_PLANT_STR=1 corpus (one code unit / one byte short)
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 256  fail 424  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    1  fail   7
+     chunking   pass    0  fail   8
+     empty      pass    7  fail  23
+     malformed  pass  107  fail   0
+     shape      pass   82  fail  81
+     transcode  pass   46  fail   7
+     unknown    pass   13  fail 298
+   forms written (C3):
+       94  as committed
+        1  as committed in ffi/schema/generated
+        5  canonical
+        2  canonical: omitted
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+        1  unknown-dropped
+       12  unknown-dropped: the known field as it was, the foreign-typed one gone
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL B-P1_1: C3: re-encoding 7a280bfb38e1 (838 B) is not an accepted form
+   FAIL B-P2_1: C3: re-encoding 21b5fce36965 (1002 B) is not an accepted form
+   FAIL B-P2_5: C3: re-encoding ec379e9c4ac9 (18992 B) is not an accepted form
+   FAIL B-P3_1: C3: re-encoding 37bb7fd4c170 (11728 B) is not an accepted form
+   FAIL B-P4_1: C3: re-encoding f96e19041619 (61854 B) is not an accepted form
+   FAIL B-P5_1: C3: re-encoding 450d31f1d92e (114 B) is not an accepted form
+   FAIL B-P7_1: C3: re-encoding ba3df96622ba (92 B) is not an accepted form
+   FAIL C-elemu-4: C3: re-encoding e23f808cef6c (583 B) is not an accepted form
+   FAIL C-elemu-512: C3: re-encoding 0534694c0adb (74693 B) is not an accepted form
+   FAIL C-elemu-64: C3: re-encoding c29e9ebb67fc (9326 B) is not an accepted form
+   FAIL C-leaf-2048: C3: re-encoding 6016f906abb7 (120484 B) is not an accepted form
+   FAIL C-leaf-8: C3: re-encoding 165a4db1a894 (457 B) is not an accepted form
+   FAIL C-mixed-100: C3: re-encoding 48c5b5bc5f0a (13157 B) is not an accepted form
+   FAIL C-wide-4: C3: re-encoding 113445941997 (591 B) is not an accepted form
+   FAIL C-wide-64: C3: re-encoding 49e2ddada6a7 (9454 B) is not an accepted form
+   FAIL E-adapter-nested-error: C3: re-encoding 5fdbb80301da (15 B) is not an accepted form
+   FAIL E-adapter-nested-invalid: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-adapter-nested-ok: C3: re-encoding 4312e155487d (7 B) is not an accepted form
+   FAIL E-adapter-plain-error: C3: re-encoding 0ef3ab1e78b1 (12 B) is not an accepted form
+   FAIL E-adapter-plain-invalid: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-adapter-plain-ok: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-explicit-absent: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-explicit-empty-string: C3: re-encoding 18bde8ddd61f (12 B) is not an accepted form
+   FAIL E-explicit-zero: C3: re-encoding b25166916db4 (14 B) is not an accepted form
+   FAIL E-half-absent: C3: re-encoding 6f90cc348b91 (759 B) is not an accepted form
+   FAIL E-leaf-zero-written: C3: re-encoding d171e19d2908 (21 B) is not an accepted form
+   FAIL E-map-dup-key: C3: re-encoding 5d899fe34dd1 (11 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding ea0e7191a442 (6 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding ea0e7191a442 (6 B) is not an accepted form
+   FAIL E-msg-empty-present: C3: re-encoding 44036db7af5b (28 B) is not an accepted form
+   FAIL E-oneof-empty-string: C3: re-encoding 2996617c1d1f (10 B) is not an accepted form
+   FAIL E-oneof-last-wins: C3: re-encoding 1210bffa6497 (15 B) is not an accepted form
+   FAIL E-oneof-payload-free: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-packed-as-unpacked: C3: re-encoding 3d51bebb9549 (7 B) is not an accepted form
+   FAIL E-packed-empty: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-packed-split: C3: re-encoding 3d51bebb9549 (7 B) is not an accepted form
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   ... and 344 more
+
+## ffi-retain
+   pass 256  fail 424  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    1  fail   7
+     chunking   pass    0  fail   8
+     empty      pass    7  fail  23
+     malformed  pass  107  fail   0
+     shape      pass   82  fail  81
+     transcode  pass   46  fail   7
+     unknown    pass   13  fail 298
+   forms written (C3):
+      107  as committed
+        1  as committed in ffi/schema/generated
+        5  canonical
+        2  canonical: omitted
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL B-P1_1: C3: re-encoding 7a280bfb38e1 (838 B) is not an accepted form
+   FAIL B-P2_1: C3: re-encoding 21b5fce36965 (1002 B) is not an accepted form
+   FAIL B-P2_5: C3: re-encoding ec379e9c4ac9 (18992 B) is not an accepted form
+   FAIL B-P3_1: C3: re-encoding 37bb7fd4c170 (11728 B) is not an accepted form
+   FAIL B-P4_1: C3: re-encoding f96e19041619 (61854 B) is not an accepted form
+   FAIL B-P5_1: C3: re-encoding 450d31f1d92e (114 B) is not an accepted form
+   FAIL B-P7_1: C3: re-encoding ba3df96622ba (92 B) is not an accepted form
+   FAIL C-elemu-4: C3: re-encoding e23f808cef6c (583 B) is not an accepted form
+   FAIL C-elemu-512: C3: re-encoding 0534694c0adb (74693 B) is not an accepted form
+   FAIL C-elemu-64: C3: re-encoding c29e9ebb67fc (9326 B) is not an accepted form
+   FAIL C-leaf-2048: C3: re-encoding 6016f906abb7 (120484 B) is not an accepted form
+   FAIL C-leaf-8: C3: re-encoding 165a4db1a894 (457 B) is not an accepted form
+   FAIL C-mixed-100: C3: re-encoding 48c5b5bc5f0a (13157 B) is not an accepted form
+   FAIL C-wide-4: C3: re-encoding 113445941997 (591 B) is not an accepted form
+   FAIL C-wide-64: C3: re-encoding 49e2ddada6a7 (9454 B) is not an accepted form
+   FAIL E-adapter-nested-error: C3: re-encoding 5fdbb80301da (15 B) is not an accepted form
+   FAIL E-adapter-nested-invalid: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-adapter-nested-ok: C3: re-encoding 4312e155487d (7 B) is not an accepted form
+   FAIL E-adapter-plain-error: C3: re-encoding 0ef3ab1e78b1 (12 B) is not an accepted form
+   FAIL E-adapter-plain-invalid: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-adapter-plain-ok: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-explicit-absent: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-explicit-empty-string: C3: re-encoding 18bde8ddd61f (12 B) is not an accepted form
+   FAIL E-explicit-zero: C3: re-encoding b25166916db4 (14 B) is not an accepted form
+   FAIL E-half-absent: C3: re-encoding 6f90cc348b91 (759 B) is not an accepted form
+   FAIL E-leaf-zero-written: C3: re-encoding d171e19d2908 (21 B) is not an accepted form
+   FAIL E-map-dup-key: C3: re-encoding 5d899fe34dd1 (11 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding ea0e7191a442 (6 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding ea0e7191a442 (6 B) is not an accepted form
+   FAIL E-msg-empty-present: C3: re-encoding 44036db7af5b (28 B) is not an accepted form
+   FAIL E-oneof-empty-string: C3: re-encoding 2996617c1d1f (10 B) is not an accepted form
+   FAIL E-oneof-last-wins: C3: re-encoding 1210bffa6497 (15 B) is not an accepted form
+   FAIL E-oneof-payload-free: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-packed-as-unpacked: C3: re-encoding 3d51bebb9549 (7 B) is not an accepted form
+   FAIL E-packed-empty: C3: re-encoding 102b51b9765a (2 B) is not an accepted form
+   FAIL E-packed-split: C3: re-encoding 3d51bebb9549 (7 B) is not an accepted form
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   ... and 344 more
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 848 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1 (112 s)
+control E1 planted short string: failed, as required
+######## CONTROL (must fail): AK_STR_ENC=E2 AK_GATE_PLANT_STR=1 corpus (one code unit / one byte short)
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 256  fail 424  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    1  fail   7
+     chunking   pass    0  fail   8
+     empty      pass    7  fail  23
+     malformed  pass  107  fail   0
+     shape      pass   82  fail  81
+     transcode  pass   46  fail   7
+     unknown    pass   13  fail 298
+   forms written (C3):
+       94  as committed
+        1  as committed in ffi/schema/generated
+        5  canonical
+        2  canonical: omitted
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+        1  unknown-dropped
+       12  unknown-dropped: the known field as it was, the foreign-typed one gone
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL B-P1_1: C3: re-encoding 7a280bfb38e1 (838 B) is not an accepted form
+   FAIL B-P2_1: C3: re-encoding 21b5fce36965 (1002 B) is not an accepted form
+   FAIL B-P2_5: C3: re-encoding ec379e9c4ac9 (18992 B) is not an accepted form
+   FAIL B-P3_1: C3: re-encoding 37bb7fd4c170 (11728 B) is not an accepted form
+   FAIL B-P4_1: C3: re-encoding f96e19041619 (61854 B) is not an accepted form
+   FAIL B-P5_1: C3: re-encoding 450d31f1d92e (114 B) is not an accepted form
+   FAIL B-P7_1: C3: re-encoding ba3df96622ba (92 B) is not an accepted form
+   FAIL C-elemu-4: C3: re-encoding e23f808cef6c (583 B) is not an accepted form
+   FAIL C-elemu-512: C3: re-encoding 0534694c0adb (74693 B) is not an accepted form
+   FAIL C-elemu-64: C3: re-encoding c29e9ebb67fc (9326 B) is not an accepted form
+   FAIL C-leaf-2048: C3: re-encoding 6016f906abb7 (120484 B) is not an accepted form
+   FAIL C-leaf-8: C3: re-encoding 165a4db1a894 (457 B) is not an accepted form
+   FAIL C-mixed-100: C3: re-encoding 48c5b5bc5f0a (13157 B) is not an accepted form
+   FAIL C-wide-4: C3: re-encoding 113445941997 (591 B) is not an accepted form
+   FAIL C-wide-64: C3: re-encoding 49e2ddada6a7 (9454 B) is not an accepted form
+   FAIL E-adapter-nested-error: C3: re-encoding ea4cff644bc4 (17 B) is not an accepted form
+   FAIL E-adapter-nested-invalid: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-adapter-nested-ok: C3: re-encoding 0757593dfd0c (9 B) is not an accepted form
+   FAIL E-adapter-plain-error: C3: re-encoding df0bf6425373 (14 B) is not an accepted form
+   FAIL E-adapter-plain-invalid: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-adapter-plain-ok: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-explicit-absent: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-explicit-empty-string: C3: re-encoding 18bde8ddd61f (12 B) is not an accepted form
+   FAIL E-explicit-zero: C3: re-encoding b25166916db4 (14 B) is not an accepted form
+   FAIL E-half-absent: C3: re-encoding 6f90cc348b91 (759 B) is not an accepted form
+   FAIL E-leaf-zero-written: C3: re-encoding d171e19d2908 (21 B) is not an accepted form
+   FAIL E-map-dup-key: C3: re-encoding 07d12282e5a4 (13 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding b5e9510ccbc3 (10 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding 441aa4103207 (8 B) is not an accepted form
+   FAIL E-msg-empty-present: C3: re-encoding 44036db7af5b (28 B) is not an accepted form
+   FAIL E-oneof-empty-string: C3: re-encoding 2996617c1d1f (10 B) is not an accepted form
+   FAIL E-oneof-last-wins: C3: re-encoding 1210bffa6497 (15 B) is not an accepted form
+   FAIL E-oneof-payload-free: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-packed-as-unpacked: C3: re-encoding 7a3434ef79f3 (9 B) is not an accepted form
+   FAIL E-packed-empty: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-packed-split: C3: re-encoding 7a3434ef79f3 (9 B) is not an accepted form
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   ... and 344 more
+
+## ffi-retain
+   pass 256  fail 424  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    1  fail   7
+     chunking   pass    0  fail   8
+     empty      pass    7  fail  23
+     malformed  pass  107  fail   0
+     shape      pass   82  fail  81
+     transcode  pass   46  fail   7
+     unknown    pass   13  fail 298
+   forms written (C3):
+      107  as committed
+        1  as committed in ffi/schema/generated
+        5  canonical
+        2  canonical: omitted
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL B-P1_1: C3: re-encoding 7a280bfb38e1 (838 B) is not an accepted form
+   FAIL B-P2_1: C3: re-encoding 21b5fce36965 (1002 B) is not an accepted form
+   FAIL B-P2_5: C3: re-encoding ec379e9c4ac9 (18992 B) is not an accepted form
+   FAIL B-P3_1: C3: re-encoding 37bb7fd4c170 (11728 B) is not an accepted form
+   FAIL B-P4_1: C3: re-encoding f96e19041619 (61854 B) is not an accepted form
+   FAIL B-P5_1: C3: re-encoding 450d31f1d92e (114 B) is not an accepted form
+   FAIL B-P7_1: C3: re-encoding ba3df96622ba (92 B) is not an accepted form
+   FAIL C-elemu-4: C3: re-encoding e23f808cef6c (583 B) is not an accepted form
+   FAIL C-elemu-512: C3: re-encoding 0534694c0adb (74693 B) is not an accepted form
+   FAIL C-elemu-64: C3: re-encoding c29e9ebb67fc (9326 B) is not an accepted form
+   FAIL C-leaf-2048: C3: re-encoding 6016f906abb7 (120484 B) is not an accepted form
+   FAIL C-leaf-8: C3: re-encoding 165a4db1a894 (457 B) is not an accepted form
+   FAIL C-mixed-100: C3: re-encoding 48c5b5bc5f0a (13157 B) is not an accepted form
+   FAIL C-wide-4: C3: re-encoding 113445941997 (591 B) is not an accepted form
+   FAIL C-wide-64: C3: re-encoding 49e2ddada6a7 (9454 B) is not an accepted form
+   FAIL E-adapter-nested-error: C3: re-encoding ea4cff644bc4 (17 B) is not an accepted form
+   FAIL E-adapter-nested-invalid: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-adapter-nested-ok: C3: re-encoding 0757593dfd0c (9 B) is not an accepted form
+   FAIL E-adapter-plain-error: C3: re-encoding df0bf6425373 (14 B) is not an accepted form
+   FAIL E-adapter-plain-invalid: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-adapter-plain-ok: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-explicit-absent: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-explicit-empty-string: C3: re-encoding 18bde8ddd61f (12 B) is not an accepted form
+   FAIL E-explicit-zero: C3: re-encoding b25166916db4 (14 B) is not an accepted form
+   FAIL E-half-absent: C3: re-encoding 6f90cc348b91 (759 B) is not an accepted form
+   FAIL E-leaf-zero-written: C3: re-encoding d171e19d2908 (21 B) is not an accepted form
+   FAIL E-map-dup-key: C3: re-encoding 07d12282e5a4 (13 B) is not an accepted form
+   FAIL E-map-empty-value-written: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-entry-reversed: C3: re-encoding b5e9510ccbc3 (10 B) is not an accepted form
+   FAIL E-map-key-only: C3: re-encoding 633d1a71b252 (10 B) is not an accepted form
+   FAIL E-map-value-only: C3: re-encoding 441aa4103207 (8 B) is not an accepted form
+   FAIL E-msg-empty-present: C3: re-encoding 44036db7af5b (28 B) is not an accepted form
+   FAIL E-oneof-empty-string: C3: re-encoding 2996617c1d1f (10 B) is not an accepted form
+   FAIL E-oneof-last-wins: C3: re-encoding 1210bffa6497 (15 B) is not an accepted form
+   FAIL E-oneof-payload-free: C3: re-encoding 18238ecb4eca (10 B) is not an accepted form
+   FAIL E-packed-as-unpacked: C3: re-encoding 7a3434ef79f3 (9 B) is not an accepted form
+   FAIL E-packed-empty: C3: re-encoding 06d93673413b (4 B) is not an accepted form
+   FAIL E-packed-split: C3: re-encoding 7a3434ef79f3 (9 B) is not an accepted form
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   ... and 344 more
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 848 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1 (116 s)
+control E2 planted short string: failed, as required
+######## CONTROL (must fail, the gate's form): AK_STR_ENC=E1 AK_GATE_PLANT_STR=1 corpus --only S-
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (170 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 170  fail 0  disputed (excluded) 0  not in the C ABI 0
+     shape      pass  170  fail   0
+   forms written (C3):
+      141  as committed
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        5  canonical
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        1  canonical: packed
+        3  canonical: ten-byte sign-extended
+   refusals by code (C4):
+
+## managed-retain
+   pass 170  fail 0  disputed (excluded) 0  not in the C ABI 0
+     shape      pass  170  fail   0
+   forms written (C3):
+      141  as committed
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        5  canonical
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        1  canonical: packed
+        3  canonical: ten-byte sign-extended
+   refusals by code (C4):
+
+## ffi-drop
+   pass 82  fail 81  disputed (excluded) 0  not in the C ABI 7
+     shape      pass   82  fail  81
+   forms written (C3):
+       74  as committed
+        5  canonical
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   FAIL S-SurrogateInner-full: C3: re-encoding bdd55867400a (9 B) is not an accepted form
+   FAIL S-TaskDetailed-alt: C3: re-encoding 1462e11d2747 (866 B) is not an accepted form
+   FAIL S-TaskDetailed-full: C3: re-encoding ba002a63aaab (813 B) is not an accepted form
+   FAIL S-TaskOptions-alt: C3: re-encoding ba50a7062175 (131 B) is not an accepted form
+   FAIL S-TaskOptions-full: C3: re-encoding 3002bf66e253 (121 B) is not an accepted form
+   FAIL S-TaskOutput-alt: C3: re-encoding 1957adc8975f (30 B) is not an accepted form
+   FAIL S-TaskOutput-full: C3: re-encoding acd2d2850e27 (30 B) is not an accepted form
+   FAIL S-TaskSummary-alt: C3: re-encoding 4dddf42a91ee (297 B) is not an accepted form
+   FAIL S-TaskSummary-full: C3: re-encoding dfbaccc18cfc (271 B) is not an accepted form
+   FAIL S-UploadResultData-alt: C3: re-encoding 3edd0914c2ff (92 B) is not an accepted form
+   FAIL S-UploadResultData-full: C3: re-encoding 9875bb6a0783 (92 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-alt: C3: re-encoding 458e1abcff29 (94 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-full: C3: re-encoding 7bf407e83d20 (94 B) is not an accepted form
+   FAIL S-WireZoo-alt: C3: re-encoding ec5b66702ff8 (77 B) is not an accepted form
+   FAIL S-WireZoo-full: C3: re-encoding 695742f9b590 (68 B) is not an accepted form
+   FAIL S-interleaved: C3: re-encoding f38eca2dae42 (91 B) is not an accepted form
+   FAIL S-map-order-reversed: C3: re-encoding 77968ceb1a26 (9 B) is not an accepted form
+   FAIL S-map-order-utf8: C3: re-encoding 77968ceb1a26 (9 B) is not an accepted form
+   FAIL S-mzero-ListMetricsResponse-values: C3: re-encoding 07f71c17c2f9 (20 B) is not an accepted form
+   FAIL S-neg-ChunkedResponse: C3: re-encoding 989a2a1ca963 (40 B) is not an accepted form
+   FAIL S-neg-DualResponse: C3: re-encoding 4c75e820aab7 (26 B) is not an accepted form
+   FAIL S-neg-LeafResponse: C3: re-encoding 7143d1fdb87c (13 B) is not an accepted form
+   FAIL S-neg-ListMetricsResponse-packed: C3: re-encoding 77c4e701fb68 (68 B) is not an accepted form
+   FAIL S-neg-ListProbeResponse: C3: re-encoding 359ce0835ca1 (24 B) is not an accepted form
+   FAIL S-neg-i32-truncated-Pair: C3: re-encoding 7989d948c2d9 (11 B) is not an accepted form
+   FAIL S-string-ascii: C3: re-encoding e8bcfcca9bea (10 B) is not an accepted form
+   FAIL S-string-astral: C3: re-encoding 3bb8290c5c32 (13 B) is not an accepted form
+   FAIL S-string-boundary-0x7f-0x80: C3: re-encoding 1627838714da (3 B) is not an accepted form
+   FAIL S-string-boundary-0x7ff-0x800: C3: re-encoding fd1aa1d55c7a (4 B) is not an accepted form
+   FAIL S-string-boundary-0xffff-0x10000: C3: re-encoding 990e27c22641 (8 B) is not an accepted form
+   FAIL S-string-embedded-nul: C3: re-encoding 1dcca732d412 (4 B) is not an accepted form
+   FAIL S-string-latin1: C3: re-encoding 85adc215dcba (32 B) is not an accepted form
+   FAIL S-string-len-1: C3: re-encoding e3b0c44298fc (0 B) is not an accepted form
+   FAIL S-string-len-127: C3: re-encoding 01459c11209f (128 B) is not an accepted form
+   FAIL S-string-len-128: C3: re-encoding fc622a6ddb94 (129 B) is not an accepted form
+   FAIL S-string-len-16383: C3: re-encoding 35adcf0c1733 (16385 B) is not an accepted form
+   FAIL S-string-len-16384: C3: re-encoding 56b1e546812b (16386 B) is not an accepted form
+   FAIL S-string-max-codepoint: C3: re-encoding 2728d0455b15 (5 B) is not an accepted form
+   ... and 1 more
+
+## ffi-retain
+   pass 82  fail 81  disputed (excluded) 0  not in the C ABI 7
+     shape      pass   82  fail  81
+   forms written (C3):
+       74  as committed
+        5  canonical
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   FAIL S-SurrogateInner-full: C3: re-encoding bdd55867400a (9 B) is not an accepted form
+   FAIL S-TaskDetailed-alt: C3: re-encoding 1462e11d2747 (866 B) is not an accepted form
+   FAIL S-TaskDetailed-full: C3: re-encoding ba002a63aaab (813 B) is not an accepted form
+   FAIL S-TaskOptions-alt: C3: re-encoding ba50a7062175 (131 B) is not an accepted form
+   FAIL S-TaskOptions-full: C3: re-encoding 3002bf66e253 (121 B) is not an accepted form
+   FAIL S-TaskOutput-alt: C3: re-encoding 1957adc8975f (30 B) is not an accepted form
+   FAIL S-TaskOutput-full: C3: re-encoding acd2d2850e27 (30 B) is not an accepted form
+   FAIL S-TaskSummary-alt: C3: re-encoding 4dddf42a91ee (297 B) is not an accepted form
+   FAIL S-TaskSummary-full: C3: re-encoding dfbaccc18cfc (271 B) is not an accepted form
+   FAIL S-UploadResultData-alt: C3: re-encoding 3edd0914c2ff (92 B) is not an accepted form
+   FAIL S-UploadResultData-full: C3: re-encoding 9875bb6a0783 (92 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-alt: C3: re-encoding 458e1abcff29 (94 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-full: C3: re-encoding 7bf407e83d20 (94 B) is not an accepted form
+   FAIL S-WireZoo-alt: C3: re-encoding ec5b66702ff8 (77 B) is not an accepted form
+   FAIL S-WireZoo-full: C3: re-encoding 695742f9b590 (68 B) is not an accepted form
+   FAIL S-interleaved: C3: re-encoding f38eca2dae42 (91 B) is not an accepted form
+   FAIL S-map-order-reversed: C3: re-encoding 77968ceb1a26 (9 B) is not an accepted form
+   FAIL S-map-order-utf8: C3: re-encoding 77968ceb1a26 (9 B) is not an accepted form
+   FAIL S-mzero-ListMetricsResponse-values: C3: re-encoding 07f71c17c2f9 (20 B) is not an accepted form
+   FAIL S-neg-ChunkedResponse: C3: re-encoding 989a2a1ca963 (40 B) is not an accepted form
+   FAIL S-neg-DualResponse: C3: re-encoding 4c75e820aab7 (26 B) is not an accepted form
+   FAIL S-neg-LeafResponse: C3: re-encoding 7143d1fdb87c (13 B) is not an accepted form
+   FAIL S-neg-ListMetricsResponse-packed: C3: re-encoding 77c4e701fb68 (68 B) is not an accepted form
+   FAIL S-neg-ListProbeResponse: C3: re-encoding 359ce0835ca1 (24 B) is not an accepted form
+   FAIL S-neg-i32-truncated-Pair: C3: re-encoding 7989d948c2d9 (11 B) is not an accepted form
+   FAIL S-string-ascii: C3: re-encoding e8bcfcca9bea (10 B) is not an accepted form
+   FAIL S-string-astral: C3: re-encoding 3bb8290c5c32 (13 B) is not an accepted form
+   FAIL S-string-boundary-0x7f-0x80: C3: re-encoding 1627838714da (3 B) is not an accepted form
+   FAIL S-string-boundary-0x7ff-0x800: C3: re-encoding fd1aa1d55c7a (4 B) is not an accepted form
+   FAIL S-string-boundary-0xffff-0x10000: C3: re-encoding 990e27c22641 (8 B) is not an accepted form
+   FAIL S-string-embedded-nul: C3: re-encoding 1dcca732d412 (4 B) is not an accepted form
+   FAIL S-string-latin1: C3: re-encoding 85adc215dcba (32 B) is not an accepted form
+   FAIL S-string-len-1: C3: re-encoding e3b0c44298fc (0 B) is not an accepted form
+   FAIL S-string-len-127: C3: re-encoding 01459c11209f (128 B) is not an accepted form
+   FAIL S-string-len-128: C3: re-encoding fc622a6ddb94 (129 B) is not an accepted form
+   FAIL S-string-len-16383: C3: re-encoding 35adcf0c1733 (16385 B) is not an accepted form
+   FAIL S-string-len-16384: C3: re-encoding 56b1e546812b (16386 B) is not an accepted form
+   FAIL S-string-max-codepoint: C3: re-encoding 2728d0455b15 (5 B) is not an accepted form
+   ... and 1 more
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+######## CONTROL (must fail, the gate's form): AK_STR_ENC=E2 AK_GATE_PLANT_STR=1 corpus --only S-
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (170 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 170  fail 0  disputed (excluded) 0  not in the C ABI 0
+     shape      pass  170  fail   0
+   forms written (C3):
+      141  as committed
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        5  canonical
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        1  canonical: packed
+        3  canonical: ten-byte sign-extended
+   refusals by code (C4):
+
+## managed-retain
+   pass 170  fail 0  disputed (excluded) 0  not in the C ABI 0
+     shape      pass  170  fail   0
+   forms written (C3):
+      141  as committed
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        5  canonical
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        1  canonical: packed
+        3  canonical: ten-byte sign-extended
+   refusals by code (C4):
+
+## ffi-drop
+   pass 82  fail 81  disputed (excluded) 0  not in the C ABI 7
+     shape      pass   82  fail  81
+   forms written (C3):
+       74  as committed
+        5  canonical
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   FAIL S-SurrogateInner-full: C3: re-encoding bdd55867400a (9 B) is not an accepted form
+   FAIL S-TaskDetailed-alt: C3: re-encoding 1462e11d2747 (866 B) is not an accepted form
+   FAIL S-TaskDetailed-full: C3: re-encoding ba002a63aaab (813 B) is not an accepted form
+   FAIL S-TaskOptions-alt: C3: re-encoding ba50a7062175 (131 B) is not an accepted form
+   FAIL S-TaskOptions-full: C3: re-encoding 3002bf66e253 (121 B) is not an accepted form
+   FAIL S-TaskOutput-alt: C3: re-encoding 1957adc8975f (30 B) is not an accepted form
+   FAIL S-TaskOutput-full: C3: re-encoding acd2d2850e27 (30 B) is not an accepted form
+   FAIL S-TaskSummary-alt: C3: re-encoding 4dddf42a91ee (297 B) is not an accepted form
+   FAIL S-TaskSummary-full: C3: re-encoding dfbaccc18cfc (271 B) is not an accepted form
+   FAIL S-UploadResultData-alt: C3: re-encoding 3edd0914c2ff (92 B) is not an accepted form
+   FAIL S-UploadResultData-full: C3: re-encoding 9875bb6a0783 (92 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-alt: C3: re-encoding 458e1abcff29 (94 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-full: C3: re-encoding 7bf407e83d20 (94 B) is not an accepted form
+   FAIL S-WireZoo-alt: C3: re-encoding ec5b66702ff8 (77 B) is not an accepted form
+   FAIL S-WireZoo-full: C3: re-encoding 695742f9b590 (68 B) is not an accepted form
+   FAIL S-interleaved: C3: re-encoding f38eca2dae42 (91 B) is not an accepted form
+   FAIL S-map-order-reversed: C3: re-encoding 790f6a0532ef (17 B) is not an accepted form
+   FAIL S-map-order-utf8: C3: re-encoding 790f6a0532ef (17 B) is not an accepted form
+   FAIL S-mzero-ListMetricsResponse-values: C3: re-encoding 4af265e04103 (22 B) is not an accepted form
+   FAIL S-neg-ChunkedResponse: C3: re-encoding 39911c01302d (42 B) is not an accepted form
+   FAIL S-neg-DualResponse: C3: re-encoding 16a029a2487e (30 B) is not an accepted form
+   FAIL S-neg-LeafResponse: C3: re-encoding f565c403c71e (15 B) is not an accepted form
+   FAIL S-neg-ListMetricsResponse-packed: C3: re-encoding 1b209e92548a (70 B) is not an accepted form
+   FAIL S-neg-ListProbeResponse: C3: re-encoding 9adc421ef667 (26 B) is not an accepted form
+   FAIL S-neg-i32-truncated-Pair: C3: re-encoding a0485f70e6eb (13 B) is not an accepted form
+   FAIL S-string-ascii: C3: re-encoding e8bcfcca9bea (10 B) is not an accepted form
+   FAIL S-string-astral: C3: re-encoding 70591bc0d6a0 (13 B) is not an accepted form
+   FAIL S-string-boundary-0x7f-0x80: C3: re-encoding c11ea2fa4124 (4 B) is not an accepted form
+   FAIL S-string-boundary-0x7ff-0x800: C3: re-encoding 71e62dc4e207 (6 B) is not an accepted form
+   FAIL S-string-boundary-0xffff-0x10000: C3: re-encoding faa8a7acc9fb (8 B) is not an accepted form
+   FAIL S-string-embedded-nul: C3: re-encoding 1dcca732d412 (4 B) is not an accepted form
+   FAIL S-string-latin1: C3: re-encoding fef87448d720 (33 B) is not an accepted form
+   FAIL S-string-len-1: C3: re-encoding 913da1f8df6f (2 B) is not an accepted form
+   FAIL S-string-len-127: C3: re-encoding 01459c11209f (128 B) is not an accepted form
+   FAIL S-string-len-128: C3: re-encoding fc622a6ddb94 (129 B) is not an accepted form
+   FAIL S-string-len-16383: C3: re-encoding 35adcf0c1733 (16385 B) is not an accepted form
+   FAIL S-string-len-16384: C3: re-encoding 56b1e546812b (16386 B) is not an accepted form
+   FAIL S-string-max-codepoint: C3: re-encoding 6086eaabd270 (5 B) is not an accepted form
+   ... and 1 more
+
+## ffi-retain
+   pass 82  fail 81  disputed (excluded) 0  not in the C ABI 7
+     shape      pass   82  fail  81
+   forms written (C3):
+       74  as committed
+        5  canonical
+        1  canonical: packed
+        2  canonical: ten-byte sign-extended
+   refusals by code (C4):
+   FAIL S-ChunkElement-alt: C3: re-encoding 212eace58205 (142 B) is not an accepted form
+   FAIL S-ChunkElement-full: C3: re-encoding 9f7d132a4ade (142 B) is not an accepted form
+   FAIL S-ChunkInner-alt: C3: re-encoding 7ac5c591a038 (59 B) is not an accepted form
+   FAIL S-ChunkInner-full: C3: re-encoding 0c61a79fdb66 (59 B) is not an accepted form
+   FAIL S-ChunkLeaf-alt: C3: re-encoding 9d337f20aa6b (11 B) is not an accepted form
+   FAIL S-ChunkLeaf-full: C3: re-encoding 3169dd3216a5 (14 B) is not an accepted form
+   FAIL S-ChunkedResponse-alt: C3: re-encoding f9a7fd4c7605 (304 B) is not an accepted form
+   FAIL S-ChunkedResponse-full: C3: re-encoding 58b474e3a770 (305 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-alt: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-ChunkedResponseWide-full: C3: re-encoding da33e12b52ea (296 B) is not an accepted form
+   FAIL S-DualResponse-alt: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-DualResponse-full: C3: re-encoding 1f30ffa1f541 (60 B) is not an accepted form
+   FAIL S-LeafElement-alt: C3: re-encoding 18a3649488cf (56 B) is not an accepted form
+   FAIL S-LeafElement-full: C3: re-encoding c9e02292f2e6 (51 B) is not an accepted form
+   FAIL S-LeafResponse-alt: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-LeafResponse-full: C3: re-encoding a66e82b22737 (110 B) is not an accepted form
+   FAIL S-ListMetricsResponse-alt: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListMetricsResponse-full: C3: re-encoding c76ed6d9303c (1238 B) is not an accepted form
+   FAIL S-ListProbeResponse-alt: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListProbeResponse-full: C3: re-encoding 961068b48049 (126 B) is not an accepted form
+   FAIL S-ListResultsResponse-alt: C3: re-encoding ef38f5e0f484 (417 B) is not an accepted form
+   FAIL S-ListResultsResponse-full: C3: re-encoding ab1b7a0ccac5 (417 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-alt: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTaskSummaryResponse-full: C3: re-encoding b764e32762af (572 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-alt: C3: re-encoding f0bc9b7bcc03 (1681 B) is not an accepted form
+   FAIL S-ListTasksDetailedResponse-full: C3: re-encoding 4ce5858dc8df (1680 B) is not an accepted form
+   FAIL S-MetricsBatch-alt: C3: re-encoding e3a37dde6d61 (614 B) is not an accepted form
+   FAIL S-MetricsBatch-full: C3: re-encoding 6ef763a7ac3d (610 B) is not an accepted form
+   FAIL S-Pair-alt: C3: re-encoding 33206b9d8aaf (12 B) is not an accepted form
+   FAIL S-Pair-full: C3: re-encoding a0e49c1013b9 (13 B) is not an accepted form
+   FAIL S-Probe-alt: C3: re-encoding 9d1564516f4c (58 B) is not an accepted form
+   FAIL S-Probe-full: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-blob: C3: re-encoding 32cdc0649bf0 (68 B) is not an accepted form
+   FAIL S-Probe-oneof-as-int: C3: re-encoding fda4f6b11c3f (57 B) is not an accepted form
+   FAIL S-Probe-oneof-as-nothing: C3: re-encoding 19e9fe39a406 (52 B) is not an accepted form
+   FAIL S-Probe-oneof-as-stamp: C3: re-encoding f884def00b9b (58 B) is not an accepted form
+   FAIL S-Probe-oneof-as-text: C3: re-encoding 736f0c08dee1 (62 B) is not an accepted form
+   FAIL S-ResultRaw-alt: C3: re-encoding c2255691c029 (209 B) is not an accepted form
+   FAIL S-ResultRaw-full: C3: re-encoding bfc8999cb144 (202 B) is not an accepted form
+   FAIL S-Surrogate-alt: C3: re-encoding 07415658dedd (71 B) is not an accepted form
+   FAIL S-Surrogate-full: C3: re-encoding 891481bed19a (72 B) is not an accepted form
+   FAIL S-SurrogateInner-alt: C3: re-encoding df204285b908 (9 B) is not an accepted form
+   FAIL S-SurrogateInner-full: C3: re-encoding bdd55867400a (9 B) is not an accepted form
+   FAIL S-TaskDetailed-alt: C3: re-encoding 1462e11d2747 (866 B) is not an accepted form
+   FAIL S-TaskDetailed-full: C3: re-encoding ba002a63aaab (813 B) is not an accepted form
+   FAIL S-TaskOptions-alt: C3: re-encoding ba50a7062175 (131 B) is not an accepted form
+   FAIL S-TaskOptions-full: C3: re-encoding 3002bf66e253 (121 B) is not an accepted form
+   FAIL S-TaskOutput-alt: C3: re-encoding 1957adc8975f (30 B) is not an accepted form
+   FAIL S-TaskOutput-full: C3: re-encoding acd2d2850e27 (30 B) is not an accepted form
+   FAIL S-TaskSummary-alt: C3: re-encoding 4dddf42a91ee (297 B) is not an accepted form
+   FAIL S-TaskSummary-full: C3: re-encoding dfbaccc18cfc (271 B) is not an accepted form
+   FAIL S-UploadResultData-alt: C3: re-encoding 3edd0914c2ff (92 B) is not an accepted form
+   FAIL S-UploadResultData-full: C3: re-encoding 9875bb6a0783 (92 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-alt: C3: re-encoding 458e1abcff29 (94 B) is not an accepted form
+   FAIL S-UploadResultDataMessage-full: C3: re-encoding 7bf407e83d20 (94 B) is not an accepted form
+   FAIL S-WireZoo-alt: C3: re-encoding ec5b66702ff8 (77 B) is not an accepted form
+   FAIL S-WireZoo-full: C3: re-encoding 695742f9b590 (68 B) is not an accepted form
+   FAIL S-interleaved: C3: re-encoding f38eca2dae42 (91 B) is not an accepted form
+   FAIL S-map-order-reversed: C3: re-encoding 790f6a0532ef (17 B) is not an accepted form
+   FAIL S-map-order-utf8: C3: re-encoding 790f6a0532ef (17 B) is not an accepted form
+   FAIL S-mzero-ListMetricsResponse-values: C3: re-encoding 4af265e04103 (22 B) is not an accepted form
+   FAIL S-neg-ChunkedResponse: C3: re-encoding 39911c01302d (42 B) is not an accepted form
+   FAIL S-neg-DualResponse: C3: re-encoding 16a029a2487e (30 B) is not an accepted form
+   FAIL S-neg-LeafResponse: C3: re-encoding f565c403c71e (15 B) is not an accepted form
+   FAIL S-neg-ListMetricsResponse-packed: C3: re-encoding 1b209e92548a (70 B) is not an accepted form
+   FAIL S-neg-ListProbeResponse: C3: re-encoding 9adc421ef667 (26 B) is not an accepted form
+   FAIL S-neg-i32-truncated-Pair: C3: re-encoding a0485f70e6eb (13 B) is not an accepted form
+   FAIL S-string-ascii: C3: re-encoding e8bcfcca9bea (10 B) is not an accepted form
+   FAIL S-string-astral: C3: re-encoding 70591bc0d6a0 (13 B) is not an accepted form
+   FAIL S-string-boundary-0x7f-0x80: C3: re-encoding c11ea2fa4124 (4 B) is not an accepted form
+   FAIL S-string-boundary-0x7ff-0x800: C3: re-encoding 71e62dc4e207 (6 B) is not an accepted form
+   FAIL S-string-boundary-0xffff-0x10000: C3: re-encoding faa8a7acc9fb (8 B) is not an accepted form
+   FAIL S-string-embedded-nul: C3: re-encoding 1dcca732d412 (4 B) is not an accepted form
+   FAIL S-string-latin1: C3: re-encoding fef87448d720 (33 B) is not an accepted form
+   FAIL S-string-len-1: C3: re-encoding 913da1f8df6f (2 B) is not an accepted form
+   FAIL S-string-len-127: C3: re-encoding 01459c11209f (128 B) is not an accepted form
+   FAIL S-string-len-128: C3: re-encoding fc622a6ddb94 (129 B) is not an accepted form
+   FAIL S-string-len-16383: C3: re-encoding 35adcf0c1733 (16385 B) is not an accepted form
+   FAIL S-string-len-16384: C3: re-encoding 56b1e546812b (16386 B) is not an accepted form
+   FAIL S-string-max-codepoint: C3: re-encoding 6086eaabd270 (5 B) is not an accepted form
+   ... and 1 more
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1

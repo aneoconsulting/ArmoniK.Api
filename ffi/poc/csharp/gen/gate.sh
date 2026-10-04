@@ -175,6 +175,13 @@ for lvl in $LEVELS; do
   # strict decoder must refuse the malformed-UTF-8 rows (T-dec-*, AK_ERR_TRANSCODE). With a lossy
   # decoder planted, those rows are accepted and the corpus must fail.
   AK_GATE_PLANT_LOSSY=1 control "net$lvl corpus with a lossy host string decoder (D20: the host's check is live)" "${CX[@]}" --only "T-dec-"
+  # D21 (2026-10-04): the string encode paths other than the default E0 (AK_STR_ENC): E1 (pinned
+  # UTF-16, ak_tc_utf16) and E2 (the C# transcoder) over the whole corpus; planted one code
+  # unit / one byte short (AK_GATE_PLANT_STR), each must fail (the path is live).
+  for m in E1 E2; do
+    AK_CORPUS_RETAIN_STRICT=1 AK_STR_ENC=$m run "net$lvl corpus, string path $m" "${CX[@]}"
+    AK_GATE_PLANT_STR=1 AK_STR_ENC=$m control "net$lvl corpus, string path $m planted short (D21: the path is live)" "${CX[@]}" --only "S-"
+  done
   control "net$lvl decision 11 plant (the expectation's clearing skipped)" "${CX[@]}" --unk-controls --plant
   AK_GATE_PLANT_SKIP_RELEASE=1 control "net$lvl decision 11 skipped release (the undelivered check's twin, R-H9)" "${CX[@]}" --only U- --unk-controls
   SUB="S-Probe,U-root,X-lenwrap-lrr,E-map,T-dec-root"
@@ -252,6 +259,12 @@ cmp_counts() {  # name committed produced
 }
 run "codec counts, full build (= gen/counts.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts full '$SLICE/gen/counts.txt' '$SCRATCH/counts.txt'"
 run "codec counts, no-unknown build (= gen/counts-nounk.txt)" bash -c "dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/counts-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts nounk '$SLICE/gen/counts-nounk.txt' '$SCRATCH/counts-nounk.txt'"
+# D21: the string encode paths' counts (AK_STR_ENC): E1 and ETH:256 equal the base rows; E2's
+# rows add `tc N` to rev (the core's calls into the C# transcoder). Committed: gen/counts-str-*.txt.
+for m in E1 E2 ETH:256; do t=$(echo "$m" | tr -d ':' | tr 'A-Z' 'a-z')
+  AK_STR_ENC=$m run "codec counts, string path $m, full build (= gen/counts-str-$t.txt)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-str-$t.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts str-$t '$SLICE/gen/counts-str-$t.txt' '$SCRATCH/counts-str-$t.txt'"
+  AK_STR_ENC=$m run "codec counts, string path $m, no-unknown build (= gen/counts-str-$t-nounk.txt)" bash -c "dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/counts-str-$t-nounk.txt' && $(declare -f cmp_counts); SCRATCH='$SCRATCH' cmp_counts str-$t-nounk '$SLICE/gen/counts-str-$t-nounk.txt' '$SCRATCH/counts-str-$t-nounk.txt'"
+done
 # The grow count is live: with an exact-size grow (a control, never the timed policy) the
 # retain rows that carry unknown fields count differently, and the comparison must fail.
 AK_COUNT_GROW=exact control "codec counts with an exact-size grow (the counted grows must matter)" bash -c "dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/counts-exact.txt' && diff -q '$SLICE/gen/counts.txt' '$SCRATCH/counts-exact.txt'"

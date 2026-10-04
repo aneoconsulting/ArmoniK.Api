@@ -87,12 +87,16 @@ public sealed unsafe class Stage : IDisposable
         _pins.Clear();
     }
 
+    /// A GATE CONTROL, not a mode: AK_GATE_PLANT_STR=1 makes E1 and E2 hand one code unit (E1) or
+    /// one byte (E2) short, so a check that runs under AK_STR_ENC=E1/E2 must fail (the path is live).
+    internal static readonly bool PlantStr = Environment.GetEnvironmentVariable("AK_GATE_PLANT_STR") == "1";
+
     private ak_str Pin(string s)
     {
         var h = GCHandle.Alloc(s, GCHandleType.Pinned);
         _pins.Add(h);
         if (_tcU16 == IntPtr.Zero) _tcU16 = Abi.ak_tc_utf16();
-        return new ak_str { data = h.AddrOfPinnedObject(), len = (nuint)s.Length, tc = _tcU16 };
+        return new ak_str { data = h.AddrOfPinnedObject(), len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
     }
 
     private const nint TabBase = 0x10000;
@@ -126,7 +130,8 @@ public sealed unsafe class Stage : IDisposable
                     if (rc < 0) return rc;
                 }
             }
-            return Encoding.UTF8.GetBytes(s, new Span<byte>(dst, cap));
+            int w = Encoding.UTF8.GetBytes(s, new Span<byte>(dst, cap));
+            return PlantStr ? w - 1 : w;
         }
         catch { return Abi.AK_ERR_HOST; }
     }
