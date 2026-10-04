@@ -48,7 +48,10 @@ public static class Cases
 #if AK_NO_UNKNOWN_FIELDS
     private static readonly string[] CoreArms = { "host-gen:no-unknown", "core-ffi:no-unknown" };
 #else
-    private static readonly string[] CoreArms = { "incumbent-prod:default", "host-gen:retain", "core-ffi:retain" };
+    /// AK_BDN_DROP=1 (optimisation runs, a labelled extra): the drop units beside retain.
+    private static readonly string[] CoreArms = Environment.GetEnvironmentVariable("AK_BDN_DROP") == "1"
+        ? new[] { "incumbent-prod:default", "host-gen:retain", "core-ffi:retain", "host-gen:drop", "core-ffi:drop" }
+        : new[] { "incumbent-prod:default", "host-gen:retain", "core-ffi:retain" };
 #endif
     public static readonly string[] CoreURows = { "U-nested-before", "U-deep-u-repeated", "U-oneof-u-repeated",
         "U-wire-ListTaskSummaryResponse-tasks-as-wt5", "U-wire-UploadResultDataMessage-upload-as-wt5",
@@ -139,14 +142,18 @@ public static class Cases
         foreach (var k in All()) yield return k;
         if (CoreGrid) yield break;
 #if AK_NO_UNKNOWN_FIELDS
-        const string am = "core-ffi:no-unknown";
+        var ams = new[] { "core-ffi:no-unknown" };
 #else
-        const string am = "core-ffi:retain";
+        var ams = new[] { "core-ffi:retain", "core-ffi:drop" };   // drop: the optimisation runs' labelled extra (AK_BDN_DROP)
 #endif
-        if (!InUnit(am)) yield break;
-        var f = am.Split(':');
-        foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-transport-hot", id, "corpus", f[1]);
-        foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-core-hot", id, "corpus", f[1]);   // D1 (2026-10-04)
+        foreach (var am in ams)
+        {
+            if (!InUnit(am)) continue;
+            var f = am.Split(':');
+            if (f[1] != "drop")
+                foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-transport-hot", id, "corpus", f[1]);
+            foreach (var id in CoreURows) yield return string.Join("|", f[0], "encode-core-hot", id, "corpus", f[1]);   // D1 (2026-10-04)
+        }
     }
 
     /// Two sacrificial cases run first in every process: copies of its first two cases, with

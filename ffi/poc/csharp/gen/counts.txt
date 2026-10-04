@@ -1146,3 +1146,10 @@ U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-core-hot reta
 U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-core-hot retain | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
 U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-core-hot retain | fwd 13 rev 11 grow 0 reset 0 | ak_enc_reset=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2 ak_uelemu_MetricsBatch=1 ak_uencode_ListMetricsResponse=1
 U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-core-hot retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+U-nested-before corpus core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_ResultRaw=1 ak_enc_reset=1 ak_encode_ListResultsResponse=1
+U-deep-u-repeated corpus core-ffi encode-core-hot drop | fwd 8 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+U-oneof-u-repeated corpus core-ffi encode-core-hot drop | fwd 3 rev 1 grow 0 reset 0 | ak_elem_Probe=1 ak_enc_reset=1 ak_encode_ListProbeResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi encode-core-hot drop | fwd 5 rev 3 grow 0 reset 0 | ak_elem_TaskOptionsOptionsEntry=2 ak_elemu_TaskSummary=1 ak_enc_reset=1 ak_encode_ListTaskSummaryResponse=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi encode-core-hot drop | fwd 2 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi encode-core-hot drop | fwd 13 rev 11 grow 0 reset 0 | ak_elemu_MetricsBatch=1 ak_enc_reset=1 ak_encode_ListMetricsResponse=1 ak_run_f64=2 ak_run_i32=4 ak_run_i64=2 ak_run_u8=2
+U-wire-DualResponse-left-as-wt5 corpus core-ffi encode-core-hot drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
