@@ -108,6 +108,9 @@ cat > "$S/d19c.c" <<'EOF'
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef int32_t (*ak_grow_fn)(void *, int32_t, uint8_t **, int32_t *);
 typedef int32_t (*ak_transcode_fn)(const void *, size_t, uint8_t *, int32_t, ak_grow_fn, void *);
 ak_transcode_fn ak_tc_utf16(void);
@@ -117,6 +120,9 @@ int32_t ak_utf8_to_utf16(const uint8_t *, size_t, uint16_t *, size_t);
 int32_t ak_utf8_utf16_len(const uint8_t *, size_t);
 int32_t ak_utf8_validate(const uint8_t *, size_t);
 int32_t ak_utf16_validate(const uint16_t *, size_t);
+#ifdef __cplusplus
+}
+#endif
 static int32_t no_grow(void *s, int32_t w, uint8_t **d, int32_t *c) { (void)s; (void)w; (void)d; (void)c; return -7; }
 int main(void) {
   /* "aé€😀" then a lone high surrogate */
@@ -152,7 +158,7 @@ if gcc -O2 -std=c11 -o "$S/d19c-static" "$S/d19c.c" "$LIB/libak_core.a" -lstdc++
   r=$("$S/d19c-static"); [ "$r" = "D19 C CHECK PASSED" ] && ok "gcc static WITH -lstdc++: $r" || bad "gcc static: $r"
 else bad "gcc static WITH -lstdc++"; cat "$S/static.err"; fi
 cp "$S/d19c.c" "$S/d19cxx.cpp"
-if g++ -O2 -std=c++11 -x c++ -o "$S/d19cxx-static" "$S/d19cxx.cpp" "$LIB/libak_core.a" -lpthread -ldl -lm 2> "$S/static.err"; then
+if g++ -O2 -std=c++11 -o "$S/d19cxx-static" -x c++ "$S/d19cxx.cpp" -x none "$LIB/libak_core.a" -lpthread -ldl -lm 2> "$S/static.err"; then
   r=$("$S/d19cxx-static"); [ "$r" = "D19 C CHECK PASSED" ] && ok "g++ static (the C++ slice's driver): $r" || bad "g++ static: $r"
 else bad "g++ static"; head -20 "$S/static.err"; fi
 
