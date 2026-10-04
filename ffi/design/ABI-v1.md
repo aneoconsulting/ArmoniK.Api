@@ -1732,7 +1732,7 @@ Each blocks something. None is settled by a measurement that exists today.
    and pricing what a host pays to honour it in the campaign. **Owner, 2026-10-04
    (FIX-PLAN D22): strings stay owned for now; in C#, only the message types that
    carry one large bytes field (upload and download result data) decode their bytes
-   as views, over a core response through a finalizer-released `MemoryManager`.** A
+   as views, over a core response through a finalizer-released `MemoryManager`; documented, not built.** A
    `Span` taken from such a view does not keep the buffer alive (a caller holding
    only a span needs `GC.KeepAlive` on the message). **Blocks: nothing
    today; it is an additive option. Which decode claim the campaign can support
