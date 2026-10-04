@@ -1,0 +1,4 @@
+# D21 step 7 item 5: the threshold sweep (E0 vs E1R, and the content-aware split E1R:32:na); commit 6ba75fe7 + uncommitted (the rstr/mstr counters and the sweep's tail content only); 2026-10-04T23:41:37Z; load1 0.24 before; CONTAINER INSTRUMENTATION
+rc=0 123 s
+# sweep2: after the per-encode skip (an encode whose fill marked nothing runs no frame); paths E0 E1R E1R:128 E1R:128:na; load1 0.01 before
+sweep2 rc=0 81 s

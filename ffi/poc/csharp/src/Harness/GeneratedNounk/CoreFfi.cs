@@ -85,6 +85,10 @@ public sealed unsafe class Stage : IDisposable
     };
     /// E1R / E1C: 1 or 2 when the generated frames pin (the fill marks), 0 otherwise.
     public static int Defer => Mode == E1R ? 1 : Mode == E1C ? 2 : 0;
+    /// The frames of the encode running on this thread: Defer, or 0 when its fill marked no
+    /// string (under a threshold, an encode with no long string takes the default path whole:
+    /// no frame per element). Set by Go before the root call; read by the loop callbacks.
+    [ThreadStatic] public static int DeferNow;
     /// E1R / E1C: the marker the fill leaves in ak_str.data until a frame patches it; never a small
     /// value (ABI v1 section 8 reserves those) and never read by the core (patched before the call).
     public static readonly IntPtr PinPending = (IntPtr)0x30000;
@@ -104,8 +108,10 @@ public sealed unsafe class Stage : IDisposable
         if (k < 1 || k > MaxPinK) throw new ArgumentException("AK_STR_PINK: 1.." + MaxPinK + " (stack bound), not " + v);
         return k;
     }
-    /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call).
-    public static long Marked, Patched;
+    /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
+    /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
+    /// keys and values (one frame per entry).
+    public static long Marked, Patched, RepPatched, MapPatched;
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -923,11 +929,11 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             var __e = lst[off + i];
             {
                 var __g = (ak_efix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) __g->session_id.data = Stage.PinChunk(__e.SessionId);
-                if (__g->name.data == Stage.PinPending) __g->name.data = Stage.PinChunk(__e.Name);
-                if (__g->owner_task_id.data == Stage.PinPending) __g->owner_task_id.data = Stage.PinChunk(__e.OwnerTaskId);
-                if (__g->result_id.data == Stage.PinPending) __g->result_id.data = Stage.PinChunk(__e.ResultId);
-                if (__g->created_by.data == Stage.PinPending) __g->created_by.data = Stage.PinChunk(__e.CreatedBy);
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = Stage.PinChunk(__e.Name); }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = Stage.PinChunk(__e.OwnerTaskId); }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = Stage.PinChunk(__e.ResultId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
             }
         }
         Stage.BeforeChunkCall();
@@ -947,7 +953,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             int n = run->N_results;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -1025,17 +1031,18 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             loop_results = &Loop_results,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListResultsResponse();
             G.E_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -1340,21 +1347,21 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var __c8 = __e.Output;
             {
                 var __g = (ak_efix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) __g->id.data = Stage.PinChunk(__e.Id);
-                if (__g->session_id.data == Stage.PinPending) __g->session_id.data = Stage.PinChunk(__e.SessionId);
-                if (__g->owner_pod_id.data == Stage.PinPending) __g->owner_pod_id.data = Stage.PinChunk(__e.OwnerPodId);
-                if (__g->status_message.data == Stage.PinPending) __g->status_message.data = Stage.PinChunk(__e.StatusMessage);
-                if (__g->options.partition_id.data == Stage.PinPending) __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId);
-                if (__g->options.application_name.data == Stage.PinPending) __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName);
-                if (__g->options.application_version.data == Stage.PinPending) __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion);
-                if (__g->options.application_namespace.data == Stage.PinPending) __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace);
-                if (__g->options.application_service.data == Stage.PinPending) __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService);
-                if (__g->options.engine_type.data == Stage.PinPending) __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType);
-                if (__g->output.error.data == Stage.PinPending) __g->output.error.data = Stage.PinChunk(__c8?.Error);
-                if (__g->pod_hostname.data == Stage.PinPending) __g->pod_hostname.data = Stage.PinChunk(__e.PodHostname);
-                if (__g->initial_task_id.data == Stage.PinPending) __g->initial_task_id.data = Stage.PinChunk(__e.InitialTaskId);
-                if (__g->payload_id.data == Stage.PinPending) __g->payload_id.data = Stage.PinChunk(__e.PayloadId);
-                if (__g->created_by.data == Stage.PinPending) __g->created_by.data = Stage.PinChunk(__e.CreatedBy);
+                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = Stage.PinChunk(__e.OwnerPodId); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = Stage.PinChunk(__c8?.Error); }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = Stage.PinChunk(__e.PodHostname); }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = Stage.PinChunk(__e.InitialTaskId); }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = Stage.PinChunk(__e.PayloadId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
             }
         }
         Stage.BeforeChunkCall();
@@ -1374,14 +1381,14 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
             return RecS_tasks_parent_task_ids(ctx, arr, l, off, k, j + 1);
         }
     }
 
     private static int ChunkHS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
         Stage.BeforeChunkCall();
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
@@ -1391,7 +1398,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int PinStrs_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -1412,14 +1419,14 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
             return RecS_tasks_data_dependencies(ctx, arr, l, off, k, j + 1);
         }
     }
 
     private static int ChunkHS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
         Stage.BeforeChunkCall();
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
@@ -1429,7 +1436,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int PinStrs_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -1450,14 +1457,14 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
             return RecS_tasks_expected_output_ids(ctx, arr, l, off, k, j + 1);
         }
     }
 
     private static int ChunkHS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
         Stage.BeforeChunkCall();
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
@@ -1467,7 +1474,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int PinStrs_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -1488,14 +1495,14 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
             return RecS_tasks_retry_of_ids(ctx, arr, l, off, k, j + 1);
         }
     }
 
     private static int ChunkHS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
         Stage.BeforeChunkCall();
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
@@ -1505,7 +1512,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int PinStrs_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -1526,8 +1533,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
             return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -1538,8 +1545,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         {
             var kv = m.At(off + j);
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) __g->key.data = Stage.PinChunk(kv.Key);
-            if (__g->value.data == Stage.PinPending) __g->value.data = Stage.PinChunk(kv.Value);
+            if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
         Stage.BeforeChunkCall();
         _fwd++;
@@ -1550,7 +1557,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -1571,7 +1578,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->N_tasks;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -1602,7 +1609,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_parent_task_ids[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinStrs_tasks_parent_task_ids(ctx, (ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e], _pinSrc.Tasks[e].ParentTaskIds, n);
+            if (Stage.DeferNow != 0) return PinStrs_tasks_parent_task_ids(ctx, (ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e], _pinSrc.Tasks[e].ParentTaskIds, n);
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e]), n);
         }
@@ -1619,7 +1626,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_data_dependencies[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinStrs_tasks_data_dependencies(ctx, (ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e], _pinSrc.Tasks[e].DataDependencies, n);
+            if (Stage.DeferNow != 0) return PinStrs_tasks_data_dependencies(ctx, (ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e], _pinSrc.Tasks[e].DataDependencies, n);
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e]), n);
         }
@@ -1636,7 +1643,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_expected_output_ids[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinStrs_tasks_expected_output_ids(ctx, (ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e], _pinSrc.Tasks[e].ExpectedOutputIds, n);
+            if (Stage.DeferNow != 0) return PinStrs_tasks_expected_output_ids(ctx, (ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e], _pinSrc.Tasks[e].ExpectedOutputIds, n);
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e]), n);
         }
@@ -1653,7 +1660,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_retry_of_ids[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinStrs_tasks_retry_of_ids(ctx, (ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e], _pinSrc.Tasks[e].RetryOfIds, n);
+            if (Stage.DeferNow != 0) return PinStrs_tasks_retry_of_ids(ctx, (ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e], _pinSrc.Tasks[e].RetryOfIds, n);
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e]), n);
         }
@@ -1670,7 +1677,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
+            if (Stage.DeferNow != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
             _fwd++;
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
@@ -1822,17 +1829,18 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListTasksDetailedResponse();
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -2215,9 +2223,9 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             var __e = lst[off + i];
             {
                 var __g = (ak_efix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) __g->id.data = Stage.PinChunk(__e.Id);
-                if (__g->opt_label.data == Stage.PinPending) __g->opt_label.data = Stage.PinChunk(__e.OptLabel);
-                if (__g->body_as_text.data == Stage.PinPending) __g->body_as_text.data = Stage.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null));
+                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = Stage.PinChunk(__e.OptLabel); }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
             }
         }
         Stage.BeforeChunkCall();
@@ -2237,7 +2245,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             int n = run->N_probes;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -2315,17 +2323,18 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             loop_probes = &Loop_probes,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListProbeResponse();
             G.E_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -2611,16 +2620,16 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             var __c1 = __e.Options;
             {
                 var __g = (ak_efix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) __g->id.data = Stage.PinChunk(__e.Id);
-                if (__g->session_id.data == Stage.PinPending) __g->session_id.data = Stage.PinChunk(__e.SessionId);
-                if (__g->options.partition_id.data == Stage.PinPending) __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId);
-                if (__g->options.application_name.data == Stage.PinPending) __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName);
-                if (__g->options.application_version.data == Stage.PinPending) __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion);
-                if (__g->options.application_namespace.data == Stage.PinPending) __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace);
-                if (__g->options.application_service.data == Stage.PinPending) __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService);
-                if (__g->options.engine_type.data == Stage.PinPending) __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType);
-                if (__g->error.data == Stage.PinPending) __g->error.data = Stage.PinChunk(__e.Error);
-                if (__g->status_message.data == Stage.PinPending) __g->status_message.data = Stage.PinChunk(__e.StatusMessage);
+                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = Stage.PinChunk(__e.Error); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
             }
         }
         Stage.BeforeChunkCall();
@@ -2640,8 +2649,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
             return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -2652,8 +2661,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         {
             var kv = m.At(off + j);
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) __g->key.data = Stage.PinChunk(kv.Key);
-            if (__g->value.data == Stage.PinPending) __g->value.data = Stage.PinChunk(kv.Value);
+            if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
         Stage.BeforeChunkCall();
         _fwd++;
@@ -2664,7 +2673,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 
     private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int n)
     {
-        int K = Stage.PinK, d = Stage.Defer;
+        int K = Stage.PinK, d = Stage.DeferNow;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
@@ -2685,7 +2694,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             int n = run->N_tasks;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -2716,7 +2725,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
-            if (Stage.Defer != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
+            if (Stage.DeferNow != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
             _fwd++;
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
@@ -2796,17 +2805,18 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             elem_tasks = _evt_tasks,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListTaskSummaryResponse();
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -3114,8 +3124,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static nint RootPinH_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
     {
         var __c1 = src.Upload;
-        if (__g->upload.session_id.data == Stage.PinPending) __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId);
-        if (__g->upload.result_id.data == Stage.PinPending) __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId);
+        if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId); }
+        if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         Stage.ReleaseChunk();
@@ -3139,18 +3149,19 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         // ABI v1 section 8: the one direct-argument field of this tree, pinned for the call.
         byte[] direct = src.Upload?.DataChunk ?? Array.Empty<byte>();
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_UploadResultDataMessage();
             G.E_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -3414,7 +3425,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var __e = lst[off + i];
             {
                 var __g = (ak_efix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) __g->id.data = Stage.PinChunk(__e.Id);
+                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
             }
         }
         Stage.BeforeChunkCall();
@@ -3434,7 +3445,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             int n = run->N_batches;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -3683,17 +3694,18 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             elem_batches = _evt_batches,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_ListMetricsResponse();
             G.E_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
@@ -4074,7 +4086,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var __e = lst[off + i];
             {
                 var __g = (ak_efix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) __g->key.data = Stage.PinChunk(__e.Key);
+                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
             }
         }
         Stage.BeforeChunkCall();
@@ -4094,7 +4106,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             int n = run->N_left;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -4147,7 +4159,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var __e = lst[off + i];
             {
                 var __g = (ak_efix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) __g->key.data = Stage.PinChunk(__e.Key);
+                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
             }
         }
         Stage.BeforeChunkCall();
@@ -4167,7 +4179,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             int n = run->N_right;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.Defer;
+            int d = Stage.DeferNow;
             if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
             for (int off = 0; off < n; off += chunk)
             {
@@ -4256,17 +4268,18 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             loop_right = &Loop_right,
         };
         nint rc;
-        if (__d != 0) _pinSrc = src;
         {
             var fix = new ak_efix_DualResponse();
             G.E_DualResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
+            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
             if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;

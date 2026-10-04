@@ -73,7 +73,7 @@ public static class CountRun
             o.Insert(1, "# string encode path (D21, AK_STR_ENC): " + Armonik.Ffi.Harness.Stage.ModeName
                 + (e2 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per non-empty string)"
                    : e3 ? "; `tc N` = of rev, the core's calls into the C# transcoder (one per string); `u16 N` / `u16len N` = the transcoder's calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (additive exports, not in fwd)"
-                   : defer ? "; `mark N patch N` = strings marked by the fill / patched by a frame; `hpin N` = map strings pinned by GCHandle (fallback); fwd includes the chunked element and ak_blob_run calls (K = " + Armonik.Ffi.Harness.Stage.PinK + ")"
+                   : defer ? "; `mark N patch N` = strings marked by the fill / patched by a frame; `rstr N` / `mstr N` = of patch, the strings of repeated string fields (one frame per string) / of nested maps (key and value, one frame per entry); `hpin N` = map strings pinned by GCHandle (fallback); fwd includes the chunked element and ak_blob_run calls (K = " + Armonik.Ffi.Harness.Stage.PinK + ")"
                    : "; `pin N` = the strings handed pinned as UTF-16 (ak_tc_utf16), not a boundary call"));
         // E1R's stack bytes per recursion frame depend on the JIT tier the frame ran at, so they are
         // written apart (FILE.frames), not in the compared rows.
@@ -92,6 +92,7 @@ public static class CountRun
             Armonik.Ffi.Harness.Stage.PinCalls = 0;  // D21 E1 / ETH: the strings handed pinned
             Armonik.Ffi.Harness.Stage.U16Calls = 0; Armonik.Ffi.Harness.Stage.U16LenCalls = 0;
             Armonik.Ffi.Harness.Stage.Marked = 0; Armonik.Ffi.Harness.Stage.Patched = 0;
+            Armonik.Ffi.Harness.Stage.RepPatched = 0; Armonik.Ffi.Harness.Stage.MapPatched = 0;
             Armonik.Ffi.Harness.Stage.HandlePins = 0; Armonik.Ffi.Harness.Stage.FrameBytes = 0;
 #if !AK_NO_UNKNOWN_FIELDS
             Armonik.Ffi.Harness.UnkHost.Grows = 0;
@@ -111,7 +112,7 @@ public static class CountRun
                 string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls)), e2 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls
                 : pinm ? " pin " + Armonik.Ffi.Harness.Stage.PinCalls
                 : e3 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls + " u16 " + Armonik.Ffi.Harness.Stage.U16Calls + (M == Armonik.Ffi.Harness.Stage.E3L ? " u16len " + Armonik.Ffi.Harness.Stage.U16LenCalls : "")
-                : defer ? " mark " + Armonik.Ffi.Harness.Stage.Marked + " patch " + Armonik.Ffi.Harness.Stage.Patched + " hpin " + Armonik.Ffi.Harness.Stage.HandlePins
+                : defer ? " mark " + Armonik.Ffi.Harness.Stage.Marked + " patch " + Armonik.Ffi.Harness.Stage.Patched + " rstr " + Armonik.Ffi.Harness.Stage.RepPatched + " mstr " + Armonik.Ffi.Harness.Stage.MapPatched + " hpin " + Armonik.Ffi.Harness.Stage.HandlePins
 
                 : ""));
             if (!pinm && !defer && Armonik.Ffi.Harness.Stage.PinCalls != 0) { Console.Error.WriteLine("string pinned outside E1 / ETH / the E1R-E1C map fallback on " + k); return 1; }

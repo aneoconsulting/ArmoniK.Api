@@ -339,7 +339,7 @@ public static class Cases
         var na0 = Armonik.Ffi.Harness.Stage.NonAsciiOnly; var k0 = Armonik.Ffi.Harness.Stage.PinK;
         try
         {
-            foreach (var spec in new[] { "E0", "E1", "E2", "ETH:16", "E3", "E3L", "E1R", "E1R:0:x3", "E1C:0:x3", "E1R:16", "E1R:16:na", "E3:16:na" })
+            foreach (var spec in new[] { "E0", "E1", "E2", "ETH:16", "E3", "E3L", "E1R", "E1R:0:x3", "E1C:0:x3", "E1R:16", "E1R:16:na", "E3:16:na", "E1R:128", "E1C:16:x3" })
             {
                 var sp = spec.Replace(":x3", "");
                 Armonik.Ffi.Harness.Stage.Mode = Armonik.Ffi.Harness.Stage.ParseMode(sp, out Armonik.Ffi.Harness.Stage.Threshold, out Armonik.Ffi.Harness.Stage.NonAsciiOnly);

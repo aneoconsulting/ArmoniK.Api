@@ -519,6 +519,10 @@ public sealed unsafe class Stage : IDisposable
     };
     /// E1R / E1C: 1 or 2 when the generated frames pin (the fill marks), 0 otherwise.
     public static int Defer => Mode == E1R ? 1 : Mode == E1C ? 2 : 0;
+    /// The frames of the encode running on this thread: Defer, or 0 when its fill marked no
+    /// string (under a threshold, an encode with no long string takes the default path whole:
+    /// no frame per element). Set by Go before the root call; read by the loop callbacks.
+    [ThreadStatic] public static int DeferNow;
     /// E1R / E1C: the marker the fill leaves in ak_str.data until a frame patches it; never a small
     /// value (ABI v1 section 8 reserves those) and never read by the core (patched before the call).
     public static readonly IntPtr PinPending = (IntPtr)0x30000;
@@ -538,8 +542,10 @@ public sealed unsafe class Stage : IDisposable
         if (k < 1 || k > MaxPinK) throw new ArgumentException("AK_STR_PINK: 1.." + MaxPinK + " (stack bound), not " + v);
         return k;
     }
-    /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call).
-    public static long Marked, Patched;
+    /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
+    /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
+    /// keys and values (one frame per entry).
+    public static long Marked, Patched, RepPatched, MapPatched;
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -1028,16 +1034,16 @@ def _pin_fields(p, mname, sv):
     return [d for d in decls if d.split()[1] in used], pins
 
 
-def _pin_patch_r(o, ind, gp, pins):
+def _pin_patch_r(o, ind, gp, pins, extra=""):
     """E1R: patch each marked member with its `fixed` pointer __p<i>."""
     for k, (_, path) in enumerate(pins):
-        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; Stage.Patched++; }" % (ind, gp, path, gp, path, k)
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; Stage.Patched++;%s }" % (ind, gp, path, gp, path, k, extra)
 
 
-def _pin_patch_h(o, ind, gp, pins):
+def _pin_patch_h(o, ind, gp, pins, extra=""):
     """E1C: patch each marked member with a chunk-lived GCHandle pin."""
     for expr, path in pins:
-        o += "%sif (%s->%s.data == Stage.PinPending) %s->%s.data = Stage.PinChunk(%s);" % (ind, gp, path, gp, path, expr)
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = Stage.PinChunk(%s);%s }" % (ind, gp, path, gp, path, expr, extra)
 
 
 def _fixed_open(pins):
@@ -1164,7 +1170,7 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += ""
     o += "    private static int PinElems_%s(IntPtr ctx, %s* arr, %s lst, int n)" % (name, i.cs_e, lst)
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
@@ -1192,7 +1198,7 @@ def _emit_pin_map_inner(o, s, i):
     o += "        fixed (char* __p0 = kv.Key, __p1 = kv.Value)"
     o += "        {"
     o += "            var __g = arr + off + j;"
-    _pin_patch_r(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")])
+    _pin_patch_r(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " Stage.MapPatched++;")
     o += "            return RecM_%s(ctx, arr, m, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
@@ -1203,7 +1209,7 @@ def _emit_pin_map_inner(o, s, i):
     o += "        {"
     o += "            var kv = m.At(off + j);"
     o += "            var __g = arr + off + j;"
-    _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")])
+    _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " Stage.MapPatched++;")
     o += "        }"
     o += "        Stage.BeforeChunkCall();"
     o += "        _fwd++;"
@@ -1214,7 +1220,7 @@ def _emit_pin_map_inner(o, s, i):
     o += ""
     o += "    private static int PinMap_%s(IntPtr ctx, %s* arr, %s m, int n)" % (name, i.cs_e, m)
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
@@ -1240,14 +1246,14 @@ def _emit_pin_strs(o, name):
     o += "        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }"
     o += "        fixed (char* __p = l[off + j])"
     o += "        {"
-    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; }"
+    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }"
     o += "            return RecS_%s(ctx, arr, l, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
     o += ""
     o += "    private static int ChunkHS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)" % name
     o += "    {"
-    o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) arr[off + j].data = Stage.PinChunk(l[off + j]);"
+    o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }"
     o += "        Stage.BeforeChunkCall();"
     o += "        _fwd++;"
     o += "        int rc = Abi.ak_blob_run(ctx, arr + off, k);"
@@ -1257,7 +1263,7 @@ def _emit_pin_strs(o, name):
     o += ""
     o += "    private static int PinStrs_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)" % name
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.Defer;"
+    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
@@ -1273,8 +1279,10 @@ def _emit_pin_strs(o, name):
 def _root_call(o, ind, call, rpins, x, ds):
     """The root encode call; under E1R / E1C a call to the root's pin method (RootPinR_/H_<x>),
     kept out of Go so the default path's code is not the frame's (the `fixed` scope and its
-    pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76)."""
+    pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76). An encode whose fill
+    marked nothing takes the default path (DeferNow 0)."""
     decls, pins = rpins
+    o += ind + "if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }"
     if not pins:
         o += ind + call
         return
@@ -1396,7 +1404,7 @@ def _emit_root(o, p, root, facade_ns):
         if s.kind == "msg":
             o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
             if pinned:
-                o += "            int d = Stage.Defer;"
+                o += "            int d = Stage.DeferNow;"
                 o += "            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;"
             o += "            for (int off = 0; off < n; off += chunk)"
             o += "            {"
@@ -1422,7 +1430,7 @@ def _emit_root(o, p, root, facade_ns):
             o += "            return 0;"
         else:
             if s.kind == "blob" and s.f.kind == "string":
-                o += "            if (Stage.Defer != 0) return PinStrs_%s(ctx, (ak_str*)run->S_%s, %s, n);" % (s.name, s.name, _get("_pinSrc", p, root, s.path))
+                o += "            if (Stage.DeferNow != 0) return PinStrs_%s(ctx, (ak_str*)run->S_%s, %s, n);" % (s.name, s.name, _get("_pinSrc", p, root, s.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
         o += "        }"
@@ -1442,15 +1450,15 @@ def _emit_root(o, p, root, facade_ns):
             o += "            if (n == 0) return 0;"
             if i.kind == "blob" and i.f.kind == "string":
                 el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.Defer != 0) return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                o += "            if (Stage.DeferNow != 0) return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
                     s.name, i.name, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             elif i.kind == "map":
                 el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.Defer != 0) return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                o += "            if (Stage.DeferNow != 0) return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
                     s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
                 el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.Defer != 0) return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                o += "            if (Stage.DeferNow != 0) return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
                     s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(
@@ -1567,7 +1575,6 @@ def _emit_root(o, p, root, facade_ns):
         dargs = ", dp, (nuint)direct.Length"
     o += "        nint rc;"
     rpins = _pin_fields(p, root, "src")
-    o += "        if (__d != 0) _pinSrc = src;"
     if _NO:
         o += "        {"
         o += "            var fix = new ak_efix_%s();" % root
@@ -1599,6 +1606,7 @@ def _emit_root(o, p, root, facade_ns):
     o += "        _st.ReleasePins();   // D21 E1: the core has copied every pinned string"
     o += "        if (__d != 0)"
     o += "        {"
+    o += "            Stage.DeferNow = 0;   // the next encode on this thread starts from the default"
     o += "            _pinSrc = null;"
     o += "            // E1R / E1C: every mark the fill left was patched by a frame before the core read it."
     o += "            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;"

@@ -38,6 +38,9 @@ public static class StrSweep
                 case "ascii": sb.Append((char)('a' + i % 26)); break;
                 case "latin1": sb.Append((char)(0xE0 + i % 32)); break;
                 case "wide": sb.Append((char)(0x4E00 + i % 512)); break;
+                // ASCII but the LAST unit (U+00E9): the content-aware split's worst case (its
+                // ASCII scan reads the whole string and the string still takes the long path).
+                case "tail": sb.Append(sb.Length == n - 1 ? (char)0xE9 : (char)('a' + i % 26)); break;
                 default:
                     if (sb.Length + 2 <= n) sb.Append(char.ConvertFromUtf32(0x1F600 + i % 64));
                     else sb.Append('a');

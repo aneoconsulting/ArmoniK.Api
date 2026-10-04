@@ -24,13 +24,13 @@ for a in "" "-p:AkNounk=true"; do
 done
 echo "# s7_checks.sh at $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- src gen ../codec/gen || echo ' + uncommitted'); $(date -u +%FT%TZ)"
 echo "# cores: $(sha256sum "$B/libak_core.so" | cut -c1-16) (full) $(sha256sum "$BN/libak_core.so" | cut -c1-16) (nounk) $(sha256sum "$SLICE/src/Corpus/bin/Release/net8.0/libak_core.so" | cut -c1-16) (corpus) $(sha256sum "$SLICE/src/Corpus/bin-nounk/Release/net8.0/libak_core.so" | cut -c1-16) (corpus nounk)"
-echo "## 1. Cases.Verify (every payload, content set and U-* row under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na)"
+echo "## 1. Cases.Verify (every payload, content set and U-* row under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na E1R:128 E1C:16(K 3))"
 run "verify full" dotnet "$B/BenchDotNet.dll" --verify
 run "verify nounk" dotnet "$BN/BenchDotNet.dll" --verify
 echo "## 2. the corpus under each path (full and no-unknown); E1R and E1C with K 3 under a compacting GC"
 echo "##    after every chunk (AK_GATE_PIN_STRESS: a string the core read after its frame's release would be"
 echo "##    read moved; on the corpus only: on the shapes it is a GC per 3 strings, tens of thousands per encode)"
-for m in E3 E3L E1R E1C "$@"; do
+for m in E3 E3L E1R E1C E1R:128 "$@"; do
   AK_CORPUS_RETAIN_STRICT=1 AK_STR_ENC=$m run "corpus $m" "$C"
   AK_STR_ENC=$m run "corpus nounk $m" "$CN"
 done
@@ -42,7 +42,7 @@ AK_GATE_PLANT_EARLY_UNPIN=1 AK_STR_PINK=3 AK_STR_ENC=E1C control "corpus E1C K 3
 echo "## 4. K bound: a K above Stage.MaxPinK is refused"
 AK_STR_PINK=257 AK_STR_ENC=E1R control "K 257 refused" dotnet "$B/BenchDotNet.dll" --verify
 echo "## 5. counts per path (= gen/counts-str-<path>[-nounk].txt)"
-for m in E3 E3L E1R E1C; do t=$(echo "$m" | tr 'A-Z' 'a-z')
+for m in E3 E3L E1R E1C E1R:128; do t=$(echo "$m" | tr -d ':' | tr 'A-Z' 'a-z')
   run "counts $m full" bash -c "AK_STR_ENC=$m dotnet '$BC/BenchDotNet.dll' --counts '$SCRATCH/c-$t.txt' > /dev/null && diff -q gen/counts-str-$t.txt '$SCRATCH/c-$t.txt'"
   run "counts $m nounk" bash -c "AK_STR_ENC=$m dotnet '$BCN/BenchDotNet.dll' --counts '$SCRATCH/c-$t-nounk.txt' > /dev/null && diff -q gen/counts-str-$t-nounk.txt '$SCRATCH/c-$t-nounk.txt'"
 done
