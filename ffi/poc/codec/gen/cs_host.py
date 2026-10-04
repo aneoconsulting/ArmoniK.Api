@@ -376,11 +376,15 @@ public static unsafe class UnkHost
 
 STAGE = r'''
 /// Staging for strings, bytes and unknown-field bags handed to the core as data. Blocks
-/// are allocated as needed and never moved, so a pointer handed out stays valid until
-/// Reset; the first block is kept across calls.
+/// are allocated as needed and never moved or freed before Dispose, so a pointer handed out
+/// stays valid until Reset (optimisation step a1, 2026-10-04): every block is KEPT across
+/// encodes and reused in order, a new block is max(need, 2 x the last block) (geometric),
+/// and a string reserves its maximum UTF-8 size but commits only the bytes it wrote.
 public sealed unsafe class Stage : IDisposable
 {
     private readonly System.Collections.Generic.List<IntPtr> _blocks = new System.Collections.Generic.List<IntPtr>();
+    private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
+    private int _bi;          // the block in use
     private byte* _cur;
     private int _cap, _at;
     public readonly bool Utf16;
@@ -391,31 +395,45 @@ public sealed unsafe class Stage : IDisposable
         Utf16 = utf16;
         Tc = utf16 ? Abi.ak_tc_utf16() : Abi.ak_tc_bytes();
         TcBytes = Abi.ak_tc_bytes();
-        NewBlock(1 << 16);
+        _blocks.Add((IntPtr)NativeMemory.Alloc(1 << 16));
+        _caps.Add(1 << 16);
+        Use(0);
     }
 
-    private void NewBlock(int n)
+    private void Use(int i)
     {
-        _cur = (byte*)NativeMemory.Alloc((nuint)n);
-        _blocks.Add((IntPtr)_cur);
-        _cap = n;
+        _bi = i;
+        _cur = (byte*)_blocks[i];
+        _cap = _caps[i];
         _at = 0;
     }
 
-    public void Reset()
+    /// Every block is kept: the next encode starts again at the first.
+    public void Reset() => Use(0);
+
+    /// `n` contiguous bytes at the cursor: the next kept block if it is large enough, else a
+    /// new block of max(n, 2 x the largest), placed next so the order of reuse is stable.
+    private byte* Room(int n)
     {
-        for (int i = 1; i < _blocks.Count; i++) NativeMemory.Free((void*)_blocks[i]);
-        if (_blocks.Count > 1) _blocks.RemoveRange(1, _blocks.Count - 1);
-        _cur = (byte*)_blocks[0];
-        _cap = 1 << 16;
-        _at = 0;
+        if (_cap - _at >= n) return _cur + _at;
+        int next = _bi + 1;
+        if (next < _blocks.Count && _caps[next] >= n) { Use(next); return _cur; }
+        int last = 0;
+        foreach (var c in _caps) last = Math.Max(last, c);
+        long size = Math.Max((long)n, 2L * last);
+        if (size > int.MaxValue) size = Math.Max(n, int.MaxValue - 4095);
+        _blocks.Insert(next, (IntPtr)NativeMemory.Alloc((nuint)size));
+        _caps.Insert(next, (int)size);
+        Use(next);
+        return _cur;
     }
+
+    private void Commit(int n) => _at += (n + 7) & ~7;
 
     private byte* Take(int n)
     {
-        if (_cap - _at < n) NewBlock(Math.Max(1 << 16, n));
-        byte* p = _cur + _at;
-        _at += (n + 7) & ~7;
+        byte* p = Room(n);
+        Commit(n);
         return p;
     }
 
@@ -438,9 +456,10 @@ public sealed unsafe class Stage : IDisposable
             return new ak_str { data = (IntPtr)p, len = (nuint)s.Length, tc = Tc };
         }
         int max = Encoding.UTF8.GetMaxByteCount(s.Length);
-        byte* q = Take(max);
+        byte* q = Room(max);   // reserve the maximum, commit what was written
         int n;
         fixed (char* c = s) n = Encoding.UTF8.GetBytes(c, s.Length, q, max);
+        Commit(n);
         return new ak_str { data = (IntPtr)q, len = (nuint)n, tc = Tc };
     }
 
@@ -471,6 +490,7 @@ public sealed unsafe class Stage : IDisposable
     {
         foreach (var b in _blocks) NativeMemory.Free((void*)b);
         _blocks.Clear();
+        _caps.Clear();
     }
 }
 
