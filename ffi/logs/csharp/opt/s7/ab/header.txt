@@ -1,0 +1,42 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 6ba75fe7; 2026-10-04T22:35:31Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY=P1.2,P2.2,P2.3,P2.4,P2.5,P4.1,U-nested-before,U-deep-u-repeated,U-oneof-u-repeated,U-wire-ListTaskSummaryResponse-tasks-as-wt5,U-wire-UploadResultDataMessage-upload-as-wt5,U-wire-ListMetricsResponse-batches-as-wt0,U-wire-DualResponse-left-as-wt5 AK_BDN_DIRS=encode-core-hot AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full nounk; reps 1 (order alternated)
+# cores: target-core 800d7882ab536255, target-core-nounk 11e0c85ae13efa7a; reps 1..1 in this invocation
+# variant e0pre: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-pre7/ffi/poc/csharp at 1818d178
+# variant e0: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0 at 6ba75fe7
+# variant e1: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1 at 6ba75fe7
+# variant e1c: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1C at 6ba75fe7
+# variant e1r: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R at 6ba75fe7
+# variant e3: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E3 at 6ba75fe7
+# rep 1 e0pre full: rc=0 102 s; quiet: load1 0.05, no process above 10 % (waited 330 s); # correctness:    2716 pre-timing checks passed (byte identi
+# rep 1 e0pre nounk: rc=0 54 s; quiet: load1 0.48, no process above 10 % (waited 55 s); # correctness:    1944 pre-timing checks passed (byte identi
+# rep 1 e0 full: rc=0 107 s; quiet: load1 0.48, no process above 10 % (waited 40 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e0 nounk: rc=0 78 s; quiet: load1 0.47, no process above 10 % (waited 70 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1 full: rc=0 102 s; quiet: load1 0.47, no process above 10 % (waited 65 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1 nounk: rc=0 61 s; quiet: load1 0.49, no process above 10 % (waited 40 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1c full: rc=0 91 s; quiet: load1 0.49, no process above 10 % (waited 30 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1c nounk: rc=0 58 s; quiet: load1 0.46, no process above 10 % (waited 65 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e1r full: rc=0 103 s; quiet: load1 0.48, no process above 10 % (waited 30 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e1r nounk: rc=0 64 s; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 1 e3 full: rc=0 95 s; quiet: load1 0.47, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 1 e3 nounk: rc=0 59 s; quiet: load1 0.49, no process above 10 % (waited 45 s); # correctness:    3032 pre-timing checks passed (byte identi
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 6ba75fe7; 2026-10-04T23:07:24Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY=P1.2,P2.2,P2.3,P2.4,P2.5,P4.1,U-nested-before,U-deep-u-repeated,U-oneof-u-repeated,U-wire-ListTaskSummaryResponse-tasks-as-wt5,U-wire-UploadResultDataMessage-upload-as-wt5,U-wire-ListMetricsResponse-batches-as-wt0,U-wire-DualResponse-left-as-wt5 AK_BDN_DIRS=encode-core-hot AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full nounk; reps 2 (order alternated)
+# cores: target-core 800d7882ab536255, target-core-nounk 11e0c85ae13efa7a; reps 2..2 in this invocation
+# variant e0pre: /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-pre7/ffi/poc/csharp at 1818d178
+# variant e0: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0 at 6ba75fe7
+# variant e1: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1 at 6ba75fe7
+# variant e1c: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1C at 6ba75fe7
+# variant e1r: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R at 6ba75fe7
+# variant e3: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E3 at 6ba75fe7
+# rep 2 e3 full: rc=0 93 s; quiet: load1 0.47, no process above 10 % (waited 85 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e3 nounk: rc=0 57 s; quiet: load1 0.49, no process above 10 % (waited 35 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1r full: rc=0 102 s; quiet: load1 0.49, no process above 10 % (waited 30 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1r nounk: rc=0 63 s; quiet: load1 0.47, no process above 10 % (waited 45 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1c full: rc=0 93 s; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1c nounk: rc=0 56 s; quiet: load1 0.49, no process above 10 % (waited 55 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e1 full: rc=0 101 s; quiet: load1 0.49, no process above 10 % (waited 50 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e1 nounk: rc=0 61 s; quiet: load1 0.47, no process above 10 % (waited 45 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e0 full: rc=0 103 s; quiet: load1 0.48, no process above 10 % (waited 35 s); # correctness:    4156 pre-timing checks passed (byte identi
+# rep 2 e0 nounk: rc=0 59 s; quiet: load1 0.48, no process above 10 % (waited 40 s); # correctness:    3032 pre-timing checks passed (byte identi
+# rep 2 e0pre full: rc=0 89 s; quiet: load1 0.49, no process above 10 % (waited 35 s); # correctness:    2716 pre-timing checks passed (byte identi
+# rep 2 e0pre nounk: rc=0 51 s; quiet: load1 0.47, no process above 10 % (waited 45 s); # correctness:    1944 pre-timing checks passed (byte identi
