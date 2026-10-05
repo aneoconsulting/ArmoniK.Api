@@ -2565,3 +2565,139 @@ process above 10 % CPU). Logs under `ffi/logs/csharp/opt/`.
     call is free (13 to 29 ns per string on the grid, about 30 ns in the sweep).
   - Time: the codec A/B ran over the 10-minute target (four variants x two builds x two reps,
     about 100 s per full-build process); the quiet waits added about 20 min.
+
+## 76. Step 7 (D21 continued): E3, E1 without GCHandles (E1R, E1C), the kernels, the attribution, the threshold (2026-10-04/05)
+
+Every figure is container instrumentation (process CPU, client CPUs 0,1, a quiet wait per
+process). Logs under `ffi/logs/csharp/opt/s7/`.
+
+- **Built** (cs_host.py Stage and per-root frames; `AK_STR_ENC`):
+  - **E3**: E2's table and callback, the callback `fixed`s the string and calls the core's
+    additive `ak_utf16_to_utf8` (declared in the C# Stage only, DllImport), after a grow to the
+    worst case (3 bytes per unit) when `cap` is short. **E3L**: sized by `ak_utf16_utf8_len`
+    first. Both cross once per string (counts `tc N`, `u16 N`, `u16len N`).
+  - **E1R** (owner's precision): the fill marks a string (`data = PinPending`, `tc =
+    ak_tc_utf16`); the root group's strings are pinned by ONE nested `fixed` scope around the
+    root call (every singular string of the group and of its inlined singular and oneof
+    children, as the fill assigns them); an element chunk is pinned by BOUNDED RECURSION, one
+    frame per ELEMENT (one `fixed` with every singular string of the element and its inlined
+    children), the deepest frame makes the element call for the chunk (K = AK_STR_PINK
+    elements, default 64), unwinding releases the pins; repeated string fields and maps nested
+    in an element: one frame per string / per entry, chunks of at most K, delivered as several
+    `ak_blob_run` / `ak_elem_<Entry>` calls (as the ABI allows); a map at the root's top level
+    takes E1's GCHandle (`hpin`, 0 on every grid row). **E1C**: the same marks and chunks,
+    pinned by GCHandles freed after each chunk's call (the attribution control).
+  - `<MODE>:<n>[:na]`: the mode for strings of at least n code units, E0 below; `na` sends an
+    ASCII string (System.Text.Ascii.IsValid) to E0.
+  - Defects found on the way: (1) the first marks/patches check compared counters read before
+    `_st.Reset()`; corrected (the patch check is per encode). (2) The first step-7 build made
+    the DEFAULT encode slower: the sweep's E0 12 to 17 ns per encode above 1818d178 (s7/e0-
+    overhead, r1/r2); the root `fixed` scope and its pinned locals had landed in Go, and
+    StrPresent's new branches in the inlined E0 path. Moved to RootPinR_/H_ methods, Stage.Defer
+    read once, the other paths in Alt (NoInlining); after it E0 is within the processes' spread
+    of 1818d178 (sweep r7..r9; the codec A/B's e0pre vs e0, below). (3) A stale corpus build was
+    checked once (the corpus no-unknown runs failed with a TypeInitializationException: the
+    build predated a Stage change); gen/s7_checks.sh now rebuilds every binary it runs. (4)
+    E1R's frame size first went into the compared count rows; it depends on the JIT tier, so
+    it is written apart (`s7/frames/`).
+  - Per-encode skip (after the first A/B): an encode whose fill marked no string runs no
+    frame (Stage.DeferNow), so a threshold variant takes the default path on encodes with only
+    short strings; the threshold's length test inline before the Alt call (the first final-
+    variant A/B, s7/ab-final, measured the call per string: E1R:128 +0 to +21 % over E0 on rows
+    where no string reaches 128; after it, s7/ab-final2, -11 to +4 %).
+  - (5) Found by the RPC A/B, not by any single-threaded check: E1R failed at k = 8 (`core
+    encode -1`): Stage.Marked/Patched were process-wide, so concurrent encodes broke the
+    per-encode mark check; now [ThreadStatic]. (6) Found by the new concurrent check: E1C
+    released ALL of the thread's handles after a NESTED chunk (a map or a repeated field inside
+    an element call), unpinning the outer chunk's strings while the core still read them
+    (bytes differ in 2 of about 7,000 concurrent encodes; single-threaded under a compacting GC
+    per chunk: bytes differ then a segfault); a chunk now releases only the handles it added.
+    New `BenchDotNet --verify-mt` (8 threads, every payload and content set, retain and drop):
+    reproduced (5) for E1R and E1C and (6) for E1C before the fixes, every path passes after
+    (s7/verify-mt.log); in gen/s7_checks.sh with a pin-stress run and an early-unpin control.
+    The s7/ab E1C column was measured with defect (6); s7/ab-fixed re-measures E1C, E1R and
+    E1R:128 on the corrected build.
+- **Checks** (`s7/checks.log`, `s7/checks2.log`, gen/s7_checks.sh; `s7/quick-checks.log`):
+  Cases.Verify byte identity under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na
+  E3:16:na E1R:128 E1C:16(K 3) (4516 / 3304 checks, both builds); the corpus under E3, E3L,
+  E1R, E1C, E1R:128, full and no-unknown; E1R and E1C with K 3 under a compacting GC after
+  every chunk (AK_GATE_PIN_STRESS); planted controls fail: a short string under E3, E3L, E1R,
+  E1C (corpus S-*), E1C with its handles released BEFORE the call plus a compacting GC (so the
+  stress check can see a string read after its release), K 257 refused; counts per path equal
+  to the committed files; gate levels 8 passed (E0 counts unchanged).
+- **Counts** (gen/counts-str-{e3,e3l,e1r,e1c,e1r128}[-nounk].txt): E3/E3L = base rows + `tc`
+  (and `u16`, `u16len`: additive exports, not in fwd); E1R/E1C: `mark = patch` on every row,
+  fwd + the chunked element and blob calls (P2.4 403 -> 724, P2.2 2503 -> 2510, P1.2 3 -> 18);
+  E1R:128 = the base rows (no grid string reaches 128). Repeated and map strings per encode
+  (`rstr`, `mstr`): P2.2 6000 and 4000 of 17167, P2.3 15000 and 1000 of 17792, P2.4 24480 and
+  640 of 26267, P2.5 240 and 120 of 640, P4.1 0 and 1600 of 3467, P1.2 0 of 5000;
+  U-deep-u-repeated 8 and 8 of 31, U-wire-ListTaskSummary 0 and 16 of 36.
+- **Stack** (`s7/frames/`): the largest E1R frame over the shapes and U-* rows is 1,152 bytes
+  (P2.1, default tiers; 336 fully optimised). K is refused above 256: 2 x 256 x 1,152 = 590 KB,
+  38 % of a 1.5 MB secondary-thread stack.
+- **Kernels** (`s7/bench/cpu.txt`, `simdutf-probe.txt`, `kernels-probe.log`): the CPU is an
+  Intel Xeon family 6 model 85 stepping 7 (Cascade Lake class): avx512f/dq/cd/bw/vl/vnni, NO
+  avx512vbmi or vbmi2. simdutf 7.7.1 (the amalgamation the core links, probe built with the cc
+  crate's flags) has its icelake kernel compiled in (105 symbols in libak_core.so) but it
+  needs VBMI2: active = **haswell (AVX2)**. .NET 8.0.31: Avx512F/BW IsSupported = true but
+  **Vector512.IsHardwareAccelerated = false** (Vector<byte>.Count 32): .NET also runs 256-bit
+  by default here. The hypothesis "E1 does not beat .NET on ASCII because .NET uses AVX-512
+  while simdutf picked AVX2" is **refuted**: both run 256-bit. Switches (s7/bench/k-*.md, ns per
+  16 Ki-unit encode, E0 / E1 / E3): default ASCII 1127 / 1187 / 1152; DOTNET_PreferredVectorBitWidth
+  =512 (Vector512 accelerated) E0 1302 (slower); DOTNET_EnableAVX512F=0 E0 1056 (no slower);
+  SIMDUTF westmere (SSE4.2) E1 1475 on ASCII, 6373 on Latin-1 (haswell 5603), 7153 on wide
+  (haswell 7713); fallback E1 5227 / 21119 / 31623. On ASCII both are a vectorised narrowing
+  copy and end level; on Latin-1 and wide simdutf's AVX2 kernel is 2.4 to 3.1 times .NET's
+  transcoder at 16 Ki.
+- **E3 sizing**: the worst-case grow (E3) is at or under the length-first form (E3L) at every
+  length and content (ASCII 16 Ki 1166 vs 3801 ns; E3L converts by validate + length +
+  convert when cap < 3 x len). E3 ~ E1 at long lengths (Latin-1 16 Ki 5689 vs 5595, wide 7786
+  vs 7698) and 0 to 20 ns above E1 short.
+- **Pin microbench** (`s7/bench/pinbench.md`, 36-char strings, ns per string): GCHandle
+  Alloc+Free with N live: 44 (N <= 64), 76 (256), 85 (1 Ki), 89 (5000), 93 (17167), 95 (26267);
+  per chunk of 64: 44 to 47 at every N; one `fixed` frame per string, 64 deep: 7.8. No minor
+  fault or collection in the microbench.
+- **Codec A/B** (`s7/ab/` and, on the corrected build, `s7/ab-fixed/`; table.md and
+  compact.md each; s7/ab 24 processes, 1,902 s of benchmark + 1,400 s of quiet waits, taken
+  before the per-encode skip and the fixes, which do not change its E0, E1 and E3 rows;
+  s7/ab-fixed 16 processes, 1,284 s + 1,110 s). E0 at the step-7 build vs 1818d178 (e0pre,
+  s7/ab): within spread on every row (P2.2 retain 890 [865-1281] vs 858 [845-1406] us). Per
+  string over E0, the large payloads (P1.2 to P4.1, every mode): **E1 +107 to +135 ns, E1C
+  +77 to +111, E3 +36 to +48, E1R +26 to +46** (E1 and E3 from s7/ab, E1C and E1R from
+  s7/ab-fixed; E1R carries its per-encode mark/patch guard, two thread-static increments per
+  string); U-* rows (2 to 36 strings): E1 +58 to +92, E1C +66 to +109, E3 +38 to +62, E1R +23
+  to +52, with two E1R outliers (U-wire-DualResponse retain 174, ListMetrics retain 199 ns per
+  string: both reps; not investigated). E.g. P2.2 retain: E0 889, E1 3154 (s7/ab), E1C 2458,
+  E1R 1506, E3 1610 (s7/ab) us; P2.4 drop: E0 793, E1 4101, E1C 3003, E1R 1925, E3 1804.
+  Minor faults per op: E1 2.7 to 7.1 on the P2.x rows, E1C 0.25 to 0.75, E0/E1R/E3 0. 0 B/op
+  allocated on every variant (no collection from them).
+- **Attribution of E1's payload-scale excess** (the grid's strings are 36 to 47 units, where
+  the sweep puts E1 about 45 ns over E0). Inside s7/ab (one run, so the columns compare): E1 ->
+  E1C (handles freed per chunk) recovers 10 to 15 ns per string on P1.2 (5,000 strings), 18 to
+  36 on P2.2, 48 to 52 on P2.3, 40 to 43 on P2.4: the live-handle growth (the microbench: 89 -
+  46 = 43 ns at 5,000 live, 47 at 17,167, 49 at 26,267) and the faults (E1 2.7 to 7 per op,
+  E1C under 1); E1C -> E1R recovers about 35 to 85 ns per string (s7/ab 42 to 84, s7/ab-fixed
+  35 to 80): the GCHandle Alloc+Free itself (44 to 47 ns in the microbench) and E1C's
+  per-chunk bookkeeping; what is left, E1R over E0, 26 to 46 ns per string on the corrected
+  build: the core's UTF-16 transcoder against .NET's at these lengths (sweep: about +0 to
+  +10), the per-element frame (7.8 ns in the microbench), the guard's two thread-static
+  increments, the patch tests, and the extra element calls. Not split further.
+- **Threshold** (`s7/threshold/sweep.md`, `sweep2.md`, one process each, one string per
+  encode): E1R vs E0 (sweep2, after the skip): wide under E0 from 96 units (189 vs 216), Latin-1
+  from 192 (202 vs 235; 128: 185 vs 176); ASCII above E0 by 41 to 51 ns from 128 to 1 Ki, equal
+  at 16 Ki (1126 vs 1125 for E1R:128); `tail` (ASCII but the last unit) the same; astral above
+  E0 at every length (+4 to +7 %). The ASCII split (`na`) keeps ASCII strings on E0 for +11 to
+  +21 ns at 128 to 1 Ki (vs +41 to +51 without it) but costs +340 ns at 16 Ki (the scan of the
+  whole string) and +2 to +16 ns on non-ASCII strings. **Chosen: E1R:128**: the smallest swept
+  length at which E1R is under E0 on wide content and within 10 ns of it on Latin-1 in both
+  threshold processes (sweep 1: 177 vs 173; sweep2: 185 vs 176); no ASCII split (it loses at
+  long ASCII lengths and does not separate astral content, which E1R loses at every length).
+  Measured as the final variant: codec rows (s7/ab-fixed, where no string reaches 128 and no
+  frame runs) E1R:128 vs E0 -6.6 to +12.8 % (median about +1 %); RPC Cf-retain b on P2.2
+  (`s7/ab-rpc/table.md`, 2 reps, 163 s), task-clock us per call, E0 / E1R:128 / E1R: k 1 1744
+  [1536-2469] / 1713 [1491-3965] / 2271 [2105-6230]; k 8 1787 [1646-3107] / 1891 [1549-3681] /
+  2976 [2159-3919]. E1R:128 inside E0's spread at both k; E1R 1.3 to 1.7 times E0. A first RPC
+  run failed on E1R at k 8 (defect 5; kept as s7/ab-rpc-FAILED-E1R).
+- **Interruptions**: the container restarted during the first codec A/B (kept as
+  s7/ab-INTERRUPTED, not used); opt_ab.sh gained --first-rep (one invocation per rep) and the
+  cores' sha256 in its header.
