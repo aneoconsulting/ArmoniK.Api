@@ -1,0 +1,49 @@
+# D21 step 7 final variant: core-ffi encode-core-hot, E0 vs E1R:128 (the chosen threshold), process CPU us/op median [min-max] over 2 reps x 6 rounds; minflt/op in braces where non-zero; diff = (E1R:128 - E0) / E0 of the medians. No grid string reaches 128 units (gen/counts-str-e1r128.txt = the base rows). CONTAINER INSTRUMENTATION.
+
+| payload | mode | e0 | e1r128 | diff |
+|---|---|---|---|---:|
+| P1.2 | drop | 201.4 [195.7-365.3] | 215.7 [210.5-462.9] | +7.1 % |
+| P1.2 | no-unknown | 215.6 [198.7-493] | 222.5 [216-229] | +3.2 % |
+| P1.2 | retain | 226.5 [210.5-736.2] | 228.5 [223.4-424.9] | +0.9 % |
+| P2.2 | drop | 885.8 [834.1-1044] | 924.4 [910.6-950.4] | +4.4 % |
+| P2.2 | no-unknown | 864.8 [846.2-1597] | 924.3 [893.4-1861] | +6.9 % |
+| P2.2 | retain | 890.9 [869.4-974.1] | 946.5 [929.1-1084] | +6.2 % |
+| P2.2/latin1 | drop | 1114 [1075-1642] | 1157 [1130-1376] | +3.9 % |
+| P2.2/latin1 | no-unknown | 1071 [1048-1154] | 1162 [1110-1939] | +8.5 % |
+| P2.2/latin1 | retain | 1156 [1097-1456] | 1145 [1123-1255] | -1.0 % |
+| P2.2/wide | drop | 1410 [1343-1668] | 1456 [1431-1615] | +3.3 % |
+| P2.2/wide | no-unknown | 1451 [1335-2109] | 1454 [1383-1694] | +0.2 % |
+| P2.2/wide | retain | 1509 [1409-3408] | 1484 [1452-1857] | -1.7 % |
+| P2.3 | drop | 589.9 [569.1-626.3] | 651.2 [632.6-689.8] | +10.4 % |
+| P2.3 | no-unknown | 599.6 [582.6-1470] | 642 [622.4-716.9] | +7.1 % |
+| P2.3 | retain | 593.5 [580.4-702.3] | 647.4 [636.9-685.1] | +9.1 % |
+| P2.4 | drop | 785.5 [778.5-970.2] | 918 [876.9-1149] | +16.9 % |
+| P2.4 | no-unknown | 825.2 [798.9-848.9] | 889.8 [871.4-959.1] | +7.8 % |
+| P2.4 | retain | 795.4 [780.7-882] | 962.8 [895.9-1166] | +21.0 % |
+| P2.5 | drop | 24.42 [23.98-25.61] | 26.42 [25.72-57.06] | +8.2 % |
+| P2.5 | no-unknown | 24.03 [23.68-40.26] | 25.99 [25.61-26.98] | +8.2 % |
+| P2.5 | retain | 24.34 [24.13-82] | 26.65 [26.23-82.64] | +9.5 % |
+| P4.1 | drop | 124.4 [117.9-226.6] | 137.8 [134-184.7] | +10.8 % |
+| P4.1 | no-unknown | 121 [117.7-125.7] | 135.6 [130.9-246.8] | +12.1 % |
+| P4.1 | retain | 122.8 [119.3-231.6] | 140.6 [136.5-148.7] | +14.5 % |
+| U-deep-u-repeated | drop | 1.281 [1.262-3.78] | 1.408 [1.375-2.539] | +9.9 % |
+| U-deep-u-repeated | no-unknown | 1.3 [1.258-2.491] | 1.395 [1.367-1.637] | +7.3 % |
+| U-deep-u-repeated | retain | 1.342 [1.324-2.45] | 1.466 [1.435-2.399] | +9.2 % |
+| U-nested-before | drop | 0.2465 [0.2428-0.4246] | 0.2707 [0.2692-0.2948] | +9.8 % |
+| U-nested-before | no-unknown | 0.2431 [0.2421-0.2458] | 0.2643 [0.2626-0.4514] | +8.7 % |
+| U-nested-before | retain | 0.2793 [0.2751-0.5495] | 0.3006 [0.293-0.4803] | +7.6 % |
+| U-oneof-u-repeated | drop | 0.1318 [0.1258-0.2183] | 0.1416 [0.1342-0.1955] | +7.4 % |
+| U-oneof-u-repeated | no-unknown | 0.1246 [0.1233-0.2381] | 0.1364 [0.1356-0.2467] | +9.5 % |
+| U-oneof-u-repeated | retain | 0.1495 [0.1473-0.3335] | 0.1498 [0.1487-0.2578] | +0.2 % |
+| U-wire-DualResponse-left-as-wt5 | drop | 0.2251 [0.221-0.6135] | 0.2358 [0.2329-0.2541] | +4.8 % |
+| U-wire-DualResponse-left-as-wt5 | no-unknown | 0.2288 [0.2177-0.7883] | 0.2338 [0.2289-0.6718] | +2.2 % |
+| U-wire-DualResponse-left-as-wt5 | retain | 0.2445 [0.2371-0.4335] | 0.262 [0.2586-0.522] | +7.2 % |
+| U-wire-ListMetricsResponse-batches-as-wt0 | drop | 1.395 [1.371-1.435] | 1.398 [1.364-2.699] | +0.2 % |
+| U-wire-ListMetricsResponse-batches-as-wt0 | no-unknown | 1.353 [1.299-2.374] | 1.357 [1.34-2.668] | +0.3 % |
+| U-wire-ListMetricsResponse-batches-as-wt0 | retain | 1.378 [1.366-1.43] | 1.439 [1.394-2.562] | +4.4 % |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | drop | 1.141 [1.135-1.25] | 1.254 [1.241-3.001] | +9.9 % |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | no-unknown | 1.148 [1.131-2.036] | 1.259 [1.229-3.286] | +9.7 % |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | retain | 1.206 [1.189-2.339] | 1.292 [1.281-2.413] | +7.1 % |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | drop | 0.1063 [0.1017-0.2698] | 0.1084 [0.106-0.3287] | +2.0 % |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | no-unknown | 0.09632 [0.09446-0.1095] | 0.1033 [0.09949-0.1786] | +7.2 % |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | retain | 0.1191 [0.1143-0.3334] | 0.1358 [0.1309-0.2639] | +14.0 % |

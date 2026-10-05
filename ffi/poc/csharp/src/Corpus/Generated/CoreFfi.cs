@@ -356,7 +356,9 @@ public sealed unsafe class Stage : IDisposable
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
         // The non-default paths in a method of their own, so this one keeps the E0 shape it had
         // before them (JOURNAL 76: the default encode measured about 8 to 15 ns slower otherwise).
-        if (Mode != E0 && !Utf16 && Alt(s, out var alt)) return alt;
+        // The length test inline (a threshold variant's short strings never make the call:
+        // JOURNAL 76 measured the call per string at about 3 to 6 ns on the grid's rows).
+        if (Mode != E0 && s.Length >= Threshold && !Utf16 && Alt(s, out var alt)) return alt;
         if (Utf16)
         {
             // `len` counts CODE UNITS: ak_tc_utf16 reads `*const u16`.
@@ -377,7 +379,7 @@ public sealed unsafe class Stage : IDisposable
     {
         r = default;
         int m = Mode;
-        if (s.Length < Threshold || (NonAsciiOnly && IsAscii(s))) return false;
+        if (NonAsciiOnly && IsAscii(s)) return false;
         switch (m)
         {
             case E1: case ETH: r = Pin(s); return true;
@@ -1702,7 +1704,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             G.U_Timestamp(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_Timestamp(_run, _ctx, &vt, &fix);
         }
         else
@@ -1711,7 +1713,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             G.E_Timestamp(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_Timestamp(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -2057,7 +2059,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             G.U_Duration(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_Duration(_run, _ctx, &vt, &fix);
         }
         else
@@ -2066,7 +2068,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             G.E_Duration(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_Duration(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -2468,7 +2470,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             G.U_ResultRaw(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ResultRaw(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -2478,7 +2480,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             G.E_ResultRaw(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ResultRaw(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -2928,7 +2930,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             G.U_TaskOptions(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskOptions(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -2938,7 +2940,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             G.E_TaskOptions(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskOptions(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -3366,7 +3368,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             G.U_TaskOutput(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskOutput(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -3376,7 +3378,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             G.E_TaskOutput(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskOutput(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -4120,7 +4122,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             G.U_TaskDetailed(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskDetailed(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -4130,7 +4132,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             G.E_TaskDetailed(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskDetailed(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -4843,7 +4845,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             G.U_TaskSummary(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskSummary(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -4853,7 +4855,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             G.E_TaskSummary(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskSummary(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -5313,7 +5315,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             G.U_Probe(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Probe(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -5323,7 +5325,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             G.E_Probe(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Probe(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -5677,7 +5679,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             G.U_Empty(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_Empty(_run, _ctx, &vt, &fix);
         }
         else
@@ -5686,7 +5688,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             G.E_Empty(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_Empty(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -6078,7 +6080,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             G.U_UploadResultData(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultData(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct);
         }
@@ -6088,7 +6090,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             G.E_UploadResultData(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultData(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct);
         }
@@ -6614,7 +6616,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             G.U_MetricsBatch(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_MetricsBatch(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -6624,7 +6626,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             G.E_MetricsBatch(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_MetricsBatch(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -7121,7 +7123,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             G.U_Pair(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Pair(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -7131,7 +7133,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             G.E_Pair(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Pair(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -7594,7 +7596,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             G.U_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -7603,7 +7605,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             G.E_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -8552,7 +8554,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             G.U_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -8561,7 +8563,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -9469,7 +9471,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             G.U_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -9478,7 +9480,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -10040,7 +10042,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             G.U_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -10049,7 +10051,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             G.E_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -10724,7 +10726,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             G.U_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -10733,7 +10735,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             G.E_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -11271,7 +11273,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             G.U_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct);
         }
@@ -11281,7 +11283,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             G.E_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct);
         }
@@ -11838,7 +11840,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             G.U_DualResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_DualResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -11847,7 +11849,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             G.E_DualResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -12295,7 +12297,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             G.U_ChunkLeaf(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ChunkLeaf(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -12305,7 +12307,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             G.E_ChunkLeaf(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ChunkLeaf(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -12780,7 +12782,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             G.U_ChunkInner(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ChunkInner(_run, _ctx, &vt, &fix);
         }
         else
@@ -12789,7 +12791,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             G.E_ChunkInner(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ChunkInner(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -13449,7 +13451,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             G.U_ChunkElement(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ChunkElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -13459,7 +13461,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             G.E_ChunkElement(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ChunkElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -14302,7 +14304,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             G.U_ChunkedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ChunkedResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -14311,7 +14313,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             G.E_ChunkedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ChunkedResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -15193,7 +15195,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             G.U_ChunkedResponseWide(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_ChunkedResponseWide(_run, _ctx, &vt, &fix);
         }
         else
@@ -15202,7 +15204,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             G.E_ChunkedResponseWide(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_ChunkedResponseWide(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -15747,7 +15749,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             G.U_LeafElement(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_LeafElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -15757,7 +15759,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             G.E_LeafElement(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_LeafElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -16213,7 +16215,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             G.U_LeafResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_uencode_LeafResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -16222,7 +16224,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             G.E_LeafResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             rc = Abi.ak_encode_LeafResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
@@ -16751,7 +16753,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             G.U_Surrogate(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Surrogate(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -16761,7 +16763,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             G.E_Surrogate(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Surrogate(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -17211,7 +17213,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             G.U_SurrogateInner(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_SurrogateInner(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -17221,7 +17223,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             G.E_SurrogateInner(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_SurrogateInner(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }
@@ -17608,7 +17610,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             G.U_WireZoo(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_WireZoo(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src) : RootPinH_u(_run, _ctx, &vt, &fix, src);
         }
@@ -17618,7 +17620,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             G.E_WireZoo(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }
+            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
             if (__d == 0) rc = Abi.ak_encode_WireZoo(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src) : RootPinH_e(_run, _ctx, &vt, &fix, src);
         }

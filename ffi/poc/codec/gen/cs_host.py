@@ -789,7 +789,9 @@ public sealed unsafe class Stage : IDisposable
         if (s.Length == 0) return new ak_str { data = IntPtr.Zero, len = 0, tc = Tc };
         // The non-default paths in a method of their own, so this one keeps the E0 shape it had
         // before them (JOURNAL 76: the default encode measured about 8 to 15 ns slower otherwise).
-        if (Mode != E0 && !Utf16 && Alt(s, out var alt)) return alt;
+        // The length test inline (a threshold variant's short strings never make the call:
+        // JOURNAL 76 measured the call per string at about 3 to 6 ns on the grid's rows).
+        if (Mode != E0 && s.Length >= Threshold && !Utf16 && Alt(s, out var alt)) return alt;
         if (Utf16)
         {
             // `len` counts CODE UNITS: ak_tc_utf16 reads `*const u16`.
@@ -810,7 +812,7 @@ public sealed unsafe class Stage : IDisposable
     {
         r = default;
         int m = Mode;
-        if (s.Length < Threshold || (NonAsciiOnly && IsAscii(s))) return false;
+        if (NonAsciiOnly && IsAscii(s)) return false;
         switch (m)
         {
             case E1: case ETH: r = Pin(s); return true;
@@ -1282,7 +1284,7 @@ def _root_call(o, ind, call, rpins, x, ds):
     pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76). An encode whose fill
     marked nothing takes the default path (DeferNow 0)."""
     decls, pins = rpins
-    o += ind + "if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else _pinSrc = src; Stage.DeferNow = __d; }"
+    o += ind + "if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }"
     if not pins:
         o += ind + call
         return
