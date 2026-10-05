@@ -1,0 +1,35 @@
+# D21 step 7: concurrent byte identity (BenchDotNet --verify-mt, 8 threads, 20 rounds, every payload and content set, encode-core, retain and drop), CORRECTNESS ONLY
+## 1. BEFORE the fix (Stage.Marked/Patched process-wide, as committed at 6adaaa91): E1R and E1C must fail, the others pass
+AK_STR_ENC=E0: exit 0 | verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s) | first error: verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+AK_STR_ENC=E1: exit 0 | verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s) | first error: verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+AK_STR_ENC=E3: exit 0 | verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s) | first error: verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+AK_STR_ENC=E1R: exit 1 | verify-mt (E1R (K 64), 8 threads): 879 concurrent encodes compared, 156 failure(s) | first error: P1.1/0 thread 5: core encode -1
+AK_STR_ENC=E1C: exit 1 | verify-mt (E1C (K 64), 8 threads): 772 concurrent encodes compared, 163 failure(s) | first error: P1.1/0 thread 3: core encode -1
+## 2. AFTER the fix (the counters [ThreadStatic]), both builds: every path must pass
+bin AK_STR_ENC=E0: exit 0 | verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1: exit 0 | verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E2: exit 0 | verify-mt (E2, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E3: exit 0 | verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E3L: exit 0 | verify-mt (E3L, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1R: exit 0 | verify-mt (E1R (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1C: exit 1 | verify-mt (E1C (K 64), 8 threads): 6981 concurrent encodes compared, 2 failure(s)
+bin AK_STR_ENC=E1R:128: exit 0 | verify-mt (E1R:128 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1R:16: exit 0 | verify-mt (E1R:16 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1R:16:na: exit 0 | verify-mt (E1R:16:na (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E0: exit 0 | verify-mt (E0, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1: exit 0 | verify-mt (E1, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E2: exit 0 | verify-mt (E2, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E3: exit 0 | verify-mt (E3, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E3L: exit 0 | verify-mt (E3L, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1R: exit 0 | verify-mt (E1R (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1C: exit 0 | verify-mt (E1C (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1R:128: exit 0 | verify-mt (E1R:128 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1R:16: exit 0 | verify-mt (E1R:16 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin-nounk AK_STR_ENC=E1R:16:na: exit 0 | verify-mt (E1R:16:na (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+bin AK_STR_ENC=E1R AK_STR_PINK=3: exit 0 | verify-mt (E1R (K 3), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+## 3. E1C failed 2 of 7,040 concurrent encodes (bytes differ, P2.5 and P4.1: the rows with maps nested in elements); reproduced once more (13,981 encodes, 2 failures). Single thread with a compacting GC after every chunk, BEFORE a fix:
+E1C, 1 thread, AK_GATE_PIN_STRESS=1: exit 139 (7 s) | P2.2/0 thread 0: bytes differ; P2.2/0 thread 0: bytes differ
+## 4. AFTER the fix (a chunk releases only the handles it added: Stage.ChunkMark / ReleaseChunk(from)):
+(a first attempt at the fix did not generate: an indentation error in cs_host.py; the binary measured was the unfixed one: E1C segfaulted again, E1R passed in 54 s; rerun below)
+E1C, 1 thread, AK_GATE_PIN_STRESS=1: exit 0 (45 s) | verify-mt (E1C (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+E1R, 1 thread, AK_GATE_PIN_STRESS=1: exit 0 (56 s) | verify-mt (E1R (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)

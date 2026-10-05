@@ -1,0 +1,39 @@
+MSBuild version 17.8.49+7806cbf7b for .NET
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Facade -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/Facade/bin/Release/net8.0/Facade.dll
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+  Harness -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Program.cs(112,49): warning CS9123: The '&' operator should not be used on parameters or local variables in async methods. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,77): warning CS0649: Field 'Sample.Build' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,66): warning CS0649: Field 'Sample.Transport' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,31): warning CS0649: Field 'Sample.Cell' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,55): warning CS0649: Field 'Sample.Dir' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/RpcBench.cs(128,44): warning CS0169: The field 'RpcCtx._cells' is never used [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,46): warning CS0649: Field 'Sample.Content' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,37): warning CS0649: Field 'Sample.Payload' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,84): warning CS0649: Field 'Sample.Extra' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,60): warning CS0649: Field 'Sample.Mode' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(67,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(130,103): warning CA1416: This call site is reachable on all platforms. 'Process.ProcessorAffinity' is supported on: 'linux', 'windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+  akrpc -> /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll
+
+Build succeeded.
+
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/BuildGp.cs(9,7): warning CS8981: The type name 'pb' only contains lower-cased ascii characters. Such names may become reserved for the language. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Harness.csproj::TargetFramework=net8.0]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Program.cs(112,49): warning CS9123: The '&' operator should not be used on parameters or local variables in async methods. [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,77): warning CS0649: Field 'Sample.Build' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,66): warning CS0649: Field 'Sample.Transport' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,31): warning CS0649: Field 'Sample.Cell' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,55): warning CS0649: Field 'Sample.Dir' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/RpcBench.cs(128,44): warning CS0169: The field 'RpcCtx._cells' is never used [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,46): warning CS0649: Field 'Sample.Content' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,37): warning CS0649: Field 'Sample.Payload' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,84): warning CS0649: Field 'Sample.Extra' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(82,60): warning CS0649: Field 'Sample.Mode' is never assigned to, and will always have its default value null [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/CpuClock.cs(67,24): warning CA2014: Potential stack overflow. Move the stackalloc out of the loop. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/Campaign.cs(130,103): warning CA1416: This call site is reachable on all platforms. 'Process.ProcessorAffinity' is supported on: 'linux', 'windows'. (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca1416) [/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/akrpc.csproj]
+    13 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:13.21

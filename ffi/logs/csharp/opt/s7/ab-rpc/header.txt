@@ -1,0 +1,8 @@
+# opt_ab_rpc.sh (narrowed RPC A/B), CONTAINER INSTRUMENTATION, not gated (every call checked); 2026-10-05T02:03:28Z
+# client CPUs 0,1, server 2,3; BDN default toolchain, warm-up 10 x 100 ms, 6 rounds x 100 ms, MemoryDiagnoser on; transport armonik, stock h2, full build; units Cf-retain, AK_RPC_ONLY_DIRS=b inflight 1,8; reps 2 (order alternated)
+# variant e0: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0 at 6adaaa91
+# variant e1r128: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128 at 6adaaa91
+# variant e1r: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R at 6adaaa91
+# rep 1 e0: rc=0 34 s, 12 rows; quiet: load1 0.05, no process but the server above 10 % (waited 200 s)
+# rep 1 e1r128: rc=0 28 s, 12 rows; quiet: load1 0.47, no process but the server above 10 % (waited 30 s)
+# rep 1 e1r: rc=1 28 s, 0 rows; quiet: load1 0.47, no process but the server above 10 % (waited 70 s)

@@ -27,6 +27,13 @@ echo "# cores: $(sha256sum "$B/libak_core.so" | cut -c1-16) (full) $(sha256sum "
 echo "## 1. Cases.Verify (every payload, content set and U-* row under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na E1R:128 E1C:16(K 3))"
 run "verify full" dotnet "$B/BenchDotNet.dll" --verify
 run "verify nounk" dotnet "$BN/BenchDotNet.dll" --verify
+echo "## 1b. concurrent byte identity (--verify-mt, 8 threads, as the RPC callers encode), both builds; and single-thread"
+echo "##     under a compacting GC after every chunk (AK_GATE_PIN_STRESS) for the frame paths"
+for m in E1 E2 E3 E3L E1R E1C E1R:128; do
+  AK_STR_ENC=$m run "verify-mt $m full" dotnet "$B/BenchDotNet.dll" --verify-mt
+  AK_STR_ENC=$m run "verify-mt $m nounk" dotnet "$BN/BenchDotNet.dll" --verify-mt
+done
+for m in E1R E1C; do AK_GATE_PIN_STRESS=1 AK_STR_ENC=$m run "verify-mt $m 1 thread, pin stress" dotnet "$B/BenchDotNet.dll" --verify-mt --threads 1 --rounds 1; done
 echo "## 2. the corpus under each path (full and no-unknown); E1R and E1C with K 3 under a compacting GC"
 echo "##    after every chunk (AK_GATE_PIN_STRESS: a string the core read after its frame's release would be"
 echo "##    read moved; on the corpus only: on the shapes it is a GC per 3 strings, tens of thousands per encode)"
@@ -39,6 +46,7 @@ AK_CORPUS_RETAIN_STRICT=1 AK_STR_PINK=3 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1C run 
 echo "## 3. controls: each path live (a planted short string), the stress check live (handles released before the call)"
 for m in E3 E3L E1R E1C; do AK_GATE_PLANT_STR=1 AK_STR_ENC=$m control "corpus $m planted short" "$C" --only "S-"; done
 AK_GATE_PLANT_EARLY_UNPIN=1 AK_STR_PINK=3 AK_STR_ENC=E1C control "corpus E1C K 3, handles released before the call + compacting GC" "$C" --only "S-"
+AK_GATE_PLANT_EARLY_UNPIN=1 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1C control "verify-mt E1C 1 thread, handles released before the call + compacting GC" dotnet "$B/BenchDotNet.dll" --verify-mt --threads 1 --rounds 1
 echo "## 4. K bound: a K above Stage.MaxPinK is refused"
 AK_STR_PINK=257 AK_STR_ENC=E1R control "K 257 refused" dotnet "$B/BenchDotNet.dll" --verify
 echo "## 5. counts per path (= gen/counts-str-<path>[-nounk].txt)"

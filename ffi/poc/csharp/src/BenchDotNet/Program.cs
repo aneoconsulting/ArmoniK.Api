@@ -59,6 +59,8 @@ public static class Program
                 Console.WriteLine(v + "=" + (Environment.GetEnvironmentVariable(v) ?? "(unset)"));
             return 0;
         }
+        if (a.Contains("--verify-mt"))
+            return VerifyMt.Run(int.Parse(Opt(a, "--threads", "8"), CultureInfo.InvariantCulture), int.Parse(Opt(a, "--rounds", "20"), CultureInfo.InvariantCulture));
         if (a.Contains("--pinbench"))
         {
             Alloc.Startup();

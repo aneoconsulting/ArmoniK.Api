@@ -544,8 +544,10 @@ public sealed unsafe class Stage : IDisposable
     }
     /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
     /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
-    /// keys and values (one frame per entry).
-    public static long Marked, Patched, RepPatched, MapPatched;
+    /// keys and values (one frame per entry). PER THREAD: the per-encode check compares this
+    /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
+    /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
+    [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -570,12 +572,16 @@ public sealed unsafe class Stage : IDisposable
         (_chunkPins ??= new System.Collections.Generic.List<GCHandle>()).Add(h);
         return h.AddrOfPinnedObject();
     }
-    public static void ReleaseChunk()
+    /// The handles taken so far on this thread: a chunk releases only what it added (a map or a
+    /// repeated field's chunk runs INSIDE an element chunk's call, whose handles must outlive it:
+    /// releasing them all there let the core read moved strings (JOURNAL 76)).
+    public static int ChunkMark() => _chunkPins?.Count ?? 0;
+    public static void ReleaseChunk(int from = 0)
     {
         var l = _chunkPins;
         if (l == null) return;
-        for (int i = 0; i < l.Count; i++) l[i].Free();
-        l.Clear();
+        for (int i = from; i < l.Count; i++) l[i].Free();
+        l.RemoveRange(from, l.Count - from);
     }
     /// A GATE CONTROL, not a mode: AK_GATE_PIN_STRESS=1 runs a blocking compacting GC after every
     /// chunk's call (E1R / E1C), so a core that read a string after its frame had released it
@@ -590,10 +596,10 @@ public sealed unsafe class Stage : IDisposable
     /// are no longer pinned; under it the byte checks must fail (the stress check can see a
     /// string read after its release).
     internal static readonly bool PlantEarlyUnpin = Environment.GetEnvironmentVariable("AK_GATE_PLANT_EARLY_UNPIN") == "1";
-    public static void BeforeChunkCall()
+    public static void BeforeChunkCall(int from)
     {
         if (!PlantEarlyUnpin) return;
-        ReleaseChunk();
+        ReleaseChunk(from);
         GC.Collect(2, GCCollectionMode.Forced, true, true);
     }
     [DllImport(Abi.Lib, EntryPoint = "ak_utf16_to_utf8", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -1100,6 +1106,7 @@ def _emit_pin_frames(o, p, root, s):
     o += "    /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned."
     o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, %s lst, int off, int k)" % (s.name, root, lst)
     o += "    {"
+    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int i = 0; i < k; i++)"
     o += "        {"
     o += "            var __e = lst[off + i];"
@@ -1117,13 +1124,13 @@ def _emit_pin_frames(o, p, root, s):
     _pin_patch_h(o, "                ", "__g", pins)
     o += "            }"
     o += "        }"
-    o += "        Stage.BeforeChunkCall();"
+    o += "        Stage.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     if _NO:
         o += "        int rc = %s;" % fwd_e
     else:
         o += "        int rc = run->Retain != 0 ? %s : %s;" % (fwd_u, fwd_e)
-    o += "        Stage.ReleaseChunk();"
+    o += "        Stage.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
@@ -1155,6 +1162,7 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += ""
     o += "    private static int ChunkH_%s(IntPtr ctx, %s* arr, %s lst, int off, int k)" % (name, i.cs_e, lst)
     o += "    {"
+    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++)"
     o += "        {"
     o += "            var __e = lst[off + j];"
@@ -1163,10 +1171,10 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += "            var __g = arr + off + j;"
     _pin_patch_h(o, "            ", "__g", pins)
     o += "        }"
-    o += "        Stage.BeforeChunkCall();"
+    o += "        Stage.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
-    o += "        Stage.ReleaseChunk();"
+    o += "        Stage.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
@@ -1207,16 +1215,17 @@ def _emit_pin_map_inner(o, s, i):
     o += ""
     o += "    private static int ChunkHM_%s(IntPtr ctx, %s* arr, %s m, int off, int k)" % (name, i.cs_e, m)
     o += "    {"
+    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++)"
     o += "        {"
     o += "            var kv = m.At(off + j);"
     o += "            var __g = arr + off + j;"
     _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " Stage.MapPatched++;")
     o += "        }"
-    o += "        Stage.BeforeChunkCall();"
+    o += "        Stage.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
-    o += "        Stage.ReleaseChunk();"
+    o += "        Stage.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
@@ -1255,11 +1264,12 @@ def _emit_pin_strs(o, name):
     o += ""
     o += "    private static int ChunkHS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)" % name
     o += "    {"
+    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }"
-    o += "        Stage.BeforeChunkCall();"
+    o += "        Stage.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = Abi.ak_blob_run(ctx, arr + off, k);"
-    o += "        Stage.ReleaseChunk();"
+    o += "        Stage.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
@@ -1317,12 +1327,13 @@ def _emit_root_pins(o, p, root, ds, rpins):
         o += "    [MethodImpl(MethodImplOptions.NoInlining)]"
         o += "    private static nint RootPinH_%s(%s)" % (x, sig)
         o += "    {"
+        o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
         for d in decls:
             o += "        " + d
         _pin_patch_h(o, "        ", "__g", pins)
         o += "        nint rc;"
         o += "        %src = %s;" % ("fixed (byte* dp = direct) " if ds else "", call)
-        o += "        Stage.ReleaseChunk();"
+        o += "        Stage.ReleaseChunk(__h);"
         o += "        return rc;"
         o += "    }"
         o += ""

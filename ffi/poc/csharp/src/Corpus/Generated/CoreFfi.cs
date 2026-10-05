@@ -111,8 +111,10 @@ public sealed unsafe class Stage : IDisposable
     }
     /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
     /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
-    /// keys and values (one frame per entry).
-    public static long Marked, Patched, RepPatched, MapPatched;
+    /// keys and values (one frame per entry). PER THREAD: the per-encode check compares this
+    /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
+    /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
+    [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -137,12 +139,16 @@ public sealed unsafe class Stage : IDisposable
         (_chunkPins ??= new System.Collections.Generic.List<GCHandle>()).Add(h);
         return h.AddrOfPinnedObject();
     }
-    public static void ReleaseChunk()
+    /// The handles taken so far on this thread: a chunk releases only what it added (a map or a
+    /// repeated field's chunk runs INSIDE an element chunk's call, whose handles must outlive it:
+    /// releasing them all there let the core read moved strings (JOURNAL 76)).
+    public static int ChunkMark() => _chunkPins?.Count ?? 0;
+    public static void ReleaseChunk(int from = 0)
     {
         var l = _chunkPins;
         if (l == null) return;
-        for (int i = 0; i < l.Count; i++) l[i].Free();
-        l.Clear();
+        for (int i = from; i < l.Count; i++) l[i].Free();
+        l.RemoveRange(from, l.Count - from);
     }
     /// A GATE CONTROL, not a mode: AK_GATE_PIN_STRESS=1 runs a blocking compacting GC after every
     /// chunk's call (E1R / E1C), so a core that read a string after its frame had released it
@@ -157,10 +163,10 @@ public sealed unsafe class Stage : IDisposable
     /// are no longer pinned; under it the byte checks must fail (the stress check can see a
     /// string read after its release).
     internal static readonly bool PlantEarlyUnpin = Environment.GetEnvironmentVariable("AK_GATE_PLANT_EARLY_UNPIN") == "1";
-    public static void BeforeChunkCall()
+    public static void BeforeChunkCall(int from)
     {
         if (!PlantEarlyUnpin) return;
-        ReleaseChunk();
+        ReleaseChunk(from);
         GC.Collect(2, GCCollectionMode.Forced, true, true);
     }
     [DllImport(Abi.Lib, EntryPoint = "ak_utf16_to_utf8", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -2410,6 +2416,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_ResultRaw* _run, IntPtr _ctx, ak_evt_ResultRaw* vt, ak_efix_ResultRaw* __g, ResultRaw src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
         if (__g->name.data == Stage.PinPending) { __g->name.data = Stage.PinChunk(src.Name); }
         if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = Stage.PinChunk(src.OwnerTaskId); }
@@ -2417,7 +2424,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(src.CreatedBy); }
         nint rc;
         rc = Abi.ak_encode_ResultRaw(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -2438,6 +2445,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_ResultRaw* _run, IntPtr _ctx, ak_evt_ResultRaw* vt, ak_ufix_ResultRaw* __g, ResultRaw src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
         if (__g->name.data == Stage.PinPending) { __g->name.data = Stage.PinChunk(src.Name); }
         if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = Stage.PinChunk(src.OwnerTaskId); }
@@ -2445,7 +2453,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(src.CreatedBy); }
         nint rc;
         rc = Abi.ak_uencode_ResultRaw(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -2859,6 +2867,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_TaskOptions* _run, IntPtr _ctx, ak_evt_TaskOptions* vt, ak_efix_TaskOptions* __g, TaskOptions src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = Stage.PinChunk(src.PartitionId); }
         if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = Stage.PinChunk(src.ApplicationName); }
         if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = Stage.PinChunk(src.ApplicationVersion); }
@@ -2867,7 +2876,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = Stage.PinChunk(src.EngineType); }
         nint rc;
         rc = Abi.ak_encode_TaskOptions(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -2889,6 +2898,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_TaskOptions* _run, IntPtr _ctx, ak_evt_TaskOptions* vt, ak_ufix_TaskOptions* __g, TaskOptions src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = Stage.PinChunk(src.PartitionId); }
         if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = Stage.PinChunk(src.ApplicationName); }
         if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = Stage.PinChunk(src.ApplicationVersion); }
@@ -2897,7 +2907,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = Stage.PinChunk(src.EngineType); }
         nint rc;
         rc = Abi.ak_uencode_TaskOptions(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3320,10 +3330,11 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_TaskOutput* _run, IntPtr _ctx, ak_evt_TaskOutput* vt, ak_efix_TaskOutput* __g, TaskOutput src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->error.data == Stage.PinPending) { __g->error.data = Stage.PinChunk(src.Error); }
         nint rc;
         rc = Abi.ak_encode_TaskOutput(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3340,10 +3351,11 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_TaskOutput* _run, IntPtr _ctx, ak_evt_TaskOutput* vt, ak_ufix_TaskOutput* __g, TaskOutput src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->error.data == Stage.PinPending) { __g->error.data = Stage.PinChunk(src.Error); }
         nint rc;
         rc = Abi.ak_uencode_TaskOutput(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3698,11 +3710,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 
     private static int ChunkHS_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3752,11 +3765,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 
     private static int ChunkHS_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3806,11 +3820,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 
     private static int ChunkHS_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3860,11 +3875,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 
     private static int ChunkHS_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3974,6 +3990,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_TaskDetailed* _run, IntPtr _ctx, ak_evt_TaskDetailed* vt, ak_efix_TaskDetailed* __g, TaskDetailed src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Options;
         var __c8 = src.Output;
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
@@ -3993,7 +4010,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(src.CreatedBy); }
         nint rc;
         rc = Abi.ak_encode_TaskDetailed(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -4026,6 +4043,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_TaskDetailed* _run, IntPtr _ctx, ak_evt_TaskDetailed* vt, ak_ufix_TaskDetailed* __g, TaskDetailed src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Options;
         var __c8 = src.Output;
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
@@ -4045,7 +4063,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(src.CreatedBy); }
         nint rc;
         rc = Abi.ak_uencode_TaskDetailed(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -4759,6 +4777,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_TaskSummary* _run, IntPtr _ctx, ak_evt_TaskSummary* vt, ak_efix_TaskSummary* __g, TaskSummary src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Options;
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
@@ -4772,7 +4791,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(src.StatusMessage); }
         nint rc;
         rc = Abi.ak_encode_TaskSummary(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -4799,6 +4818,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_TaskSummary* _run, IntPtr _ctx, ak_evt_TaskSummary* vt, ak_ufix_TaskSummary* __g, TaskSummary src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Options;
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
@@ -4812,7 +4832,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(src.StatusMessage); }
         nint rc;
         rc = Abi.ak_uencode_TaskSummary(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -5261,12 +5281,13 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_Probe* _run, IntPtr _ctx, ak_evt_Probe* vt, ak_efix_Probe* __g, Probe src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = Stage.PinChunk(src.OptLabel); }
         if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((src.BodyCase == ProbeBodyCase.AsText ? (src.AsText ?? "") : null)); }
         nint rc;
         rc = Abi.ak_encode_Probe(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -5285,12 +5306,13 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_Probe* _run, IntPtr _ctx, ak_evt_Probe* vt, ak_ufix_Probe* __g, Probe src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = Stage.PinChunk(src.OptLabel); }
         if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((src.BodyCase == ProbeBodyCase.AsText ? (src.AsText ?? "") : null)); }
         nint rc;
         rc = Abi.ak_uencode_Probe(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6027,11 +6049,12 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_UploadResultData* _run, IntPtr _ctx, ak_evt_UploadResultData* vt, ak_efix_UploadResultData* __g, UploadResultData src, byte[] direct)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
         if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = Stage.PinChunk(src.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultData(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6049,11 +6072,12 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_UploadResultData* _run, IntPtr _ctx, ak_evt_UploadResultData* vt, ak_ufix_UploadResultData* __g, UploadResultData src, byte[] direct)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(src.SessionId); }
         if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = Stage.PinChunk(src.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultData(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6514,10 +6538,11 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_MetricsBatch* _run, IntPtr _ctx, ak_evt_MetricsBatch* vt, ak_efix_MetricsBatch* __g, MetricsBatch src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_encode_MetricsBatch(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6534,10 +6559,11 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_MetricsBatch* _run, IntPtr _ctx, ak_evt_MetricsBatch* vt, ak_ufix_MetricsBatch* __g, MetricsBatch src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_uencode_MetricsBatch(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -7075,10 +7101,11 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_Pair* _run, IntPtr _ctx, ak_evt_Pair* vt, ak_efix_Pair* __g, Pair src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(src.Key); }
         nint rc;
         rc = Abi.ak_encode_Pair(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -7095,10 +7122,11 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_Pair* _run, IntPtr _ctx, ak_evt_Pair* vt, ak_ufix_Pair* __g, Pair src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(src.Key); }
         nint rc;
         rc = Abi.ak_uencode_Pair(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -7469,6 +7497,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_results(IntPtr ctx, Run_ListResultsResponse* run, System.Collections.Generic.List<ResultRaw> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -7491,10 +7520,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k) : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8035,6 +8064,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_tasks(IntPtr ctx, Run_ListTasksDetailedResponse* run, System.Collections.Generic.List<TaskDetailed> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -8079,10 +8109,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8103,11 +8133,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int ChunkHS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8141,11 +8172,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int ChunkHS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8179,11 +8211,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int ChunkHS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8217,11 +8250,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int ChunkHS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -8256,6 +8290,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
@@ -8263,10 +8298,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
             if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -9255,6 +9290,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_tasks(IntPtr ctx, Run_ListTaskSummaryResponse* run, System.Collections.Generic.List<TaskSummary> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -9288,10 +9324,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -9313,6 +9349,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 
     private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
@@ -9320,10 +9357,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
             if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -9919,6 +9956,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_probes(IntPtr ctx, Run_ListProbeResponse* run, System.Collections.Generic.List<Probe> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -9937,10 +9975,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k) : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -10436,6 +10474,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_batches(IntPtr ctx, Run_ListMetricsResponse* run, System.Collections.Generic.List<MetricsBatch> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -10450,10 +10489,10 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off) : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -11217,12 +11256,13 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Upload;
         if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId); }
         if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -11241,12 +11281,13 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Upload;
         if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId); }
         if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -11622,6 +11663,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_left(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -11636,10 +11678,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -11709,6 +11751,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_right(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -11723,10 +11766,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -12249,10 +12292,11 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_ChunkLeaf* _run, IntPtr _ctx, ak_evt_ChunkLeaf* vt, ak_efix_ChunkLeaf* __g, ChunkLeaf src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(src.K); }
         nint rc;
         rc = Abi.ak_encode_ChunkLeaf(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -12269,10 +12313,11 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_ChunkLeaf* _run, IntPtr _ctx, ak_evt_ChunkLeaf* vt, ak_ufix_ChunkLeaf* __g, ChunkLeaf src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(src.K); }
         nint rc;
         rc = Abi.ak_uencode_ChunkLeaf(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -12652,6 +12697,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_leaves(IntPtr ctx, Run_ChunkInner* run, System.Collections.Generic.List<ChunkLeaf> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -12666,10 +12712,10 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(__e.K); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_leaves + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13161,11 +13207,12 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
 
     private static int ChunkHS_labels(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13261,6 +13308,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_inner_leaves(IntPtr ctx, Run_ChunkElement* run, System.Collections.Generic.List<ChunkLeaf> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -13275,10 +13323,10 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(__e.K); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_inner_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_inner_leaves + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13361,10 +13409,11 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_ChunkElement* _run, IntPtr _ctx, ak_evt_ChunkElement* vt, ak_efix_ChunkElement* __g, ChunkElement src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_encode_ChunkElement(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13381,10 +13430,11 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_ChunkElement* _run, IntPtr _ctx, ak_evt_ChunkElement* vt, ak_ufix_ChunkElement* __g, ChunkElement src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_uencode_ChunkElement(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13922,6 +13972,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_items(IntPtr ctx, Run_ChunkedResponse* run, System.Collections.Generic.List<ChunkElement> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -13936,10 +13987,10 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13960,11 +14011,12 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 
     private static int ChunkHS_items_labels(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -13999,6 +14051,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 
     private static int ChunkHM_items_attrs(IntPtr ctx, ak_efix_ChunkElementAttrsEntry* arr, OrderedMap<string, string> m, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
@@ -14006,10 +14059,10 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
             if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -14043,16 +14096,17 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 
     private static int ChunkH_items_inner_leaves(IntPtr ctx, ak_efix_ChunkLeaf* arr, System.Collections.Generic.List<ChunkLeaf> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var __e = lst[off + j];
             var __g = arr + off + j;
             if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(__e.K); }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -14813,6 +14867,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_items(IntPtr ctx, Run_ChunkedResponseWide* run, System.Collections.Generic.List<ChunkElement> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -14827,10 +14882,10 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -14851,11 +14906,12 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 
     private static int ChunkHS_items_labels(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -14890,6 +14946,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 
     private static int ChunkHM_items_attrs(IntPtr ctx, ak_efix_ChunkElementAttrsEntry* arr, OrderedMap<string, string> m, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
@@ -14897,10 +14954,10 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
             if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -14934,16 +14991,17 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 
     private static int ChunkH_items_inner_leaves(IntPtr ctx, ak_efix_ChunkLeaf* arr, System.Collections.Generic.List<ChunkLeaf> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var __e = lst[off + j];
             var __g = arr + off + j;
             if (__g->k.data == Stage.PinPending) { __g->k.data = Stage.PinChunk(__e.K); }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -15701,10 +15759,11 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_LeafElement* _run, IntPtr _ctx, ak_evt_LeafElement* vt, ak_efix_LeafElement* __g, LeafElement src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_encode_LeafElement(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -15721,10 +15780,11 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_LeafElement* _run, IntPtr _ctx, ak_evt_LeafElement* vt, ak_ufix_LeafElement* __g, LeafElement src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(src.Id); }
         nint rc;
         rc = Abi.ak_uencode_LeafElement(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -16096,6 +16156,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
     private static int ChunkH_items(IntPtr ctx, Run_LeafResponse* run, System.Collections.Generic.List<LeafElement> lst, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -16110,10 +16171,10 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
             }
         }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_LeafElement(ctx, (ak_ufix_LeafElement*)((ak_ufix_LeafElement*)run->S_items + off), k) : Abi.ak_elem_LeafElement(ctx, (ak_efix_LeafElement*)((ak_efix_LeafElement*)run->S_items + off), k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -16595,11 +16656,12 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
 
     private static int ChunkHS_texts(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall();
+        Stage.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -16680,12 +16742,13 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_Surrogate* _run, IntPtr _ctx, ak_evt_Surrogate* vt, ak_efix_Surrogate* __g, Surrogate src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Nested;
         if (__g->text.data == Stage.PinPending) { __g->text.data = Stage.PinChunk(src.Text); }
         if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = Stage.PinChunk(__c1?.Text); }
         nint rc;
         rc = Abi.ak_encode_Surrogate(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -16704,12 +16767,13 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_Surrogate* _run, IntPtr _ctx, ak_evt_Surrogate* vt, ak_ufix_Surrogate* __g, Surrogate src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Nested;
         if (__g->text.data == Stage.PinPending) { __g->text.data = Stage.PinChunk(src.Text); }
         if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = Stage.PinChunk(__c1?.Text); }
         nint rc;
         rc = Abi.ak_uencode_Surrogate(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -17165,10 +17229,11 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_SurrogateInner* _run, IntPtr _ctx, ak_evt_SurrogateInner* vt, ak_efix_SurrogateInner* __g, SurrogateInner src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->text.data == Stage.PinPending) { __g->text.data = Stage.PinChunk(src.Text); }
         nint rc;
         rc = Abi.ak_encode_SurrogateInner(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -17185,10 +17250,11 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_SurrogateInner* _run, IntPtr _ctx, ak_evt_SurrogateInner* vt, ak_ufix_SurrogateInner* __g, SurrogateInner src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->text.data == Stage.PinPending) { __g->text.data = Stage.PinChunk(src.Text); }
         nint rc;
         rc = Abi.ak_uencode_SurrogateInner(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -17562,10 +17628,11 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_e(Run_WireZoo* _run, IntPtr _ctx, ak_evt_WireZoo* vt, ak_efix_WireZoo* __g, WireZoo src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = Stage.PinChunk(src.VString); }
         nint rc;
         rc = Abi.ak_encode_WireZoo(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
@@ -17582,10 +17649,11 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static nint RootPinH_u(Run_WireZoo* _run, IntPtr _ctx, ak_evt_WireZoo* vt, ak_ufix_WireZoo* __g, WireZoo src)
     {
+        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
         if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = Stage.PinChunk(src.VString); }
         nint rc;
         rc = Abi.ak_uencode_WireZoo(_run, _ctx, vt, __g);
-        Stage.ReleaseChunk();
+        Stage.ReleaseChunk(__h);
         return rc;
     }
 
