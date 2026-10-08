@@ -19,10 +19,11 @@
 //   strs       the payload's strings alone: Strict.GetString over their UTF-8 (the decoded graph's
 //              non-empty strings, in walk order, from one buffer)
 //   host       host-gen decode-read (control)
+//   hskip      host with Dec.SkipStrings (host-gen's twin of skip: every string "")
 //   inc        incumbent-prod decode-read (control; ParseFrom(ReadOnlySequence) as the grid's row;
 //              mode-independent, timed in every mode)
 // Per arm: process CPU ns per op, bytes allocated per op (this thread), gen0/1/2 per op, minflt
-// per op. Per row: the census of the decoded graphs (facade: objects, non-empty strings and their
+// per op, GC pause per op (GC.GetTotalPauseDuration: every collection's pause, all threads). Per row: the census of the decoded graphs (facade: objects, non-empty strings and their
 // UTF-16 units, lists, maps, byte[]; incumbent: messages, strings, repeated, maps, ByteString).
 // Container instrumentation.
 
@@ -48,7 +49,7 @@ public static class DecAttr
 #else
     private static readonly string[] Modes = { "retain", "drop" };
 #endif
-    private static readonly string[] Arms = { "ref", "skip", "noop", "parse", "parsev", "pull", "pparse", "touch", "strs", "host", "inc" };
+    private static readonly string[] Arms = { "ref", "skip", "noop", "parse", "parsev", "pull", "pparse", "touch", "strs", "host", "hskip", "inc" };
 
     private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);
 
@@ -91,6 +92,7 @@ public static class DecAttr
             "touch" => () => o.TouchF(graph),
             "strs" => () => { long t = 0; for (int i = 0; i < strs.off.Length; i++) t += Strict.GetString(strs.buf, strs.off[i], strs.len[i]).Length; return t; },
             "host" => () => o.DecHost(b, n, retain, true),
+            "hskip" => () => { Dec.SkipStrings = true; try { return o.DecHost(b, n, retain, true); } finally { Dec.SkipStrings = false; } },
             "inc" => () => o.DecIncProd(seq, true),
             _ => throw new ArgumentException(arm),
         };
@@ -149,7 +151,7 @@ public static class DecAttr
     // ---------------------------------------------------------------- timing
     public static int Run(string outp, int rounds, double blockMs, string only)
     {
-        var lines = new List<string> { "row\tcontent\tmode\tarm\tround\tcpu_ns_per_op\talloc_bytes_per_op\tgen0_per_op\tgen1_per_op\tgen2_per_op\tminflt_per_op\tops" };
+        var lines = new List<string> { "row\tcontent\tmode\tarm\tround\tcpu_ns_per_op\talloc_bytes_per_op\tgen0_per_op\tgen1_per_op\tgen2_per_op\tminflt_per_op\tgc_pause_ns_per_op\tops" };
         var census = new List<string> { "# D21 s8: census of the decoded graphs (one decode, the mode's)" };
         var md = new List<string>();
         foreach (var r in Rows(only))
@@ -189,11 +191,13 @@ public static class DecAttr
                     {
                         int k = (j + round) % ops.Length;
                         int g0 = GC.CollectionCount(0), g1 = GC.CollectionCount(1), g2 = GC.CollectionCount(2);
+                        var p0 = GC.GetTotalPauseDuration();
                         long a0 = GC.GetAllocatedBytesForCurrentThread(), f0 = ProcCpu.MinFlt(), c0 = ProcCpu.Ns();
                         for (long i = 0; i < iters[k]; i++) ops[k]();
                         long c1 = ProcCpu.Ns(), f1 = ProcCpu.MinFlt(), a1 = GC.GetAllocatedBytesForCurrentThread();
+                        var p1 = GC.GetTotalPauseDuration();
                         double it = iters[k];
-                        var v = new[] { (c1 - c0) / it, (a1 - a0) / it, (GC.CollectionCount(0) - g0) / it, (GC.CollectionCount(1) - g1) / it, (GC.CollectionCount(2) - g2) / it, (f1 - f0) / it };
+                        var v = new[] { (c1 - c0) / it, (a1 - a0) / it, (GC.CollectionCount(0) - g0) / it, (GC.CollectionCount(1) - g1) / it, (GC.CollectionCount(2) - g2) / it, (f1 - f0) / it, (p1 - p0).TotalMilliseconds * 1e6 / it };
                         per[k].Add(v);
                         lines.Add(string.Join("\t", r.Id, r.Content, mode, arms[k], round + 1, string.Join("\t", v.Select(x => x.ToString("G6", CultureInfo.InvariantCulture))), iters[k]));
                     }

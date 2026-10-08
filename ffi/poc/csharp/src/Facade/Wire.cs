@@ -446,6 +446,10 @@ public struct Dec
     /// `StrLossy` under "lossy". The runtime offers both and chooses neither.
     private static readonly UTF8Encoding Strict = new UTF8Encoding(false, true);
 
+    /// D21 s8 attribution (HARNESS ONLY, the host-gen twin of core-ffi's G.SkipStrings): set,
+    /// a decode materialises no string (every string ""), everything else unchanged.
+    public static bool SkipStrings;
+
     /// Options.utf8 = "reject": malformed UTF-8 is ErrTranscode.
     public string StrReject()
     {
@@ -453,7 +457,7 @@ public struct Dec
         if (Err != 0) return "";
         int off = Pos;
         Pos = e;
-        if (e == off) return "";
+        if (e == off || SkipStrings) return "";
         try { return Strict.GetString(Buf, off, e - off); }
         catch (DecoderFallbackException) { Err = W.ErrTranscode; return ""; }
     }
