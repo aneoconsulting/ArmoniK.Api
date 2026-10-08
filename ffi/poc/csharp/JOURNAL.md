@@ -2720,11 +2720,13 @@ benchmark for both runs (343 + 360) plus the quiet waits.
   strings alone, Strict.GetString over their UTF-8), host, hskip (host-gen with the new
   Dec.SkipStrings twin), inc (incumbent-prod). Generated seams: VtParse/VtNoop/VtParseValidate,
   DecodeVt, ParseOnly (cs_host.py); RootOps DecFfiVt/DecFfiParse/DecFfiGraph/DecIncGraph/TouchF
-  (cs_campaign.py). Deviation: "strings only" is the strings ALONE (no decode around them);
+  (cs_campaign.py). One change on a product path: host-gen's Dec.StrReject (Facade/Wire.cs:460) gained the
+  `|| SkipStrings` test, one static read per string (core-ffi's G.Str has had its twin since
+  WP6); not re-measured on its own. Deviation: "strings only" is the strings ALONE (no decode around them);
   the strings bucket is ref - skip, as specified, and strs is its cross-check.
 - **Counts** (s8/counts-*.txt, counting build): per decode fwd 2 (reset + decode) on every
-  push arm; rev ref = noop (P2.2 3,501; P2.4 561; P1.2 8; P4.1 ...), parse = the non-leaf
-  elements only (P2.2 500, P2.4 80), pparse 0; pull fwd 3 rev 0; grow per retained U-* row.
+  push arm; rev ref = noop (P2.2 3,501; P2.4 561; P4.1 601; P1.2 8), parse = the non-leaf
+  elements only (P2.2 500, P2.4 80, P4.1 200, P1.2 0), pparse 0; pull fwd 3 rev 0; grow per retained U-* row.
 - **Census** (s8/*.census.txt): the facade graph equals the incumbent's in objects, strings,
   lists, maps on every row (P2.2: 7,835 objects, 17,167 strings / 412,032 UTF-16 units, 2,001
   non-empty lists, 500 maps, 8,500 elements; P2.4: 1,255 objects, 26,267 strings / 912,556

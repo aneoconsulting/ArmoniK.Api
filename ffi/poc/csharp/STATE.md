@@ -166,8 +166,9 @@ run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req
   DecFfiVt / DecFfiParse / DecFfiGraph / DecIncGraph / TouchF; Dec.SkipStrings for host-gen)
   and per-arm crossing counts (`--decattr-counts`). The split of the core-ffi decode per
   payload into core parse, crossings, managed build, strings (with the GC pause), pull, and
-  host-gen's parse + build vs strings is in `logs/csharp/opt/s8/tables.md`. Nothing on a
-  product path changed.
+  host-gen's parse + build vs strings is in `logs/csharp/opt/s8/tables.md`. One product-path
+  change: host-gen's Dec.StrReject tests Dec.SkipStrings (one static read per string, the twin
+  of core-ffi's G.Str test); everything else is harness-only.
 - **Final combined run:** `logs/csharp/opt/s1-s4/` (gen/opt_bench.sh with OPT_DROP=1: the core
   grid plus the drop units and the RPC no-unknown client, labelled extras), tables.md.
 - **Harness defect fixed on the way (`2610f847`):** under BDN's default toolchain the children of
