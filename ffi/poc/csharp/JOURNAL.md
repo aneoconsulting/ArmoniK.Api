@@ -2748,7 +2748,7 @@ benchmark for both runs (343 + 360) plus the quiet waits.
   equal (the same facade objects, lists and strings), host-gen's own parse is about 190-215 us
   on P2.2 against the core's 317-335 + 19-26 of crossings. P2.3, P2.4, P2.5, P4.1 the same
   pattern, smaller. To the incumbent core-ffi does not lose on the P rows at these spreads
-  (ref - inc -8 to -346 on P2.2, -114 to -135 on P1.2, about 0 to +51 on P2.3) nor on the U-*
+  (ref - inc -8 to -346 on P2.2, -114 to -135 on P1.2, -54 to +51 on P2.3) nor on the U-*
   rows (-0.05 to -1.05 us).
 - **Strings bucket is mostly GC, beyond GetString**: ref - skip is 1.6 to 1.9 x the strings
   alone (P2.2 ascii 1069-1250 vs 639-652), and the GC pause per op moves with it (ref 171-367
