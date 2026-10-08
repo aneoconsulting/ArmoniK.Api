@@ -139,6 +139,28 @@ def _emit_groups(o, p):
     o += "    /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode"
     o += "    /// materialises no string at all."
     o += "    public static bool SkipStrings;"
+    o += "    /// D21 s8 attribution (HARNESS ONLY, never in a timed product path): a push callback that"
+    o += "    /// returns at once (Noop) and a `new_<slot>` that returns token 0 (NewZero). One function"
+    o += "    /// for every signature: on the x64 SysV and Windows C ABIs the caller owns the arguments,"
+    o += "    /// so a callee that takes none ignores them. Counted (AttrCalls) in the counting build."
+    o += "    public static long AttrCalls;"
+    o += "    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]"
+    o += "    private static void Noop()"
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        AttrCalls++;"
+    o += "#endif"
+    o += "    }"
+    o += "    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]"
+    o += "    private static long NewZero()"
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        AttrCalls++;"
+    o += "#endif"
+    o += "        return 0;"
+    o += "    }"
+    o += "    public static readonly void* NoopPtr = (void*)(delegate* unmanaged[Cdecl]<void>)&Noop;"
+    o += "    public static readonly void* NewZeroPtr = (void*)(delegate* unmanaged[Cdecl]<long>)&NewZero;"
     o += "    /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_HOST_FAIL=apply (1) makes every"
     o += "    /// root apply callback throw, =add (2) every add/new callback, so the host reports"
     o += "    /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i))."
@@ -1816,6 +1838,64 @@ def _emit_decode(o, p, root, slots):
     o += "        if (rc < 0) return rc;"
     o += "        result = target;"
     o += "        return 0;"
+    o += "    }"
+    o += ""
+    names = ["apply"]
+    for s_ in slots:
+        if s_.leaf:
+            names.append("add_%s" % s_.name)
+        else:
+            names += ["new_%s" % s_.name, "apply_%s" % s_.name] + ["add_%s_%s" % (s_.name, i_.name) for i_ in s_.inner]
+    o += "    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable."
+    o += "    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf"
+    o += "    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:"
+    o += "    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0"
+    o += "    /// (the core validates every string)."
+    o += "    public static readonly ak_dvt_%s* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);" % root
+    o += "    private static ak_dvt_%s* MakeVtAttr(int kind)" % root
+    o += "    {"
+    o += "        var v = (ak_dvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_%s));" % (root, root)
+    o += "        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.%s_ALL;" % root
+    for nm in names:
+        if nm.startswith("new_"):
+            o += "        *(void**)&v->%s = G.NewZeroPtr;" % nm
+        else:
+            o += "        if (kind == 1) *(void**)&v->%s = G.NoopPtr;" % nm
+    o += "        return v;"
+    o += "    }"
+    o += "    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare"
+    o += "    /// root (the callbacks build nothing) and buffers the callbacks did not take are not"
+    o += "    /// UNDELIVERED here (the arena rewinds at the next decode)."
+    o += "    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_%s* vt)" % root
+    o += "    {"
+    o += "        EnsureDec();"
+    o += "        int ar = ArmFor(retain ? -1 : -2);"
+    o += "        if (ar != 0) { Disarm(ar); return ar; }"
+    o += "        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);"
+    o += "        int rc;"
+    o += "        fixed (byte* b0 = src)"
+    o += "        fixed (byte* one = One)"
+    o += "        {"
+    o += "            byte* b = len == 0 ? one : b0;"
+    o += "            _drun->Target = GCHandle.ToIntPtr(_th);"
+    o += "            _drun->Buf = b;"
+    o += "            rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, vt);" % root
+    o += "        }"
+    o += "        rc = Disarm(rc);"
+    o += "        return rc == UNDELIVERED ? 0 : rc;"
+    o += "    }"
+    o += "    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay)."
+    o += "    public int ParseOnly(byte[] src, int len, bool retain)"
+    o += "    {"
+    o += "        EnsureDec();"
+    o += "        int ar = ArmFor(retain ? -1 : -2);"
+    o += "        if (ar != 0) { Disarm(ar); return ar; }"
+    o += "        int rc;"
+    o += "        fixed (byte* b0 = src)"
+    o += "        fixed (byte* one = One)"
+    o += "            rc = Abi.ak_parse_%s(_dctx, len == 0 ? one : b0, (nuint)len);" % root
+    o += "        rc = Disarm(rc);"
+    o += "        return rc == UNDELIVERED ? 0 : rc;"
     o += "    }"
     o += ""
 

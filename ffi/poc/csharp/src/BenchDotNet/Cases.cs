@@ -425,7 +425,7 @@ public static class Cases
         return n;
     }
 
-    private static (RootOps, byte[]) Row(string id)
+    internal static (RootOps, byte[]) Row(string id)
     {
         UnknownRows();
         var (root, file) = _rows[id];

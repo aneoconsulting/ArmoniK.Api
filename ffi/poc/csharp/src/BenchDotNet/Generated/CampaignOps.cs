@@ -467,6 +467,14 @@ public abstract unsafe class RootOps
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfi(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfiPull(byte[] b, int len, bool read);
+    // D21 s8 attribution (harness only): the core-ffi push decode through the parse (0), noop (1)
+    // or parse-validate (2) vtable; the pull family's parse alone; the graphs, for the census
+    // and the strings-alone arm; the read pass alone.
+    public abstract long DecFfiVt(byte[] b, int len, bool retain, int kind);
+    public abstract long DecFfiParse(byte[] b, int len, bool retain);
+    public abstract object DecFfiGraph(byte[] b, int len, bool retain);
+    public abstract object DecIncGraph(byte[] b, int len);
+    public abstract long TouchF(object m);
     /// Decode then re-encode (the unknown-field rows, FIX-PLAN WP3 item 21).
     public abstract int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w);
     public abstract byte[] RtHost(byte[] b, int len, bool retain);
@@ -636,6 +644,16 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
         return read ? Touch.F_ListResultsResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListResultsResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListResultsResponse.VtParse : kind == 1 ? CoreFfi_ListResultsResponse.VtNoop : CoreFfi_ListResultsResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.ListResultsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_ListResultsResponse((ListResultsResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.ListResultsResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.ListResultsResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -767,6 +785,16 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
         return read ? Touch.F_ListTasksDetailedResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListTasksDetailedResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTasksDetailedResponse.VtParse : kind == 1 ? CoreFfi_ListTasksDetailedResponse.VtNoop : CoreFfi_ListTasksDetailedResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_ListTasksDetailedResponse((ListTasksDetailedResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.ListTasksDetailedResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -898,6 +926,16 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
         return read ? Touch.F_ListProbeResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListProbeResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListProbeResponse.VtParse : kind == 1 ? CoreFfi_ListProbeResponse.VtNoop : CoreFfi_ListProbeResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.ListProbeResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_ListProbeResponse((ListProbeResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.ListProbeResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.ListProbeResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -1029,6 +1067,16 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
         return read ? Touch.F_ListTaskSummaryResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListTaskSummaryResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTaskSummaryResponse.VtParse : kind == 1 ? CoreFfi_ListTaskSummaryResponse.VtNoop : CoreFfi_ListTaskSummaryResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.ListTaskSummaryResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_ListTaskSummaryResponse((ListTaskSummaryResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.ListTaskSummaryResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.ListTaskSummaryResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -1160,6 +1208,16 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
         return read ? Touch.F_UploadResultDataMessage(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_UploadResultDataMessage(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_UploadResultDataMessage.VtParse : kind == 1 ? CoreFfi_UploadResultDataMessage.VtNoop : CoreFfi_UploadResultDataMessage.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.UploadResultDataMessage.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_UploadResultDataMessage((UploadResultDataMessage)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.UploadResultDataMessage.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.UploadResultDataMessage.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -1291,6 +1349,16 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
         return read ? Touch.F_ListMetricsResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListMetricsResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListMetricsResponse.VtParse : kind == 1 ? CoreFfi_ListMetricsResponse.VtNoop : CoreFfi_ListMetricsResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.ListMetricsResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_ListMetricsResponse((ListMetricsResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.ListMetricsResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.ListMetricsResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)
@@ -1422,6 +1490,16 @@ public sealed unsafe class Ops_DualResponse : RootOps
         return read ? Touch.F_DualResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_DualResponse(m) : 1; }
+    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
+    {
+        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_DualResponse.VtParse : kind == 1 ? CoreFfi_DualResponse.VtNoop : CoreFfi_DualResponse.VtParseValidate);
+        if (rc < 0) throw new InvalidOperationException("core decode (attribution vtable) " + rc);
+        return 1;
+    }
+    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException("core parse " + rc); return 1; }
+    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core decode " + rc); return m; }
+    public override object DecIncGraph(byte[] b, int len) => Gp.DualResponse.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));
+    public override long TouchF(object m) => Touch.F_DualResponse((DualResponse)m);
     public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = Gp.DualResponse.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }
     public override byte[] RtIncBytes(byte[] b) => Gp.DualResponse.Parser.ParseFrom(b).ToByteArray();
     public override byte[] RtHost(byte[] b, int len, bool retain)

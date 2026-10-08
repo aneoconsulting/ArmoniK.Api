@@ -491,6 +491,28 @@ public static unsafe class G
     /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode
     /// materialises no string at all.
     public static bool SkipStrings;
+    /// D21 s8 attribution (HARNESS ONLY, never in a timed product path): a push callback that
+    /// returns at once (Noop) and a `new_<slot>` that returns token 0 (NewZero). One function
+    /// for every signature: on the x64 SysV and Windows C ABIs the caller owns the arguments,
+    /// so a callee that takes none ignores them. Counted (AttrCalls) in the counting build.
+    public static long AttrCalls;
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void Noop()
+    {
+#if AK_HOST_COUNT
+        AttrCalls++;
+#endif
+    }
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static long NewZero()
+    {
+#if AK_HOST_COUNT
+        AttrCalls++;
+#endif
+        return 0;
+    }
+    public static readonly void* NoopPtr = (void*)(delegate* unmanaged[Cdecl]<void>)&Noop;
+    public static readonly void* NewZeroPtr = (void*)(delegate* unmanaged[Cdecl]<long>)&NewZero;
     /// A CHECK CONTROL, never set in a timed run: AK_GATE_PLANT_HOST_FAIL=apply (1) makes every
     /// root apply callback throw, =add (2) every add/new callback, so the host reports
     /// AK_ERR_HOST through ak_fail from inside a reverse call (harness hostfail, step a2 (i)).
@@ -1197,6 +1219,54 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Timestamp* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Timestamp* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Timestamp*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Timestamp));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Timestamp_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Timestamp* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Timestamp(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Timestamp(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -1466,6 +1536,54 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Duration* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Duration* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Duration*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Duration));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Duration_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Duration* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Duration(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Duration(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -1767,6 +1885,54 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ResultRaw* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ResultRaw* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ResultRaw*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ResultRaw));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ResultRaw_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ResultRaw* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ResultRaw(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ResultRaw(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -2113,6 +2279,55 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_TaskOptions* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_TaskOptions* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_TaskOptions*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_TaskOptions));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.TaskOptions_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_options = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_TaskOptions* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_TaskOptions(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_TaskOptions(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -2412,6 +2627,54 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_TaskOutput* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_TaskOutput* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_TaskOutput*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_TaskOutput));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.TaskOutput_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_TaskOutput* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_TaskOutput(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_TaskOutput(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -3112,6 +3375,59 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_TaskDetailed* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_TaskDetailed* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_TaskDetailed*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_TaskDetailed));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.TaskDetailed_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_parent_task_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_data_dependencies = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_expected_output_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_retry_of_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_options_options = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_TaskDetailed* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_TaskDetailed(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_TaskDetailed(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -3502,6 +3818,55 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_TaskSummary* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_TaskSummary* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_TaskSummary*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_TaskSummary));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.TaskSummary_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_options_options = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_TaskSummary* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_TaskSummary(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_TaskSummary(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -3807,6 +4172,54 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Probe* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Probe* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Probe*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Probe));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Probe_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Probe* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Probe(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Probe(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -4076,6 +4489,54 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Empty* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Empty* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Empty*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Empty));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Empty_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Empty* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Empty(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Empty(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -4373,6 +4834,54 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_UploadResultData* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_UploadResultData* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_UploadResultData*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_UploadResultData));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.UploadResultData_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_UploadResultData* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_UploadResultData(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_UploadResultData(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -4882,6 +5391,59 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_MetricsBatch* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_MetricsBatch* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_MetricsBatch*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_MetricsBatch));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.MetricsBatch_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_ticks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_values = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_codes = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_flags = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_statuses = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_MetricsBatch* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_MetricsBatch(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_MetricsBatch(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -5208,6 +5770,54 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Pair* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Pair* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Pair*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Pair));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Pair_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Pair* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Pair(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Pair(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -5588,6 +6198,55 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ListResultsResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ListResultsResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListResultsResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ListResultsResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_results = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ListResultsResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ListResultsResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -6473,6 +7132,61 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ListTasksDetailedResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ListTasksDetailedResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListTasksDetailedResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ListTasksDetailedResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        *(void**)&v->new_tasks = G.NewZeroPtr;
+        if (kind == 1) *(void**)&v->apply_tasks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_parent_task_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_data_dependencies = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_expected_output_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_retry_of_ids = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_options_options = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ListTasksDetailedResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -7009,6 +7723,57 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ListTaskSummaryResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ListTaskSummaryResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListTaskSummaryResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ListTaskSummaryResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        *(void**)&v->new_tasks = G.NewZeroPtr;
+        if (kind == 1) *(void**)&v->apply_tasks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_tasks_options_options = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ListTaskSummaryResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ListTaskSummaryResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -7395,6 +8160,55 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ListProbeResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ListProbeResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListProbeResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ListProbeResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_probes = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ListProbeResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ListProbeResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -8042,6 +8856,61 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ListMetricsResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ListMetricsResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ListMetricsResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ListMetricsResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        *(void**)&v->new_batches = G.NewZeroPtr;
+        if (kind == 1) *(void**)&v->apply_batches = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_batches_ticks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_batches_values = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_batches_codes = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_batches_flags = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_batches_statuses = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ListMetricsResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ListMetricsResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -8379,6 +9248,54 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_UploadResultDataMessage* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_UploadResultDataMessage* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_UploadResultDataMessage));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.UploadResultDataMessage_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_UploadResultDataMessage* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_UploadResultDataMessage(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -8855,6 +9772,56 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_DualResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_DualResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_DualResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.DualResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_left = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_right = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_DualResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_DualResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -9160,6 +10127,54 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ChunkLeaf* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ChunkLeaf* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ChunkLeaf*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ChunkLeaf));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ChunkLeaf_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ChunkLeaf* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ChunkLeaf(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ChunkLeaf(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -9575,6 +10590,56 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ChunkInner* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ChunkInner* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ChunkInner*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ChunkInner));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ChunkInner_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_marks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_leaves = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ChunkInner* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ChunkInner(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ChunkInner(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -10151,6 +11216,58 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ChunkElement* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ChunkElement* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ChunkElement*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ChunkElement));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ChunkElement_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_labels = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_attrs = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_inner_marks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_inner_leaves = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ChunkElement* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ChunkElement(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ChunkElement(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -10896,6 +12013,60 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ChunkedResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ChunkedResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ChunkedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ChunkedResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ChunkedResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        *(void**)&v->new_items = G.NewZeroPtr;
+        if (kind == 1) *(void**)&v->apply_items = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_labels = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_attrs = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_inner_marks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_inner_leaves = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ChunkedResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ChunkedResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ChunkedResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -11647,6 +12818,60 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_ChunkedResponseWide* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_ChunkedResponseWide* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_ChunkedResponseWide*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_ChunkedResponseWide));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.ChunkedResponseWide_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        *(void**)&v->new_items = G.NewZeroPtr;
+        if (kind == 1) *(void**)&v->apply_items = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_labels = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_attrs = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_inner_marks = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items_inner_leaves = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_ChunkedResponseWide* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_ChunkedResponseWide(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_ChunkedResponseWide(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -11971,6 +13196,54 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_LeafElement* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_LeafElement* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_LeafElement*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_LeafElement));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.LeafElement_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_LeafElement* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_LeafElement(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_LeafElement(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -12343,6 +13616,55 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_LeafResponse* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_LeafResponse* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_LeafResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_LeafResponse));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.LeafResponse_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_items = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_LeafResponse* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_LeafResponse(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_LeafResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
@@ -12773,6 +14095,56 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_Surrogate* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_Surrogate* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_Surrogate*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_Surrogate));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.Surrogate_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_attrs = G.NoopPtr;
+        if (kind == 1) *(void**)&v->add_texts = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_Surrogate* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_Surrogate(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_Surrogate(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -13081,6 +14453,54 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         return 0;
     }
 
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_SurrogateInner* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_SurrogateInner* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_SurrogateInner*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_SurrogateInner));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.SurrogateInner_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_SurrogateInner* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_SurrogateInner(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_SurrogateInner(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse
     /// call but grow), then replay it with the same group readers the push callbacks
     /// use. The context is armed exactly as for push.
@@ -13372,6 +14792,54 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
         if (rc < 0) return rc;
         result = target;
         return 0;
+    }
+
+    /// D21 s8 attribution (HARNESS ONLY): the same push decode through another vtable.
+    /// kind 0 `parse`: every callback null but `new_<slot>` (NewZero: the core skips a non-leaf
+    /// element whose `new_` is null), utf8_skip all bits (as the reference); kind 1 `noop`:
+    /// every callback G.Noop (new_: NewZero); kind 2 `parse-validate`: kind 0 with utf8_skip 0
+    /// (the core validates every string).
+    public static readonly ak_dvt_WireZoo* VtParse = MakeVtAttr(0), VtNoop = MakeVtAttr(1), VtParseValidate = MakeVtAttr(2);
+    private static ak_dvt_WireZoo* MakeVtAttr(int kind)
+    {
+        var v = (ak_dvt_WireZoo*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dvt_WireZoo));
+        v->utf8_skip = kind == 2 ? 0 : AkUtf8Skip.WireZoo_ALL;
+        if (kind == 1) *(void**)&v->apply = G.NoopPtr;
+        return v;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): DecodeArmed through `vt`; the graph is the bare
+    /// root (the callbacks build nothing) and buffers the callbacks did not take are not
+    /// UNDELIVERED here (the arena rewinds at the next decode).
+    public int DecodeVt(byte[] src, int len, bool retain, ak_dvt_WireZoo* vt)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+        {
+            byte* b = len == 0 ? one : b0;
+            _drun->Target = GCHandle.ToIntPtr(_th);
+            _drun->Buf = b;
+            rc = Abi.ak_decode_WireZoo(_dctx, _drun, b, (nuint)len, vt);
+        }
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
+    }
+    /// D21 s8 attribution (HARNESS ONLY): the pull family's parse alone (no replay).
+    public int ParseOnly(byte[] src, int len, bool retain)
+    {
+        EnsureDec();
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        int rc;
+        fixed (byte* b0 = src)
+        fixed (byte* one = One)
+            rc = Abi.ak_parse_WireZoo(_dctx, len == 0 ? one : b0, (nuint)len);
+        rc = Disarm(rc);
+        return rc == UNDELIVERED ? 0 : rc;
     }
 
     /// ABI v1 7.1's PULL family: parse into the context's record stream (no reverse

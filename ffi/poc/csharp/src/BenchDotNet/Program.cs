@@ -59,6 +59,14 @@ public static class Program
                 Console.WriteLine(v + "=" + (Environment.GetEnvironmentVariable(v) ?? "(unset)"));
             return 0;
         }
+        if (a.Contains("--decattr-counts"))
+            return DecAttr.Counts(Opt(a, "--decattr-counts", "decattr-counts.txt"));
+        if (a.Contains("--decattr"))
+        {
+            Alloc.Startup();
+            Environment.SetEnvironmentVariable("AK_CORPUS_DIR", Cases.CorpusDir());
+            return DecAttr.Run(Opt(a, "--decattr", "decattr.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture), Opt(a, "--only", null));
+        }
         if (a.Contains("--verify-mt"))
             return VerifyMt.Run(int.Parse(Opt(a, "--threads", "8"), CultureInfo.InvariantCulture), int.Parse(Opt(a, "--rounds", "20"), CultureInfo.InvariantCulture));
         if (a.Contains("--pinbench"))

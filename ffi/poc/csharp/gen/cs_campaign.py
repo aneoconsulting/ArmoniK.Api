@@ -138,6 +138,14 @@ public abstract unsafe class RootOps
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfi(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfiPull(byte[] b, int len, bool read);
+    // D21 s8 attribution (harness only): the core-ffi push decode through the parse (0), noop (1)
+    // or parse-validate (2) vtable; the pull family's parse alone; the graphs, for the census
+    // and the strings-alone arm; the read pass alone.
+    public abstract long DecFfiVt(byte[] b, int len, bool retain, int kind);
+    public abstract long DecFfiParse(byte[] b, int len, bool retain);
+    public abstract object DecFfiGraph(byte[] b, int len, bool retain);
+    public abstract object DecIncGraph(byte[] b, int len);
+    public abstract long TouchF(object m);
     /// Decode then re-encode (the unknown-field rows, FIX-PLAN WP3 item 21).
     public abstract int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w);
     public abstract byte[] RtHost(byte[] b, int len, bool retain);
@@ -277,6 +285,16 @@ def _ops(o, root):
     o += "        return read ? Touch.F_%s(m) : 1;" % root
     o += "    }"
     o += "    public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_%s(m) : 1; }" % root
+    o += "    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)"
+    o += "    {"
+    o += "        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_%s.VtParse : kind == 1 ? CoreFfi_%s.VtNoop : CoreFfi_%s.VtParseValidate);" % (root, root, root)
+    o += "        if (rc < 0) throw new InvalidOperationException(\"core decode (attribution vtable) \" + rc);"
+    o += "        return 1;"
+    o += "    }"
+    o += "    public override long DecFfiParse(byte[] b, int len, bool retain) { int rc = _c.ParseOnly(b, len, retain); if (rc < 0) throw new InvalidOperationException(\"core parse \" + rc); return 1; }"
+    o += "    public override object DecFfiGraph(byte[] b, int len, bool retain) { int rc = _c.TryDecode(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core decode \" + rc); return m; }"
+    o += "    public override object DecIncGraph(byte[] b, int len) => Gp.%s.Parser.ParseFrom(new ReadOnlySpan<byte>(b, 0, len));" % root
+    o += "    public override long TouchF(object m) => Touch.F_%s((%s)m);" % (root, root)
     o += "    public override int RtIncProd(ReadOnlySequence<byte> seq, BufWriter w) { var m = %s.Parser.ParseFrom(seq); int n = m.CalculateSize(); w.Reset(); m.WriteTo(w); return n | w.WrittenCount; }" % g
     o += "    public override byte[] RtIncBytes(byte[] b) => %s.Parser.ParseFrom(b).ToByteArray();" % g
     o += "    public override byte[] RtHost(byte[] b, int len, bool retain)"

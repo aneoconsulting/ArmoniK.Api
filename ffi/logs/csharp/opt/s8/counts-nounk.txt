@@ -1,0 +1,91 @@
+# D21 s8: crossings per attribution arm, one call each (counting build, no-unknown): fwd = every exported entry point called (resets included), rev = the generated callbacks' tally + G.AttrCalls (noop/new-zero) + grow calls
+P1.2 ascii no-unknown ref | fwd 1 rev 5 grow 0 | ak_decode_ListResultsResponse=1
+P1.2 ascii no-unknown noop | fwd 1 rev 5 grow 0 | ak_decode_ListResultsResponse=1
+P1.2 ascii no-unknown parse | fwd 1 rev 0 grow 0 | ak_decode_ListResultsResponse=1
+P1.2 ascii no-unknown parsev | fwd 1 rev 0 grow 0 | ak_decode_ListResultsResponse=1
+P1.2 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+P1.2 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListResultsResponse=1
+P2.2 ascii no-unknown ref | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii no-unknown noop | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii no-unknown parse | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii no-unknown parsev | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown ref | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown noop | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown parse | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown parsev | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P2.2 wide no-unknown ref | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 wide no-unknown noop | fwd 1 rev 3501 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 wide no-unknown parse | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 wide no-unknown parsev | fwd 1 rev 500 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.2 wide no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 wide no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown ref | fwd 1 rev 876 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown noop | fwd 1 rev 876 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown parse | fwd 1 rev 125 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown parsev | fwd 1 rev 125 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown ref | fwd 1 rev 561 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown noop | fwd 1 rev 561 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown parse | fwd 1 rev 80 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown parsev | fwd 1 rev 80 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown ref | fwd 1 rev 141 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown noop | fwd 1 rev 141 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown parse | fwd 1 rev 20 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown parsev | fwd 1 rev 20 grow 0 | ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+P4.1 ascii no-unknown ref | fwd 1 rev 601 grow 0 | ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii no-unknown noop | fwd 1 rev 601 grow 0 | ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii no-unknown parse | fwd 1 rev 200 grow 0 | ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii no-unknown parsev | fwd 1 rev 200 grow 0 | ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTaskSummaryResponse=1
+P4.1 ascii no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTaskSummaryResponse=1
+U-nested-before corpus no-unknown ref | fwd 1 rev 2 grow 0 | ak_decode_ListResultsResponse=1
+U-nested-before corpus no-unknown noop | fwd 1 rev 2 grow 0 | ak_decode_ListResultsResponse=1
+U-nested-before corpus no-unknown parse | fwd 1 rev 0 grow 0 | ak_decode_ListResultsResponse=1
+U-nested-before corpus no-unknown parsev | fwd 1 rev 0 grow 0 | ak_decode_ListResultsResponse=1
+U-nested-before corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListResultsResponse=1
+U-nested-before corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListResultsResponse=1
+U-deep-u-repeated corpus no-unknown ref | fwd 1 rev 8 grow 0 | ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus no-unknown noop | fwd 1 rev 8 grow 0 | ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus no-unknown parse | fwd 1 rev 1 grow 0 | ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus no-unknown parsev | fwd 1 rev 1 grow 0 | ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTasksDetailedResponse=1
+U-oneof-u-repeated corpus no-unknown ref | fwd 1 rev 2 grow 0 | ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus no-unknown noop | fwd 1 rev 2 grow 0 | ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus no-unknown parse | fwd 1 rev 0 grow 0 | ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus no-unknown parsev | fwd 1 rev 0 grow 0 | ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListProbeResponse=1
+U-oneof-u-repeated corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListProbeResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown ref | fwd 1 rev 7 grow 0 | ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown noop | fwd 1 rev 7 grow 0 | ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown parse | fwd 1 rev 2 grow 0 | ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown parsev | fwd 1 rev 2 grow 0 | ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListTaskSummaryResponse=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown ref | fwd 1 rev 1 grow 0 | ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown noop | fwd 1 rev 1 grow 0 | ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown parse | fwd 1 rev 0 grow 0 | ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown parsev | fwd 1 rev 0 grow 0 | ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_UploadResultDataMessage=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown ref | fwd 1 rev 15 grow 0 | ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown noop | fwd 1 rev 15 grow 0 | ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown parse | fwd 1 rev 2 grow 0 | ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown parsev | fwd 1 rev 2 grow 0 | ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_ListMetricsResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown ref | fwd 1 rev 3 grow 0 | ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown noop | fwd 1 rev 3 grow 0 | ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown parse | fwd 1 rev 0 grow 0 | ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown parsev | fwd 1 rev 0 grow 0 | ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown pull | fwd 2 rev 0 grow 0 | ak_bdr_ptr=1 ak_parse_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus no-unknown pparse | fwd 1 rev 0 grow 0 | ak_parse_DualResponse=1
