@@ -2701,3 +2701,55 @@ process). Logs under `ffi/logs/csharp/opt/s7/`.
 - **Interruptions**: the container restarted during the first codec A/B (kept as
   s7/ab-INTERRUPTED, not used); opt_ab.sh gained --first-rep (one invocation per rep) and the
   cores' sha256 in its header.
+
+## 77. s8: attribution of the core-ffi decode (owner, 2026-10-08; no optimisation)
+
+Container instrumentation; process CPU per op, `BenchDotNet --decattr`: ONE process per build
+and rep, every arm interleaved and rotated per round (6 x 40 ms after >= 1 s of warm-up per row
+and mode), 2 reps per build, a quiet wait per process (load1 < 0.5, no process above 10 %).
+Logs `ffi/logs/csharp/opt/s8/` (tables.md, *.census.txt, counts-*.txt; the first run, without
+hskip and the GC pause, kept as run1-superseded/, same figures within spread). 703 s of
+benchmark for both runs (343 + 360) plus the quiet waits.
+
+- **Arms** (harness only, labelled; nothing on a product path changes): ref (HEAD's core-ffi push
+  decode-read), skip (G.SkipStrings), noop (VtNoop: every callback returns at once, new_ returns
+  token 0), parse (VtParse: every callback null but new_, which the core needs: a null `new_`
+  makes the core SKIP the element's body, codec.rs `None => return`, so "every callback null"
+  would not parse the non-leaf elements), parsev (parse with utf8_skip 0), pull (core-ffi-pull,
+  drop form), pparse (ak_parse_<Root> alone), touch (the read pass alone), strs (the graph's
+  strings alone, Strict.GetString over their UTF-8), host, hskip (host-gen with the new
+  Dec.SkipStrings twin), inc (incumbent-prod). Generated seams: VtParse/VtNoop/VtParseValidate,
+  DecodeVt, ParseOnly (cs_host.py); RootOps DecFfiVt/DecFfiParse/DecFfiGraph/DecIncGraph/TouchF
+  (cs_campaign.py). Deviation: "strings only" is the strings ALONE (no decode around them);
+  the strings bucket is ref - skip, as specified, and strs is its cross-check.
+- **Counts** (s8/counts-*.txt, counting build): per decode fwd 2 (reset + decode) on every
+  push arm; rev ref = noop (P2.2 3,501; P2.4 561; P1.2 8; P4.1 ...), parse = the non-leaf
+  elements only (P2.2 500, P2.4 80), pparse 0; pull fwd 3 rev 0; grow per retained U-* row.
+- **Census** (s8/*.census.txt): the facade graph equals the incumbent's in objects, strings,
+  lists, maps on every row (P2.2: 7,835 objects, 17,167 strings / 412,032 UTF-16 units, 2,001
+  non-empty lists, 500 maps, 8,500 elements; P2.4: 1,255 objects, 26,267 strings / 912,556
+  units; P1.2: 3,001 objects, 5,000 strings, 1,000 byte[]). ref allocates what host-gen does
+  (P2.2 2.18 MB/op; skip 0.81 MB; strs alone 1.25 MB); noop/parse/pparse allocate 0.
+- **Split** (tables.md section 2, medians, us per op; P2.2 ascii retain / drop / no-unknown):
+  ref 2220 / 2054 / 1920; parse 335 / 331 / 317 (15-16 %); cross (noop - parse) 26 / 25 / 19
+  (1 %); build (skip - noop) 609 / 583 / 515 (27-28 %); strings (ref - skip) 1250 / 1114 / 1069
+  (54-56 %); strings alone 647 / 652 / 639; GC pause per op ref 367 / 217 / 171 vs skip 41 / 36
+  / 35; touch 61-65 (in build); validation if the core did it (parsev - parse) 312-327. Pull:
+  pparse 337-346 (= parse), replay 1641-1911 (= cross + build + strings). Host-gen 2028 / 1874 /
+  1905: hskip (parse + build) 799 / 786 / 730, strings 1230 / 1088 / 1175. Incumbent 2228 /
+  2279 / 2222. Latin-1 and wide move only the strings bucket (P2.2 retain strings 1602, 2432;
+  strs alone 1201, 1810). P1.2: ref 382-404, below host 428-433 and inc 511-518. U-* rows:
+  parse 14-40 %, build 33-72 % (ListMetrics 69-72 %: packed runs into lists), strings 1-51 %.
+- **Where core-ffi loses**: to host-gen, in parse + crossings + build, not in strings. P2.2
+  skip (core parse + cross + build) 970 / 940 / 851 vs hskip 799 / 786 / 730 (+120 to +170);
+  strings equal within spread (core-ffi 1069-1250, host-gen 1088-1230). Taking the build as
+  equal (the same facade objects, lists and strings), host-gen's own parse is about 190-215 us
+  on P2.2 against the core's 317-335 + 19-26 of crossings. P2.3, P2.4, P2.5, P4.1 the same
+  pattern, smaller. To the incumbent core-ffi does not lose on the P rows at these spreads
+  (ref - inc -8 to -346 on P2.2, -114 to -135 on P1.2, about 0 to +51 on P2.3) nor on the U-*
+  rows (-0.05 to -1.05 us).
+- **Strings bucket is mostly GC, beyond GetString**: ref - skip is 1.6 to 1.9 x the strings
+  alone (P2.2 ascii 1069-1250 vs 639-652), and the GC pause per op moves with it (ref 171-367
+  us vs skip 35-41): each string is allocated while the half-built graph is live, so the gen0
+  collections during a decode copy the graph (0.11 to 0.18 gen0 per op on P2.2 ref vs 0.04 for
+  skip); host-gen pays the same.

@@ -1,5 +1,5 @@
-# D21 s8 decode attribution, CONTAINER INSTRUMENTATION; commit ba91a8d6; 2026-10-08T20:04:53Z; client CPUs 0,1; cores target-core 800d7882ab536255 target-core-nounk 11e0c85ae13efa7a; BenchDotNet --decattr, 6 rounds x 40 ms per arm, warm-up >= 1 s per row and mode; 2 reps per build, order alternated
-# rep 1 full: rc=0 112 s; quiet: load1 0.00 (waited 435 s)
-# rep 1 nounk: rc=0 60 s; quiet: load1 0.48 (waited 35 s)
-# rep 2 nounk: rc=0 58 s; quiet: load1 0.49 (waited 30 s)
-# rep 2 full: rc=0 113 s; quiet: load1 0.47 (waited 40 s)
+# D21 s8 decode attribution (rerun with hskip and the GC pause), CONTAINER INSTRUMENTATION; commit 983072da; 2026-10-08T20:21:55Z; client CPUs 0,1; cores target-core 800d7882ab536255 target-core-nounk 11e0c85ae13efa7a; BenchDotNet --decattr, 6 rounds x 40 ms per arm, warm-up >= 1 s per row and mode; 2 reps per build, order alternated
+# rep 1 full: rc=0 118 s; quiet: load1 0.00 (waited 445 s)
+# rep 1 nounk: rc=0 62 s; quiet: load1 0.49 (waited 35 s)
+# rep 2 nounk: rc=0 60 s; quiet: load1 0.46 (waited 40 s)
+# rep 2 full: rc=0 120 s; quiet: load1 0.47 (waited 40 s)
