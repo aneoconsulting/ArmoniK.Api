@@ -125,6 +125,16 @@ struct ak_bdr_rec {
   uint32_t bytes;
 };
 typedef struct ak_bdr_rec ak_bdr_rec;
+/* FIX-PLAN D23: one FSM event, a pull record's header (same members and offsets) plus a pointer to its payload; `bytes` exact, not padded. */
+struct ak_fsm_ev {
+  uint32_t op;
+  uint32_t slot;
+  int64_t token;
+  uint32_t n;
+  uint32_t bytes;
+  const void *data;
+};
+typedef struct ak_fsm_ev ak_fsm_ev;
 #define AK_STR_DIRECT ((const void *)(uintptr_t)1)  /* ABI v1 section 8: ak_str.data meaning 'a direct argument of the call'. */
 #define AK_TOKEN_ROOT ((int64_t)-1)  /* a token naming the root object itself */
 #define AK_BDR_APPLY 1u  /* pull record: the root group (last record) */
@@ -132,6 +142,7 @@ typedef struct ak_bdr_rec ak_bdr_rec;
 #define AK_BDR_NEW 3u  /* pull record: a non-leaf element begins (minted token) */
 #define AK_BDR_APPLY_ELEM 4u  /* pull record: a non-leaf element's group */
 #define AK_BDR_MIN_CHUNK 32792u  /* the smallest drain chunk that holds any record */
+#define AK_FSM_END 1  /* FSM (D23): the event written is the root group, the last one */
 
 /* ---- WP5 step 10: THE NO-UNKNOWN VARIANT (plan.py) -------------------------------
  * Unknown-field support compiled out: an unknown field is skipped, never captured
@@ -923,36 +934,57 @@ int32_t ak_decode_ListResultsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t 
 int32_t ak_parse_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListResultsResponse(void);
 int32_t ak_dec_set_pvt_ListResultsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListResultsResponse *pvt);
+int32_t ak_fsm_begin_ListResultsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_ListResultsResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_ListResultsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListResultsResponse *pvt);
 intptr_t ak_encode_ListTasksDetailedResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTasksDetailedResponse *vt, const struct ak_efix_ListTasksDetailedResponse *fix);
 int32_t ak_decode_ListTasksDetailedResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTasksDetailedResponse *vt);
 int32_t ak_parse_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTasksDetailedResponse(void);
 int32_t ak_dec_set_pvt_ListTasksDetailedResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTasksDetailedResponse *pvt);
+int32_t ak_fsm_begin_ListTasksDetailedResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_ListTasksDetailedResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_ListTasksDetailedResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTasksDetailedResponse *pvt);
 intptr_t ak_encode_ListProbeResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListProbeResponse *vt, const struct ak_efix_ListProbeResponse *fix);
 int32_t ak_decode_ListProbeResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListProbeResponse *vt);
 int32_t ak_parse_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListProbeResponse(void);
 int32_t ak_dec_set_pvt_ListProbeResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListProbeResponse *pvt);
+int32_t ak_fsm_begin_ListProbeResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_ListProbeResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_ListProbeResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListProbeResponse *pvt);
 intptr_t ak_encode_ListTaskSummaryResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListTaskSummaryResponse *vt, const struct ak_efix_ListTaskSummaryResponse *fix);
 int32_t ak_decode_ListTaskSummaryResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListTaskSummaryResponse *vt);
 int32_t ak_parse_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListTaskSummaryResponse(void);
 int32_t ak_dec_set_pvt_ListTaskSummaryResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTaskSummaryResponse *pvt);
+int32_t ak_fsm_begin_ListTaskSummaryResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_ListTaskSummaryResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_ListTaskSummaryResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListTaskSummaryResponse *pvt);
 intptr_t ak_encode_UploadResultDataMessage(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_UploadResultDataMessage *vt, const struct ak_efix_UploadResultDataMessage *fix, const uint8_t *direct, size_t direct_len);
 int32_t ak_decode_UploadResultDataMessage(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_UploadResultDataMessage *vt);
 int32_t ak_parse_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_UploadResultDataMessage(void);
 int32_t ak_dec_set_pvt_UploadResultDataMessage(ak_dec_ctx *ctx, const struct ak_pvt_UploadResultDataMessage *pvt);
+int32_t ak_fsm_begin_UploadResultDataMessage(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_UploadResultDataMessage(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_UploadResultDataMessage(ak_dec_ctx *ctx, const struct ak_pvt_UploadResultDataMessage *pvt);
 intptr_t ak_encode_ListMetricsResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_ListMetricsResponse *vt, const struct ak_efix_ListMetricsResponse *fix);
 int32_t ak_decode_ListMetricsResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_ListMetricsResponse *vt);
 int32_t ak_parse_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_ListMetricsResponse(void);
 int32_t ak_dec_set_pvt_ListMetricsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListMetricsResponse *pvt);
+int32_t ak_fsm_begin_ListMetricsResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_ListMetricsResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_ListMetricsResponse(ak_dec_ctx *ctx, const struct ak_pvt_ListMetricsResponse *pvt);
 intptr_t ak_encode_DualResponse(const void *obj, ak_enc_ctx *ctx, const struct ak_evt_DualResponse *vt, const struct ak_efix_DualResponse *fix);
 int32_t ak_decode_DualResponse(ak_dec_ctx *ctx, void *obj, const uint8_t *buf, size_t len, const struct ak_dvt_DualResponse *vt);
 int32_t ak_parse_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len);
 ak_dec_ctx *ak_dec_ctx_new_DualResponse(void);
 int32_t ak_dec_set_pvt_DualResponse(ak_dec_ctx *ctx, const struct ak_pvt_DualResponse *pvt);
+int32_t ak_fsm_begin_DualResponse(ak_dec_ctx *ctx, const uint8_t *buf, size_t len, struct ak_fsm_ev *ev);
+int32_t ak_fsm_next_DualResponse(ak_dec_ctx *ctx, struct ak_fsm_ev *ev);
+int32_t ak_fsm_set_pvt_DualResponse(ak_dec_ctx *ctx, const struct ak_pvt_DualResponse *pvt);
 int32_t ak_elemu_MetricsBatch(ak_enc_ctx *ctx, const struct ak_efix_MetricsBatch *elems, int32_t n, int64_t tok0);
 int32_t ak_elem_Pair(ak_enc_ctx *ctx, const struct ak_efix_Pair *elems, int32_t n);
 int32_t ak_elem_Probe(ak_enc_ctx *ctx, const struct ak_efix_Probe *elems, int32_t n);
@@ -1178,7 +1210,9 @@ AK_SASSERT(sizeof(struct ak_err) == 8, "sizeof ak_err");
 AK_SASSERT(sizeof(struct ak_init_opts) == 24, "sizeof ak_init_opts");
 AK_SASSERT(sizeof(struct AkCounters) == 48, "sizeof AkCounters");
 AK_SASSERT(sizeof(struct ak_bdr_rec) == 24, "sizeof ak_bdr_rec");
+AK_SASSERT(sizeof(struct ak_fsm_ev) == 32, "sizeof ak_fsm_ev");
 AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, "ak_bdr_rec.token");
+AK_SASSERT(offsetof(struct ak_fsm_ev, token) == 8 && offsetof(struct ak_fsm_ev, n) == 16 && offsetof(struct ak_fsm_ev, bytes) == 20 && offsetof(struct ak_fsm_ev, data) == 24, "ak_fsm_ev");
 AK_SASSERT(offsetof(struct ak_dvt_ListResultsResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListResultsResponse) == 3 * 8, "ak_dvt_ListResultsResponse");
 AK_SASSERT(offsetof(struct ak_dvt_ListTasksDetailedResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListTasksDetailedResponse) == 9 * 8, "ak_dvt_ListTasksDetailedResponse");
 AK_SASSERT(offsetof(struct ak_dvt_ListProbeResponse, utf8_skip) == 0 && sizeof(struct ak_dvt_ListProbeResponse) == 3 * 8, "ak_dvt_ListProbeResponse");

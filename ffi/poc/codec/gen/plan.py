@@ -296,6 +296,30 @@ THE NO-UNKNOWN VARIANT (Options(unknown="drop") for the C ABI; WP5 step 10)
     A backend selects it by rendering from `relower(p, p.options.with_unknown("drop"))`; it
     never re-derives which members to omit.
 
+THE FSM DECODE FAMILY (FIX-PLAN D23, owner 2026-10-09)
+---------------------
+    A third decode family beside push and pull: a resumable state machine in the core. Its
+    code is NOT shared with push or pull (owner): its own emitter (`rust_fsm.py`), its own
+    generated file and its own runtime support; what is stated here is only its ABI.
+    * entry points per root (`fsm_entry_points`): `ak_fsm_begin_<Root>(ctx, buf, len, ev)`
+      starts a decode of `buf` on a context bound to <Root> and returns its FIRST event;
+      `ak_fsm_next_<Root>(ctx, ev)` returns the next one; `ak_fsm_set_pvt_<Root>(ctx, pvt)`
+      COPIES the D20 mask for every later FSM decode on that context (NULL = all zero;
+      the pull family's setter and mask are separate and the FSM does not read them).
+    * one event = one record of the pull family's log (`pull_records`): the same `op`
+      (AK_BDR_*), `slot`, `token` and `n`, in the same order, with the same token
+      assignment; `bytes` is the EXACT payload size (pull's record pads to 8) and `data`
+      points at the payload (NULL for AK_BDR_NEW). The payload lives in the core's state
+      and is valid until the next call on the context; spans index the input buffer, which
+      must stay valid and unmoved until the end event or an error.
+    * return: AK_OK = an event was written and more follow; AK_FSM_END = the event written
+      is the root group (AK_BDR_APPLY), always the last; negative = an error code (no event
+      written). The decode of a message is begin + (events - 1) next calls. A call after
+      the end or an error, a next without a begin, or a context bound to another root is
+      AK_ERR_INVALID_STATE. Error codes and the events before them are pull's.
+    * unknown fields: the context's decision-11 options, read in place, same contract.
+    * counting: begin and every next are forward crossings; grows are reverse crossings.
+
 ABI LAYOUT (derived here once; every language's declaration is rendered from it)
 ----------
     presence_bits(m)        {field: bit} -- a singular message child and every explicit
@@ -1251,11 +1275,15 @@ class FixedAbi:
         ("ak_bdr_rec", "ABI v1 section 7.1: one pull record header, 24 bytes; the payload "
                        "follows, padded to 8.",
          [("op", "u32"), ("slot", "u32"), ("token", "i64"), ("n", "u32"), ("bytes", "u32")]),
+        ("ak_fsm_ev", "FIX-PLAN D23: one FSM event, a pull record's header (same members and "
+                      "offsets) plus a pointer to its payload; `bytes` exact, not padded.",
+         [("op", "u32"), ("slot", "u32"), ("token", "i64"), ("n", "u32"), ("bytes", "u32"),
+          ("data", "*const void")]),
     ]
     # The sizes a renderer asserts (LP64 / 64-bit hosts, which is every host this ships to).
     sizes = {"ak_str": 24, "ak_span": 12, "ak_blob": 16, "ak_unk_buf": 16, "ak_unk_opts": 24, "ak_unk_pool": 24,
              "ak_err": 8,
-             "ak_init_opts": 24, "AkCounters": 48, "ak_bdr_rec": 24}
+             "ak_init_opts": 24, "AkCounters": 48, "ak_bdr_rec": 24, "ak_fsm_ev": 32}
 
     # (name, type, value, doc). `AK_STR_DIRECT` is a pointer VALUE, `AK_TOKEN_ROOT` an i64.
     constants = [
@@ -1267,6 +1295,7 @@ class FixedAbi:
         ("AK_BDR_NEW", "u32", 3, "pull record: a non-leaf element begins (minted token)"),
         ("AK_BDR_APPLY_ELEM", "u32", 4, "pull record: a non-leaf element's group"),
         ("AK_BDR_MIN_CHUNK", "usize", 32 * 1024 + 24, "the smallest drain chunk that holds any record"),
+        ("AK_FSM_END", "i32", 1, "FSM (D23): the event written is the root group, the last one"),
     ]
 
     # The packed-run symbols: one per HOST array layout (ABI v1 section 6).
@@ -1578,6 +1607,26 @@ def pvt_entry_points(p, root):
              "D20: COPY `pvt` into this root-bound context (NULL = all zero: validate every "
              "string); every later `ak_parse_%s` on it uses it. AK_ERR_INVALID_STATE for a "
              "context bound to another root." % root)]
+
+
+# =================================================================== the FSM family (D23)
+
+def fsm_entry_points(p, root):
+    """The FSM decode family's entry points for `root` (FIX-PLAN D23; contract in THE FSM
+    DECODE FAMILY above), (name, [(param, type)], return, doc). The same in both variants."""
+    return [
+        ("ak_fsm_begin_%s" % root,
+         [("ctx", "*mut ak_dec_ctx"), ("buf", "*const u8"), ("len", "usize"), ("ev", "*mut ak_fsm_ev")], "i32",
+         "D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and "
+         "write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error."),
+        ("ak_fsm_next_%s" % root,
+         [("ctx", "*mut ak_dec_ctx"), ("ev", "*mut ak_fsm_ev")], "i32",
+         "D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error."),
+        ("ak_fsm_set_pvt_%s" % root,
+         [("ctx", "*mut ak_dec_ctx"), ("pvt", "*const %s" % pvt_name(root))], "i32",
+         "D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); "
+         "separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root."),
+    ]
 
 
 # =================================================================== unknown fields (decision 11)

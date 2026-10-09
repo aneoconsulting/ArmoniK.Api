@@ -67,7 +67,16 @@ pub mod generated {
     #[cfg_attr(all(feature = "corpus", not(feature = "unknown-fields")), path = "../generated_corpus_nounk/layout.rs")]
     #[cfg_attr(all(not(feature = "corpus"), not(feature = "unknown-fields")), path = "../generated_nounk/layout.rs")]
     pub mod layout;
+    /// FIX-PLAN D23: the FSM decode family, one state machine per root, emitted by its own
+    /// generator module (`gen/rust_fsm.py`) into its own file. Shares no code with `codec`.
+    #[cfg_attr(all(feature = "corpus", feature = "unknown-fields"), path = "../generated_corpus/fsm.rs")]
+    #[cfg_attr(all(feature = "corpus", not(feature = "unknown-fields")), path = "../generated_corpus_nounk/fsm.rs")]
+    #[cfg_attr(all(not(feature = "corpus"), not(feature = "unknown-fields")), path = "../generated_nounk/fsm.rs")]
+    pub mod fsm;
 }
+
+/// FIX-PLAN D23: the FSM decode family's runtime support (its own; see the module).
+pub mod fsm;
 
 /// Referenced by the host so the linker keeps this crate's objects. A host that links the
 /// codec and calls nothing would otherwise get its symbols garbage-collected.
@@ -342,6 +351,10 @@ pub struct DecCtxImpl {
     /// One entry per position (plan.unk_positions order): a pointer into the host's struct.
     #[cfg(feature = "unknown-fields")]
     pub unk: Vec<UnkPos>,
+    /// FIX-PLAN D23: the FSM family's state (frames, run arena, groups under
+    /// construction), allocated on the first `ak_fsm_begin_*` and reused after. Neither
+    /// push nor pull reads it.
+    pub fsm: Option<Box<fsm::FsmCx>>,
 }
 
 #[no_mangle]
@@ -438,6 +451,7 @@ pub(crate) fn dec_ctx_alloc(root: u32) -> *mut ak_dec_ctx {
         unk_opts: core::ptr::null_mut(),
         #[cfg(feature = "unknown-fields")]
         unk: Vec::new(),
+        fsm: None,
     })) as *mut ak_dec_ctx
 }
 

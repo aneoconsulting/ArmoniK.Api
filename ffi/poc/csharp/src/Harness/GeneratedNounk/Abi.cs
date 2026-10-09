@@ -110,6 +110,19 @@ public struct ak_bdr_rec
     public uint bytes;
 }
 
+/// FIX-PLAN D23: one FSM event, a pull record's header (same members and offsets) plus
+/// a pointer to its payload; `bytes` exact, not padded.
+[StructLayout(LayoutKind.Sequential)]
+public struct ak_fsm_ev
+{
+    public uint op;
+    public uint slot;
+    public long token;
+    public uint n;
+    public uint bytes;
+    public IntPtr data;
+}
+
 [StructLayout(LayoutKind.Sequential)]
 public struct ak_efix_TaskOptionsOptionsEntry
 {
@@ -2371,6 +2384,17 @@ public static unsafe class AbiLayout
             s.F.Add(("token", (int)((byte*)&z->token - (byte*)z), Fsz(&z->token)));
             s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
             s.F.Add(("bytes", (int)((byte*)&z->bytes - (byte*)z), Fsz(&z->bytes)));
+            all.Add(s);
+        }
+        {
+            var s = new S { Name = "ak_fsm_ev", Size = sizeof(ak_fsm_ev), Fields = typeof(ak_fsm_ev).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Length };
+            var v = default(ak_fsm_ev); ak_fsm_ev* z = &v;
+            s.F.Add(("op", (int)((byte*)&z->op - (byte*)z), Fsz(&z->op)));
+            s.F.Add(("slot", (int)((byte*)&z->slot - (byte*)z), Fsz(&z->slot)));
+            s.F.Add(("token", (int)((byte*)&z->token - (byte*)z), Fsz(&z->token)));
+            s.F.Add(("n", (int)((byte*)&z->n - (byte*)z), Fsz(&z->n)));
+            s.F.Add(("bytes", (int)((byte*)&z->bytes - (byte*)z), Fsz(&z->bytes)));
+            s.F.Add(("data", (int)((byte*)&z->data - (byte*)z), Fsz(&z->data)));
             all.Add(s);
         }
         {

@@ -36,6 +36,7 @@ sys.path.insert(0, HERE)
 
 import plan as P             # noqa: E402
 import rust_abi              # noqa: E402
+import rust_fsm              # noqa: E402
 import cpp_layout            # noqa: E402
 
 ROOT = os.path.dirname(HERE)
@@ -241,6 +242,8 @@ def targets():
         "crates/ak-core/src/generated/layout.rs": cpp_layout.emit(p),
         "crates/ak-core/src/generated/rpc_check.rs": rust_abi.emit_rpc_check(p),
         "crates/ak-core/src/generated/abi_check.rs": rust_abi.emit_abi_check(p),
+        # FIX-PLAN D23: the FSM decode family, its own emitter and its own file.
+        "crates/ak-core/src/generated/fsm.rs": rust_fsm.emit_fsm(p),
     }
     roots, _refused = corpus_roots()
     cp = P.load_corpus(roots)
@@ -251,6 +254,7 @@ def targets():
         "crates/ak-abi/src/generated_corpus/abi.rs": rust_abi.emit_abi(cp),
         "crates/ak-core/src/generated_corpus/codec.rs": ccodec,
         "crates/ak-core/src/generated_corpus/layout.rs": cpp_layout.emit(cp),
+        "crates/ak-core/src/generated_corpus/fsm.rs": rust_fsm.emit_fsm(cp),
     })
     # WP5 step 10: the NO-UNKNOWN variant of both (plan: THE NO-UNKNOWN VARIANT), from the
     # same plans relowered with unknown="drop", behind ak-abi/ak-core's `unknown-fields`
@@ -262,6 +266,7 @@ def targets():
             "crates/ak-abi/src/%s/abi.rs" % sub: rust_abi.emit_abi(dp),
             "crates/ak-core/src/%s/codec.rs" % sub: dcodec,
             "crates/ak-core/src/%s/layout.rs" % sub: cpp_layout.emit(dp),
+            "crates/ak-core/src/%s/fsm.rs" % sub: rust_fsm.emit_fsm(dp),
         })
     # The RPC half's region of ak-abi's hand-written lib.rs (see rust_abi.emit_rpc_abi).
     lib = os.path.join(ROOT, "crates/ak-abi/src/lib.rs")

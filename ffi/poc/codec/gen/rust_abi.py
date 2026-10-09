@@ -28,7 +28,7 @@ from plan import (FIXED, dec_vtable, enc_vtable, pull_slot,  # noqa: F401
                   unk_opts_members, unk_root_id, unk_entry_points,
                   unk_opts_layout, unknown_compiled_out,
                   UTF8_MEMBER, utf8_bit, utf8_bit_names, utf8_child_offset, utf8_width,
-                  pull_vtable, pvt_name, pvt_entry_points, utf8_bits)
+                  pull_vtable, pvt_name, pvt_entry_points, utf8_bits, fsm_entry_points)
 from rustnames import SCALAR  # noqa: F401
 
 # Historical name, imported by the cpp and java generators until they are ported.
@@ -292,6 +292,11 @@ def emit_abi(ir):
         o.append("        buf: *const u8,")
         o.append("        len: usize,")
         o.append("    ) -> i32;")
+        # FIX-PLAN D23: the FSM decode family (additive; plan.fsm_entry_points).
+        # The event type by its full path, so the `use` line above stays as it was.
+        for fname, params, ret, doc in fsm_entry_points(ir, root):
+            o.append("    /// %s" % doc)
+            o.append("    pub fn %s;" % _rsig(fname, params, ret).replace("ak_fsm_ev", "super::super::ak_fsm_ev"))
     for et in sorted(element_types(ir)):
         leaf = ir.msg(et).leaf
         if leaf:
