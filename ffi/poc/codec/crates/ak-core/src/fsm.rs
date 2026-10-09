@@ -197,6 +197,7 @@ pub unsafe fn fsm_of<'a>(dcx: *mut DecCtxImpl) -> &'a mut FsmCx {
 /// end, so every span it returns is absolute. Its rules are the plan's DECODE RULES (the
 /// same accept/refuse set and error codes as the other families' reader, which is the
 /// differential's to check), written here again.
+#[derive(Clone, Copy)]
 pub struct FRd<'a> {
     pub buf: &'a [u8],
     pub pos: usize,
@@ -208,6 +209,12 @@ impl<'a> FRd<'a> {
     #[inline(always)]
     pub fn at_end(&self) -> bool {
         self.pos >= self.end || self.err != 0
+    }
+
+    /// More bytes in the open message (D23 fix A's loop condition).
+    #[inline(always)]
+    pub fn more(&self) -> bool {
+        self.pos < self.end
     }
 
     #[inline(always)]

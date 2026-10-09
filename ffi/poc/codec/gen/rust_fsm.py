@@ -359,16 +359,34 @@ def _frame_walk(R, scope, o, name, fx, prefix, rel, sb, depth, ind):
         elif op == "packed_run":
             sid, _rec, dty = scope["slots"][sn]
             ncap = R.nconst(scope, sn, dty)
-            one = _read(act.read, "r")
+            one = _read(act.read, "pr")
             if f.kind == "bool":
-                one = "(r.varint() != 0) as u8"
+                one = "(pr.varint() != 0) as u8"
             pk = R.frame(type="packed", scope=scope, sid=sid, dty=dty, ncap=ncap, one=one, depth=depth + 1)
             o.append("%s%s" % (i2, _pre_slot(scope, sid, None)))
             o.append("%slet (off, n) = r.len_body();" % i2)
             o.append("%sif r.err != 0 { fail!(r.err); }" % i2)
-            o.append("%sif !f.push(%d, off + n) { fail!(AK_ERR_DEPTH); }" % (i2, pk["id"]))
-            o.append("%sf.pos = off;" % i2)
-            o.append("%scontinue;" % i2)
+            # D23 fix A (owner, 2026-10-09): the body is decoded in a TIGHT LOOP, cursor and
+            # count in locals, values decoded here into the arena as typed values; the loop is
+            # left only when the body ends or the arena is full with values left, and only then
+            # is a packed frame opened, to resume at the next value.
+            o.append("%s// D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena." % i2)
+            o.append("%slet mut pr = r.sub(off, n);" % i2)
+            o.append("%slet mut cnt = f.n;" % i2)
+            o.append("%swhile pr.more() {" % i2)
+            o.append("%s    if cnt == %s {" % (i2, ncap))
+            o.append("%s        if !f.push(%d, off + n) { fail!(AK_ERR_DEPTH); }" % (i2, pk["id"]))
+            o.append("%s        f.pos = pr.pos;" % i2)
+            o.append("%s        f.n = cnt;" % i2)
+            o.append("%s        ev_run_%s!();" % (i2, scope["key"]))
+            o.append("%s        return FSM_ADD;" % i2)
+            o.append("%s    }" % i2)
+            o.append("%s    let v = %s;" % (i2, one))
+            o.append("%s    if pr.err != 0 { fail!(pr.err); }" % i2)
+            o.append("%s    (ar as *mut %s).add(cnt).write(v);" % (i2, dty))
+            o.append("%s    cnt += 1;" % i2)
+            o.append("%s}" % i2)
+            o.append("%sf.n = cnt;" % i2)
         elif op == "packed_one":
             sid, _rec, dty = scope["slots"][sn]
             ncap = R.nconst(scope, sn, dty)
@@ -541,18 +559,24 @@ def _emit_root(p, root):
     o.append("        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };")
     packed = [fr for fr in R.frames if fr["type"] == "packed"]
     if packed:
-        o.append("        // A packed body: one value per iteration; a full arena returns the run and")
-        o.append("        // the next call resumes at the next value.")
+        o.append("        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from")
+        o.append("        // the next value; a full arena again returns the run, the body's end closes the frame.")
         o.append("        match top.kind {")
         for fr in packed:
             k = fr["scope"]["key"]
             o.append("            %d => {" % fr["id"])
-            o.append("                if f.n == %s { ev_run_%s!(); return FSM_ADD; }" % (fr["ncap"], k))
-            o.append("                let v = %s;" % fr["one"])
-            o.append("                if r.err != 0 { fail!(r.err); }")
-            o.append("                (ar as *mut %s).add(f.n).write(v);" % fr["dty"])
-            o.append("                f.n += 1;")
-            o.append("                f.pos = r.pos;")
+            o.append("                let mut pr = r;")
+            o.append("                let mut cnt = f.n;")
+            o.append("                while pr.more() {")
+            o.append("                    if cnt == %s { f.pos = pr.pos; f.n = cnt; ev_run_%s!(); return FSM_ADD; }" % (fr["ncap"], k))
+            o.append("                    let v = %s;" % fr["one"])
+            o.append("                    if pr.err != 0 { fail!(pr.err); }")
+            o.append("                    (ar as *mut %s).add(cnt).write(v);" % fr["dty"])
+            o.append("                    cnt += 1;")
+            o.append("                }")
+            o.append("                f.n = cnt;")
+            o.append("                f.pos = pr.pos;")
+            o.append("                f.depth -= 1;")
             o.append("                continue;")
             o.append("            }")
         o.append("            _ => {}")

@@ -3131,52 +3131,82 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             1 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_TICKS { ev_run_root!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_METRICSBATCH_ROOT_TICKS { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             2 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_VALUES { ev_run_root!(); return FSM_ADD; }
-                let v = r.f64();
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut f64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_METRICSBATCH_ROOT_VALUES { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.f64();
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut f64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             3 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_CODES { ev_run_root!(); return FSM_ADD; }
-                let v = r.varint() as i32;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i32).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_METRICSBATCH_ROOT_CODES { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.varint() as i32;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i32).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             4 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_FLAGS { ev_run_root!(); return FSM_ADD; }
-                let v = (r.varint() != 0) as u8;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut u8).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_METRICSBATCH_ROOT_FLAGS { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = (pr.varint() != 0) as u8;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut u8).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             5 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_STATUSES { ev_run_root!(); return FSM_ADD; }
-                let v = r.varint() as i32;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i32).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_METRICSBATCH_ROOT_STATUSES { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.varint() as i32;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i32).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -3206,9 +3236,23 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 1);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_METRICSBATCH_ROOT_TICKS {
+                            if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 3 if wire == 1 => {
                     pre_slot_root!(s0, 2, FSM_N_METRICSBATCH_ROOT_VALUES);
@@ -3221,9 +3265,23 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 2);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_METRICSBATCH_ROOT_VALUES {
+                            if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.f64();
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut f64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 4 if wire == 0 => {
                     pre_slot_root!(s0, 3, FSM_N_METRICSBATCH_ROOT_CODES);
@@ -3236,9 +3294,23 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 3);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_METRICSBATCH_ROOT_CODES {
+                            if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i32;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i32).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 5 if wire == 0 => {
                     pre_slot_root!(s0, 4, FSM_N_METRICSBATCH_ROOT_FLAGS);
@@ -3251,9 +3323,23 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 4);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(4, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_METRICSBATCH_ROOT_FLAGS {
+                            if !f.push(4, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = (pr.varint() != 0) as u8;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut u8).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 6 if wire == 0 => {
                     pre_slot_root!(s0, 5, FSM_N_METRICSBATCH_ROOT_STATUSES);
@@ -3266,9 +3352,23 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 5);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(5, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_METRICSBATCH_ROOT_STATUSES {
+                            if !f.push(5, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i32;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i32).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 _ => {
                     pre_other_root!(s0);
@@ -5172,52 +5272,82 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             2 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_TICKS { ev_run_e0!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_LISTMETRICSRESPONSE_E0_TICKS { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             3 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_VALUES { ev_run_e0!(); return FSM_ADD; }
-                let v = r.f64();
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut f64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_LISTMETRICSRESPONSE_E0_VALUES { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.f64();
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut f64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             4 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_CODES { ev_run_e0!(); return FSM_ADD; }
-                let v = r.varint() as i32;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i32).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_LISTMETRICSRESPONSE_E0_CODES { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.varint() as i32;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i32).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             5 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_FLAGS { ev_run_e0!(); return FSM_ADD; }
-                let v = (r.varint() != 0) as u8;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut u8).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_LISTMETRICSRESPONSE_E0_FLAGS { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = (pr.varint() != 0) as u8;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut u8).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             6 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_STATUSES { ev_run_e0!(); return FSM_ADD; }
-                let v = r.varint() as i32;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i32).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_LISTMETRICSRESPONSE_E0_STATUSES { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.varint() as i32;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i32).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -5269,9 +5399,23 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 1);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_LISTMETRICSRESPONSE_E0_TICKS {
+                            if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 3 if wire == 1 => {
                     pre_slot_e0!(s0, 2, FSM_N_LISTMETRICSRESPONSE_E0_VALUES);
@@ -5284,9 +5428,23 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 2);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_LISTMETRICSRESPONSE_E0_VALUES {
+                            if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.f64();
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut f64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 4 if wire == 0 => {
                     pre_slot_e0!(s0, 3, FSM_N_LISTMETRICSRESPONSE_E0_CODES);
@@ -5299,9 +5457,23 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 3);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(4, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_LISTMETRICSRESPONSE_E0_CODES {
+                            if !f.push(4, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i32;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i32).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 5 if wire == 0 => {
                     pre_slot_e0!(s0, 4, FSM_N_LISTMETRICSRESPONSE_E0_FLAGS);
@@ -5314,9 +5486,23 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 4);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(5, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_LISTMETRICSRESPONSE_E0_FLAGS {
+                            if !f.push(5, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = (pr.varint() != 0) as u8;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut u8).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 6 if wire == 0 => {
                     pre_slot_e0!(s0, 5, FSM_N_LISTMETRICSRESPONSE_E0_STATUSES);
@@ -5329,9 +5515,23 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 5);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(6, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_LISTMETRICSRESPONSE_E0_STATUSES {
+                            if !f.push(6, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i32;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i32).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 _ => {
                     pre_other_e0!(s0);
@@ -6028,16 +6228,22 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             1 => {
-                if f.n == FSM_N_CHUNKINNER_ROOT_MARKS { ev_run_root!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_CHUNKINNER_ROOT_MARKS { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -6060,9 +6266,23 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
                     pre_slot_nocap_root!(s0, 1);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_CHUNKINNER_ROOT_MARKS {
+                            if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 2 if wire == 2 => {
                     pre_slot_root!(s0, 2, FSM_N_CHUNKINNER_ROOT_LEAVES);
@@ -6232,16 +6452,22 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             2 => {
-                if f.n == FSM_N_CHUNKELEMENT_ROOT_INNER_MARKS { ev_run_root!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_CHUNKELEMENT_ROOT_INNER_MARKS { f.pos = pr.pos; f.n = cnt; ev_run_root!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -6306,9 +6532,23 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                     pre_slot_nocap_root!(s0, 3);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_CHUNKELEMENT_ROOT_INNER_MARKS {
+                            if !f.push(2, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_root!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 2 if wire == 2 => {
                     pre_slot_root!(s0, 4, FSM_N_CHUNKELEMENT_ROOT_INNER_LEAVES);
@@ -6516,16 +6756,22 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             3 => {
-                if f.n == FSM_N_CHUNKEDRESPONSE_E0_INNER_MARKS { ev_run_e0!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_CHUNKEDRESPONSE_E0_INNER_MARKS { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -6618,9 +6864,23 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
                     pre_slot_nocap_e0!(s0, 3);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_CHUNKEDRESPONSE_E0_INNER_MARKS {
+                            if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 2 if wire == 2 => {
                     pre_slot_e0!(s0, 4, FSM_N_CHUNKEDRESPONSE_E0_INNER_LEAVES);
@@ -6828,16 +7088,22 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
             }
         }
         let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
-        // A packed body: one value per iteration; a full arena returns the run and
-        // the next call resumes at the next value.
+        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
+        // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
             3 => {
-                if f.n == FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_MARKS { ev_run_e0!(); return FSM_ADD; }
-                let v = r.varint() as i64;
-                if r.err != 0 { fail!(r.err); }
-                (ar as *mut i64).add(f.n).write(v);
-                f.n += 1;
-                f.pos = r.pos;
+                let mut pr = r;
+                let mut cnt = f.n;
+                while pr.more() {
+                    if cnt == FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_MARKS { f.pos = pr.pos; f.n = cnt; ev_run_e0!(); return FSM_ADD; }
+                    let v = pr.varint() as i64;
+                    if pr.err != 0 { fail!(pr.err); }
+                    (ar as *mut i64).add(cnt).write(v);
+                    cnt += 1;
+                }
+                f.n = cnt;
+                f.pos = pr.pos;
+                f.depth -= 1;
                 continue;
             }
             _ => {}
@@ -6924,9 +7190,23 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     pre_slot_nocap_e0!(s0, 3);
                     let (off, n) = r.len_body();
                     if r.err != 0 { fail!(r.err); }
-                    if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
-                    f.pos = off;
-                    continue;
+                    // D23 fix A: a tight loop over the body; a packed frame only to resume after a full arena.
+                    let mut pr = r.sub(off, n);
+                    let mut cnt = f.n;
+                    while pr.more() {
+                        if cnt == FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_MARKS {
+                            if !f.push(3, off + n) { fail!(AK_ERR_DEPTH); }
+                            f.pos = pr.pos;
+                            f.n = cnt;
+                            ev_run_e0!();
+                            return FSM_ADD;
+                        }
+                        let v = pr.varint() as i64;
+                        if pr.err != 0 { fail!(pr.err); }
+                        (ar as *mut i64).add(cnt).write(v);
+                        cnt += 1;
+                    }
+                    f.n = cnt;
                 }
                 2 if wire == 2 => {
                     pre_slot_e0!(s0, 4, FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_LEAVES);
