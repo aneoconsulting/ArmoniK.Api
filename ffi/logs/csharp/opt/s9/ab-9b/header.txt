@@ -1,0 +1,10 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 36004329; 2026-10-09T05:39:31Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=decode-read AK_BDN_NO_UNKNOWN= AK_BDN_ARMS= AK_BDN_DROP=; builds full; reps 1 (order alternated)
+# cores: target-core 800d7882ab536255, target-core-nounk 11e0c85ae13efa7a; reps 1..1 in this invocation
+# variant s9: /home/user/ArmoniK.Api/ffi/poc/csharp at 36004329
+# rep 1 s9 full: rc=0 283 s; quiet: load1 0.10, no process above 10 % (waited 170 s); # correctness:    4516 pre-timing checks passed (byte identi
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 36004329; 2026-10-09T05:47:15Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=decode-read AK_BDN_NO_UNKNOWN= AK_BDN_ARMS= AK_BDN_DROP=; builds full; reps 2 (order alternated)
+# cores: target-core 800d7882ab536255, target-core-nounk 11e0c85ae13efa7a; reps 2..2 in this invocation
+# variant s9: /home/user/ArmoniK.Api/ffi/poc/csharp at 36004329
+# rep 2 s9 full: rc=0 283 s; quiet: load1 0.47, no process above 10 % (waited 50 s); # correctness:    4516 pre-timing checks passed (byte identi

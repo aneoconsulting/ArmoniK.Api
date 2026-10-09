@@ -2755,3 +2755,30 @@ benchmark for both runs (343 + 360) plus the quiet waits.
   us vs skip 35-41): each string is allocated while the half-built graph is live, so the gen0
   collections during a decode copy the graph (0.11 to 0.18 gen0 per op on P2.2 ref vs 0.04 for
   skip); host-gen pays the same.
+
+## 78. Step 9a (decoded runs pre-size their list) and 9b (the owner's six-arm decode table) (2026-10-09)
+
+Container instrumentation; process CPU per op; quiet wait per process. Logs `ffi/logs/csharp/opt/s9/`.
+
+- **9a** (`cs_host.py` `_add_body`, every push `Add_*` callback and every pull-replay ADD):
+  `EnsureCapacity(Count + n)` before the loop that appends a run of n (List<T> from .NET 6;
+  the generated host half compiles for net6.0 and net8.0 only, so no #if). OrderedMap gained
+  `EnsureCapacity(n)` (Dictionary and order list; netstandard2.0 grows the order list only,
+  having no Dictionary.EnsureCapacity). Facade constructors unchanged. Quick checks (gate
+  levels 8) passed, counts unchanged (`s9/checks-9a.log`). A/B core-ffi push retain
+  decode-read, before 51abb00c / after, 2 reps (`s9/ab-9a/table.md`): allocated bytes per op
+  down where runs are long (P2.4 3.28 -> 2.78 MB, P2.3 2.10 -> 1.93 MB, P2.2 2.18 -> 2.11 MB,
+  P4.1 364 -> 337 KB, U-wire-ListMetrics 4,776 -> 2,552 B); CPU P2.2 1956 -> 1832 us (latin1
+  2678 -> 2371, wide 3272 -> 3075), P2.4 1829 -> 1653, P4.1 309 -> 295, U-wire-ListMetrics 3.42
+  -> 2.67 us, U-deep-u-repeated 3.07 -> 2.95; within spread or noisy on P1.2 (384 -> 374), P2.5,
+  the other U-* rows; P2.3 1316 -> 1433 against the allocation drop (spreads 1231-1689 /
+  1299-1848, flagged). P1.2's bytes rise slightly (666 -> 669 KB): its 5,000 results arrive in
+  several runs, and the first EnsureCapacity sets an exact rather than a power-of-two capacity.
+- **9b** (`AK_BDN_S9=1`, Cases.cs: the six arms only; RootOps DecIncProdDiscard = the same
+  Gp parser `.WithDiscardUnknownFields(true)`, built once per root; DecFfiPullR = TryPull with
+  retain): the campaign harness (BDN per-case children, core-grid settings: client CPUs 0,1,
+  warm-up 25 x 40 ms, 6 rounds x 40 ms), decode-read only, full build, at 36004329 (9a in), 2
+  reps (unit order shuffled per launch), 283 s each. 150 cases per rep: the 16 shapes, P2.2
+  Latin-1 and wide, the 7 U-* rows, x 6 arms. Times-only table `s9/ab-9b/table.md`; spreads,
+  allocation, gen0 and minflt `s9/ab-9b/reference.md` (P5.2 to P5.4 are bimodal across reps, as
+  in every earlier run; P2.3 core push retain 1232-1642).
