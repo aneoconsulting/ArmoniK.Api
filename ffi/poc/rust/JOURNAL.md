@@ -4506,3 +4506,12 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   members, so nothing observable; recorded, not fixed (pull is not this unit's to change).
 - Checks: see STATE "D23". Floor 1.88.0: ak-core and fsm_diff build and the differential passes
   (`checks/floor-1.88.log`).
+- Checks all pass (STATE "D23", `logs/rust/opt/d23-fsm/checks/rust-checks.log`; the log's header
+  says "+ uncommitted changes": it ran on the tree committed as 8030b7f9 + 475b51a2 before the
+  commit). First F6 run failed: the C smoke looked for the core at target/release (it is in
+  target/release/deps); fixed, whole script re-run. The token plant first aborted the process
+  (the consumer indexed a bad token) rather than being reported by the differential; the graph
+  check now runs only after the differential agreed.
+- Instrumentation (`bench/tables.md`, 619 s): FSM range above both push and pull in 49 of 228
+  cells, below in none; packed rows (P6.1 about 302-312 us against 213-243) and small U-* rows by
+  5-25 ns; large string rows overlap. Not attributed; nothing tuned (setup phase).

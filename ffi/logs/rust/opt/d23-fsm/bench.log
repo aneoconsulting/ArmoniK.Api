@@ -1,0 +1,20 @@
+# D23 decode families measurement, 2026-10-09T07:43:23Z. CONTAINER INSTRUMENTATION, not a campaign result.
+# commit 475b51a2b3b425ea63b15b548acca4c97f9c7581
+# rustc 1.94.1 (e408947bf 2026-03-25); nproc 4
+# cpu        Intel(R) Xeon(R) Processor @ 2.80GHz; kernel 6.18.44-fc-v80; smt notsupported (active 0); no_turbo n/a; governor cpu1 n/a; scaling min/max cpu1 n/a/n/a kHz
+# isolation  cmdline: isolated='' nohz_full='n/a'
+# cgroups    cpuset.cpus.effective:; this driver's cgroup /: n/a; root cpuset.cpus.isolated='n/a'; this driver's affinity 0-3
+# irq        default_smp_affinity f; smp_affinity_list of /proc/irq/*: 0-3 x29, 
+# allowed    non-kernel threads whose Cpus_allowed_list includes a benchmark CPU (1-8, 11-18), this session's excluded: environment-man x11, HeapHelper x3, process_api x1, vsock-console x1, idle-reclaim x1, sbx-telemetry-s x1, 6 x1, sh x1, claude x1, mi-scavenger x1, Bun Pool 0 x1, Bun Pool 1 x1, Bun Pool 2 x1, Bun Pool 3 x1, HTTP Client x1, fs.watch x1, JSCWarmUp x1, JITWorker x1
+# running    threads RUNNABLE right now on the client or server CPUs (1-8, 11-18), this session's excluded: ; loadavg 1.21 1.71 1.80 1/105 12006
+# exe /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/codec_suite-d23 (sha256 b34865114b38b462) loads /home/user/ArmoniK.Api/ffi/poc/rust/target/release/deps/libak_core.so (sha256 a2f76e782bd9df5c; FSM entries exported: 21)
+# settings: AK_FSM=1 AK_CAMPAIGN_GRID=full AK_CASE_ARMS=core-ffi,core-ffi-pull,core-ffi-fsm AK_CASE_DIRS=decode-read AK_SAMPLES=10 AK_WARMUP_MS=80 AK_MEASURE_MS=150; 3 launches; CPU 1 (taskset); nothing else of this session runs meanwhile
+# launch 1: loadavg before 0.94 1.62 1.77 (waited 15 s)
+launch 1: # precheck: 2796 checks, 0 failures, 114 inputs, 684 cases; arm order: # arm order: core-native,incumbent-prod,core-ffi,core-ffi-pull,core-ffi-fsm,armonik (arm blocks and the cases inside eac
+# launch 2: loadavg before 0.97 1.32 1.61 (waited 10 s)
+launch 2: # precheck: 2796 checks, 0 failures, 114 inputs, 684 cases; arm order: # arm order: armonik,core-ffi-fsm,core-ffi,core-ffi-pull,incumbent-prod,core-native (arm blocks and the cases inside eac
+# launch 3: loadavg before 0.99 1.16 1.49 (waited 5 s)
+launch 3: # precheck: 2796 checks, 0 failures, 114 inputs, 684 cases; arm order: # arm order: core-native,core-ffi,core-ffi-pull,core-ffi-fsm,armonik,incumbent-prod (arm blocks and the cases inside eac
+# benchmark wall: 619 s; loadavg after 1.09 1.11 1.40
+tables: python3 gen/d23_tables.py /home/user/ArmoniK.Api/ffi/logs/rust/opt/d23-fsm/bench EVENTS_LOG > /home/user/ArmoniK.Api/ffi/logs/rust/opt/d23-fsm/bench/tables.md
+exit 0

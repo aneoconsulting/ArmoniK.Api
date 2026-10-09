@@ -7,13 +7,109 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f) |
-| **Next step** | none assigned. Latest unit (2026-10-04, owner): the decode vtables in static storage (e0586a85: cpp_binding `static const struct ak_dvt_<Root> k_dvt_<Root>`, positional, plan.dec_vtable order; rust_binding `static VT`); checks only, no timing and no gate (owner: impact trivial): `logs/rust/opt/static-vtables/checks/` (rust-checks.log: STATIC-VTABLE CHECKS PASSED, crossings 1,092 / 567 identical; cpp-check.log: conformance 8 arms, corpus 4 arms, counts 530 / 530 / 301 identical, campaign_codec pre-checks, c++11/14/17 -Werror=missing-field-initializers; its plant line is void, cpp-plant.log is the valid control); rdrepro / stickyerr left per call (untimed gate drivers). Not run: ASan, timing, other slices' gates. Before it (2026-10-04): D20, the host-selected UTF-8 skip bits on decode (push vtable member, pull vtable and setter) in the shared core and generator, every slice regenerated with every bit 0; section "D20" below. Before it (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
+| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; section "D23" |
+| **Next step** | none assigned in this slice. Latest unit (2026-10-09, owner): **D23, the FSM decode family**, in the shared core and generator, checked and timed in the container (section "D23" below, `logs/rust/opt/d23-fsm/`); the C# consumer is the C# slice's next unit (its contract is in the section). Before it (2026-10-04, owner): the decode vtables in static storage (e0586a85: cpp_binding `static const struct ak_dvt_<Root> k_dvt_<Root>`, positional, plan.dec_vtable order; rust_binding `static VT`); checks only, no timing and no gate (owner: impact trivial): `logs/rust/opt/static-vtables/checks/` (rust-checks.log: STATIC-VTABLE CHECKS PASSED, crossings 1,092 / 567 identical; cpp-check.log: conformance 8 arms, corpus 4 arms, counts 530 / 530 / 301 identical, campaign_codec pre-checks, c++11/14/17 -Werror=missing-field-initializers; its plant line is void, cpp-plant.log is the valid control); rdrepro / stickyerr left per call (untimed gate drivers). Not run: ASan, timing, other slices' gates. Before it (2026-10-04): D20, the host-selected UTF-8 skip bits on decode (push vtable member, pull vtable and setter) in the shared core and generator, every slice regenerated with every bit 0; section "D20" below. Before it (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
-| **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42) |
+| **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42); (4) D23: pull's records of a group carry the group local's padding bytes as the stack held them (no-unknown TaskDetailed, bytes 348-351): a host reading members is unaffected, a byte-level comparison is not (the FSM differential zeroes padding on both sides) |
+
+## D23: the FSM decode family (2026-10-09, owner; shared core and generator; container)
+
+Commits 8030b7f9 (poc/codec: plan, rust_fsm.py, fsm.rs, generated*/fsm.rs, declarations, every
+slice regenerated) and 475b51a2 (this slice: consumer, checks, harness). Logs:
+`logs/rust/opt/d23-fsm/` (`checks/rust-checks.log`, `checks/floor-1.88.log`, `checks/base/`,
+`checks/events-counting.txt`, `bench/`). Nothing here is a recommendation; every timing is
+container instrumentation.
+
+- **ABI** (plan.py, THE FSM DECODE FAMILY; `fsm_entry_points`; FIXED `ak_fsm_ev`, `AK_FSM_END`):
+  `int32_t ak_fsm_begin_<Root>(ak_dec_ctx*, const uint8_t *buf, size_t len, ak_fsm_ev *ev)`
+  returns the FIRST event; `int32_t ak_fsm_next_<Root>(ak_dec_ctx*, ak_fsm_ev *ev)` the next;
+  `int32_t ak_fsm_set_pvt_<Root>(ak_dec_ctx*, const ak_pvt_<Root>*)` copies the D20 mask for later
+  FSM decodes (the FSM's own setter; pull's setter and mask are separate, push's vtable mask is
+  per call). Returns: AK_OK = an event, more follow; AK_FSM_END (1) = the event is the root group
+  (AK_BDR_APPLY), the last; < 0 = error, no event. A decode is begin + (events - 1) next; an empty
+  message is one call. After the end or an error, a next without begin, a context bound to another
+  root, a NULL ctx or event: AK_ERR_INVALID_STATE. `ak_fsm_ev` (repr(C), 32 B, asserted in fsm.rs,
+  every C header, the C# by-name probe): `op u32, slot u32, token i64, n u32, bytes u32, data
+  *const void` = `ak_bdr_rec`'s members at its offsets plus the payload pointer; `bytes` exact
+  (pull pads to 8); `data` NULL for AK_BDR_NEW. Payload valid until the next call on the context;
+  spans index the input, which must stay valid and unmoved until the end event or an error.
+- **Separation** (owner's rule): the FSM's emitter `poc/codec/gen/rust_fsm.py` shares no function
+  with rust_abi.py's push/pull emitter (`dec_walk` etc.); its runtime `crates/ak-core/src/fsm.rs`
+  has its own reader `FRd` (varint, fixed, len_body, skip, bounded group skip), UTF-8 check
+  (simdutf8), decision-11 placement `fsm_unk_put` (same grow contract, restated), frame stack, arena
+  and constants (restated, equality asserted). What it reads from the context is configuration:
+  root binding, counters, the sticky slot, decision 11's armed positions. Proof (checks step S):
+  the four `codec.rs` byte-identical to dfa9eb04; every Rust binding's pre-D23 text a prefix of the
+  new; every other generated file changed by additions only (29 files); hand-written changes with
+  removed lines: corpus main.rs (arg parsing) and codec_suite.rs (header vector); counts, pullbench,
+  crossings (1,092) and no-unknown crossings (567) identical to the base commit's.
+- **Design**: per root a step function over a frame stack in the context (`FsmCx`, Box in
+  `DecCtxImpl.fsm`, allocated on the first begin, reused): frames = root, inlined singular child
+  (shares the scope's slots), non-leaf element, packed body; one absolute cursor; depth static per
+  root (shapes: at most 4 of 16; the generator refuses a root needing more than FSM_MAX_FRAMES = 16,
+  a push beyond is AK_ERR_DEPTH). One open run (`cur`, `n`) and one 32 KB arena (u64 words, in the
+  context; same `ARENA_BYTES / size` budget per slot as push/pull, so runs and event counts are
+  pull's). A flush returns the run event and leaves the cursor at the tag that caused it (re-read on
+  the next call, run closed); a full arena inside one packed body returns the event and the next
+  call resumes at the next value. Root group and current element group in `FsmCx.grp`. Leaf
+  elements and oneof message members decoded synchronously by the FSM's own leaf decoders. Tokens
+  minted 0.. per decode in pull's order. Retain: the context's armed options, grows counted as
+  reverse crossings. Errors: the first error ends the decode (state FAILED); pull's quirk on a
+  non-leaf element with a truncated length (NEW + empty APPLY_ELEM, then the error) reproduced
+  (`pend`). A host `ak_fail` between events ends the decode at the next call with that code.
+  Re-entrancy: state per context, none thread-local.
+- **Checks** (`checks/rust-checks.log`, `gen/d23_checks.sh dfa9eb04 checks/base`: D23 CHECKS
+  PASSED): generators current (every slice), one core; unit tests; **differential** (bin
+  `fsm_diff`, campaign crate) on all 114 codec-suite inputs (16 shapes, 6 content-set rows, 92 U-*
+  rows) x drop/retain: events == pull records (op, slot, token, n, payload with group padding
+  zeroed), same return code, a call after the end refused, retain buffers byte-identical (bump
+  grow, both families); FSM consumer graph == push's; 456 valid re-orderings (unknown field spliced
+  between top-level records, records reversed); 4 synthetic inputs (packed runs over the arena
+  inside one body, 8,000-string runs); 43,568 malformed variants (truncations, byte flips) under
+  D20 masks 0 and all-ones, 28,558 refused by pull: same codes, same events before them; 42 API
+  checks. 44,302 checks full build, 22,172 no-unknown, 0 failures. Corpus (`corpus --fsm-diff`,
+  every row the ABI carries, 686 rows, accept rows also with mask all-ones): 2,458 / 1,229
+  comparisons (full / no-unknown), 27,360 / 13,676 records = events, 0 failures. Plants in the
+  generated FSM, each caught: token off by one, a lost run, a run split early, rewind one byte late,
+  owed error dropped, mask ignored. C header: C11 and C++17 -Werror (full, no-unknown), 21 FSM
+  declarations each; a C program decodes through `ak_fsm_*` against the core. Codec-suite pre-check
+  with AK_FSM=1 (full grid): 6,196 / 3,485 checks 0 failures; default pre-check unchanged 620 / 359.
+  Gate steps 3, 4, 5, 9, 10, 11 (corpus.sh), 11b, 11c, 12 pass. Floor 1.88.0: build + differential
+  (`checks/floor-1.88.log`).
+- **Events per decode** (`checks/events-counting.txt`, counting build): FSM events = pull records on
+  every row; FSM forward crossings = its calls = events (P1.1 2, P1.2 8, P2.2 3,501, P2.3 876,
+  P2.4 561, P6.1 1,401, P7.1 7, P5.1 1); pull's forward count of the parse is 1; reverse (grows)
+  equal between the families.
+- **Instrumentation** (`bench/tables.md`, `gen/d23_bench.sh`: one process per launch holding push,
+  pull, FSM, 3 launches, seeded arm order, CPU 1, load < 1.0 before each, wall 619 s): decode-read
+  absolutes per arm, drop and retain, all 114 inputs (228 input x mode cells). The FSM's range of
+  launch medians lies above both push's and pull's in 49 cells and below both in none; the rest
+  overlap. Where it lies above: the packed rows (P6.1 302-312 us against push 213-239 and pull
+  222-243, both modes; the three U-wire-ListMetricsResponse rows 2.51-2.91 us against 1.89-2.24),
+  P4.1 drop (351-372 us against 347-351 / 327-336), P7.1 retain (429-511 ns against 372-373 /
+  386-414), and small U-* rows (the U-oneof-* family, U-wire-ListProbe / UploadResultData /
+  DualResponse rows, U-root-* drop) by about 5 to 25 ns or 3 to 15 percent. Not attributed: the
+  per-value frame dispatch inside a packed body and the per-event call are candidates, not
+  measured (perf not run). Large string rows (P1.2, P2.2, P2.4 and their content sets) overlap.
+- **Not covered**: a C# (or any non-Rust) consumer; the JVM (D23's stated later test); TSan/ASan;
+  the campaign machine; the FSM in the RPC grid; timing of the no-unknown build; the FSM's own
+  C# DllImport declarations (cs_binding renders FIXED's `ak_fsm_ev` struct, not the per-root
+  entries).
+- **What a C# consumer needs** (for the C# slice): DllImports per root `int ak_fsm_begin_<R>(IntPtr
+  ctx, byte* buf, nuint len, ak_fsm_ev* ev)`, `int ak_fsm_next_<R>(IntPtr ctx, ak_fsm_ev* ev)`,
+  `int ak_fsm_set_pvt_<R>(IntPtr ctx, ak_pvt_<R>* pvt)` (struct `ak_fsm_ev` is already in Abi.cs);
+  pin the input with ONE `fixed` spanning begin and every next until AK_FSM_END or an error (the
+  core reads it across calls); loop `rc = begin(..., &ev); while (rc >= 0) { dispatch(ev); if (rc
+  == 1) break; rc = next(..., &ev); }`; dispatch on `(ev.op, ev.slot >> 16, ev.slot & 0xFFFF)` with
+  the body of today's `Replay` (`ak_bdr_rec r` -> `ev`, `body` -> `(byte*)ev.data`, `r.n` -> `ev.n`,
+  `r.token` -> `ev.token`; do not advance by `bytes`): APPLY last, NEW appends the element (token =
+  its index), APPLY_ELEM / ADD index by token; consume each payload before the next call (it is
+  overwritten); arming (ArmFor/Disarm), retain buffer ownership (a delivered group's buffers are
+  the host's) and the failure path are pull's; `_fwd += calls` (= events); a failed decode
+  discards the partially built object. The mask is 0 unless `ak_fsm_set_pvt_<R>` is called.
 
 ## D20: decode UTF-8 validation per string field, host-selected (2026-10-04, owner; shared core and generator; container)
 
@@ -989,6 +1085,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/d23-fsm/` | D23: `checks/rust-checks.log` (gen/d23_checks.sh: generators, separation vs dfa9eb04, unit tests, the FSM differential full / no-unknown / counting, the corpus differential both builds, six plants caught, C header and C host, pre-checks with and without the FSM arm, gate steps 3-5, 9-12), `checks/base/` (the base commit's counts, pullbench, crossings), `checks/events-counting.txt` (events and crossings per decode), `checks/floor-1.88.log`; `bench/` (header, three codec_suite processes, raw JSON lines) and `bench/tables.md` |
 | `logs/rust/opt/d20-utf8-bits/` | D20: `checks/rust-checks.log` (gen/d20_checks.sh: generators, unit and D20 core tests with plants, conformance, shapes, counts, R-D1, R-D6, corpus, pre-checks, crossing counts, both builds), `checks/cpp.log`, `checks/csharp.log` (build_core.sh and the net8.0 quick gate), `checks/java-python.log`; `bench/` (header with the toggle proofs, 18 processes, d20_bench.out) and `tables.md` |
 | `logs/rust/opt/d19-simdutf/` | D19: `checks/checks.log` (unit tests, conformance, shapes, the differential at scale 8, corpus both builds, pre-checks, crossing counts), `bench/` (header, three tc16_bench processes, tables.md), `build-impact/` (matrix.log: feature sets, h2-batch, C hosts, staticlib, floor; cpp.log; csharp.log) |
 | `logs/rust/opt/patches/backward-encode/` | the backward-encode experiment: the patches (sources, generated, dropped v2), README, the gate and bwd_check on the backward core (checks/gate), the mismatched pair (checks/mismatch), the alternated encode session and RPC probe (bench/, tables.md), P6.1 v1/v2 and harness x core (bench-p6-v2/, bench-p6-2x2/) |
