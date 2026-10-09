@@ -138,6 +138,11 @@ public abstract unsafe class RootOps
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfi(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfiPull(byte[] b, int len, bool read);
+    // Step 9b (owner, 2026-10-09): the incumbent's parser discarding unknown fields
+    // (Parser.WithDiscardUnknownFields(true), built once per root: the production path otherwise),
+    // and the pull family retained.
+    public abstract long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read);
+    public abstract long DecFfiPullR(byte[] b, int len, bool retain, bool read);
     // D21 s8 attribution (harness only): the core-ffi push decode through the parse (0), noop (1)
     // or parse-validate (2) vtable; the pull family's parse alone; the graphs, for the census
     // and the strings-alone arm; the read pass alone.
@@ -285,6 +290,9 @@ def _ops(o, root):
     o += "        return read ? Touch.F_%s(m) : 1;" % root
     o += "    }"
     o += "    public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_%s(m) : 1; }" % root
+    o += "    private static readonly MessageParser<%s> DiscardParser = %s.Parser.WithDiscardUnknownFields(true);" % (g, g)
+    o += "    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_%s(m) : 1; }" % root
+    o += "    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core pull \" + rc); return read ? Touch.F_%s(m) : 1; }" % root
     o += "    public override long DecFfiVt(byte[] b, int len, bool retain, int kind)"
     o += "    {"
     o += "        int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_%s.VtParse : kind == 1 ? CoreFfi_%s.VtNoop : CoreFfi_%s.VtParseValidate);" % (root, root, root)

@@ -467,6 +467,11 @@ public abstract unsafe class RootOps
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfi(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfiPull(byte[] b, int len, bool read);
+    // Step 9b (owner, 2026-10-09): the incumbent's parser discarding unknown fields
+    // (Parser.WithDiscardUnknownFields(true), built once per root: the production path otherwise),
+    // and the pull family retained.
+    public abstract long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read);
+    public abstract long DecFfiPullR(byte[] b, int len, bool retain, bool read);
     // D21 s8 attribution (harness only): the core-ffi push decode through the parse (0), noop (1)
     // or parse-validate (2) vtable; the pull family's parse alone; the graphs, for the census
     // and the strings-alone arm; the read pass alone.
@@ -644,6 +649,9 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
         return read ? Touch.F_ListResultsResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListResultsResponse(m) : 1; }
+    private static readonly MessageParser<Gp.ListResultsResponse> DiscardParser = Gp.ListResultsResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListResultsResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListResultsResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListResultsResponse.VtParse : kind == 1 ? CoreFfi_ListResultsResponse.VtNoop : CoreFfi_ListResultsResponse.VtParseValidate);
@@ -785,6 +793,9 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
         return read ? Touch.F_ListTasksDetailedResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListTasksDetailedResponse(m) : 1; }
+    private static readonly MessageParser<Gp.ListTasksDetailedResponse> DiscardParser = Gp.ListTasksDetailedResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListTasksDetailedResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTasksDetailedResponse.VtParse : kind == 1 ? CoreFfi_ListTasksDetailedResponse.VtNoop : CoreFfi_ListTasksDetailedResponse.VtParseValidate);
@@ -926,6 +937,9 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
         return read ? Touch.F_ListProbeResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListProbeResponse(m) : 1; }
+    private static readonly MessageParser<Gp.ListProbeResponse> DiscardParser = Gp.ListProbeResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListProbeResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListProbeResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListProbeResponse.VtParse : kind == 1 ? CoreFfi_ListProbeResponse.VtNoop : CoreFfi_ListProbeResponse.VtParseValidate);
@@ -1067,6 +1081,9 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
         return read ? Touch.F_ListTaskSummaryResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListTaskSummaryResponse(m) : 1; }
+    private static readonly MessageParser<Gp.ListTaskSummaryResponse> DiscardParser = Gp.ListTaskSummaryResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListTaskSummaryResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTaskSummaryResponse.VtParse : kind == 1 ? CoreFfi_ListTaskSummaryResponse.VtNoop : CoreFfi_ListTaskSummaryResponse.VtParseValidate);
@@ -1208,6 +1225,9 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
         return read ? Touch.F_UploadResultDataMessage(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_UploadResultDataMessage(m) : 1; }
+    private static readonly MessageParser<Gp.UploadResultDataMessage> DiscardParser = Gp.UploadResultDataMessage.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_UploadResultDataMessage(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_UploadResultDataMessage.VtParse : kind == 1 ? CoreFfi_UploadResultDataMessage.VtNoop : CoreFfi_UploadResultDataMessage.VtParseValidate);
@@ -1349,6 +1369,9 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
         return read ? Touch.F_ListMetricsResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_ListMetricsResponse(m) : 1; }
+    private static readonly MessageParser<Gp.ListMetricsResponse> DiscardParser = Gp.ListMetricsResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListMetricsResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListMetricsResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListMetricsResponse.VtParse : kind == 1 ? CoreFfi_ListMetricsResponse.VtNoop : CoreFfi_ListMetricsResponse.VtParseValidate);
@@ -1490,6 +1513,9 @@ public sealed unsafe class Ops_DualResponse : RootOps
         return read ? Touch.F_DualResponse(m) : 1;
     }
     public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_DualResponse(m) : 1; }
+    private static readonly MessageParser<Gp.DualResponse> DiscardParser = Gp.DualResponse.Parser.WithDiscardUnknownFields(true);
+    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_DualResponse(m) : 1; }
+    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_DualResponse(m) : 1; }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_DualResponse.VtParse : kind == 1 ? CoreFfi_DualResponse.VtNoop : CoreFfi_DualResponse.VtParseValidate);

@@ -22,6 +22,11 @@ public sealed class Case
 
 public static class Cases
 {
+    /// Step 9b (owner, 2026-10-09), AK_BDN_S9=1 (full build, decode rows): the owner's six arms:
+    /// the incumbent retaining (its default parser) and discarding unknown fields
+    /// (WithDiscardUnknownFields), core push retain / drop, core pull retain / drop; nothing else.
+    public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1";
+
     /// The arms in their launch-1 order; launch n rotates it by n - 1 (requirement 22).
     public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-pull" };
 
@@ -35,8 +40,9 @@ public static class Cases
     private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
 #else
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
-    private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
-    private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
+    private static readonly string[] S9Arms = { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
+    private static readonly string[] DecArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
+    private static readonly string[] UnkArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
 #endif
 
     /// CAMPAIGN section 4.0 (D18, owner 2026-10-03): AK_CAMPAIGN_GRID=core runs the campaign
@@ -58,7 +64,7 @@ public static class Cases
         "U-wire-ListMetricsResponse-batches-as-wt0", "U-wire-DualResponse-left-as-wt5" };
     /// AK_BDN_ARMS (comma list of arm names; narrowed exploration runs only): keep these arms.
     private static readonly string[] ArmsOnly = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("AK_BDN_ARMS")) ? null : Environment.GetEnvironmentVariable("AK_BDN_ARMS").Split(',');
-    private static string[] G(string[] arms) => (CoreGrid ? arms.Where(a => CoreArms.Contains(a)) : arms).Where(a => ArmsOnly == null || ArmsOnly.Contains(a.Split(':')[0])).ToArray();
+    private static string[] G(string[] arms) => (CoreGrid && !S9 ? arms.Where(a => CoreArms.Contains(a)) : arms).Where(a => ArmsOnly == null || ArmsOnly.Contains(a.Split(':')[0])).ToArray();
     /// Section 4.0's encode row per arm (owner decision D1, 2026-10-04, optimisation step 1):
     /// end state (ii) is the form the arm's OWN transport cell receives. incumbent-prod: the
     /// Grpc.Net frame (cell A, encode-transport-hot); core-ffi: its encode left in the core's
@@ -129,7 +135,7 @@ public static class Cases
     public static int UnitSeed(int launch) => launch * 7919;
     public static List<string> Units(int launch)
     {
-        var all = G(EncArms).Concat(G(DecArms)).Concat(G(UnkArms)).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var all = (S9 ? G(DecArms) : G(EncArms).Concat(G(DecArms)).Concat(G(UnkArms))).Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
         var rng = new Random(UnitSeed(launch));
         return all.OrderBy(_ => rng.Next()).ToList();
     }
@@ -497,11 +503,15 @@ public static class Cases
             // in the core's context (EncodeInto, no take); host-gen's Enc buffer, sized as Ef's.
             case "core-ffi:encode-core": return () => { ops.Next(); return ops.EncFfiCore(retain); };
             case "host-gen:encode-core": { var box = new EncBox(-1); return () => { ops.Next(); return box.Run(ops, retain); }; }
-            case "incumbent-prod:decode": case "incumbent-prod:decode-read": return () => ops.DecIncProd(seq, read);
+            case "incumbent-prod:decode": case "incumbent-prod:decode-read":
+                if (c.Mode == "discard") return () => ops.DecIncProdDiscard(seq, read);
+                return () => ops.DecIncProd(seq, read);
             case "incumbent-best:decode": case "incumbent-best:decode-read": return () => ops.DecIncBest(wire, len, read);
             case "host-gen:decode": case "host-gen:decode-read": return () => ops.DecHost(wire, len, retain, read);
             case "core-ffi:decode": case "core-ffi:decode-read": return () => ops.DecFfi(wire, len, retain, read);
-            case "core-ffi-pull:decode": case "core-ffi-pull:decode-read": return () => ops.DecFfiPull(wire, len, read);
+            case "core-ffi-pull:decode": case "core-ffi-pull:decode-read":
+                if (c.Mode == "retain") return () => ops.DecFfiPullR(wire, len, true, read);
+                return () => ops.DecFfiPull(wire, len, read);
             case "incumbent-prod:decode-reencode": return () => ops.RtIncProd(seq, w);
             case "host-gen:decode-reencode": return () => ops.RtHost(wire, len, retain).Length;
             case "core-ffi:decode-reencode": return () => ops.RtFfi(wire, len, retain).Length;
