@@ -4599,3 +4599,6 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   Disk at 90 % after it (the plant shadow, h2-batch and concur builds, and the other agent's
   work), so the floor runs in this tree with this slice's target directories removed first, not in
   a fresh worktree (a worktree's builds would not fit).
+- Floor: this slice's target directories removed (about 9 GB), then `RUSTUP_TOOLCHAIN=1.88.0
+  bash gen/gate.sh` at c7b3392f with no uncommitted change in poc/rust or poc/codec: GATE PASSED
+  (`gate-floor-1.88.log`; the six plants caught again, crossing counts identical, corpus 6 / 3 arms).
