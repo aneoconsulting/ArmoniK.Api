@@ -284,6 +284,10 @@ public static class CoreGate
         Console.WriteLine("AK_CHUNK=150 and the columns match to the digit. See JOURNAL.md 19.");
         Console.WriteLine();
         Console.WriteLine("What the counts mean, and the whole reason the shapes differ:");
+        Console.WriteLine("  THE FSM COLUMN IS THE TARGET SINCE D24. `ak_fsm_begin_*` / `ak_fsm_next_*`");
+        Console.WriteLine("  return one event per call, so its forward count is its event count (the");
+        Console.WriteLine("  pull family's record count) and its reverse count is zero: push's reverse");
+        Console.WriteLine("  calls become forward calls. Push and pull are labelled extras.");
         Console.WriteLine("  THE PULL COLUMN IS THE POINT OF THE LAST TWO. `ak_parse_*` makes no");
         Console.WriteLine("  reverse call at all: it appends a record per deposit to a buffer in the");
         Console.WriteLine("  host-owned decode context, and the host replays it afterwards. So pull's");

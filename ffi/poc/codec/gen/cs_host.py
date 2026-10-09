@@ -1950,6 +1950,10 @@ def _emit_unk_nounk(o, p, root):
     o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
     o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
     o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
+    o += "        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set"
+    o += "        // lazily on the first FSM decode, it made one count row depend on which thread decoded)."
+    o += "        int fp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
+    o += "        if (fp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + fp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
     o += ""
@@ -1993,6 +1997,10 @@ def _emit_unk(o, p, root):
     o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
     o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
     o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
+    o += "        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set"
+    o += "        // lazily on the first FSM decode, it made one count row depend on which thread decoded)."
+    o += "        int fp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
+    o += "        if (fp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + fp);" % root
     o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
     o += "    }"
     o += ""
@@ -2183,21 +2191,15 @@ def _emit_fsm(o, p, root, slots):
     o += "    public %s Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core FSM decode failed: {rc}\"); return t; }" % root
     if not _NO:
         o += "    public %s FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core FSM decode failed: {rc}\"); return t; }" % root
-    o += "    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter."
+    o += "    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter"
+    o += "    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context."
     o += "    private static readonly ak_pvt_%s* FsmPvt = MakeFsmPvt();" % root
     o += "    private static ak_pvt_%s* MakeFsmPvt() { var v = (ak_pvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_%s)); v->utf8_skip = AkUtf8Skip.%s_ALL; return v; }" % (root, root, root, root)
-    o += "    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into"
     o += ""
     o += "    public int TryFsm(byte[] src, int len, bool retain, out %s result)" % root
     o += "    {"
     o += "        result = null;"
     o += "        EnsureDec();"
-    o += "        if (_fsmPvtFor != _dctx)"
-    o += "        {"
-    o += "            int sp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
-    o += "            if (sp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + sp);" % root
-    o += "            _fsmPvtFor = _dctx;"
-    o += "        }"
     o += "        int ar = ArmFor(retain ? -1 : -2);"
     o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var t = new %s();" % root

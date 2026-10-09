@@ -1652,6 +1652,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_ListResultsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListResultsResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_ListResultsResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListResultsResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -1927,21 +1931,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// path are pull's; a failed decode's partial object is discarded.
     public ListResultsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public ListResultsResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_ListResultsResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListResultsResponse* MakeFsmPvt() { var v = (ak_pvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListResultsResponse)); v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out ListResultsResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_ListResultsResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListResultsResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListResultsResponse();
@@ -2830,6 +2828,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTasksDetailedResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_ListTasksDetailedResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTasksDetailedResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -3321,21 +3323,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// discarded.
     public ListTasksDetailedResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public ListTasksDetailedResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_ListTasksDetailedResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListTasksDetailedResponse* MakeFsmPvt() { var v = (ak_pvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTasksDetailedResponse)); v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_ListTasksDetailedResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTasksDetailedResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTasksDetailedResponse();
@@ -3747,6 +3743,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_ListProbeResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListProbeResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_ListProbeResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListProbeResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -4008,21 +4008,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// path are pull's; a failed decode's partial object is discarded.
     public ListProbeResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public ListProbeResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_ListProbeResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListProbeResponse* MakeFsmPvt() { var v = (ak_pvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListProbeResponse)); v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out ListProbeResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_ListProbeResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListProbeResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListProbeResponse();
@@ -4521,6 +4515,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTaskSummaryResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_ListTaskSummaryResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTaskSummaryResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -4831,21 +4829,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// the failure path are pull's; a failed decode's partial object is discarded.
     public ListTaskSummaryResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public ListTaskSummaryResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_ListTaskSummaryResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListTaskSummaryResponse* MakeFsmPvt() { var v = (ak_pvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTaskSummaryResponse)); v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_ListTaskSummaryResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTaskSummaryResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTaskSummaryResponse();
@@ -5156,6 +5148,10 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_UploadResultDataMessage: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_UploadResultDataMessage(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultDataMessage: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -5398,21 +5394,15 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// the failure path are pull's; a failed decode's partial object is discarded.
     public UploadResultDataMessage Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public UploadResultDataMessage FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_UploadResultDataMessage* FsmPvt = MakeFsmPvt();
     private static ak_pvt_UploadResultDataMessage* MakeFsmPvt() { var v = (ak_pvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultDataMessage)); v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out UploadResultDataMessage result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_UploadResultDataMessage(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultDataMessage: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new UploadResultDataMessage();
@@ -6021,6 +6011,10 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListMetricsResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_ListMetricsResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListMetricsResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -6314,21 +6308,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// path are pull's; a failed decode's partial object is discarded.
     public ListMetricsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public ListMetricsResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_ListMetricsResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListMetricsResponse* MakeFsmPvt() { var v = (ak_pvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListMetricsResponse)); v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out ListMetricsResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_ListMetricsResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListMetricsResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListMetricsResponse();
@@ -6849,6 +6837,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
         int sp = Abi.ak_dec_set_pvt_DualResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
         if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_DualResponse: " + sp);
+        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
+        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
+        int fp = Abi.ak_fsm_set_pvt_DualResponse(_dctx, FsmPvt);
+        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_DualResponse: " + fp);
         _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
     }
 
@@ -7118,21 +7110,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// pull's; a failed decode's partial object is discarded.
     public DualResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     public DualResponse FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
-    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by its setter
+    /// (ak_fsm_set_pvt_<Root>) once, when EnsureDec creates the context.
     private static readonly ak_pvt_DualResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_DualResponse* MakeFsmPvt() { var v = (ak_pvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_DualResponse)); v->utf8_skip = AkUtf8Skip.DualResponse_ALL; return v; }
-    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
 
     public int TryFsm(byte[] src, int len, bool retain, out DualResponse result)
     {
         result = null;
         EnsureDec();
-        if (_fsmPvtFor != _dctx)
-        {
-            int sp = Abi.ak_fsm_set_pvt_DualResponse(_dctx, FsmPvt);
-            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_DualResponse: " + sp);
-            _fsmPvtFor = _dctx;
-        }
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new DualResponse();

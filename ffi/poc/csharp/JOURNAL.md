@@ -2836,3 +2836,29 @@ Container instrumentation. Logs `ffi/logs/csharp/opt/s11/`.
   reps 1944 / 2555 us, the widest spread of the run), P2.2/wide retain, P2.5 drop, P3.1 drop,
   P7.1 both modes, U-deep-u-repeated retain. Two reps only: a row enters or leaves the list on
   one rep's median (s10's and s11's lists differ also on rows the fixes do not touch).
+
+## 81. D24: the FSM replaces push as the target decode family (2026-10-09)
+
+Correctness only; nothing timed (owner: the Rust agent works in parallel). Logs
+`ffi/logs/csharp/opt/d24/`.
+
+- **What names the target's decode, and what it does now.** RootOps `DecFfi`, `RtFfi` and
+  `FromWire(3/4)` decode with `TryFsm`; `DecFfiPush` (new) is push, behind the new arm
+  `core-ffi-push` (full grid: drop, retain; no-unknown build: no-unknown; the S9 set names push
+  explicitly, S10's eight arms are core-ffi-push, core-ffi-pull, core-ffi). The D23 arm
+  `core-ffi-fsm` is gone (it is core-ffi); gen/s10_tables.py reads either naming, and the s10 and
+  s11 tables re-render byte-identical. RPC: four `TryDecode` sites in src/Rpc/Campaign.cs (C's
+  blocking decode, D's marshaller, the delivery cells' DecodeRead, the queue drainer's Decode)
+  are `TryFsm`; E and F decode with host-gen and are untouched; no decode-family switch existed,
+  so no push twin. Corpus: `ffi-drop` / `ffi-retain` decode with the FSM and every row is also
+  decoded by push and pull (same code, same re-encoding, or the row fails); `AK_CORPUS_PUSH=1`
+  adds the push arms alone; `--unk-controls` adds FSM == push. Gate: CoreGate's dec / val / ret
+  are the FSM, push and pull are extra columns, R5 compares both FSM and push with the core's
+  counters; P7.1 decodes the committed interleaved vector there too. DecAttr (s8) and the old
+  Harness bench keep push under push's name. Run_campaign.sh and the BDN header say "FSM decode".
+- **Counts:** only decode rows moved; push rows reappear under core-ffi-push identical to the old
+  core-ffi rows (88 / 44); crossings: 8 counts per row, push and pull columns unchanged except
+  P7.1 (input change); rpc counts: only rows that had `ak_decode_` changed; none keeps it. One
+  delivery row carries a one-time `ak_fsm_set_pvt_*` (deterministic over three runs; the cause,
+  which thread's context first meets the FSM in the counted call, not traced further).
+- **Gate:** see the entry's last item (filled in at the end of the unit).
