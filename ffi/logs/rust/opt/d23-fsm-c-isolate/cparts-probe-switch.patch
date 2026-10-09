@@ -1,0 +1,95 @@
+diff --git a/ffi/poc/codec/gen/rust_fsm.py b/ffi/poc/codec/gen/rust_fsm.py
+index a1032f93..1253bdf7 100644
+--- a/ffi/poc/codec/gen/rust_fsm.py
++++ b/ffi/poc/codec/gen/rust_fsm.py
+@@ -42,6 +42,10 @@ FSM_MAX_FRAMES = 16
+ 
+ NOUNK = False
+ 
++# PROBE ONLY (D23 C isolation, not committed): which parts of fix C to render.
++import os as _os
++C_PARTS = set(x for x in _os.environ.get("AK_FSM_C_PARTS", "m,v,f,i").split(",") if x)
++
+ 
+ def _head(p):
+     return HEAD_FMT % getattr(p, "source", "ffi/schema/shapes.json")
+@@ -509,14 +513,25 @@ def _emit_root(p, root):
+              (" " + fr.get("name", "")) if fr["type"] != "packed" else " (slot %d)" % fr["sid"]) for fr in R.frames))
+     o.append("/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.")
+     o.append("#[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]")
+-    o.append("#[inline(always)]")
++    if "m" in C_PARTS:
++        o.append("#[inline(always)]")
+     o.append("unsafe fn fsm_step_%s(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {" % R.rs)
+-    o.append("    let buf: &[u8] = f.input();")
+-    o.append("    let gr = f.gp as *mut ak_dfix_%s;" % root)
+-    for es in R.elem_scopes:
+-        o.append("    let ge_%d = f.gp.add(FSM_ROOT_WORDS_%s) as *mut ak_dfix_%s;" % (es["j"], U, es["et"]))
+-    o.append("    let ar = f.ap;")
+-    o.append("    let u0 = f.u;")
++    if "i" in C_PARTS:
++        o.append("    let buf: &[u8] = f.input();")
++    else:
++        o.append("    let buf: &[u8] = if f.len == 0 { &[] } else { ::core::slice::from_raw_parts(f.buf, f.len) };")
++    if "v" in C_PARTS:
++        o.append("    let gr = f.gp as *mut ak_dfix_%s;" % root)
++        for es in R.elem_scopes:
++            o.append("    let ge_%d = f.gp.add(FSM_ROOT_WORDS_%s) as *mut ak_dfix_%s;" % (es["j"], U, es["et"]))
++        o.append("    let ar = f.ap;")
++        o.append("    let u0 = f.u;")
++    else:
++        o.append("    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_%s;" % root)
++        for es in R.elem_scopes:
++            o.append("    let ge_%d = f.grp.as_mut_ptr().add(FSM_ROOT_WORDS_%s) as *mut ak_dfix_%s;" % (es["j"], U, es["et"]))
++        o.append("    let ar = f.arena.as_mut_ptr();")
++        o.append("    let u0 = FsmU::root(dcx);")
+     o.append("    let sk = f.sk;")
+     o.append("    macro_rules! fail {")
+     o.append("        ($e:expr) => {{")
+@@ -532,7 +547,10 @@ def _emit_root(p, root):
+     o.append("    if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }")
+     o.append("    loop {")
+     o.append("        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).")
+-    o.append("        let top = *f.frames.get_unchecked(f.depth - 1);")
++    if "f" in C_PARTS:
++        o.append("        let top = *f.frames.get_unchecked(f.depth - 1);")
++    else:
++        o.append("        let top = f.frames[f.depth - 1];")
+     o.append("        if f.pos >= top.end {")
+     o.append("            // The open message ends here.")
+     o.append("            match top.kind {")
+@@ -624,7 +642,8 @@ def _emit_root(p, root):
+     o.append("    }")
+     o.append("    f.start(buf, len, FSM_ROOT_WORDS_%s + FSM_ELEM_WORDS_%s);" % (U, U))
+     o.append("    f.sk = f.utf8_skip;")
+-    o.append("    f.u = FsmU::root(dcx);")
++    if "v" in C_PARTS:
++        o.append("    f.u = FsmU::root(dcx);")
+     o.append("    (f.grp.as_mut_ptr() as *mut ak_dfix_%s).write(ak_dfix_%s::ZERO);" % (root, root))
+     o.append("    fsm_step_%s(dcx, f, ev)" % R.rs)
+     o.append("}")
+@@ -635,11 +654,19 @@ def _emit_root(p, root):
+     o.append("    if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }")
+     o.append("    let dcx = ctx as *mut DecCtxImpl;")
+     o.append("    ak_rt::bump!((*dcx).c, forward);")
+-    o.append("    // Never begun: refused.")
+-    o.append("    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };")
+-    o.append("    // D23 fix C: the entry checks merged into one branch (another root, a decode not")
+-    o.append("    // running, a host ak_fail since the last event); fsm_refuse sorts them out.")
+-    o.append("    if ((*dcx).root != %d) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, %d); }" % (rid, rid))
++    if "m" in C_PARTS:
++        o.append("    // Never begun: refused.")
++        o.append("    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };")
++        o.append("    // D23 fix C: the entry checks merged into one branch (another root, a decode not")
++        o.append("    // running, a host ak_fail since the last event); fsm_refuse sorts them out.")
++        o.append("    if ((*dcx).root != %d) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, %d); }" % (rid, rid))
++    else:
++        o.append("    if (*dcx).root != %d { return AK_ERR_INVALID_STATE; }" % rid)
++        o.append("    let f = match (*dcx).fsm.as_deref_mut() {")
++        o.append("        Some(f) if f.state == ST_RUN => f,")
++        o.append("        _ => return AK_ERR_INVALID_STATE,")
++        o.append("    };")
++        o.append("    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }")
+     o.append("    fsm_step_%s(dcx, f, ev)" % R.rs)
+     o.append("}")
+     o.append("")

@@ -1,0 +1,12 @@
+# loop P2.2 fsm-core: 3904 ops in 4 s
+C0: samples in ak_fsm_next on instructions touching the stack: 16.9% of the function's samples
+    58.71% ak_fsm_next_ListTasksDetailedResponse
+    28.31% core::str::converts::from_utf8
+    5.15% ak_core::generated::fsm::fsm_task_options_options_entry_fix_into
+    1.94% simdutf8::implementation::x86::validate_utf8_basic
+# loop P2.2 fsm-core: 3456 ops in 4 s
+C0f: samples in ak_fsm_next on instructions touching the stack: 19.3% of the function's samples
+    62.65% ak_fsm_next_ListTasksDetailedResponse
+    25.55% core::str::converts::from_utf8
+    4.33% ak_core::generated::fsm::fsm_task_options_options_entry_fix_into
+    1.82% simdutf8::implementation::x86::validate_utf8_basic

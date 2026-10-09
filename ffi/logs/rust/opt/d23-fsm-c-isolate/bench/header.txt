@@ -1,0 +1,19 @@
+# AB: core deffecc18c7f5298
+# C0: core 7885d6bb49b675f1
+# C0v: core 4e2e3d70b9cb3880
+# C0f: core e9cf01b5f8c9fd3b
+# C0i: core 42a936ee9df3d051
+# C: core 44eea860d8e9a7ee
+# launch 1 stage AB: loadavg 0.97 2.69 1.92 (waited 45 s)
+# launch 1 stage C0: loadavg 0.99 2.43 1.87 (waited 0 s)
+# launch 1 stage C0v: loadavg 0.92 2.19 1.82 (waited 5 s)
+# launch 1 stage C0f: loadavg 0.97 2.01 1.78 (waited 0 s)
+# launch 1 stage C0i: loadavg 0.98 1.86 1.74 (waited 0 s)
+# launch 1 stage C: loadavg 0.91 1.70 1.69 (waited 5 s)
+# launch 2 stage C0f: loadavg 0.96 1.60 1.65 (waited 0 s)
+# launch 2 stage C0i: loadavg 0.94 1.50 1.61 (waited 5 s)
+# launch 2 stage C: loadavg 0.97 1.43 1.58 (waited 0 s)
+# launch 2 stage AB: loadavg 0.99 1.36 1.55 (waited 0 s)
+# launch 2 stage C0: loadavg 0.92 1.29 1.51 (waited 5 s)
+# launch 2 stage C0v: loadavg 0.99 1.26 1.49 (waited 5 s)
+# done, loadavg 1.07 1.23 1.47

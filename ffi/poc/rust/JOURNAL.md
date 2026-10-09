@@ -4550,3 +4550,14 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   the trade-off is in STATE for the owner.
 - Each fix was checked by the FSM differential before its commit; gen/d23_checks.sh on A+B+C passes
   with every slice's generator checked (the C# agent was idle).
+
+## 2026-10-09: D23 fix C isolated (owner's option 3), withdrawn
+
+- Six builds from one generator with an uncommitted parts switch (patch in the logs): AB, C0, C0+v,
+  C0+f, C0+i, C. Each passed the FSM differential before timing; two alternated launches, drop and
+  retain.
+- f (unchecked frame fetch) is the string-row loss: +12-14 % core on P2.2/P4.1; the step's machine
+  code grows 21 % with 2.7x the stack references. v and i each regress listed rows too; C0 alone is
+  mixed against A+B (and the packed probes swing with code layout across variants that do not touch
+  the packed loop). Per the owner's rule the FSM is A+B: 75f819f8 reverted. Singles were conclusive
+  (each regressed), so no pairs were built.
