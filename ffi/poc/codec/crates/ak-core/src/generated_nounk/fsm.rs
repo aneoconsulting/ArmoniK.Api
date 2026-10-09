@@ -356,7 +356,8 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }
@@ -584,7 +585,8 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }
@@ -1329,7 +1331,8 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }
@@ -1537,7 +1540,8 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }
@@ -1889,7 +1893,8 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }
@@ -2129,7 +2134,8 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         // D23 fix A: resuming a packed body after a full arena: the same tight loop, from
         // the next value; a full arena again returns the run, the body's end closes the frame.
         match top.kind {
@@ -2543,7 +2549,8 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                 }
             }
         }
-        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };
+        // D23 fix B: the reader is the prefix of the input ending at the frame's end.
+        let mut r = FRd::at(buf, f.pos, top.end);
         let s0 = r.pos;
         let k = r.varint();
         if r.err != 0 { fail!(r.err); }

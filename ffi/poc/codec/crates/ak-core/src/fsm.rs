@@ -193,28 +193,36 @@ pub unsafe fn fsm_of<'a>(dcx: *mut DecCtxImpl) -> &'a mut FsmCx {
     (*dcx).fsm.as_deref_mut().unwrap_unchecked()
 }
 
-/// The FSM's wire reader: a cursor over the ONE input buffer bounded by the open message's
-/// end, so every span it returns is absolute. Its rules are the plan's DECODE RULES (the
-/// same accept/refuse set and error codes as the other families' reader, which is the
-/// differential's to check), written here again.
+/// The FSM's wire reader: a cursor over the ONE input buffer, held as the PREFIX of it that
+/// ends where the open message ends (D23 fix B, owner 2026-10-09), so every span it returns is
+/// absolute and the end check IS the slice bound: one bounds check per byte. Its rules are the
+/// plan's DECODE RULES (the same accept/refuse set and error codes as the other families'
+/// reader, which is the differential's to check), written here again.
 #[derive(Clone, Copy)]
 pub struct FRd<'a> {
+    /// `input[..end]` of the open message.
     pub buf: &'a [u8],
     pub pos: usize,
-    pub end: usize,
     pub err: i32,
 }
 
 impl<'a> FRd<'a> {
+    /// A reader over `input[..end]` from `pos`. `end <= input.len()` (a frame's end comes from
+    /// a checked length).
+    #[inline(always)]
+    pub unsafe fn at(input: &'a [u8], pos: usize, end: usize) -> FRd<'a> {
+        FRd { buf: input.get_unchecked(..end), pos, err: 0 }
+    }
+
     #[inline(always)]
     pub fn at_end(&self) -> bool {
-        self.pos >= self.end || self.err != 0
+        self.pos >= self.buf.len() || self.err != 0
     }
 
     /// More bytes in the open message (D23 fix A's loop condition).
     #[inline(always)]
     pub fn more(&self) -> bool {
-        self.pos < self.end
+        self.pos < self.buf.len()
     }
 
     #[inline(always)]
@@ -222,11 +230,10 @@ impl<'a> FRd<'a> {
         let mut v = 0u64;
         let mut shift = 0u32;
         loop {
-            if self.pos >= self.end {
+            let Some(&c) = self.buf.get(self.pos) else {
                 self.err = AK_ERR_TRUNCATED;
                 return 0;
-            }
-            let c = self.buf[self.pos];
+            };
             self.pos += 1;
             v |= ((c & 0x7f) as u64) << shift;
             if c & 0x80 == 0 {
@@ -242,24 +249,30 @@ impl<'a> FRd<'a> {
 
     #[inline(always)]
     pub fn f64(&mut self) -> f64 {
-        if self.end - self.pos < 8 {
-            self.err = AK_ERR_TRUNCATED;
-            return 0.0;
+        match self.buf.get(self.pos..self.pos.wrapping_add(8)) {
+            Some(b) if self.pos <= self.buf.len() => {
+                self.pos += 8;
+                f64::from_le_bytes(b.try_into().unwrap())
+            }
+            _ => {
+                self.err = AK_ERR_TRUNCATED;
+                0.0
+            }
         }
-        let v = f64::from_le_bytes(self.buf[self.pos..self.pos + 8].try_into().unwrap());
-        self.pos += 8;
-        v
     }
 
     #[inline(always)]
     pub fn fixed32(&mut self) -> u32 {
-        if self.end - self.pos < 4 {
-            self.err = AK_ERR_TRUNCATED;
-            return 0;
+        match self.buf.get(self.pos..self.pos.wrapping_add(4)) {
+            Some(b) if self.pos <= self.buf.len() => {
+                self.pos += 4;
+                u32::from_le_bytes(b.try_into().unwrap())
+            }
+            _ => {
+                self.err = AK_ERR_TRUNCATED;
+                0
+            }
         }
-        let v = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
-        self.pos += 4;
-        v
     }
 
     /// A length-delimited body as (absolute offset, length). A length past the open
@@ -267,7 +280,7 @@ impl<'a> FRd<'a> {
     #[inline(always)]
     pub fn len_body(&mut self) -> (usize, usize) {
         let n = self.varint() as usize;
-        if n > self.end - self.pos {
+        if n > self.buf.len() - self.pos {
             self.err = AK_ERR_TRUNCATED;
             return (self.pos, 0);
         }
@@ -276,10 +289,10 @@ impl<'a> FRd<'a> {
         (off, n)
     }
 
-    /// A sub-reader over `off..off + n`.
+    /// A sub-reader over `off..off + n` (a span `len_body` returned, so in bounds).
     #[inline(always)]
     pub fn sub(&self, off: usize, n: usize) -> FRd<'a> {
-        FRd { buf: self.buf, pos: off, end: off + n, err: 0 }
+        FRd { buf: unsafe { self.buf.get_unchecked(..off + n) }, pos: off, err: 0 }
     }
 
     /// An unknown field (protobuf's forward compatibility).
@@ -297,7 +310,7 @@ impl<'a> FRd<'a> {
             5 => self.pos += 4,
             _ => self.err = AK_ERR_MALFORMED,
         }
-        if self.pos > self.end {
+        if self.pos > self.buf.len() {
             self.err = AK_ERR_TRUNCATED;
         }
     }
@@ -312,7 +325,7 @@ impl<'a> FRd<'a> {
             if self.err != 0 {
                 return;
             }
-            if self.pos >= self.end {
+            if self.pos >= self.buf.len() {
                 self.err = AK_ERR_TRUNCATED;
                 return;
             }

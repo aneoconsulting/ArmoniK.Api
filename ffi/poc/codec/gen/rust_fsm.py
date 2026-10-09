@@ -556,7 +556,8 @@ def _emit_root(p, root):
     o.append("                }")
     o.append("            }")
     o.append("        }")
-    o.append("        let mut r = FRd { buf, pos: f.pos, end: top.end, err: 0 };")
+    o.append("        // D23 fix B: the reader is the prefix of the input ending at the frame's end.")
+    o.append("        let mut r = FRd::at(buf, f.pos, top.end);")
     packed = [fr for fr in R.frames if fr["type"] == "packed"]
     if packed:
         o.append("        // D23 fix A: resuming a packed body after a full arena: the same tight loop, from")
