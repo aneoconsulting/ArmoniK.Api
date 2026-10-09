@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-83); this file states what is true now.
+84); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | 2026-10-09 (latest): **D25** (owner, FIX-PLAN d479b702): [SuppressGCTransition] dropped. The s12 attributed path (tested and timed, `logs/csharp/opt/s12-sgt/`) is removed; the code is back to D24's (generated C# identical to 357319f6), checks and counts unchanged (`logs/csharp/opt/d25/`; see **s12 / D25**). Before it: **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); the full gate at 1a5ccaea PASSED on both h2 variants (`logs/csharp/opt/d24/`). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-09/10 (latest): **s13**, the core's UTF-16 -> UTF-8 transcoder in scalar Rust (additive core features, default off) measured against simdutf under E1R (`logs/csharp/opt/s13-tc-scalar/`; see **s13**). Before it: **D25** (owner, FIX-PLAN d479b702): [SuppressGCTransition] dropped. The s12 attributed path (tested and timed, `logs/csharp/opt/s12-sgt/`) is removed; the code is back to D24's (generated C# identical to 357319f6), checks and counts unchanged (`logs/csharp/opt/d25/`; see **s12 / D25**). Before it: **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); the full gate at 1a5ccaea PASSED on both h2 variants (`logs/csharp/opt/d24/`). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -91,6 +91,42 @@ src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, In
 src/HarnessFloor/           net48, compile only (the binding; the host half is compiled out)
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
+
+## s13: scalar Rust UTF-16 -> UTF-8 transcoders under E1R (2026-10-09/10; JOURNAL 84; container instrumentation)
+
+- **Core (cb20ae6e, poc/codec, additive, default OFF):** ak-core features `tc-scalar-naive`
+  (`utf16_to_utf8_into` writes with the pre-D19 `utf16_write_replacing`; under the worst-case
+  buffer, the scalar count first) and `tc-scalar-word` (`utf16_write_word`: 8 units tested as two
+  u64 against 0xFF80FF80FF80FF80 and written as 8 bytes, then 4, then one unit at a time as
+  utf16_write_replacing); at most one (compile_error). They change `ak_tc_utf16` and the E3
+  export `ak_utf16_to_utf8` (one function); lengths, validation and decode unchanged. The
+  default build is byte-identical (rebuilt from the snapshot: 7b8ed0b888940ab7 = target-core).
+  LLVM SLP-vectorised the word writer's 8-unit path (one SSE2 16-byte load, the pack in SSE2);
+  the naive path has no vector instruction (`s13-tc-scalar/vectorisation.txt`).
+- **Cores** (`gen/s13_cores.sh`, `cores.log`): target-core-tcnaive, -tcword (rpc,init-guard),
+  target-core-corpus-tcnaive, -tcword.
+- **Harness:** `AK_CORE_LIB=<path>` (src/Harness/CoreLib.cs, a DllImport resolver; the
+  generated AbiVariant check loads the same file): BDN's default toolchain rebuilds each child
+  from the project, which copies target-core's library, so a copy beside the host reached the
+  host only; each child now records the core files it maps (`core_maps` on its rows; checked:
+  only the variant core). `gen/opt_ab.sh` variants take `AK_AB_CORE=<dir>`.
+- **Checks:** the differential (`differential.log`: cargo test, release and debug, the three
+  builds: the word writer and each build's utf16_to_utf8_into against utf16_write_replacing on
+  lengths 0-300 x 4 mixes x 6 and 1023-65537, lone and reversed surrogates, caps 3n, 3n-1, need,
+  need-1, need+1, 0; the D19 tests); `checks.log` (gen/s13_checks.sh): Cases.Verify (every
+  string path) under E0, E1R, E1R:128 and the corpus under E1R (retain strict), each core: PASSED.
+- **JIT finding:** under the default .NET 8 JIT configuration the one-process sweep's E1R
+  figure is bimodal ACROSS processes: about 120-150 ns or about 700 ns for the same 48-unit
+  ASCII string and core (3 runs: 125, 152, 711 ns; `sweep-default-jit-BIMODAL/`: the default
+  core's two processes 702 ns, the scalar cores' 122-169 ns); with DOTNET_TieredPGO=0 139-150 ns
+  over 3 runs, with DOTNET_TieredCompilation=0 133, DOTNET_TC_QuickJitForLoops=0 119. The sweep
+  was therefore run with DOTNET_TieredPGO=0 (`sweep/`). The BDN grid runs with the default
+  configuration (as the campaign); its E1R rows have been stable across reps so far. Not
+  attributed further (perf does not run in this container).
+- **Measured:** `sweep/table.md` (ns per string; E0 from the default core's process, E1R per
+  core; `reference.md` per process, each with its in-process E0) and `grid/table.md` (us per op,
+  encode-core-hot, core-ffi drop and retain, E0 / E1R / E1R:128 per core; `reference.md`).
+  `grid-INTERRUPTED/`: a first grid run cut by a container restart in rep 1, not used.
 
 ## s12 / D25: [SuppressGCTransition] on the FSM's begin / next: tested, then dropped (2026-10-09; JOURNAL 82, 83)
 
@@ -705,6 +741,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
+00000. s13: the aggregating session reads `logs/csharp/opt/s13-tc-scalar/`; the scalar features stay default OFF.
 0000. D25: nothing open; [SuppressGCTransition] was tested (s12) and dropped by the owner; the record is `logs/csharp/opt/s12-sgt/`.
 000. D24: the aggregating session reads `logs/csharp/opt/d24/` (gate logs, counts before/after);
    the push extra arm `core-ffi-push` exists in the full grid and the S9/S10 sets.
@@ -727,6 +764,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 | `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
 | `opt/s5/`, `opt/s5b/` | D20 (utf8_skip all bits + strict host decode) and the static decode vtable: checks (`checks.log`, the lossy-decoder control) and decode-read A/B (`ab/`, before/after, retain/drop/no-unknown) |
 | `opt/s6/` | D21 string encode paths: `sweep/`, `sweep-fine/` (one-process length x content sweep), `strlen-census.txt`, `checks.log` (quick checks at 44f4f304), `corpus-strpaths.log` (corpus under E1/E2/ETH:16 and the planted controls), `ab/` (codec encode-core-hot E0/E1/E2/ETH:256, table.md, compact.md), `ab-rpc/` (Cf-retain b, k 1 and 8, E0/ETH:256/E1) |
+| `opt/s13-tc-scalar/` | s13: cores.log, differential.log, vectorisation.txt, checks.log, sweep/ (DOTNET_TieredPGO=0; table.md, reference.md), sweep-default-jit-BIMODAL/ (kept), grid/ (table.md, reference.md, jsonl, BDN logs), grid-INTERRUPTED/ (not used) |
 | `opt/d25/` | D25: checks.log and checks/ (gen/s10_checks.sh after removing the attributed path: PASSED, counts unchanged), rpc-counts.log (the four RPC count files reproduced identical) |
 | `opt/s12-sgt/` | s12: checks.log and checks/ (gen/s12_checks.sh: plain and AK_FSM_SGT=1 runs of gen/s10_checks.sh, the SGT share), ab-s12/ (table.md, reference.md, sgt-vs-plain.md, jsonl, BDN logs, header), sgtbench/ (microbench and longest call per row, two processes per build; longest-call.md) |
 | `opt/d24/` | D24: gate-stock.log and gate-h2-batch.log (the full gate at 1a5ccaea, clean worktree: PASSED), gate-stock-FAILED-ff1bf0c2.log (the first attempt: net48 build, delivery counts), counts/ (every count and crossings file before D24, and the counting core-ffi tables) |

@@ -1,0 +1,20 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit bffd56a8; 2026-10-09T23:15:10Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=encode-core-hot AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full; reps 2 (order alternated)
+# cores: target-core 7b8ed0b888940ab7, target-core-nounk 17dbc6ebe8b31736; reps 1..2 in this invocation
+# variant e0-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core at bffd56a8
+# variant e1r-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core at bffd56a8
+# variant e1r128-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core at bffd56a8
+# variant e0-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core-tcnaive at bffd56a8
+# variant e1r-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core-tcnaive at bffd56a8
+# variant e1r128-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core-tcnaive at bffd56a8
+# variant e0-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core-tcword at bffd56a8
+# variant e1r-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core-tcword at bffd56a8
+# variant e1r128-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core-tcword at bffd56a8
+# rep 1 e0-simd full: rc=0 142 s; core 7b8ed0b888940ab7; quiet: load1 0.17, no process above 10 % (waited 245 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r-simd full: rc=0 126 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 65 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r128-simd full: rc=0 133 s; core 7b8ed0b888940ab7; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e0-naive full: rc=0 129 s; core f1c93866089f7343; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r-naive full: rc=0 119 s; core f1c93866089f7343; quiet: load1 0.49, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r128-naive full: rc=0 134 s; core f1c93866089f7343; quiet: load1 0.46, no process above 10 % (waited 55 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e0-word full: rc=0 131 s; core 919732011451eb12; quiet: load1 0.49, no process above 10 % (waited 55 s); # correctness:    4525 pre-timing checks passed (byte identi
+# note (2026-10-09T23:46:00Z): the second whole-grid run (gen/opt_ab.sh, started 2026-10-09T23:15Z) was cut by a container restart (boot now 2026-10-09 23:43:15); its 7 cells with rc=0 above ran under the previous boot; e1r-word r1 was cut (21 of 363 lines). From here gen/s13_grid.sh resumes cell by cell.
