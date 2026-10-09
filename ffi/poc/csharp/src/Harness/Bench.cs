@@ -138,7 +138,7 @@ public static unsafe class Bench
                 });
                 cases.Add(new Case
                 {
-                    Payload = a.Id, Dir = "decode", Arm = "core-ffi",
+                    Payload = a.Id, Dir = "decode", Arm = "core-ffi push",
                     Run = n => { for (int i = 0; i < n; i++) Consume(core.Decode(warm, warm.Length)); },
                 });
                 // ABI v1 7.1's PULL family. `ak_parse_*` makes no reverse call at

@@ -82,8 +82,8 @@ public static class DecAttr
         var o = r.Ops; var b = r.Wire; int n = b.Length; var seq = new System.Buffers.ReadOnlySequence<byte>(b);
         return arm switch
         {
-            "ref" => () => o.DecFfi(b, n, retain, true),
-            "skip" => () => { Armonik.Ffi.Harness.G.SkipStrings = true; try { return o.DecFfi(b, n, retain, true); } finally { Armonik.Ffi.Harness.G.SkipStrings = false; } },
+            "ref" => () => o.DecFfiPush(b, n, retain, true),
+            "skip" => () => { Armonik.Ffi.Harness.G.SkipStrings = true; try { return o.DecFfiPush(b, n, retain, true); } finally { Armonik.Ffi.Harness.G.SkipStrings = false; } },
             "noop" => () => o.DecFfiVt(b, n, retain, 1),
             "parse" => () => o.DecFfiVt(b, n, retain, 0),
             "parsev" => () => o.DecFfiVt(b, n, retain, 2),

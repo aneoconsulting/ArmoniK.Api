@@ -76,10 +76,10 @@ public static class CoreGate
         Console.WriteLine("  chunk = {0} elements per element-entry call",
             chunk <= 0 ? "the whole run" : chunk.ToString());
         Console.WriteLine();
-        Console.WriteLine("                                                   encode crossings    decode crossings");
-        Console.WriteLine("                                                   encode xings  push dec     pull dec");
-        Console.WriteLine("payload  root                          bytes  enc  dec  val  pull ret  R5    fwd  rev   fwd  rev   fwd  rev   pull buf");
-        Console.WriteLine(new string('-', 113));
+        Console.WriteLine("dec / val: the FSM (D24's target decode family); push and pull: labelled extras, each RT + value.");
+        Console.WriteLine("                                                                   encode      FSM dec     push dec    pull dec");
+        Console.WriteLine("payload  root                          bytes  enc  dec  val  push pull ret  R5    fwd  rev   fwd  rev   fwd  rev   fwd  rev   pull buf");
+        Console.WriteLine(new string('-', 136));
 
         bool coreCounts = false;
         // design/CAMPAIGN.md requirement 19: the crossing counts gate a campaign run. With
@@ -114,8 +114,8 @@ public static class CoreGate
             var row = rows[id];
             if (!covered.Contains(id)) continue;
 
-            string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-", uret = "-";
-            long ef = 0, er = 0, df = 0, dr = 0, pf = 0, pr = 0, foot = 0;
+            string enc = "-", dec = "-", val = "-", r5 = "-", pull = "-", push = "-", uret = "-";
+            long ef = 0, er = 0, ff = 0, fr = 0, df = 0, dr = 0, pf = 0, pr = 0, foot = 0;
             byte[] got = null;
             ICoreArm arm = null;
             try
@@ -146,19 +146,27 @@ public static class CoreGate
 
             if (arm != null && got != null && (enc == "ok" || enc == "perm"))
             {
+                // The decode input: the canonical bytes; for P7.1 the committed INTERLEAVED vector
+                // (SHAPES.md), whose re-encoding is the contiguous permutation `got` (D24, JOURNAL 81).
+                var din = row.Root == "DualResponse" && Manifest.Vector(row) is byte[] cv ? cv : got;
+                bool Rt() { var re = arm.EncodeToArray(); return Manifest.Sha(re, re.Length) == Manifest.Sha(got, got.Length); }
+
+                // D24: the FSM is the target decode family. Same bytes back, the builder's value,
+                // and the structural claim of the family: no reverse call at all.
                 try
                 {
-                    arm.Decode(got, got.Length);
-                    var re = arm.EncodeToArray();
-                    dec = Manifest.Sha(re, re.Length) == Manifest.Sha(got, got.Length) ? "ok" : "RT!";
+                    arm.CallsReset();
+                    arm.Fsm(din, din.Length);
+                    ff = arm.ForwardCalls; fr = arm.ReverseCalls;
+                    dec = !Rt() ? "RT!" : fr != 0 ? "REV " + fr : "ok";
                     val = arm.SameAsSource() ? "ok" : "VAL!";
                 }
                 catch (Exception ex) { dec = "THREW " + ex.GetType().Name; }
                 if (dec != "ok") bad++;
                 if (val != "ok") bad++;
 
-                // Retain mode through the C ABI: ak_uencode_* with the (empty) bags, and
-                // the push decode with the capture callbacks installed. Same bytes.
+                // Retain mode through the C ABI: ak_uencode_* with the (empty) bags, and the FSM
+                // and push decodes with decision 11's options armed. Same bytes.
 #if AK_NO_UNKNOWN_FIELDS
                 // WP5 step 10: this build has unknown fields compiled out: no retain path to check.
                 uret = "n/a";
@@ -166,16 +174,20 @@ public static class CoreGate
                 try
                 {
                     var ue = arm.EncodeToArrayU();
-                    arm.DecodeU(ue, ue.Length);
+                    bool same = Manifest.Sha(ue, ue.Length) == Manifest.Sha(got, got.Length);
+                    arm.FsmU(ue, ue.Length);
                     var ur = arm.EncodeToArrayU();
-                    uret = Manifest.Sha(ue, ue.Length) == Manifest.Sha(got, got.Length)
-                        && Manifest.Sha(ur, ur.Length) == Manifest.Sha(got, got.Length) && arm.SameAsSource() ? "ok" : "RT!";
+                    same &= Manifest.Sha(ur, ur.Length) == Manifest.Sha(got, got.Length) && arm.SameAsSource();
+                    arm.DecodeU(ue, ue.Length);
+                    ur = arm.EncodeToArrayU();
+                    same &= Manifest.Sha(ur, ur.Length) == Manifest.Sha(got, got.Length) && arm.SameAsSource();
+                    uret = same ? "ok" : "RT!";
                 }
                 catch (Exception ex) { uret = "THREW " + ex.GetType().Name; }
                 if (uret != "ok") bad++;
 #endif
 
-                // Encode and decode counted on their own operations, so the
+                // Encode and each decode family counted on their own operations, so the
                 // per-direction figures are comparable with the other slices'.
                 arm.CallsReset();
                 arm.EncCountersReset();
@@ -184,8 +196,21 @@ public static class CoreGate
                 var ec = arm.EncCounters();
                 arm.CallsReset();
                 arm.DecCountersReset();
-                try { arm.Decode(got, got.Length); } catch { }
-                df = arm.ForwardCalls; dr = arm.ReverseCalls;
+                try { arm.Fsm(din, din.Length); } catch { }
+                ff = arm.ForwardCalls; fr = arm.ReverseCalls;
+                var fc = arm.DecCounters();
+
+                // PUSH (ABI v1 7.1's callbacks), a labelled extra since D24: same bytes, same value.
+                try
+                {
+                    arm.CallsReset();
+                    arm.DecCountersReset();
+                    arm.Decode(din, din.Length);
+                    df = arm.ForwardCalls; dr = arm.ReverseCalls;
+                    push = !Rt() ? "RT!" : !arm.SameAsSource() ? "VAL!" : "ok";
+                }
+                catch (Exception ex) { push = "THREW " + ex.GetType().Name; }
+                if (push != "ok") bad++;
                 var dc = arm.DecCounters();
 
                 // The PULL family, ABI v1 7.1. Same bytes, same expected graph, and
@@ -193,10 +218,9 @@ public static class CoreGate
                 try
                 {
                     arm.CallsReset();
-                    arm.Pull(got, got.Length);
+                    arm.Pull(din, din.Length);
                     pf = arm.ForwardCalls; pr = arm.ReverseCalls;
-                    var re2 = arm.EncodeToArray();
-                    pull = Manifest.Sha(re2, re2.Length) != Manifest.Sha(got, got.Length) ? "RT!"
+                    pull = !Rt() ? "RT!"
                          : !arm.SameAsSource() ? "VAL!"
                          : pr != 0 ? "REV " + pr : "ok";
                     foot = arm.PullFootprint();
@@ -204,29 +228,30 @@ public static class CoreGate
                 catch (Exception ex) { pull = "THREW " + ex.GetType().Name; }
                 if (pull != "ok") bad++;
 
-                if (ec.forward != 0 || ec.reverse != 0 || dc.forward != 0 || dc.reverse != 0)
+                if (ec.forward != 0 || ec.reverse != 0 || dc.forward != 0 || dc.reverse != 0 || fc.forward != 0)
                 {
                     coreCounts = true;
                     bool same = (long)ec.forward == ef && (long)ec.reverse == er
-                             && (long)dc.forward == df && (long)dc.reverse == dr;
+                             && (long)dc.forward == df && (long)dc.reverse == dr
+                             && (long)fc.forward == ff && (long)fc.reverse == fr;
                     r5 = same ? "ok" : "MISMATCH";
                     if (!same)
                     {
-                        Console.WriteLine("  {0}: R5 host enc {1}/{2} core {3}/{4}; host dec {5}/{6} core {7}/{8}",
-                            id, ef, er, ec.forward, ec.reverse, df, dr, dc.forward, dc.reverse);
+                        Console.WriteLine("  {0}: R5 host enc {1}/{2} core {3}/{4}; host FSM {5}/{6} core {7}/{8}; host push {9}/{10} core {11}/{12}",
+                            id, ef, er, ec.forward, ec.reverse, ff, fr, fc.forward, fc.reverse, df, dr, dc.forward, dc.reverse);
                         bad++;
                     }
                 }
             }
-            var counts = string.Join(" ", ef, er, df, dr, pf, pr);
+            var counts = string.Join(" ", ef, er, ff, fr, df, dr, pf, pr);
             wrote.Add(id + " " + counts);
             if (checkCounts && (!expect.TryGetValue(id, out var want) || want != counts))
             {
                 Console.WriteLine("  {0}: CROSSINGS {1}, committed {2}", id, counts, want ?? "(none)");
                 bad++;
             }
-            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {15,-4} {7,-4} {8,4} {9,4} {10,5} {11,4} {12,5} {13,4} {14,9}",
-                id, row.Root, row.Bytes, enc, dec, val, pull, r5, ef, er, df, dr, pf, pr, foot, uret);
+            Console.WriteLine("{0,-8} {1,-26} {2,7}  {3,-4} {4,-4} {5,-4} {6,-4} {7,-4} {8,-4} {9,-4} {10,4} {11,4} {12,5} {13,4} {14,5} {15,4} {16,5} {17,4} {18,9}",
+                id, row.Root, row.Bytes, enc, dec, val, push, pull, uret, r5, ef, er, ff, fr, df, dr, pf, pr, foot);
             arm?.Dispose();
         }
 
@@ -246,7 +271,7 @@ public static class CoreGate
         }
         var wr = Environment.GetEnvironmentVariable("AK_CROSSINGS_WRITE");
         if (!string.IsNullOrEmpty(wr))
-            System.IO.File.WriteAllLines(wr, new[] { "# payload  encode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core)" }.Concat(wrote));
+            System.IO.File.WriteAllLines(wr, new[] { "# payload  encode fwd rev  fsm-decode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core; D24: the FSM is the target decode)" }.Concat(wrote));
         Console.WriteLine("R5: the host's tally and the core's counters are {0}.",
             coreCounts ? "compared above and equal on every row"
                        : "not comparable here -- this core was not built with --features count");

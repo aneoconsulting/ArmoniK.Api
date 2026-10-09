@@ -136,15 +136,18 @@ public abstract unsafe class RootOps
     public abstract long DecIncProd(ReadOnlySequence<byte> seq, bool read);
     public abstract long DecIncBest(byte[] b, int len, bool read);
     public abstract long DecHost(byte[] b, int len, bool retain, bool read);
+    /// D24 (owner, 2026-10-09): core-ffi decodes with the FSM (ak_fsm_begin_/next_), its target
+    /// decode family; push (DecFfiPush, arm core-ffi-push) and pull (DecFfiPull*, arm
+    /// core-ffi-pull) are labelled extras. RtFfi and FromWire(3/4) decode with the FSM too.
     public abstract long DecFfi(byte[] b, int len, bool retain, bool read);
+    public abstract long DecFfiPush(byte[] b, int len, bool retain, bool read);
     public abstract long DecFfiPull(byte[] b, int len, bool read);
     // Step 9b (owner, 2026-10-09): the incumbent's parser discarding unknown fields
     // (Parser.WithDiscardUnknownFields(true), built once per root: the production path otherwise),
     // and the pull family retained.
     public abstract long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read);
     public abstract long DecFfiPullR(byte[] b, int len, bool retain, bool read);
-    // D23 (owner, 2026-10-09): the FSM decode family (ak_fsm_begin_/next_), drop or retain.
-    public abstract long DecFfiFsm(byte[] b, int len, bool retain, bool read);
+    // D23: graphs and return codes per family (the FSM checks); DecFfiGraph is PUSH's graph.
     public abstract object DecFfiFsmGraph(byte[] b, int len, bool retain);
     public abstract object DecFfiPullGraph(byte[] b, int len, bool retain);
     public abstract int TryFsmRc(byte[] b, int len, bool retain);
@@ -257,8 +260,9 @@ def _ops(o, root):
     o += "            }"
     o += "            default:"
     o += "            {"
-    o += "                int rc = _c.TryDecode(b, b.Length, how == 4, out var m);"
-    o += "                if (rc < 0) throw new InvalidOperationException(\"core decode \" + rc);"
+    o += "                // D24: the core-ffi arm decodes with the FSM (its target decode family)."
+    o += "                int rc = _c.TryFsm(b, b.Length, how == 4, out var m);"
+    o += "                if (rc < 0) throw new InvalidOperationException(\"core fsm decode \" + rc);"
     o += "                return new Ops_%s(m, null);" % root
     o += "            }"
     o += "        }"
@@ -296,15 +300,20 @@ def _ops(o, root):
     o += "    }"
     o += "    public override long DecFfi(byte[] b, int len, bool retain, bool read)"
     o += "    {"
+    o += "        int rc = _c.TryFsm(b, len, retain, out var m);   // D24: the FSM is the target decode family"
+    o += "        if (rc < 0) throw new InvalidOperationException(\"core fsm decode \" + rc);"
+    o += "        return read ? Touch.F_%s(m) : 1;" % root
+    o += "    }"
+    o += "    public override long DecFfiPush(byte[] b, int len, bool retain, bool read)"
+    o += "    {"
     o += "        int rc = _c.TryDecode(b, len, retain, out var m);"
-    o += "        if (rc < 0) throw new InvalidOperationException(\"core decode \" + rc);"
+    o += "        if (rc < 0) throw new InvalidOperationException(\"core push decode \" + rc);"
     o += "        return read ? Touch.F_%s(m) : 1;" % root
     o += "    }"
     o += "    public override long DecFfiPull(byte[] b, int len, bool read) { var m = _c.Pull(b, len); return read ? Touch.F_%s(m) : 1; }" % root
     o += "    private static readonly MessageParser<%s> DiscardParser = %s.Parser.WithDiscardUnknownFields(true);" % (g, g)
     o += "    public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_%s(m) : 1; }" % root
     o += "    public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core pull \" + rc); return read ? Touch.F_%s(m) : 1; }" % root
-    o += "    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core fsm \" + rc); return read ? Touch.F_%s(m) : 1; }" % root
     o += "    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core fsm \" + rc); return m; }"
     o += "    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException(\"core pull \" + rc); return m; }"
     o += "    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);"
@@ -336,8 +345,8 @@ def _ops(o, root):
     o += "    }"
     o += "    public override byte[] RtFfi(byte[] b, int len, bool retain)"
     o += "    {"
-    o += "        int rc = _c.TryDecode(b, len, retain, out var m);"
-    o += "        if (rc < 0) throw new InvalidOperationException(\"core decode \" + rc);"
+    o += "        int rc = _c.TryFsm(b, len, retain, out var m);   // D24: the FSM"
+    o += "        if (rc < 0) throw new InvalidOperationException(\"core fsm decode \" + rc);"
     o += "        return _c.EncodeToArray(m, retain);"
     o += "    }"
     o += "}"

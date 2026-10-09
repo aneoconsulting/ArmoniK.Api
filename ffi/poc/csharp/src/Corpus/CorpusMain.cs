@@ -6,9 +6,14 @@
 //   managed-retain  the retain codec (`CodecRetain`, from the retain plan: R-H11): unknown runs
 //                   captured and re-emitted
 //   ffi-drop        core-ffi against the core generated for the corpus reader schema
-//                   (`ak-core --features corpus,init-guard`), `ak_decode_*` / `ak_encode_*`
+//                   (`ak-core --features corpus,init-guard`): decode with the FSM
+//                   (`ak_fsm_begin_*` / `ak_fsm_next_*`, the target family since D24), encode
+//                   `ak_encode_*`; every row is ALSO decoded through push and pull, and the arm
+//                   fails unless the three return the same code and, on acceptance, the same
+//                   re-encoding (D23's differential, part of every corpus run since D24)
 //   ffi-retain      the same, decision 11's options armed (every position retained through
 //                   grow) and `ak_uencode_*`
+//   AK_CORPUS_PUSH=1 adds ffi-push-drop / ffi-push-retain: push decode alone (a labelled extra)
 //
 // Obligations: C1 (parse every accept row), C2 (project it; `_unknown` not compared, as the
 // contract allows), C3 (re-encode to one of `accepted_encodings`, or a re-ordering where
@@ -50,18 +55,16 @@ namespace Armonik.Ffi.Corpus;
 
 public static class Program
 {
-    /// D23 (owner, 2026-10-09), AK_CORPUS_FSM=1: the FSM family's arms beside the others
-    /// (ffi-fsm-drop, and ffi-fsm-retain in the full build). Each also decodes the row through
-    /// push and pull and fails unless the three return the same code and, on acceptance, the
-    /// same re-encoding (ak_uencode_* in retain, so every bag is compared).
-    private static readonly bool FsmArms = Environment.GetEnvironmentVariable("AK_CORPUS_FSM") == "1";
+    /// D24 (owner, 2026-10-09): the ffi arms decode with the FSM (and cross-check push and pull);
+    /// AK_CORPUS_PUSH=1 adds the push arms alone (ffi-push-drop, and ffi-push-retain in the full build).
+    private static readonly bool PushArms = Environment.GetEnvironmentVariable("AK_CORPUS_PUSH") == "1";
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the managed codec,
     // the binding and the core): the retain arms do not exist in it.
-    private static readonly string[] Arms = FsmArms ? new[] { "managed-drop", "ffi-drop", "ffi-fsm-drop" } : new[] { "managed-drop", "ffi-drop" };
+    private static readonly string[] Arms = PushArms ? new[] { "managed-drop", "ffi-drop", "ffi-push-drop" } : new[] { "managed-drop", "ffi-drop" };
 #else
-    private static readonly string[] Arms = FsmArms
-        ? new[] { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain", "ffi-fsm-drop", "ffi-fsm-retain" }
+    private static readonly string[] Arms = PushArms
+        ? new[] { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain", "ffi-push-drop", "ffi-push-retain" }
         : new[] { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain" };
 #endif
 
@@ -139,10 +142,10 @@ public static class Program
     {
         var dir = Dir();
         var man = H.Json.Parse(File.ReadAllText(Path.Combine(dir, "manifest.json")))["vectors"];
-        int rows = 0, positions = 0, changed = 0, withUnk = 0, bad = 0, pullBad = 0, errors = 0;
+        int rows = 0, positions = 0, changed = 0, withUnk = 0, bad = 0, pullBad = 0, fsmBad = 0, errors = 0;
         Console.WriteLine("# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the");
         Console.WriteLine("# reference; each position zeroed in turn must equal it with that position's bags cleared;");
-        Console.WriteLine("# pull must equal push (compared as retained re-encodings, ak_uencode_*)");
+        Console.WriteLine("# pull and the FSM (D24's target family) must equal push (compared as retained re-encodings, ak_uencode_*)");
         foreach (var id in man.Keys.OrderBy(x => x, StringComparer.Ordinal))
         {
             var v = man[id];
@@ -163,15 +166,16 @@ public static class Program
                 if (bad <= 12) Console.WriteLine("  FAIL {0} ({1}): zeroing {2} did not drop exactly that position", id, root, string.Join(", ", u.Mismatched));
             }
             if (!u.PullEqual) { pullBad++; Console.WriteLine("  FAIL {0}: pull != push", id); }
+            if (!u.FsmEqual) { fsmBad++; Console.WriteLine("  FAIL {0}: FSM != push", id); }
             if (id.StartsWith("U-", StringComparison.Ordinal) && (id.EndsWith("-all", StringComparison.Ordinal) || id == "U-map-entry"))
                 Console.WriteLine("  {0,-34} {1,-26} positions {2,2}, changed by zeroing {3,2} ({4})", id, root, u.Positions, u.Changed.Count, string.Join(", ", u.Changed));
         }
         Console.WriteLine("rows {0} (accept, root in the ABI), {1} (row, position) pairs; rows with unknowns at some position {2} ({3} pairs changed by zeroing)",
             rows, positions, withUnk, changed);
-        Console.WriteLine("discard mismatches: {0} row(s); pull != push: {1} row(s); retained decode errors (incl. UNDELIVERED): {2}{3}",
-            bad, pullBad, errors, plant ? "   [PLANTED: the expectation's clearing skipped]" : "");
+        Console.WriteLine("discard mismatches: {0} row(s); pull != push: {1} row(s); FSM != push: {4} row(s); retained decode errors (incl. UNDELIVERED): {2}{3}",
+            bad, pullBad, errors, plant ? "   [PLANTED: the expectation's clearing skipped]" : "", fsmBad);
         bool wrOk = WrongRoot();
-        bool ok = bad == 0 && pullBad == 0 && errors == 0 && wrOk && rows > 0;
+        bool ok = bad == 0 && pullBad == 0 && fsmBad == 0 && errors == 0 && wrOk && rows > 0;
         Console.WriteLine(ok ? "UNK CONTROLS PASSED" : "UNK CONTROLS FAILED");
         return ok ? 0 : 1;
     }
@@ -225,8 +229,8 @@ public static class Program
             // AK_CORPUS_PLANT=unkdrop: ffi-retain decodes in DROP mode (the 307-row regression of
             // the transitional port): AK_CORPUS_RETAIN_STRICT must fail.
             bool dretain = retain && !(plant == "unkdrop" && arm == "ffi-retain");
-            bool fsm = arm.StartsWith("ffi-fsm", StringComparison.Ordinal);
-            try { rc = fsm ? Ffi.DecodeFam(root, bytes, dretain, 2, out msg) : Ffi.Decode(root, bytes, dretain, out msg); }
+            bool fsm = !arm.StartsWith("ffi-push", StringComparison.Ordinal);   // D24: ffi-drop / ffi-retain are the FSM
+            try { rc = Ffi.DecodeFam(root, bytes, dretain, fsm ? 2 : 0, out msg); }
             catch (Exception ex) { rc = int.MinValue; err = "THREW " + ex.GetType().Name + ": " + ex.Message; }
             if (err == null && rc < 0) { err = "core " + rc + CoreName(rc); code = rc; }
             if (fsm && rc != int.MinValue)

@@ -1,0 +1,108 @@
+# CAMPAIGN req 19 (R-H31): one call per RPC cell and direction (full build, P2.2), counted by name in the host (AK_HOST_COUNT), after one untimed call on the cell's own channel.
+# fields: RPC cell dir payload mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...
+# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call
+RPC A a P2.2 default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A a+read P2.2 default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A b P2.2 default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC B a P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B a+read P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B b P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Bf b P2.2 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC C-retain a P2.2 retain | fwd 4 rev 3501 grow 0 reset 1 | ak_bytes_free=1 ak_call_unary=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-retain a+read P2.2 retain | fwd 4 rev 3501 grow 0 reset 1 | ak_bytes_free=1 ak_call_unary=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-retain b P2.2 retain | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+RPC C-drop a P2.2 drop | fwd 4 rev 3501 grow 0 reset 1 | ak_bytes_free=1 ak_call_unary=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-drop a+read P2.2 drop | fwd 4 rev 3501 grow 0 reset 1 | ak_bytes_free=1 ak_call_unary=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC C-drop b P2.2 drop | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+RPC Cf-retain b P2.2 retain | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+RPC Cc-retain b P2.2 retain | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary=1 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+RPC Ef-retain b P2.2 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Cf-drop b P2.2 drop | fwd 2505 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary_enc=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+RPC Cc-drop b P2.2 drop | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_unary=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+RPC Ef-drop b P2.2 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC D-retain a P2.2 retain | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-retain a+read P2.2 retain | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-retain b P2.2 retain | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+RPC D-drop a P2.2 drop | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-drop a+read P2.2 drop | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+RPC D-drop b P2.2 drop | fwd 2504 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+RPC E-retain a P2.2 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-retain a+read P2.2 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-retain b P2.2 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-drop a P2.2 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-drop a+read P2.2 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-drop b P2.2 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC F-retain a P2.2 retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-retain a+read P2.2 retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-retain b P2.2 retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop a P2.2 drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop a+read P2.2 drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop b P2.2 drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A c P5.3 default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A c P5.4 default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A d stream-4MiB default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC A d stream-16MiB default | fwd 0 rev 0 grow 0 reset 0 | 
+RPC B c P5.3 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B c P5.4 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC B d stream-4MiB default | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC B d stream-16MiB default | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC Bf c P5.3 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Bf c P5.4 default | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Bf d stream-4MiB default | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC Bf d stream-16MiB default | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC C-retain c P5.3 retain | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+RPC C-retain c P5.4 retain | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+RPC C-retain d stream-4MiB retain | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=2 ak_enc_reset=2 ak_uencode_UploadResultDataMessage=2
+RPC C-retain d stream-16MiB retain | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=8 ak_enc_reset=8 ak_uencode_UploadResultDataMessage=8
+RPC Cf-retain c P5.3 retain | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+RPC Cf-retain c P5.4 retain | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_uencode_UploadResultDataMessage=1
+RPC Cf-retain d stream-4MiB retain | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=2 ak_enc_reset=2 ak_uencode_UploadResultDataMessage=2
+RPC Cf-retain d stream-16MiB retain | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=8 ak_enc_reset=8 ak_uencode_UploadResultDataMessage=8
+RPC Cc-retain c P5.3 retain | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+RPC Cc-retain c P5.4 retain | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+RPC Cc-retain d stream-4MiB retain | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2 ak_enc_reset=2 ak_enc_take=2 ak_uencode_UploadResultDataMessage=2
+RPC Cc-retain d stream-16MiB retain | fwd 36 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8 ak_enc_reset=8 ak_enc_take=8 ak_uencode_UploadResultDataMessage=8
+RPC E-retain c P5.3 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-retain c P5.4 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-retain d stream-4MiB retain | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC E-retain d stream-16MiB retain | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC Ef-retain c P5.3 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Ef-retain c P5.4 retain | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Ef-retain d stream-4MiB retain | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC Ef-retain d stream-16MiB retain | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC D-retain c P5.3 retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+RPC D-retain c P5.4 retain | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_uencode_UploadResultDataMessage=1
+RPC D-retain d stream-4MiB retain | fwd 6 rev 0 grow 0 reset 0 | ak_enc_reset=2 ak_enc_take=2 ak_uencode_UploadResultDataMessage=2
+RPC D-retain d stream-16MiB retain | fwd 24 rev 0 grow 0 reset 0 | ak_enc_reset=8 ak_enc_take=8 ak_uencode_UploadResultDataMessage=8
+RPC F-retain c P5.3 retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-retain c P5.4 retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-retain d stream-4MiB retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-retain d stream-16MiB retain | fwd 0 rev 0 grow 0 reset 0 | 
+RPC C-drop c P5.3 drop | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC C-drop c P5.4 drop | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC C-drop d stream-4MiB drop | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=2 ak_enc_reset=2 ak_encode_UploadResultDataMessage=2
+RPC C-drop d stream-16MiB drop | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=8 ak_enc_reset=8 ak_encode_UploadResultDataMessage=8
+RPC Cf-drop c P5.3 drop | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-drop c P5.4 drop | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary_enc=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-drop d stream-4MiB drop | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=2 ak_enc_reset=2 ak_encode_UploadResultDataMessage=2
+RPC Cf-drop d stream-16MiB drop | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send_enc=8 ak_enc_reset=8 ak_encode_UploadResultDataMessage=8
+RPC Cc-drop c P5.3 drop | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+RPC Cc-drop c P5.4 drop | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+RPC Cc-drop d stream-4MiB drop | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2 ak_enc_reset=2 ak_enc_take=2 ak_encode_UploadResultDataMessage=2
+RPC Cc-drop d stream-16MiB drop | fwd 36 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8 ak_enc_reset=8 ak_enc_take=8 ak_encode_UploadResultDataMessage=8
+RPC E-drop c P5.3 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-drop c P5.4 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC E-drop d stream-4MiB drop | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC E-drop d stream-16MiB drop | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC Ef-drop c P5.3 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Ef-drop c P5.4 drop | fwd 2 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_unary=1
+RPC Ef-drop d stream-4MiB drop | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=2
+RPC Ef-drop d stream-16MiB drop | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv=1 ak_call_send=8
+RPC D-drop c P5.3 drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+RPC D-drop c P5.4 drop | fwd 3 rev 0 grow 0 reset 0 | ak_enc_reset=1 ak_enc_take=1 ak_encode_UploadResultDataMessage=1
+RPC D-drop d stream-4MiB drop | fwd 6 rev 0 grow 0 reset 0 | ak_enc_reset=2 ak_enc_take=2 ak_encode_UploadResultDataMessage=2
+RPC D-drop d stream-16MiB drop | fwd 24 rev 0 grow 0 reset 0 | ak_enc_reset=8 ak_enc_take=8 ak_encode_UploadResultDataMessage=8
+RPC F-drop c P5.3 drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop c P5.4 drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop d stream-4MiB drop | fwd 0 rev 0 grow 0 reset 0 | 
+RPC F-drop d stream-16MiB drop | fwd 0 rev 0 grow 0 reset 0 | 

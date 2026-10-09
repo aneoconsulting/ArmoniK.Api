@@ -1,0 +1,57 @@
+# CAMPAIGN req 19 (R-H31): one call per RPC cell and direction (no-unknown build, P2.2), counted by name in the host (AK_HOST_COUNT), after one untimed call on the cell's own channel.
+# fields: RPC cell dir payload mode | fwd N (every exported entry point called: codec and transport, resets included) rev N (core->host codec callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...
+# D7 (AK_RPC_COUNT_DELIVERIES=1): the delivery cells only (<cell>.callback, .callback-inline, .queue, and the older B/C extras); a queue cell's drainer pops (ak_queue_next) are counted by name; one call = one awaited call of the cell, after one untimed call
+RPC Bf.callback a+read P2.2 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback b P2.2 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback c P5.3 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback c P5.4 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback d stream-4MiB default | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=2
+RPC Bf.callback d stream-16MiB default | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=8
+RPC Bf.callback-inline a+read P2.2 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback-inline b P2.2 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback-inline c P5.3 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback-inline c P5.4 default | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Bf.callback-inline d stream-4MiB default | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=2
+RPC Bf.callback-inline d stream-16MiB default | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=8
+RPC Bf.queue a+read P2.2 default | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Bf.queue b P2.2 default | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Bf.queue c P5.3 default | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Bf.queue c P5.4 default | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Bf.queue d stream-4MiB default | fwd 9 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_q=2 ak_queue_next=3
+RPC Bf.queue d stream-16MiB default | fwd 21 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_q=8 ak_queue_next=9
+RPC Cf-nounk.callback a+read P2.2 no-unknown | fwd 4 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1 ak_decode_ListTasksDetailedResponse=1
+RPC Cf-nounk.callback b P2.2 no-unknown | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+RPC Cf-nounk.callback c P5.3 no-unknown | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-nounk.callback c P5.4 no-unknown | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-nounk.callback d stream-4MiB no-unknown | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_enc_cb=2 ak_enc_reset=2 ak_encode_UploadResultDataMessage=2
+RPC Cf-nounk.callback d stream-16MiB no-unknown | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_enc_cb=8 ak_enc_reset=8 ak_encode_UploadResultDataMessage=8
+RPC Cf-nounk.callback-inline a+read P2.2 no-unknown | fwd 4 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1 ak_decode_ListTasksDetailedResponse=1
+RPC Cf-nounk.callback-inline b P2.2 no-unknown | fwd 2506 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1
+RPC Cf-nounk.callback-inline c P5.3 no-unknown | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-nounk.callback-inline c P5.4 no-unknown | fwd 5 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_cb=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1
+RPC Cf-nounk.callback-inline d stream-4MiB no-unknown | fwd 10 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_enc_cb=2 ak_enc_reset=2 ak_encode_UploadResultDataMessage=2
+RPC Cf-nounk.callback-inline d stream-16MiB no-unknown | fwd 28 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_enc_cb=8 ak_enc_reset=8 ak_encode_UploadResultDataMessage=8
+RPC Cf-nounk.queue a+read P2.2 no-unknown | fwd 5 rev 3501 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_decode_ListTasksDetailedResponse=1 ak_queue_next=1
+RPC Cf-nounk.queue b P2.2 no-unknown | fwd 2507 rev 2501 grow 0 reset 0 | ak_blob_run=2000 ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_q=1 ak_elem_TaskOptionsOptionsEntry=500 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_encode_ListTasksDetailedResponse=1 ak_queue_next=1
+RPC Cf-nounk.queue c P5.3 no-unknown | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_q=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1 ak_queue_next=1
+RPC Cf-nounk.queue c P5.4 no-unknown | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_enc_q=1 ak_enc_reset=1 ak_encode_UploadResultDataMessage=1 ak_queue_next=1
+RPC Cf-nounk.queue d stream-4MiB no-unknown | fwd 13 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_enc_q=2 ak_enc_reset=2 ak_encode_UploadResultDataMessage=2 ak_queue_next=3
+RPC Cf-nounk.queue d stream-16MiB no-unknown | fwd 37 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_enc_q=8 ak_enc_reset=8 ak_encode_UploadResultDataMessage=8 ak_queue_next=9
+RPC Ef-nounk.callback a+read P2.2 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback b P2.2 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback c P5.3 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback c P5.4 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback d stream-4MiB no-unknown | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=2
+RPC Ef-nounk.callback d stream-16MiB no-unknown | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=8
+RPC Ef-nounk.callback-inline a+read P2.2 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback-inline b P2.2 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback-inline c P5.3 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback-inline c P5.4 no-unknown | fwd 3 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_cb=1
+RPC Ef-nounk.callback-inline d stream-4MiB no-unknown | fwd 6 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=2
+RPC Ef-nounk.callback-inline d stream-16MiB no-unknown | fwd 12 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_cb=1 ak_call_send_cb=8
+RPC Ef-nounk.queue a+read P2.2 no-unknown | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Ef-nounk.queue b P2.2 no-unknown | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Ef-nounk.queue c P5.3 no-unknown | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Ef-nounk.queue c P5.4 no-unknown | fwd 4 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_unary_q=1 ak_queue_next=1
+RPC Ef-nounk.queue d stream-4MiB no-unknown | fwd 9 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_q=2 ak_queue_next=3
+RPC Ef-nounk.queue d stream-16MiB no-unknown | fwd 21 rev 0 grow 0 reset 0 | ak_bytes_free=1 ak_call_destroy=1 ak_call_open=1 ak_call_recv_q=1 ak_call_send_q=8 ak_queue_next=9

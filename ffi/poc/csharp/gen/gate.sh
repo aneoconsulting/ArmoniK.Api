@@ -12,13 +12,19 @@
 #      R5), and the controls that must FAIL (a planted layout swap; ak_init skipped)
 #   5  net6.0 harness: the same, core-ffi included (it did not build before this unit)
 #   6  akrpc (net8.0): plan.rpc's structs by name; R-D9's error path, counted
-#   7  the corpus, net8.0 and net6.0: managed-drop, managed-retain, ffi-drop, ffi-retain, each
-#      row in a child process under a timeout; then the controls that must FAIL; then the
+#   7  the corpus, net8.0 and net6.0: managed-drop, managed-retain, ffi-drop, ffi-retain (the ffi
+#      arms decode with the FSM, D24, and require push's and pull's code and re-encoding on every
+#      row), each row in a child process under a timeout; net8.0 also with the push arms alone
+#      (AK_CORPUS_PUSH=1, the labelled extra); then the controls that must FAIL; then the
 #      oracle-probe rows (poc/rust/gen/probe_corpus.py)
 #   8  the no-unknown variant (WP5 step 10): its own build, core, counts and corpus
 #   9  the counting builds (WP7, CAMPAIGN req 19 as amended): every entry point per codec
 #      case and per RPC call, against gen/counts*.txt and gen/rpc-counts*.txt; the upload
 #      directions' check (WP8, req 14 as amended: c accepted, d count and SHA-256) and its plants
+#  10  D23 / D24, the FSM (the target decode family since D24): the pre-timing byte identity
+#      (BenchDotNet --verify), --verify-fsm (push = pull = FSM on every payload, content set and
+#      U-* row, both builds; FSM calls = the Rust slice's events; malformed variants: FSM code =
+#      pull code), and four defects planted in the generated FSM consumer, each must be caught
 #
 #   SCRATCH=dir gen/gate.sh      (SCRATCH holds the core snapshot; default: mktemp -d)
 set -uo pipefail
@@ -169,8 +175,10 @@ for lvl in $LEVELS; do
   # Since decision 11's port (WP5 step 9) a retain arm that writes the dropped form on a
   # non-disputed unknown-class row FAILS the gate (AK_CORPUS_RETAIN_STRICT=1).
   AK_CORPUS_RETAIN_STRICT=1 run "net$lvl corpus" "${CX[@]}"
+  # D24: push is a labelled extra; its arms alone, once (net8.0).
+  [ $lvl = 8 ] && AK_CORPUS_PUSH=1 AK_CORPUS_RETAIN_STRICT=1 run "net$lvl corpus with the push arms (labelled extra, D24)" "${CX[@]}"
   AK_CORPUS_RETAIN_STRICT=1 AK_CORPUS_PLANT=unkdrop control "net$lvl corpus unkdrop (ffi-retain in drop mode, strict retain)" "${CX[@]}" --only "U-"
-  run "net$lvl decision 11 controls (discard per position, pull == push, wrong root)" "${CX[@]}" --unk-controls
+  run "net$lvl decision 11 controls (discard per position, pull == push, FSM == push, wrong root)" "${CX[@]}" --unk-controls
   # D20 (2026-10-04): the core skips every string's UTF-8 check (utf8_skip all bits); the host's
   # strict decoder must refuse the malformed-UTF-8 rows (T-dec-*, AK_ERR_TRANSCODE). With a lossy
   # decoder planted, those rows are accepted and the corpus must fail.
@@ -285,7 +293,33 @@ AK_CAMPAIGN_PLANT=len AK_CAMPAIGN_PLANT_DIR=d control "upload check with a plant
 # (Grpc.Net's socket and the core's ak_client_opts.tcp_nagle) it must fail.
 AK_CAMPAIGN_PLANT=nagle control "upload check with Nagle left on (the TCP_NODELAY readback must fail)" dotnet "$R8/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
 "$SERVE" stop
-echo "# counts, no-unknown against full: the files differ in mode names and in every push/pull decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
+echo "# counts, no-unknown against full: the files differ in mode names and in every decode row (no ak_dec_reset_* in the no-unknown build); the committed files carry every row"
+
+# ============================================================== D23 / D24
+step "10. the FSM (D23; the target decode family since D24): byte identity, the differential, planted defects"
+B8="$SLICE/src/BenchDotNet/bin/Release/net8.0"; BN8="$SLICE/src/BenchDotNet/bin-nounk/Release/net8.0"
+core "$B8" target-core; core "$BN8" target-core-nounk
+RUST_EV="$REPO/ffi/logs/rust/opt/d23-fsm/checks/events-counting.txt"
+[ -f "$RUST_EV" ] && EVARG=(--rust-events "$RUST_EV") || { EVARG=(); echo "# $RUST_EV absent: the FSM calls are not compared with the Rust slice's events"; }
+run "pre-timing byte identity, full build (BenchDotNet --verify)" dotnet "$B8/BenchDotNet.dll" --verify
+run "pre-timing byte identity, no-unknown build" dotnet "$BN8/BenchDotNet.dll" --verify
+run "verify-fsm, full build" dotnet "$B8/BenchDotNet.dll" --verify-fsm "${EVARG[@]}"
+run "verify-fsm, no-unknown build" dotnet "$BN8/BenchDotNet.dll" --verify-fsm "${EVARG[@]}"
+GEN="$SLICE/src/Harness/Generated/CoreFfi.cs"
+cp "$GEN" "$SCRATCH/CoreFfi.orig"
+plant_fsm() {  # name from to: plant into the generated FSM consumer, rebuild, the differential must fail
+  python3 -S -c 'import sys; p, a, b = sys.argv[1:4]; s = open(p).read(); assert a in s, "plant anchor not found"; open(p, "w").write(s.replace(a, b))' "$GEN" "$2" "$3" || { FAILS=$((FAILS+1)); return; }
+  b build src/BenchDotNet/BenchDotNet.csproj -c Release
+  core "$B8" target-core
+  control "FSM plant: $1" dotnet "$B8/BenchDotNet.dll" --verify-fsm --variants 8
+  cp "$SCRATCH/CoreFfi.orig" "$GEN"
+}
+plant_fsm "token ignored (every element group applied to element 0)" "[(int)ev->token], b); return;" "[0], b); return;"
+plant_fsm "a run's last element lost" "int n = (int)ev->n;" "int n = (int)ev->n - (ev->n > 1 ? 1 : 0);"
+plant_fsm "the root group not applied" "// The root group: always the last event, the end." "if (len >= 0) break;"
+plant_fsm "an error read as the end" "rc = op < 0 ? op : 0;" "rc = 0;"
+b build src/BenchDotNet/BenchDotNet.csproj -c Release
+run "the generated FSM consumer restored" cmp "$GEN" "$SCRATCH/CoreFfi.orig"
 
 echo
 if [ "$LEVELS" != "8 6" ]; then

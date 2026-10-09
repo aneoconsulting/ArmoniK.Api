@@ -127,6 +127,7 @@ public static class CampaignMain
             AppContext.TryGetSwitch("System.GC.Concurrent", out var c) ? c.ToString() : "default(on)", GCSettings.LatencyMode);
         Console.WriteLine("# managed codec:  plan utf8={0} unknown={1} limit={2}", Armonik.Ffi.Facade.Codec.Utf8Policy,
             Armonik.Ffi.Facade.Codec.UnknownMode, Armonik.Ffi.Facade.Codec.Limit);
+        Console.WriteLine("# core decode:    the FSM (ak_fsm_begin_/next_; FIX-PLAN D24) wherever the core decodes a response (C, D, E, F, framed twins, every delivery)");
         Console.WriteLine("# process CPUs:   affinity mask 0x{0:x} ({1} logical CPUs visible)", (long)Process.GetCurrentProcess().ProcessorAffinity, Environment.ProcessorCount);
         Console.WriteLine("# {0}", extra);
     }
@@ -373,8 +374,9 @@ public static class CampaignMain
                 ListTasksDetailedResponse fm;
                 if (codec == 1)
                 {
-                    int dr = Core.TryDecode(b, (int)r.len, retain, out fm);
-                    if (dr < 0) throw new Abort(cell + ": core decode " + dr + (dr == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
+                    // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
+                    int dr = Core.TryFsm(b, (int)r.len, retain, out fm);
+                    if (dr < 0) throw new Abort(cell + ": core FSM decode " + dr + (dr == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
                 }
                 else fm = HostDecode(b, (int)r.len, retain, cell);
                 if (read) _sink += Touch.F_ListTasksDetailedResponse(fm);
@@ -474,9 +476,10 @@ public static class CampaignMain
             CheckLen(c.PayloadLength, want, "D");
             var b = Flatten(c.PayloadAsReadOnlySequence(), out int n);
             var core = RentCore();
-            int rc = core.TryDecode(b, n, retain, out var m);
+            // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
+            int rc = core.TryFsm(b, n, retain, out var m);
             _cores.Add(core);
-            if (rc < 0) throw new Abort("D: core decode " + rc + (rc == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
+            if (rc < 0) throw new Abort("D: core FSM decode " + rc + (rc == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
             return m;
         });
         Method<ListTasksDetailedResponse, byte[]> DUp(bool retain) => UpMethod<ListTasksDetailedResponse>((m, c) =>
@@ -612,8 +615,9 @@ public static class CampaignMain
         ListTasksDetailedResponse fm;
         if (codec == 1)
         {
-            int dr = Core.TryDecode(b, (int)r.len, retain, out fm);
-            if (dr < 0) throw new Abort(cell + ": core decode " + dr);
+            // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
+            int dr = Core.TryFsm(b, (int)r.len, retain, out fm);
+            if (dr < 0) throw new Abort(cell + ": core FSM decode " + dr);
         }
         else fm = HostDecode(b, (int)r.len, retain, cell);
         return Touch.F_ListTasksDetailedResponse(fm);
@@ -790,7 +794,8 @@ public static class CampaignMain
         {
             var b = Buf((int)r.len);
             new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
-            if (Core.TryDecode(b, (int)r.len, false, out var fm) < 0) throw new Abort("core decode");
+            // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
+            if (Core.TryFsm(b, (int)r.len, false, out var fm) < 0) throw new Abort("core FSM decode");
             return read ? Touch.F_ListTasksDetailedResponse(fm) : 0;
         }
         var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len));

@@ -14,6 +14,7 @@ public sealed class UnkRow
 {
     public int Positions;
     public bool PullEqual;
+    public bool FsmEqual;
     public string Error;
     public List<string> Mismatched = new List<string>();
     public List<string> Changed = new List<string>();
@@ -58,41 +59,42 @@ public static unsafe class Ffi
     private static CoreFfi_SurrogateInner _SurrogateInner;
     private static CoreFfi_WireZoo _WireZoo;
 
+    /// D24: the FSM, the target decode family (DecodeFam: push 0, pull 1, FSM 2).
     /// < 0: the core's code (the output is unspecified, R-G6); 1: not in the C ABI.
     public static int Decode(string root, byte[] b, bool retain, out object msg)
     {
         msg = null;
         switch (root)
         {
-            case "Timestamp": { var c = _Timestamp ??= new CoreFfi_Timestamp(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "Duration": { var c = _Duration ??= new CoreFfi_Duration(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ResultRaw": { var c = _ResultRaw ??= new CoreFfi_ResultRaw(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "TaskOptions": { var c = _TaskOptions ??= new CoreFfi_TaskOptions(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "TaskOutput": { var c = _TaskOutput ??= new CoreFfi_TaskOutput(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "TaskDetailed": { var c = _TaskDetailed ??= new CoreFfi_TaskDetailed(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "TaskSummary": { var c = _TaskSummary ??= new CoreFfi_TaskSummary(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "Probe": { var c = _Probe ??= new CoreFfi_Probe(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "Empty": { var c = _Empty ??= new CoreFfi_Empty(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "UploadResultData": { var c = _UploadResultData ??= new CoreFfi_UploadResultData(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "MetricsBatch": { var c = _MetricsBatch ??= new CoreFfi_MetricsBatch(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "Pair": { var c = _Pair ??= new CoreFfi_Pair(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ListResultsResponse": { var c = _ListResultsResponse ??= new CoreFfi_ListResultsResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ListTasksDetailedResponse": { var c = _ListTasksDetailedResponse ??= new CoreFfi_ListTasksDetailedResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ListTaskSummaryResponse": { var c = _ListTaskSummaryResponse ??= new CoreFfi_ListTaskSummaryResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ListProbeResponse": { var c = _ListProbeResponse ??= new CoreFfi_ListProbeResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ListMetricsResponse": { var c = _ListMetricsResponse ??= new CoreFfi_ListMetricsResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "UploadResultDataMessage": { var c = _UploadResultDataMessage ??= new CoreFfi_UploadResultDataMessage(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "DualResponse": { var c = _DualResponse ??= new CoreFfi_DualResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ChunkLeaf": { var c = _ChunkLeaf ??= new CoreFfi_ChunkLeaf(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ChunkInner": { var c = _ChunkInner ??= new CoreFfi_ChunkInner(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ChunkElement": { var c = _ChunkElement ??= new CoreFfi_ChunkElement(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ChunkedResponse": { var c = _ChunkedResponse ??= new CoreFfi_ChunkedResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "ChunkedResponseWide": { var c = _ChunkedResponseWide ??= new CoreFfi_ChunkedResponseWide(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "LeafElement": { var c = _LeafElement ??= new CoreFfi_LeafElement(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "LeafResponse": { var c = _LeafResponse ??= new CoreFfi_LeafResponse(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "Surrogate": { var c = _Surrogate ??= new CoreFfi_Surrogate(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "SurrogateInner": { var c = _SurrogateInner ??= new CoreFfi_SurrogateInner(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
-            case "WireZoo": { var c = _WireZoo ??= new CoreFfi_WireZoo(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Timestamp": { var c = _Timestamp ??= new CoreFfi_Timestamp(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Duration": { var c = _Duration ??= new CoreFfi_Duration(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ResultRaw": { var c = _ResultRaw ??= new CoreFfi_ResultRaw(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "TaskOptions": { var c = _TaskOptions ??= new CoreFfi_TaskOptions(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "TaskOutput": { var c = _TaskOutput ??= new CoreFfi_TaskOutput(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "TaskDetailed": { var c = _TaskDetailed ??= new CoreFfi_TaskDetailed(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "TaskSummary": { var c = _TaskSummary ??= new CoreFfi_TaskSummary(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Probe": { var c = _Probe ??= new CoreFfi_Probe(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Empty": { var c = _Empty ??= new CoreFfi_Empty(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "UploadResultData": { var c = _UploadResultData ??= new CoreFfi_UploadResultData(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "MetricsBatch": { var c = _MetricsBatch ??= new CoreFfi_MetricsBatch(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Pair": { var c = _Pair ??= new CoreFfi_Pair(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ListResultsResponse": { var c = _ListResultsResponse ??= new CoreFfi_ListResultsResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ListTasksDetailedResponse": { var c = _ListTasksDetailedResponse ??= new CoreFfi_ListTasksDetailedResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ListTaskSummaryResponse": { var c = _ListTaskSummaryResponse ??= new CoreFfi_ListTaskSummaryResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ListProbeResponse": { var c = _ListProbeResponse ??= new CoreFfi_ListProbeResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ListMetricsResponse": { var c = _ListMetricsResponse ??= new CoreFfi_ListMetricsResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "UploadResultDataMessage": { var c = _UploadResultDataMessage ??= new CoreFfi_UploadResultDataMessage(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "DualResponse": { var c = _DualResponse ??= new CoreFfi_DualResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ChunkLeaf": { var c = _ChunkLeaf ??= new CoreFfi_ChunkLeaf(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ChunkInner": { var c = _ChunkInner ??= new CoreFfi_ChunkInner(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ChunkElement": { var c = _ChunkElement ??= new CoreFfi_ChunkElement(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ChunkedResponse": { var c = _ChunkedResponse ??= new CoreFfi_ChunkedResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "ChunkedResponseWide": { var c = _ChunkedResponseWide ??= new CoreFfi_ChunkedResponseWide(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "LeafElement": { var c = _LeafElement ??= new CoreFfi_LeafElement(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "LeafResponse": { var c = _LeafResponse ??= new CoreFfi_LeafResponse(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "Surrogate": { var c = _Surrogate ??= new CoreFfi_Surrogate(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "SurrogateInner": { var c = _SurrogateInner ??= new CoreFfi_SurrogateInner(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
+            case "WireZoo": { var c = _WireZoo ??= new CoreFfi_WireZoo(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }
             default: return 1;
         }
     }

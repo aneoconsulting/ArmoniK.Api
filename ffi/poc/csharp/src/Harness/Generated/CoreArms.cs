@@ -22,6 +22,10 @@ public unsafe interface ICoreArm : IDisposable
     byte[] EncodeToArrayU();
     int EncodeNoCopy();
     int Fill();
+    /// D24: the FSM, the target decode family (drop; FsmU: retain).
+    int Fsm(byte[] src, int len);
+    int FsmU(byte[] src, int len);
+    /// Push decode (a labelled extra since D24).
     int Decode(byte[] src, int len);
     /// Push decode with the unknown-field capture callbacks installed.
     int DecodeU(byte[] src, int len);
@@ -52,6 +56,8 @@ public sealed unsafe class Arm_ListResultsResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -81,6 +87,8 @@ public sealed unsafe class Arm_ListTasksDetailedResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -110,6 +118,8 @@ public sealed unsafe class Arm_ListProbeResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -139,6 +149,8 @@ public sealed unsafe class Arm_ListTaskSummaryResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -168,6 +180,8 @@ public sealed unsafe class Arm_UploadResultDataMessage : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -197,6 +211,8 @@ public sealed unsafe class Arm_ListMetricsResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;
@@ -226,6 +242,8 @@ public sealed unsafe class Arm_DualResponse : ICoreArm
     public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }
     public int Fill() => _c.Fill(_src);
     public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }
+    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }
+    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }
     public int DecodeU(byte[] src, int len) { _sink = _c.DecodeU(src, len); return 1; }
     public int Pull(byte[] src, int len) { _sink = _c.Pull(src, len); return 1; }
     public object Sink => _sink;

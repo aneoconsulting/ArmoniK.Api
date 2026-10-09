@@ -19,10 +19,14 @@ for f in sorted(glob.glob(os.path.join(D, '*-r*.jsonl'))):
         e['mf'].append(r['minflt'] / r['iters'])
         if 'mem_alloc_bytes_per_op' in r: e['mem'].append(r['mem_alloc_bytes_per_op'])
         if r.get('mem_ops'): e['g0'].append(1000.0 * r['mem_gen'][0] / r['mem_ops'])
+# Arm names: before D24 (s10, s11) `core-ffi` was push and `core-ffi-fsm` the FSM; since D24
+# `core-ffi` is the FSM and `core-ffi-push` push. The run's own names decide.
+old_names = any(a.startswith('core-ffi-fsm:') for k in by for a in by[k])
+P, F = ('core-ffi', 'core-ffi-fsm') if old_names else ('core-ffi-push', 'core-ffi')
 cols = [('incumbent-prod:default', 'Google.Protobuf, unknown retained'), ('incumbent-prod:discard', 'Google.Protobuf, unknown discarded'),
-        ('core-ffi:retain', 'core push, retain'), ('core-ffi:drop', 'core push, drop'),
+        (P + ':retain', 'core push, retain'), (P + ':drop', 'core push, drop'),
         ('core-ffi-pull:retain', 'core pull, retain'), ('core-ffi-pull:drop', 'core pull, drop'),
-        ('core-ffi-fsm:retain', 'core FSM, retain'), ('core-ffi-fsm:drop', 'core FSM, drop')]
+        (F + ':retain', 'core FSM, retain'), (F + ':drop', 'core FSM, drop')]
 def key(k):
     m = re.match(r'P(\d+)\.(\d+)(/(\w+))?$', k)
     if m: return (0, int(m.group(1)), int(m.group(2)), ['', 'latin1', 'wide'].index(m.group(4) or ''))

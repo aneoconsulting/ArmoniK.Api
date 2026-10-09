@@ -25,13 +25,15 @@ public static class Cases
     /// Step 9b (owner, 2026-10-09), AK_BDN_S9=1 (full build, decode rows): the owner's six arms:
     /// the incumbent retaining (its default parser) and discarding unknown fields
     /// (WithDiscardUnknownFields), core push retain / drop, core pull retain / drop; nothing else.
-    /// D23 (owner, 2026-10-09), AK_BDN_S10=1: the same eight-arm set plus the FSM family
-    /// (core-ffi-fsm retain / drop); implies S9's restrictions (decode rows, these arms only).
+    /// D23 (owner, 2026-10-09), AK_BDN_S10=1: S9's set plus the FSM family; implies S9's
+    /// restrictions (decode rows, these arms only). Since D24 the FSM IS `core-ffi` (the target
+    /// decode family) and push is the labelled extra `core-ffi-push`, so S9's set names push
+    /// explicitly and S10's eight arms are core-ffi-push, core-ffi-pull and core-ffi (FSM).
     public static readonly bool S10 = Environment.GetEnvironmentVariable("AK_BDN_S10") == "1";
     public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1" || S10;
 
     /// The arms in their launch-1 order; launch n rotates it by n - 1 (requirement 22).
-    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-pull", "core-ffi-fsm" };
+    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-push", "core-ffi-pull" };
 
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the core, the
@@ -39,14 +41,16 @@ public static class Cases
     // plan-generated too). Mode `no-unknown`; the incumbent arms run as their own units
     // (every unit is its own process, so they are cross-process controls, not in-process ones).
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
-    private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-pull:no-unknown" };
+    // D24: core-ffi decodes with the FSM; push (core-ffi-push) and pull are labelled extras.
+    private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-push:no-unknown", "core-ffi-pull:no-unknown" };
     private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
 #else
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
     private static readonly string[] S9Arms = S10
-        ? new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop", "core-ffi-fsm:retain", "core-ffi-fsm:drop" }
-        : new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
-    private static readonly string[] DecArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
+        ? new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi-push:retain", "core-ffi-push:drop", "core-ffi-pull:retain", "core-ffi-pull:drop", "core-ffi:retain", "core-ffi:drop" }
+        : new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi-push:retain", "core-ffi-push:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
+    // D24: core-ffi decodes with the FSM; push (core-ffi-push) and pull are labelled extras.
+    private static readonly string[] DecArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-push:drop", "core-ffi-push:retain", "core-ffi-pull:drop" };
     private static readonly string[] UnkArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
 #endif
 
@@ -418,7 +422,7 @@ public static class Cases
 #if AK_NO_UNKNOWN_FIELDS
             // The no-unknown build: every arm accepts the row, and host-gen and core-ffi both
             // re-encode it in the DROPPED form, the same bytes, by decode-reencode and by encode.
-            ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecFfi(b, b.Length, false, true);
+            ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecFfi(b, b.Length, false, true); ops.DecFfiPush(b, b.Length, false, true);
             Same(ops.RtFfi(b, b.Length, false), ops.RtHost(b, b.Length, false), id + " core-ffi no-unknown vs host-gen no-unknown (decode-reencode, dropped form)");
             Same(ops.FromWire(b, 3).EncFfiBytes(false), HostEnc(ops.FromWire(b, 1), false), id + " core-ffi no-unknown vs host-gen no-unknown (encode, dropped form)");
             // Section 4.0 (D18): the U-* rows' encode at end state (ii), the transport form.
@@ -430,6 +434,7 @@ public static class Cases
 #else
             ops.DecIncBest(b, b.Length, true); ops.DecHost(b, b.Length, false, true); ops.DecHost(b, b.Length, true, true);
             ops.DecFfi(b, b.Length, false, true); ops.DecFfi(b, b.Length, true, true);
+            ops.DecFfiPush(b, b.Length, false, true); ops.DecFfiPush(b, b.Length, true, true);
             n += 6;
             // Requirement 10 (decision 11, WP5 step 9): the timed RETAIN arms keep the unknown
             // fields. host-gen retain and core-ffi retain re-encode to the same bytes, and to
@@ -552,11 +557,12 @@ public static class Cases
                 return () => ops.DecIncProd(seq, read);
             case "incumbent-best:decode": case "incumbent-best:decode-read": return () => ops.DecIncBest(wire, len, read);
             case "host-gen:decode": case "host-gen:decode-read": return () => ops.DecHost(wire, len, retain, read);
+            // D24: core-ffi decodes with the FSM; core-ffi-push (push) and core-ffi-pull are labelled extras.
             case "core-ffi:decode": case "core-ffi:decode-read": return () => ops.DecFfi(wire, len, retain, read);
+            case "core-ffi-push:decode": case "core-ffi-push:decode-read": return () => ops.DecFfiPush(wire, len, retain, read);
             case "core-ffi-pull:decode": case "core-ffi-pull:decode-read":
                 if (c.Mode == "retain") return () => ops.DecFfiPullR(wire, len, true, read);
                 return () => ops.DecFfiPull(wire, len, read);
-            case "core-ffi-fsm:decode": case "core-ffi-fsm:decode-read": return () => ops.DecFfiFsm(wire, len, retain, read);
             case "incumbent-prod:decode-reencode": return () => ops.RtIncProd(seq, w);
             case "host-gen:decode-reencode": return () => ops.RtHost(wire, len, retain).Length;
             case "core-ffi:decode-reencode": return () => ops.RtFfi(wire, len, retain).Length;

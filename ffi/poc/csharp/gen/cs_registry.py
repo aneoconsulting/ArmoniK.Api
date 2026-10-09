@@ -29,6 +29,10 @@ def emit_registry(p, payloads):
     o += "    byte[] EncodeToArrayU();"
     o += "    int EncodeNoCopy();"
     o += "    int Fill();"
+    o += "    /// D24: the FSM, the target decode family (drop; FsmU: retain)."
+    o += "    int Fsm(byte[] src, int len);"
+    o += "    int FsmU(byte[] src, int len);"
+    o += "    /// Push decode (a labelled extra since D24)."
     o += "    int Decode(byte[] src, int len);"
     o += "    /// Push decode with the unknown-field capture callbacks installed."
     o += "    int DecodeU(byte[] src, int len);"
@@ -60,6 +64,11 @@ def emit_registry(p, payloads):
         o += "    public int EncodeNoCopy() { _c.Encode(_src, out byte* p, out int l); return l; }"
         o += "    public int Fill() => _c.Fill(_src);"
         o += "    public int Decode(byte[] src, int len) { _sink = _c.Decode(src, len); return 1; }"
+        o += "    public int Fsm(byte[] src, int len) { _sink = _c.Fsm(src, len); return 1; }"
+        if unknown_compiled_out(p):
+            o += "    public int FsmU(byte[] src, int len) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");"
+        else:
+            o += "    public int FsmU(byte[] src, int len) { _sink = _c.FsmU(src, len); return 1; }"
         if unknown_compiled_out(p):
             # WP5 step 10: the retain paths do not exist in this build.
             o += "    public int DecodeU(byte[] src, int len) => throw new NotSupportedException(\"unknown fields are compiled out of this build\");"
@@ -109,6 +118,7 @@ def emit_corpus_dispatch(abi, refused):
     o += "{"
     o += "    public int Positions;"
     o += "    public bool PullEqual;"
+    o += "    public bool FsmEqual;"
     o += "    public string Error;"
     o += "    public List<string> Mismatched = new List<string>();"
     o += "    public List<string> Changed = new List<string>();"
@@ -127,6 +137,7 @@ def emit_corpus_dispatch(abi, refused):
     for r in abi.roots:
         o += "    private static CoreFfi_%s _%s;" % (r, r)
     o += ""
+    o += "    /// D24: the FSM, the target decode family (DecodeFam: push 0, pull 1, FSM 2)."
     o += "    /// < 0: the core's code (the output is unspecified, R-G6); 1: not in the C ABI."
     o += "    public static int Decode(string root, byte[] b, bool retain, out object msg)"
     o += "    {"
@@ -134,7 +145,7 @@ def emit_corpus_dispatch(abi, refused):
     o += "        switch (root)"
     o += "        {"
     for r in abi.roots:
-        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = c.TryDecode(b, b.Length, retain, out var t); msg = t; return rc; }" % (r, r, r)
+        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }" % (r, r, r)
     o += "            default: return 1;"
     o += "        }"
     o += "    }"
@@ -173,6 +184,8 @@ def emit_corpus_dispatch(abi, refused):
         o += "                var want = c.EncodeToArray(all, true);"
         o += "                rc = c.TryPull(b, b.Length, true, out var pl);"
         o += "                u.PullEqual = rc == 0 && c.EncodeToArray(pl, true).AsSpan().SequenceEqual(want);"
+        o += "                rc = c.TryFsm(b, b.Length, true, out var fs);   // D24: the FSM must deliver what push does"
+        o += "                u.FsmEqual = rc == 0 && c.EncodeToArray(fs, true).AsSpan().SequenceEqual(want);"
         o += "                for (int i = 0; i < u.Positions; i++)"
         o += "                {"
         o += "                    rc = c.TryDecodeZeroing(b, b.Length, i, out var z);"
