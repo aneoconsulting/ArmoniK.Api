@@ -1,0 +1,38 @@
+ Percent |	Source code & Disassembly of libak_core.so for cpu-clock (10228 samples, percent: local period)
+---------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      0000000000152030 <ak_fsm_next_ListMetricsResponse>:
+   12.74 :   152030: push   %rax
+    0.16 :   152031: mov    0x1f80ed(%rip),%ecx        # 34a124 <ak_core::INIT_STATE>
+    0.06 :   152037: mov    $0xfffffff6,%eax
+    0.00 :   15203c: cmp    $0x2,%ecx
+    0.00 :   15203f: jne    15208d <ak_fsm_next_ListMetricsResponse+0x5d>
+    0.28 :   152041: mov    %rsi,%rdx
+    0.00 :   152044: test   %rdi,%rdi
+    0.00 :   152047: setne  %cl
+    0.03 :   15204a: test   %rsi,%rsi
+   12.99 :   15204d: setne  %sil
+    0.00 :   152051: mov    $0xfffffff8,%eax
+    0.00 :   152056: test   %sil,%cl
+    0.00 :   152059: je     15208d <ak_fsm_next_ListMetricsResponse+0x5d>
+    0.02 :   15205b: cmpl   $0x6,0x60(%rdi)
+   33.02 :   15205f: jne    15208d <ak_fsm_next_ListMetricsResponse+0x5d>
+    6.36 :   152061: mov    0x90(%rdi),%rsi
+    0.02 :   152068: test   %rsi,%rsi
+    0.00 :   15206b: je     15208d <ak_fsm_next_ListMetricsResponse+0x5d>
+    0.22 :   15206d: cmpb   $0x1,0x188(%rsi)
+   14.49 :   152074: jne    15208d <ak_fsm_next_ListMetricsResponse+0x5d>
+   10.77 :   152076: cmpl   $0x0,0x4(%rdi)
+    0.03 :   15207a: je     152088 <ak_fsm_next_ListMetricsResponse+0x58>
+    0.00 :   15207c: movb   $0x3,0x188(%rsi)
+    0.00 :   152083: mov    0x4(%rdi),%eax
+    0.00 :   152086: pop    %rcx
+    0.00 :   152087: ret
+    2.33 :   152088: call   1382d0 <ak_core::generated::fsm::fsm_step_list_metrics_response>
+    6.35 :   15208d: pop    %rcx
+    0.13 :   15208e: ret
+    0.00 :   15208f: call   *0x1f2283(%rip)        # 344318 <_DYNAMIC+0x290>

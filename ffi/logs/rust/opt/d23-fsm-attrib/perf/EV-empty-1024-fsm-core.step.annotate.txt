@@ -1,0 +1,2807 @@
+ Percent |	Source code & Disassembly of libak_core.so for cpu-clock (27059 samples, percent: local period)
+---------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      00000000001382d0 <ak_core::generated::fsm::fsm_step_list_metrics_response>:
+    5.14 :   1382d0: push   %rbp
+    0.00 :   1382d1: push   %r15
+    0.00 :   1382d3: push   %r14
+    0.00 :   1382d5: push   %r13
+    0.06 :   1382d7: push   %r12
+    0.00 :   1382d9: push   %rbx
+    0.00 :   1382da: sub    $0x78,%rsp
+    4.86 :   1382de: mov    %rsi,%rbx
+    0.00 :   1382e1: mov    %rdi,%rcx
+    0.00 :   1382e4: mov    0x38(%rsi),%r15
+    0.00 :   1382e8: test   %r15,%r15
+    0.05 :   1382eb: mov    0x30(%rsi),%r10
+    0.00 :   1382ef: mov    $0x1,%r13d
+    0.00 :   1382f5: cmovne %r10,%r13
+    0.00 :   1382f9: cmpq   $0x0,0x88(%rdi)
+   24.32 :   138301: je     13830c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x3c>
+    0.00 :   138303: mov    0x80(%rcx),%r8
+    0.00 :   13830a: jmp    13830f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x3f>
+    4.56 :   13830c: xor    %r8d,%r8d
+    0.00 :   13830f: mov    0x20(%rbx),%rsi
+    0.00 :   138313: mov    0x8(%rbx),%r11
+    0.00 :   138317: mov    0x178(%rbx),%rdi
+    0.14 :   13831e: mov    0x184(%rbx),%eax
+    0.00 :   138324: mov    0x48(%rbx),%r9
+    0.00 :   138328: test   %eax,%eax
+    0.00 :   13832a: je     138341 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x71>
+    0.00 :   13832c: cmp    0x168(%rbx),%r9
+    0.00 :   138333: ja     138341 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x71>
+    0.00 :   138335: movb   $0x3,0x188(%rbx)
+    0.00 :   13833c: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.27 :   138341: mov    %rdi,0x60(%rsp)
+    4.26 :   138346: lea    -0x1(%r9),%rdi
+    0.00 :   13834a: cmp    $0xf,%rdi
+    0.00 :   13834e: ja     13b183 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2eb3>
+    0.00 :   138354: mov    %rcx,0x58(%rsp)
+    0.10 :   138359: mov    %rdx,0x10(%rsp)
+    0.01 :   13835e: lea    0x18(%rsi),%rax
+    0.00 :   138362: mov    %rax,0x40(%rsp)
+    0.01 :   138367: lea    0x50(%rbx),%r12
+    0.26 :   13836b: mov    %rsi,0x48(%rsp)
+    4.46 :   138370: lea    0x28(%rsi),%rax
+    0.00 :   138374: mov    %rax,0x70(%rsp)
+    0.01 :   138379: mov    %r8,0x50(%rsp)
+    0.06 :   13837e: lea    0x10(%r8),%rax
+    0.00 :   138382: mov    %rax,0x68(%rsp)
+    0.00 :   138387: mov    0x40(%rbx),%r14
+    0.00 :   13838b: lea    -0xff0ce(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.28 :   138392: mov    %r10,(%rsp)
+    4.62 :   138396: mov    %r11,0x8(%rsp)
+    0.00 :   13839b: jmp    1383e2 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x112>
+    0.00 :   13839d: mov    %r9d,%esi
+    0.00 :   1383a0: mov    (%rsp),%r10
+    0.00 :   1383a4: mov    %esi,(%r11,%rdx,4)
+    0.00 :   1383a8: incq   0x150(%rbx)
+    0.00 :   1383af: mov    0x28(%rsp),%r14
+    0.00 :   1383b4: mov    %r14,0x40(%rbx)
+    0.00 :   1383b8: mov    0x8(%rsp),%r11
+    0.00 :   1383bd: lea    -0xff100(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   1383c4: data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   1383d0: mov    0x48(%rbx),%r9
+    0.00 :   1383d4: lea    -0x1(%r9),%rdi
+    0.00 :   1383d8: cmp    $0x10,%rdi
+    0.00 :   1383dc: jae    13b183 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2eb3>
+    0.06 :   1383e2: mov    %rdi,%rax
+    0.07 :   1383e5: shl    $0x4,%rax
+    0.05 :   1383e9: mov    0x8(%r12,%rax,1),%ecx
+    0.09 :   1383ee: mov    (%r12,%rax,1),%r8
+    0.08 :   1383f2: mov    %r8,%rax
+    0.16 :   1383f5: sub    %r14,%rax
+    0.00 :   1383f8: jbe    138660 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x390>
+    2.06 :   1383fe: mov    %r13,0x18(%rsp)
+    0.00 :   138403: mov    %r15,0x20(%rsp)
+    0.03 :   138408: mov    %r14,0x28(%rsp)
+    0.04 :   13840d: mov    %r8,0x30(%rsp)
+    0.03 :   138412: movl   $0x0,0x38(%rsp)
+    0.00 :   13841a: lea    -0x2(%rcx),%edx
+    0.03 :   13841d: cmp    $0x4,%edx
+    0.00 :   138420: ja     1389ff <ak_core::generated::fsm::fsm_step_list_metrics_response+0x72f>
+    0.00 :   138426: movslq 0x0(%rbp,%rdx,4),%rcx
+    0.00 :   13842b: add    %rbp,%rcx
+    0.00 :   13842e: jmp    *%rcx
+    0.00 :   138430: mov    0x150(%rbx),%rcx
+    0.00 :   138437: cmp    $0x1000,%rcx
+    0.00 :   13843e: je     13a934 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2664>
+    0.00 :   138444: cmp    %r15,%r14
+    0.00 :   138447: jae    13b195 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec5>
+    0.00 :   13844d: movzbl (%r10,%r14,1),%eax
+    0.00 :   138452: lea    0x1(%r14),%rdi
+    0.00 :   138456: mov    %rdi,0x28(%rsp)
+    0.00 :   13845b: mov    %eax,%edx
+    0.00 :   13845d: and    $0x7f,%edx
+    0.00 :   138460: test   %al,%al
+    0.00 :   138462: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   138468: mov    $0xfffffffd,%eax
+    0.00 :   13846d: cmp    %r8,%rdi
+    0.00 :   138470: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138476: cmp    %r15,%rdi
+    0.00 :   138479: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13847f: movzbl 0x1(%r10,%r14,1),%esi
+    0.00 :   138485: lea    0x2(%r14),%rdi
+    0.00 :   138489: mov    %rdi,0x28(%rsp)
+    0.00 :   13848e: mov    %esi,%r9d
+    0.00 :   138491: and    $0x7f,%r9d
+    0.00 :   138495: shl    $0x7,%r9d
+    0.00 :   138499: or     %r9,%rdx
+    0.00 :   13849c: test   %sil,%sil
+    0.00 :   13849f: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   1384a5: cmp    %r8,%rdi
+    0.00 :   1384a8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1384ae: cmp    %r15,%rdi
+    0.00 :   1384b1: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1384b7: movzbl 0x2(%r10,%r14,1),%esi
+    0.00 :   1384bd: lea    0x3(%r14),%rdi
+    0.00 :   1384c1: mov    %rdi,0x28(%rsp)
+    0.00 :   1384c6: mov    %esi,%r9d
+    0.00 :   1384c9: and    $0x7f,%r9d
+    0.00 :   1384cd: shl    $0xe,%r9d
+    0.00 :   1384d1: or     %r9,%rdx
+    0.00 :   1384d4: test   %sil,%sil
+    0.00 :   1384d7: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   1384dd: cmp    %r8,%rdi
+    0.00 :   1384e0: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1384e6: cmp    %r15,%rdi
+    0.00 :   1384e9: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1384ef: movzbl 0x3(%r10,%r14,1),%esi
+    0.00 :   1384f5: lea    0x4(%r14),%rdi
+    0.00 :   1384f9: mov    %rdi,0x28(%rsp)
+    0.00 :   1384fe: mov    %esi,%r9d
+    0.00 :   138501: and    $0x7f,%r9d
+    0.00 :   138505: shl    $0x15,%r9d
+    0.00 :   138509: or     %r9,%rdx
+    0.00 :   13850c: test   %sil,%sil
+    0.00 :   13850f: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   138515: cmp    %r8,%rdi
+    0.00 :   138518: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13851e: cmp    %r15,%rdi
+    0.00 :   138521: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138527: movzbl 0x4(%r10,%r14,1),%esi
+    0.00 :   13852d: lea    0x5(%r14),%rdi
+    0.00 :   138531: mov    %rdi,0x28(%rsp)
+    0.00 :   138536: mov    %esi,%r9d
+    0.00 :   138539: and    $0x7f,%r9d
+    0.00 :   13853d: shl    $0x1c,%r9
+    0.00 :   138541: or     %r9,%rdx
+    0.00 :   138544: test   %sil,%sil
+    0.00 :   138547: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   13854d: cmp    %r8,%rdi
+    0.00 :   138550: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138556: cmp    %r15,%rdi
+    0.00 :   138559: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13855f: movzbl 0x5(%r10,%r14,1),%esi
+    0.00 :   138565: lea    0x6(%r14),%rdi
+    0.00 :   138569: mov    %rdi,0x28(%rsp)
+    0.00 :   13856e: mov    %esi,%r9d
+    0.00 :   138571: and    $0x7f,%r9d
+    0.00 :   138575: shl    $0x23,%r9
+    0.00 :   138579: or     %r9,%rdx
+    0.00 :   13857c: test   %sil,%sil
+    0.00 :   13857f: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   138585: cmp    %r8,%rdi
+    0.00 :   138588: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13858e: cmp    %r15,%rdi
+    0.00 :   138591: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138597: movzbl 0x6(%r10,%r14,1),%esi
+    0.00 :   13859d: lea    0x7(%r14),%rdi
+    0.00 :   1385a1: mov    %rdi,0x28(%rsp)
+    0.00 :   1385a6: mov    %esi,%r9d
+    0.00 :   1385a9: and    $0x7f,%r9d
+    0.00 :   1385ad: shl    $0x2a,%r9
+    0.00 :   1385b1: or     %r9,%rdx
+    0.00 :   1385b4: test   %sil,%sil
+    0.00 :   1385b7: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   1385bd: cmp    %r8,%rdi
+    0.00 :   1385c0: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1385c6: cmp    %r15,%rdi
+    0.00 :   1385c9: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1385cf: movzbl 0x7(%r10,%r14,1),%esi
+    0.00 :   1385d5: lea    0x8(%r14),%rdi
+    0.00 :   1385d9: mov    %rdi,0x28(%rsp)
+    0.00 :   1385de: mov    %esi,%r9d
+    0.00 :   1385e1: and    $0x7f,%r9d
+    0.00 :   1385e5: shl    $0x31,%r9
+    0.00 :   1385e9: or     %r9,%rdx
+    0.00 :   1385ec: test   %sil,%sil
+    0.00 :   1385ef: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   1385f1: cmp    %r8,%rdi
+    0.00 :   1385f4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1385fa: cmp    %r15,%rdi
+    0.00 :   1385fd: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138603: movzbl 0x8(%r10,%r14,1),%esi
+    0.00 :   138609: lea    0x9(%r14),%rdi
+    0.00 :   13860d: mov    %rdi,0x28(%rsp)
+    0.00 :   138612: mov    %esi,%r9d
+    0.00 :   138615: and    $0x7f,%r9d
+    0.00 :   138619: shl    $0x38,%r9
+    0.00 :   13861d: or     %r9,%rdx
+    0.00 :   138620: test   %sil,%sil
+    0.00 :   138623: jns    138655 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x385>
+    0.00 :   138625: cmp    %r8,%rdi
+    0.00 :   138628: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13862e: cmp    %r15,%rdi
+    0.00 :   138631: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138637: movzbl 0x9(%r10,%r14,1),%eax
+    0.00 :   13863d: add    $0xa,%r14
+    0.00 :   138641: mov    %r14,0x28(%rsp)
+    0.00 :   138646: test   %al,%al
+    0.00 :   138648: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13864e: shl    $0x3f,%rax
+    0.00 :   138652: or     %rax,%rdx
+    0.00 :   138655: mov    %rdx,(%r11,%rcx,8)
+    0.00 :   138659: jmp    139735 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1465>
+    0.00 :   13865e: xchg   %ax,%ax
+    2.27 :   138660: test   %ecx,%ecx
+    0.00 :   138662: je     13a86c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x259c>
+    0.00 :   138668: cmp    $0x1,%ecx
+    0.00 :   13866b: je     13a82e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x255e>
+    0.00 :   138671: mov    %rdi,0x48(%rbx)
+    0.00 :   138675: jmp    1383d0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x100>
+    0.00 :   13867a: mov    0x150(%rbx),%rcx
+    0.00 :   138681: cmp    $0x2000,%rcx
+    0.00 :   138688: je     13a8fa <ak_core::generated::fsm::fsm_step_list_metrics_response+0x262a>
+    0.00 :   13868e: cmp    %r15,%r14
+    0.00 :   138691: jb     1386b5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x3e5>
+    0.00 :   138693: jmp    13b195 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec5>
+    0.00 :   138698: mov    0x150(%rbx),%rcx
+    0.00 :   13869f: cmp    $0x2000,%rcx
+    0.00 :   1386a6: je     13a8fa <ak_core::generated::fsm::fsm_step_list_metrics_response+0x262a>
+    0.00 :   1386ac: cmp    %r15,%r14
+    0.00 :   1386af: jae    13b195 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec5>
+    0.00 :   1386b5: movzbl (%r10,%r14,1),%eax
+    0.00 :   1386ba: lea    0x1(%r14),%rdi
+    0.00 :   1386be: mov    %rdi,0x28(%rsp)
+    0.00 :   1386c3: mov    %eax,%edx
+    0.00 :   1386c5: and    $0x7f,%edx
+    0.00 :   1386c8: test   %al,%al
+    0.00 :   1386ca: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   1386d0: mov    $0xfffffffd,%eax
+    0.00 :   1386d5: cmp    %r8,%rdi
+    0.00 :   1386d8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1386de: cmp    %r15,%rdi
+    0.00 :   1386e1: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1386e7: movzbl 0x1(%r10,%r14,1),%esi
+    0.00 :   1386ed: lea    0x2(%r14),%rdi
+    0.00 :   1386f1: mov    %rdi,0x28(%rsp)
+    0.00 :   1386f6: mov    %esi,%r9d
+    0.00 :   1386f9: and    $0x7f,%r9d
+    0.00 :   1386fd: shl    $0x7,%r9d
+    0.00 :   138701: or     %r9d,%edx
+    0.00 :   138704: test   %sil,%sil
+    0.00 :   138707: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   13870d: cmp    %r8,%rdi
+    0.00 :   138710: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138716: cmp    %r15,%rdi
+    0.00 :   138719: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13871f: movzbl 0x2(%r10,%r14,1),%esi
+    0.00 :   138725: lea    0x3(%r14),%rdi
+    0.00 :   138729: mov    %rdi,0x28(%rsp)
+    0.00 :   13872e: mov    %esi,%r9d
+    0.00 :   138731: and    $0x7f,%r9d
+    0.00 :   138735: shl    $0xe,%r9d
+    0.00 :   138739: or     %r9d,%edx
+    0.00 :   13873c: test   %sil,%sil
+    0.00 :   13873f: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   138745: cmp    %r8,%rdi
+    0.00 :   138748: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13874e: cmp    %r15,%rdi
+    0.00 :   138751: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138757: movzbl 0x3(%r10,%r14,1),%r9d
+    0.00 :   13875d: lea    0x4(%r14),%rdi
+    0.00 :   138761: mov    %rdi,0x28(%rsp)
+    0.00 :   138766: mov    %r9d,%esi
+    0.00 :   138769: and    $0x7f,%esi
+    0.00 :   13876c: shl    $0x15,%esi
+    0.00 :   13876f: or     %edx,%esi
+    0.00 :   138771: test   %r9b,%r9b
+    0.00 :   138774: js     139648 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1378>
+    0.00 :   13877a: mov    %esi,%edx
+    0.00 :   13877c: jmp    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   138781: mov    0x150(%rbx),%rcx
+    0.00 :   138788: cmp    $0x8000,%rcx
+    0.00 :   13878f: je     13a96e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x269e>
+    0.00 :   138795: cmp    %r15,%r14
+    0.00 :   138798: jae    13b195 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec5>
+    0.00 :   13879e: movzbl (%r10,%r14,1),%eax
+    0.00 :   1387a3: lea    0x1(%r14),%rdi
+    0.00 :   1387a7: mov    %rdi,0x28(%rsp)
+    0.00 :   1387ac: mov    %eax,%edx
+    0.00 :   1387ae: and    $0x7f,%edx
+    0.00 :   1387b1: test   %al,%al
+    0.00 :   1387b3: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   1387b9: mov    $0xfffffffd,%eax
+    0.00 :   1387be: cmp    %r8,%rdi
+    0.00 :   1387c1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1387c7: cmp    %r15,%rdi
+    0.00 :   1387ca: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1387d0: movzbl 0x1(%r10,%r14,1),%esi
+    0.00 :   1387d6: lea    0x2(%r14),%rdi
+    0.00 :   1387da: mov    %rdi,0x28(%rsp)
+    0.00 :   1387df: mov    %esi,%r9d
+    0.00 :   1387e2: and    $0x7f,%r9d
+    0.00 :   1387e6: shl    $0x7,%r9d
+    0.00 :   1387ea: or     %r9,%rdx
+    0.00 :   1387ed: test   %sil,%sil
+    0.00 :   1387f0: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   1387f6: cmp    %r8,%rdi
+    0.00 :   1387f9: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1387ff: cmp    %r15,%rdi
+    0.00 :   138802: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138808: movzbl 0x2(%r10,%r14,1),%esi
+    0.00 :   13880e: lea    0x3(%r14),%rdi
+    0.00 :   138812: mov    %rdi,0x28(%rsp)
+    0.00 :   138817: mov    %esi,%r9d
+    0.00 :   13881a: and    $0x7f,%r9d
+    0.00 :   13881e: shl    $0xe,%r9d
+    0.00 :   138822: or     %r9,%rdx
+    0.00 :   138825: test   %sil,%sil
+    0.00 :   138828: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   13882e: cmp    %r8,%rdi
+    0.00 :   138831: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138837: cmp    %r15,%rdi
+    0.00 :   13883a: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138840: movzbl 0x3(%r10,%r14,1),%esi
+    0.00 :   138846: lea    0x4(%r14),%rdi
+    0.00 :   13884a: mov    %rdi,0x28(%rsp)
+    0.00 :   13884f: mov    %esi,%r9d
+    0.00 :   138852: and    $0x7f,%r9d
+    0.00 :   138856: shl    $0x15,%r9d
+    0.00 :   13885a: or     %r9,%rdx
+    0.00 :   13885d: test   %sil,%sil
+    0.00 :   138860: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   138866: cmp    %r8,%rdi
+    0.00 :   138869: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13886f: cmp    %r15,%rdi
+    0.00 :   138872: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138878: movzbl 0x4(%r10,%r14,1),%esi
+    0.00 :   13887e: lea    0x5(%r14),%rdi
+    0.00 :   138882: mov    %rdi,0x28(%rsp)
+    0.00 :   138887: mov    %esi,%r9d
+    0.00 :   13888a: and    $0x7f,%r9d
+    0.00 :   13888e: shl    $0x1c,%r9
+    0.00 :   138892: or     %r9,%rdx
+    0.00 :   138895: test   %sil,%sil
+    0.00 :   138898: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   13889e: cmp    %r8,%rdi
+    0.00 :   1388a1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1388a7: cmp    %r15,%rdi
+    0.00 :   1388aa: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1388b0: movzbl 0x5(%r10,%r14,1),%esi
+    0.00 :   1388b6: lea    0x6(%r14),%rdi
+    0.00 :   1388ba: mov    %rdi,0x28(%rsp)
+    0.00 :   1388bf: mov    %esi,%r9d
+    0.00 :   1388c2: and    $0x7f,%r9d
+    0.00 :   1388c6: shl    $0x23,%r9
+    0.00 :   1388ca: or     %r9,%rdx
+    0.00 :   1388cd: test   %sil,%sil
+    0.00 :   1388d0: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   1388d6: cmp    %r8,%rdi
+    0.00 :   1388d9: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1388df: cmp    %r15,%rdi
+    0.00 :   1388e2: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1388e8: movzbl 0x6(%r10,%r14,1),%esi
+    0.00 :   1388ee: lea    0x7(%r14),%rdi
+    0.00 :   1388f2: mov    %rdi,0x28(%rsp)
+    0.00 :   1388f7: mov    %esi,%r9d
+    0.00 :   1388fa: and    $0x7f,%r9d
+    0.00 :   1388fe: shl    $0x2a,%r9
+    0.00 :   138902: or     %r9,%rdx
+    0.00 :   138905: test   %sil,%sil
+    0.00 :   138908: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   13890e: cmp    %r8,%rdi
+    0.00 :   138911: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138917: cmp    %r15,%rdi
+    0.00 :   13891a: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138920: movzbl 0x7(%r10,%r14,1),%esi
+    0.00 :   138926: lea    0x8(%r14),%rdi
+    0.00 :   13892a: mov    %rdi,0x28(%rsp)
+    0.00 :   13892f: mov    %esi,%r9d
+    0.00 :   138932: and    $0x7f,%r9d
+    0.00 :   138936: shl    $0x31,%r9
+    0.00 :   13893a: or     %r9,%rdx
+    0.00 :   13893d: test   %sil,%sil
+    0.00 :   138940: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   138942: cmp    %r8,%rdi
+    0.00 :   138945: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13894b: cmp    %r15,%rdi
+    0.00 :   13894e: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138954: movzbl 0x8(%r10,%r14,1),%esi
+    0.00 :   13895a: lea    0x9(%r14),%rdi
+    0.00 :   13895e: mov    %rdi,0x28(%rsp)
+    0.00 :   138963: mov    %esi,%r9d
+    0.00 :   138966: and    $0x7f,%r9d
+    0.00 :   13896a: shl    $0x38,%r9
+    0.00 :   13896e: or     %r9,%rdx
+    0.00 :   138971: test   %sil,%sil
+    0.00 :   138974: jns    1389a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x6d6>
+    0.00 :   138976: cmp    %r8,%rdi
+    0.00 :   138979: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13897f: cmp    %r15,%rdi
+    0.00 :   138982: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138988: movzbl 0x9(%r10,%r14,1),%eax
+    0.00 :   13898e: add    $0xa,%r14
+    0.00 :   138992: mov    %r14,0x28(%rsp)
+    0.00 :   138997: test   %al,%al
+    0.00 :   138999: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13899f: shl    $0x3f,%rax
+    0.00 :   1389a3: or     %rax,%rdx
+    0.00 :   1389a6: test   %rdx,%rdx
+    0.00 :   1389a9: setne  (%r11,%rcx,1)
+    0.00 :   1389ae: jmp    139735 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1465>
+    0.00 :   1389b3: mov    0x150(%rbx),%rcx
+    0.00 :   1389ba: cmp    $0x1000,%rcx
+    0.00 :   1389c1: je     13a934 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2664>
+    0.00 :   1389c7: cmp    $0x8,%rax
+    0.00 :   1389cb: jb     13a9b3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26e3>
+    0.00 :   1389d1: lea    0x8(%r14),%rsi
+    0.00 :   1389d5: cmp    $0xfffffffffffffff7,%r14
+    0.00 :   1389d9: ja     13ad47 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a77>
+    0.00 :   1389df: cmp    %r15,%rsi
+    0.00 :   1389e2: ja     13ad47 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a77>
+    0.00 :   1389e8: movsd  0x0(%r13,%r14,1),%xmm0
+    0.00 :   1389ef: mov    %rsi,0x28(%rsp)
+    0.00 :   1389f4: movsd  %xmm0,(%r11,%rcx,8)
+    0.00 :   1389fa: jmp    139735 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1465>
+    0.21 :   1389ff: cmp    %r15,%r14
+    0.00 :   138a02: jae    13b195 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec5>
+    2.10 :   138a08: movzbl (%r10,%r14,1),%eax
+    0.41 :   138a0d: lea    0x1(%r14),%rdi
+    0.00 :   138a11: mov    %rdi,0x28(%rsp)
+    0.06 :   138a16: mov    %eax,%edx
+    0.23 :   138a18: and    $0x7f,%edx
+    0.23 :   138a1b: test   %al,%al
+    0.00 :   138a1d: jns    138c00 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x930>
+    0.00 :   138a23: mov    $0xfffffffd,%eax
+    0.00 :   138a28: cmp    %r8,%rdi
+    0.00 :   138a2b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138a31: cmp    %r15,%rdi
+    0.00 :   138a34: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138a3a: movzbl 0x1(%r10,%r14,1),%esi
+    0.00 :   138a40: lea    0x2(%r14),%rdi
+    0.00 :   138a44: mov    %rdi,0x28(%rsp)
+    0.00 :   138a49: mov    %esi,%r10d
+    0.00 :   138a4c: and    $0x7f,%r10d
+    0.00 :   138a50: shl    $0x7,%r10d
+    0.00 :   138a54: or     %r10,%rdx
+    0.00 :   138a57: test   %sil,%sil
+    0.00 :   138a5a: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138a60: cmp    %r8,%rdi
+    0.00 :   138a63: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138a69: cmp    %r15,%rdi
+    0.00 :   138a6c: mov    (%rsp),%rsi
+    0.00 :   138a70: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138a76: movzbl 0x2(%rsi,%r14,1),%esi
+    0.00 :   138a7c: lea    0x3(%r14),%rdi
+    0.00 :   138a80: mov    %rdi,0x28(%rsp)
+    0.00 :   138a85: mov    %esi,%r10d
+    0.00 :   138a88: and    $0x7f,%r10d
+    0.00 :   138a8c: shl    $0xe,%r10d
+    0.00 :   138a90: or     %r10,%rdx
+    0.00 :   138a93: test   %sil,%sil
+    0.00 :   138a96: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138a9c: cmp    %r8,%rdi
+    0.00 :   138a9f: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138aa5: cmp    %r15,%rdi
+    0.00 :   138aa8: mov    (%rsp),%rsi
+    0.00 :   138aac: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138ab2: movzbl 0x3(%rsi,%r14,1),%esi
+    0.00 :   138ab8: lea    0x4(%r14),%rdi
+    0.00 :   138abc: mov    %rdi,0x28(%rsp)
+    0.00 :   138ac1: mov    %esi,%r10d
+    0.00 :   138ac4: and    $0x7f,%r10d
+    0.00 :   138ac8: shl    $0x15,%r10d
+    0.00 :   138acc: or     %r10,%rdx
+    0.00 :   138acf: test   %sil,%sil
+    0.00 :   138ad2: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138ad8: cmp    %r8,%rdi
+    0.00 :   138adb: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138ae1: cmp    %r15,%rdi
+    0.00 :   138ae4: mov    (%rsp),%rsi
+    0.00 :   138ae8: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138aee: movzbl 0x4(%rsi,%r14,1),%esi
+    0.00 :   138af4: lea    0x5(%r14),%rdi
+    0.00 :   138af8: mov    %rdi,0x28(%rsp)
+    0.00 :   138afd: mov    %esi,%r10d
+    0.00 :   138b00: and    $0x7f,%r10d
+    0.00 :   138b04: shl    $0x1c,%r10
+    0.00 :   138b08: or     %r10,%rdx
+    0.00 :   138b0b: test   %sil,%sil
+    0.00 :   138b0e: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138b14: cmp    %r8,%rdi
+    0.00 :   138b17: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138b1d: cmp    %r15,%rdi
+    0.00 :   138b20: mov    (%rsp),%rsi
+    0.00 :   138b24: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138b2a: movzbl 0x5(%rsi,%r14,1),%esi
+    0.00 :   138b30: lea    0x6(%r14),%rdi
+    0.00 :   138b34: mov    %rdi,0x28(%rsp)
+    0.00 :   138b39: mov    %esi,%r10d
+    0.00 :   138b3c: and    $0x7f,%r10d
+    0.00 :   138b40: shl    $0x23,%r10
+    0.00 :   138b44: or     %r10,%rdx
+    0.00 :   138b47: test   %sil,%sil
+    0.00 :   138b4a: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138b50: cmp    %r8,%rdi
+    0.00 :   138b53: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138b59: cmp    %r15,%rdi
+    0.00 :   138b5c: mov    (%rsp),%rsi
+    0.00 :   138b60: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138b66: movzbl 0x6(%rsi,%r14,1),%esi
+    0.00 :   138b6c: lea    0x7(%r14),%rdi
+    0.00 :   138b70: mov    %rdi,0x28(%rsp)
+    0.00 :   138b75: mov    %esi,%r10d
+    0.00 :   138b78: and    $0x7f,%r10d
+    0.00 :   138b7c: shl    $0x2a,%r10
+    0.00 :   138b80: or     %r10,%rdx
+    0.00 :   138b83: test   %sil,%sil
+    0.00 :   138b86: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138b88: cmp    %r8,%rdi
+    0.00 :   138b8b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138b91: cmp    %r15,%rdi
+    0.00 :   138b94: mov    (%rsp),%rsi
+    0.00 :   138b98: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138b9e: movzbl 0x7(%rsi,%r14,1),%esi
+    0.00 :   138ba4: lea    0x8(%r14),%rdi
+    0.00 :   138ba8: mov    %rdi,0x28(%rsp)
+    0.00 :   138bad: mov    %esi,%r10d
+    0.00 :   138bb0: and    $0x7f,%r10d
+    0.00 :   138bb4: shl    $0x31,%r10
+    0.00 :   138bb8: or     %r10,%rdx
+    0.00 :   138bbb: test   %sil,%sil
+    0.00 :   138bbe: jns    138bfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x92c>
+    0.00 :   138bc0: cmp    %r8,%rdi
+    0.00 :   138bc3: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138bc9: cmp    %r15,%rdi
+    0.00 :   138bcc: mov    (%rsp),%rsi
+    0.00 :   138bd0: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   138bd6: movzbl 0x8(%rsi,%r14,1),%esi
+    0.00 :   138bdc: lea    0x9(%r14),%rdi
+    0.00 :   138be0: mov    %rdi,0x28(%rsp)
+    0.00 :   138be5: mov    %esi,%r10d
+    0.00 :   138be8: and    $0x7f,%r10d
+    0.00 :   138bec: shl    $0x38,%r10
+    0.00 :   138bf0: or     %r10,%rdx
+    0.00 :   138bf3: test   %sil,%sil
+    0.00 :   138bf6: js     13a4d1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2201>
+    0.00 :   138bfc: mov    (%rsp),%r10
+    0.04 :   138c00: mov    %rdx,%rax
+    0.14 :   138c03: shr    $0x20,%rax
+    2.13 :   138c07: jne    13a9c4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26f4>
+    0.16 :   138c0d: mov    %rdx,%rsi
+    0.01 :   138c10: shr    $0x3,%rsi
+    0.19 :   138c14: test   %esi,%esi
+    0.00 :   138c16: je     13a9c4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26f4>
+    0.34 :   138c1c: lea    (%r10,%r14,1),%rbp
+    0.04 :   138c20: and    $0x7,%edx
+    0.05 :   138c23: test   %ecx,%ecx
+    0.00 :   138c25: je     138ec7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xbf7>
+    0.00 :   138c2b: cmp    $0x1,%ecx
+    0.00 :   138c2e: jne    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   138c34: lea    -0x1(%rsi),%eax
+    0.00 :   138c37: cmp    $0x5,%eax
+    0.00 :   138c3a: ja     1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   138c40: lea    -0xff96f(%rip),%rcx        # 392d8 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x292>
+    0.00 :   138c47: movslq (%rcx,%rax,4),%rax
+    0.00 :   138c4b: add    %rcx,%rax
+    0.00 :   138c4e: jmp    *%rax
+    0.00 :   138c50: cmp    $0x2,%edx
+    0.00 :   138c53: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   138c59: mov    0x180(%rbx),%ecx
+    0.00 :   138c5f: test   %ecx,%ecx
+    0.00 :   138c61: mov    0x8(%rsp),%r9
+    0.00 :   138c66: je     138c82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x9b2>
+    0.00 :   138c68: mov    0x150(%rbx),%rax
+    0.00 :   138c6f: test   %rax,%rax
+    0.00 :   138c72: jne    13adae <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ade>
+    0.00 :   138c78: movl   $0x0,0x180(%rbx)
+    0.00 :   138c82: mov    $0xfffffffd,%eax
+    0.00 :   138c87: cmp    %r8,%rdi
+    0.00 :   138c8a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138c90: cmp    %r15,%rdi
+    0.00 :   138c93: jae    13b1d4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f04>
+    0.00 :   138c99: movzbl (%r10,%rdi,1),%ecx
+    0.00 :   138c9e: lea    0x1(%rdi),%rbp
+    0.00 :   138ca2: mov    %ecx,%r14d
+    0.00 :   138ca5: and    $0x7f,%r14d
+    0.00 :   138ca9: test   %cl,%cl
+    0.00 :   138cab: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138cb1: cmp    %r8,%rbp
+    0.00 :   138cb4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138cba: cmp    %r15,%rbp
+    0.00 :   138cbd: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138cc3: movzbl 0x1(%r10,%rdi,1),%ecx
+    0.00 :   138cc9: lea    0x2(%rdi),%rbp
+    0.00 :   138ccd: mov    %ecx,%edx
+    0.00 :   138ccf: and    $0x7f,%edx
+    0.00 :   138cd2: shl    $0x7,%edx
+    0.00 :   138cd5: or     %rdx,%r14
+    0.00 :   138cd8: test   %cl,%cl
+    0.00 :   138cda: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138ce0: cmp    %r8,%rbp
+    0.00 :   138ce3: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138ce9: cmp    %r15,%rbp
+    0.00 :   138cec: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138cf2: movzbl 0x2(%r10,%rdi,1),%ecx
+    0.00 :   138cf8: lea    0x3(%rdi),%rbp
+    0.00 :   138cfc: mov    %ecx,%edx
+    0.00 :   138cfe: and    $0x7f,%edx
+    0.00 :   138d01: shl    $0xe,%edx
+    0.00 :   138d04: or     %rdx,%r14
+    0.00 :   138d07: test   %cl,%cl
+    0.00 :   138d09: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138d0f: cmp    %r8,%rbp
+    0.00 :   138d12: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138d18: cmp    %r15,%rbp
+    0.00 :   138d1b: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138d21: movzbl 0x3(%r10,%rdi,1),%ecx
+    0.00 :   138d27: lea    0x4(%rdi),%rbp
+    0.00 :   138d2b: mov    %ecx,%edx
+    0.00 :   138d2d: and    $0x7f,%edx
+    0.00 :   138d30: shl    $0x15,%edx
+    0.00 :   138d33: or     %rdx,%r14
+    0.00 :   138d36: test   %cl,%cl
+    0.00 :   138d38: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138d3e: cmp    %r8,%rbp
+    0.00 :   138d41: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138d47: cmp    %r15,%rbp
+    0.00 :   138d4a: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138d50: movzbl 0x4(%r10,%rdi,1),%ecx
+    0.00 :   138d56: lea    0x5(%rdi),%rbp
+    0.00 :   138d5a: mov    %ecx,%edx
+    0.00 :   138d5c: and    $0x7f,%edx
+    0.00 :   138d5f: shl    $0x1c,%rdx
+    0.00 :   138d63: or     %rdx,%r14
+    0.00 :   138d66: test   %cl,%cl
+    0.00 :   138d68: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138d6e: cmp    %r8,%rbp
+    0.00 :   138d71: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138d77: cmp    %r15,%rbp
+    0.00 :   138d7a: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138d80: movzbl 0x5(%r10,%rdi,1),%ecx
+    0.00 :   138d86: lea    0x6(%rdi),%rbp
+    0.00 :   138d8a: mov    %ecx,%edx
+    0.00 :   138d8c: and    $0x7f,%edx
+    0.00 :   138d8f: shl    $0x23,%rdx
+    0.00 :   138d93: or     %rdx,%r14
+    0.00 :   138d96: test   %cl,%cl
+    0.00 :   138d98: jns    138e64 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb94>
+    0.00 :   138d9e: cmp    %r8,%rbp
+    0.00 :   138da1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138da7: cmp    %r15,%rbp
+    0.00 :   138daa: mov    (%rsp),%rcx
+    0.00 :   138dae: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138db4: movzbl 0x6(%rcx,%rdi,1),%ecx
+    0.00 :   138db9: lea    0x7(%rdi),%rbp
+    0.00 :   138dbd: mov    %ecx,%edx
+    0.00 :   138dbf: and    $0x7f,%edx
+    0.00 :   138dc2: shl    $0x2a,%rdx
+    0.00 :   138dc6: or     %rdx,%r14
+    0.00 :   138dc9: test   %cl,%cl
+    0.00 :   138dcb: jns    138e60 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb90>
+    0.00 :   138dd1: cmp    %r8,%rbp
+    0.00 :   138dd4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138dda: cmp    %r15,%rbp
+    0.00 :   138ddd: mov    (%rsp),%rcx
+    0.00 :   138de1: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138de7: movzbl 0x7(%rcx,%rdi,1),%ecx
+    0.00 :   138dec: lea    0x8(%rdi),%rbp
+    0.00 :   138df0: mov    %ecx,%edx
+    0.00 :   138df2: and    $0x7f,%edx
+    0.00 :   138df5: shl    $0x31,%rdx
+    0.00 :   138df9: or     %rdx,%r14
+    0.00 :   138dfc: test   %cl,%cl
+    0.00 :   138dfe: jns    138e60 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb90>
+    0.00 :   138e00: cmp    %r8,%rbp
+    0.00 :   138e03: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138e09: cmp    %r15,%rbp
+    0.00 :   138e0c: mov    (%rsp),%rcx
+    0.00 :   138e10: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138e16: movzbl 0x8(%rcx,%rdi,1),%ecx
+    0.00 :   138e1b: lea    0x9(%rdi),%rbp
+    0.00 :   138e1f: mov    %ecx,%edx
+    0.00 :   138e21: and    $0x7f,%edx
+    0.00 :   138e24: shl    $0x38,%rdx
+    0.00 :   138e28: or     %rdx,%r14
+    0.00 :   138e2b: test   %cl,%cl
+    0.00 :   138e2d: jns    138e60 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xb90>
+    0.00 :   138e2f: cmp    %r8,%rbp
+    0.00 :   138e32: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138e38: cmp    %r15,%rbp
+    0.00 :   138e3b: mov    (%rsp),%rcx
+    0.00 :   138e3f: jae    13b1d7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f07>
+    0.00 :   138e45: movzbl 0x9(%rcx,%rdi,1),%ecx
+    0.00 :   138e4a: test   %cl,%cl
+    0.00 :   138e4c: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   138e52: add    $0xa,%rdi
+    0.00 :   138e56: shl    $0x3f,%rcx
+    0.00 :   138e5a: or     %rcx,%r14
+    0.00 :   138e5d: mov    %rdi,%rbp
+    0.00 :   138e60: mov    (%rsp),%r10
+    0.00 :   138e64: sub    %rbp,%r8
+    0.00 :   138e67: cmp    %r8,%r14
+    0.00 :   138e6a: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138e70: lea    (%r14,%rbp,1),%rsi
+    0.00 :   138e74: mov    %rsi,0x28(%rsp)
+    0.00 :   138e79: testb  $0x1,0x60(%rsp)
+    0.00 :   138e7e: jne    138eaf <ak_core::generated::fsm::fsm_step_list_metrics_response+0xbdf>
+    0.00 :   138e80: test   %r14,%r14
+    0.00 :   138e83: je     138eaf <ak_core::generated::fsm::fsm_step_list_metrics_response+0xbdf>
+    0.00 :   138e85: cmp    %rbp,%rsi
+    0.00 :   138e88: jb     13b170 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ea0>
+    0.00 :   138e8e: cmp    %r15,%rsi
+    0.00 :   138e91: ja     13b170 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ea0>
+    0.00 :   138e97: lea    (%r10,%rbp,1),%rdi
+    0.00 :   138e9b: mov    %r14,%rsi
+    0.00 :   138e9e: call   150060 <simdutf8::implementation::x86::validate_utf8_basic>
+    0.00 :   138ea3: mov    (%rsp),%r10
+    0.00 :   138ea7: test   %al,%al
+    0.00 :   138ea9: jne    13adda <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2b0a>
+    0.00 :   138eaf: mov    0x48(%rsp),%rax
+    0.00 :   138eb4: mov    %ebp,0x18(%rax)
+    0.00 :   138eb7: mov    %r14d,0x1c(%rax)
+    0.00 :   138ebb: movl   $0x0,0x20(%rax)
+    0.00 :   138ec2: jmp    1383af <ak_core::generated::fsm::fsm_step_list_metrics_response+0xdf>
+    0.11 :   138ec7: mov    %esi,%eax
+    1.92 :   138ec9: xor    $0x1,%eax
+    0.11 :   138ecc: mov    %edx,%ecx
+    0.00 :   138ece: xor    $0x2,%ecx
+    0.13 :   138ed1: or     %eax,%ecx
+    0.93 :   138ed3: mov    0x180(%rbx),%eax
+    0.03 :   138ed9: je     13aa31 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2761>
+    0.00 :   138edf: test   %eax,%eax
+    0.00 :   138ee1: je     138efb <ak_core::generated::fsm::fsm_step_list_metrics_response+0xc2b>
+    0.00 :   138ee3: cmpq   $0x0,0x150(%rbx)
+    0.00 :   138eeb: jne    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   138ef1: movl   $0x0,0x180(%rbx)
+    0.00 :   138efb: lea    0x18(%rsp),%rdi
+    0.00 :   138f00: call   133870 <ak_core::fsm::FRd::skip>
+    0.00 :   138f05: mov    0x38(%rsp),%eax
+    0.00 :   138f09: test   %eax,%eax
+    0.00 :   138f0b: jne    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138f11: cmpq   $0x0,0x50(%rsp)
+    0.00 :   138f17: mov    (%rsp),%r10
+    0.00 :   138f1b: je     1383af <ak_core::generated::fsm::fsm_step_list_metrics_response+0xdf>
+    0.00 :   138f21: mov    0x28(%rsp),%rsi
+    0.00 :   138f26: mov    %rsi,%r8
+    0.00 :   138f29: sub    %r14,%r8
+    0.00 :   138f2c: jb     13b05b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d8b>
+    0.00 :   138f32: cmp    %r15,%rsi
+    0.00 :   138f35: ja     13b05b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d8b>
+    0.00 :   138f3b: mov    0x58(%rsp),%rdi
+    0.00 :   138f40: mov    0x50(%rsp),%rsi
+    0.00 :   138f45: mov    0x48(%rsp),%rdx
+    0.00 :   138f4a: mov    %rbp,%rcx
+    0.00 :   138f4d: call   1ae120 <ak_core::fsm::fsm_unk_put>
+    0.00 :   138f52: mov    (%rsp),%r10
+    0.00 :   138f56: test   %eax,%eax
+    0.00 :   138f58: je     1383af <ak_core::generated::fsm::fsm_step_list_metrics_response+0xdf>
+    0.00 :   138f5e: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138f63: test   %edx,%edx
+    0.00 :   138f65: je     13974a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x147a>
+    0.00 :   138f6b: cmp    $0x2,%edx
+    0.00 :   138f6e: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   138f74: mov    0x180(%rbx),%ecx
+    0.00 :   138f7a: cmp    $0x4,%ecx
+    0.00 :   138f7d: mov    0x8(%rsp),%r11
+    0.00 :   138f82: lea    -0xffcc5(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   138f89: je     138fa5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xcd5>
+    0.00 :   138f8b: mov    0x150(%rbx),%rax
+    0.00 :   138f92: test   %rax,%rax
+    0.00 :   138f95: jne    13ae6d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2b9d>
+    0.00 :   138f9b: movl   $0x4,0x180(%rbx)
+    0.00 :   138fa5: mov    $0xfffffffd,%eax
+    0.00 :   138faa: cmp    %r8,%rdi
+    0.00 :   138fad: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138fb3: cmp    %r15,%rdi
+    0.00 :   138fb6: jae    13b1be <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2eee>
+    0.00 :   138fbc: movzbl (%r10,%rdi,1),%edx
+    0.00 :   138fc1: lea    0x1(%rdi),%r14
+    0.00 :   138fc5: mov    %edx,%ecx
+    0.00 :   138fc7: and    $0x7f,%ecx
+    0.00 :   138fca: test   %dl,%dl
+    0.00 :   138fcc: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   138fd2: cmp    %r8,%r14
+    0.00 :   138fd5: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   138fdb: cmp    %r15,%r14
+    0.00 :   138fde: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   138fe4: movzbl 0x1(%r10,%rdi,1),%edx
+    0.00 :   138fea: lea    0x2(%rdi),%r14
+    0.00 :   138fee: mov    %edx,%esi
+    0.00 :   138ff0: and    $0x7f,%esi
+    0.00 :   138ff3: shl    $0x7,%esi
+    0.00 :   138ff6: or     %rsi,%rcx
+    0.00 :   138ff9: test   %dl,%dl
+    0.00 :   138ffb: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   139001: cmp    %r8,%r14
+    0.00 :   139004: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13900a: cmp    %r15,%r14
+    0.00 :   13900d: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139013: movzbl 0x2(%r10,%rdi,1),%edx
+    0.00 :   139019: lea    0x3(%rdi),%r14
+    0.00 :   13901d: mov    %edx,%esi
+    0.00 :   13901f: and    $0x7f,%esi
+    0.00 :   139022: shl    $0xe,%esi
+    0.00 :   139025: or     %rsi,%rcx
+    0.00 :   139028: test   %dl,%dl
+    0.00 :   13902a: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   139030: cmp    %r8,%r14
+    0.00 :   139033: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139039: cmp    %r15,%r14
+    0.00 :   13903c: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139042: movzbl 0x3(%r10,%rdi,1),%edx
+    0.00 :   139048: lea    0x4(%rdi),%r14
+    0.00 :   13904c: mov    %edx,%esi
+    0.00 :   13904e: and    $0x7f,%esi
+    0.00 :   139051: shl    $0x15,%esi
+    0.00 :   139054: or     %rsi,%rcx
+    0.00 :   139057: test   %dl,%dl
+    0.00 :   139059: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   13905f: cmp    %r8,%r14
+    0.00 :   139062: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139068: cmp    %r15,%r14
+    0.00 :   13906b: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139071: movzbl 0x4(%r10,%rdi,1),%edx
+    0.00 :   139077: lea    0x5(%rdi),%r14
+    0.00 :   13907b: mov    %edx,%esi
+    0.00 :   13907d: and    $0x7f,%esi
+    0.00 :   139080: shl    $0x1c,%rsi
+    0.00 :   139084: or     %rsi,%rcx
+    0.00 :   139087: test   %dl,%dl
+    0.00 :   139089: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   13908f: cmp    %r8,%r14
+    0.00 :   139092: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139098: cmp    %r15,%r14
+    0.00 :   13909b: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   1390a1: movzbl 0x5(%r10,%rdi,1),%edx
+    0.00 :   1390a7: lea    0x6(%rdi),%r14
+    0.00 :   1390ab: mov    %edx,%esi
+    0.00 :   1390ad: and    $0x7f,%esi
+    0.00 :   1390b0: shl    $0x23,%rsi
+    0.00 :   1390b4: or     %rsi,%rcx
+    0.00 :   1390b7: test   %dl,%dl
+    0.00 :   1390b9: jns    139191 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xec1>
+    0.00 :   1390bf: cmp    %r8,%r14
+    0.00 :   1390c2: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1390c8: cmp    %r15,%r14
+    0.00 :   1390cb: mov    (%rsp),%rdx
+    0.00 :   1390cf: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   1390d5: movzbl 0x6(%rdx,%rdi,1),%edx
+    0.00 :   1390da: lea    0x7(%rdi),%r14
+    0.00 :   1390de: mov    %edx,%esi
+    0.00 :   1390e0: and    $0x7f,%esi
+    0.00 :   1390e3: shl    $0x2a,%rsi
+    0.00 :   1390e7: or     %rsi,%rcx
+    0.00 :   1390ea: test   %dl,%dl
+    0.00 :   1390ec: jns    139181 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xeb1>
+    0.00 :   1390f2: cmp    %r8,%r14
+    0.00 :   1390f5: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1390fb: cmp    %r15,%r14
+    0.00 :   1390fe: mov    (%rsp),%rdx
+    0.00 :   139102: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139108: movzbl 0x7(%rdx,%rdi,1),%edx
+    0.00 :   13910d: lea    0x8(%rdi),%r14
+    0.00 :   139111: mov    %edx,%esi
+    0.00 :   139113: and    $0x7f,%esi
+    0.00 :   139116: shl    $0x31,%rsi
+    0.00 :   13911a: or     %rsi,%rcx
+    0.00 :   13911d: test   %dl,%dl
+    0.00 :   13911f: jns    139181 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xeb1>
+    0.00 :   139121: cmp    %r8,%r14
+    0.00 :   139124: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13912a: cmp    %r15,%r14
+    0.00 :   13912d: mov    (%rsp),%rdx
+    0.00 :   139131: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139137: movzbl 0x8(%rdx,%rdi,1),%edx
+    0.00 :   13913c: lea    0x9(%rdi),%r14
+    0.00 :   139140: mov    %edx,%esi
+    0.00 :   139142: and    $0x7f,%esi
+    0.00 :   139145: shl    $0x38,%rsi
+    0.00 :   139149: or     %rsi,%rcx
+    0.00 :   13914c: test   %dl,%dl
+    0.00 :   13914e: jns    139181 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xeb1>
+    0.00 :   139150: cmp    %r8,%r14
+    0.00 :   139153: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139159: cmp    %r15,%r14
+    0.00 :   13915c: mov    (%rsp),%rdx
+    0.00 :   139160: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139166: movzbl 0x9(%rdx,%rdi,1),%edx
+    0.00 :   13916b: test   %dl,%dl
+    0.00 :   13916d: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   139173: add    $0xa,%rdi
+    0.00 :   139177: shl    $0x3f,%rdx
+    0.00 :   13917b: or     %rdx,%rcx
+    0.00 :   13917e: mov    %rdi,%r14
+    0.00 :   139181: mov    0x8(%rsp),%r11
+    0.00 :   139186: mov    (%rsp),%r10
+    0.00 :   13918a: lea    -0xffecd(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   139191: sub    %r14,%r8
+    0.00 :   139194: cmp    %r8,%rcx
+    0.00 :   139197: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13919d: cmp    $0xf,%r9
+    0.00 :   1391a1: ja     13aceb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a1b>
+    0.00 :   1391a7: add    %r14,%rcx
+    0.00 :   1391aa: mov    %r9,%rax
+    0.00 :   1391ad: shl    $0x4,%rax
+    0.00 :   1391b1: mov    %rcx,(%r12,%rax,1)
+    0.00 :   1391b5: movl   $0x5,0x8(%r12,%rax,1)
+    0.00 :   1391be: jmp    1395b0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12e0>
+    0.00 :   1391c3: cmp    $0x1,%edx
+    0.00 :   1391c6: je     139777 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x14a7>
+    0.00 :   1391cc: cmp    $0x2,%edx
+    0.00 :   1391cf: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   1391d5: mov    0x180(%rbx),%ecx
+    0.00 :   1391db: cmp    $0x2,%ecx
+    0.00 :   1391de: mov    0x8(%rsp),%r11
+    0.00 :   1391e3: lea    -0xfff26(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   1391ea: je     139206 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xf36>
+    0.00 :   1391ec: mov    0x150(%rbx),%rax
+    0.00 :   1391f3: test   %rax,%rax
+    0.00 :   1391f6: jne    13af4a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2c7a>
+    0.00 :   1391fc: movl   $0x2,0x180(%rbx)
+    0.00 :   139206: mov    $0xfffffffd,%eax
+    0.00 :   13920b: cmp    %r8,%rdi
+    0.00 :   13920e: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139214: cmp    %r15,%rdi
+    0.00 :   139217: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   13921d: movzbl (%r10,%rdi,1),%esi
+    0.00 :   139222: lea    0x1(%rdi),%rcx
+    0.00 :   139226: mov    %esi,%edx
+    0.00 :   139228: and    $0x7f,%edx
+    0.00 :   13922b: test   %sil,%sil
+    0.00 :   13922e: js     13a10f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e3f>
+    0.00 :   139234: mov    %rcx,%rdi
+    0.00 :   139237: sub    %rdi,%r8
+    0.00 :   13923a: cmp    %r8,%rdx
+    0.00 :   13923d: jbe    13a225 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f55>
+    0.00 :   139243: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139248: test   %edx,%edx
+    0.00 :   13924a: je     1397a3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x14d3>
+    0.00 :   139250: cmp    $0x2,%edx
+    0.00 :   139253: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   139259: mov    0x180(%rbx),%ecx
+    0.00 :   13925f: cmp    $0x3,%ecx
+    0.00 :   139262: mov    0x8(%rsp),%r11
+    0.00 :   139267: lea    -0xfffaa(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   13926e: je     13928a <ak_core::generated::fsm::fsm_step_list_metrics_response+0xfba>
+    0.00 :   139270: mov    0x150(%rbx),%rax
+    0.00 :   139277: test   %rax,%rax
+    0.00 :   13927a: jne    13b029 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d59>
+    0.00 :   139280: movl   $0x3,0x180(%rbx)
+    0.00 :   13928a: mov    $0xfffffffd,%eax
+    0.00 :   13928f: cmp    %r8,%rdi
+    0.00 :   139292: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139298: cmp    %r15,%rdi
+    0.00 :   13929b: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   1392a1: movzbl (%r10,%rdi,1),%esi
+    0.00 :   1392a6: lea    0x1(%rdi),%rcx
+    0.00 :   1392aa: mov    %esi,%edx
+    0.00 :   1392ac: and    $0x7f,%edx
+    0.00 :   1392af: test   %sil,%sil
+    0.00 :   1392b2: js     13a24b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f7b>
+    0.00 :   1392b8: mov    %rcx,%rdi
+    0.00 :   1392bb: sub    %rdi,%r8
+    0.00 :   1392be: cmp    %r8,%rdx
+    0.00 :   1392c1: jbe    13a361 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2091>
+    0.00 :   1392c7: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1392cc: test   %edx,%edx
+    0.00 :   1392ce: je     1397d0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1500>
+    0.00 :   1392d4: cmp    $0x2,%edx
+    0.00 :   1392d7: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   1392dd: mov    0x180(%rbx),%ecx
+    0.00 :   1392e3: cmp    $0x1,%ecx
+    0.00 :   1392e6: mov    0x8(%rsp),%r11
+    0.00 :   1392eb: lea    -0x10002e(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   1392f2: je     13930e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x103e>
+    0.00 :   1392f4: mov    0x150(%rbx),%rax
+    0.00 :   1392fb: test   %rax,%rax
+    0.00 :   1392fe: jne    13aed4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2c04>
+    0.00 :   139304: movl   $0x1,0x180(%rbx)
+    0.00 :   13930e: mov    $0xfffffffd,%eax
+    0.00 :   139313: cmp    %r8,%rdi
+    0.00 :   139316: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13931c: cmp    %r15,%rdi
+    0.00 :   13931f: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   139325: movzbl (%r10,%rdi,1),%esi
+    0.00 :   13932a: lea    0x1(%rdi),%rcx
+    0.00 :   13932e: mov    %esi,%edx
+    0.00 :   139330: and    $0x7f,%edx
+    0.00 :   139333: test   %sil,%sil
+    0.00 :   139336: js     13a387 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x20b7>
+    0.00 :   13933c: mov    %rcx,%rdi
+    0.00 :   13933f: sub    %rdi,%r8
+    0.00 :   139342: cmp    %r8,%rdx
+    0.00 :   139345: jbe    13a49d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21cd>
+    0.00 :   13934b: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139350: test   %edx,%edx
+    0.00 :   139352: je     1397fd <ak_core::generated::fsm::fsm_step_list_metrics_response+0x152d>
+    0.00 :   139358: cmp    $0x2,%edx
+    0.00 :   13935b: jne    1395bc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ec>
+    0.00 :   139361: mov    0x180(%rbx),%ecx
+    0.00 :   139367: cmp    $0x5,%ecx
+    0.00 :   13936a: mov    0x8(%rsp),%r11
+    0.00 :   13936f: lea    -0x1000b2(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   139376: je     139392 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x10c2>
+    0.00 :   139378: mov    0x150(%rbx),%rax
+    0.00 :   13937f: test   %rax,%rax
+    0.00 :   139382: jne    13afd0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d00>
+    0.00 :   139388: movl   $0x5,0x180(%rbx)
+    0.00 :   139392: mov    $0xfffffffd,%eax
+    0.00 :   139397: cmp    %r8,%rdi
+    0.00 :   13939a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1393a0: cmp    %r15,%rdi
+    0.00 :   1393a3: jae    13b1be <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2eee>
+    0.00 :   1393a9: movzbl (%r10,%rdi,1),%edx
+    0.00 :   1393ae: lea    0x1(%rdi),%r14
+    0.00 :   1393b2: mov    %edx,%ecx
+    0.00 :   1393b4: and    $0x7f,%ecx
+    0.00 :   1393b7: test   %dl,%dl
+    0.00 :   1393b9: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   1393bf: cmp    %r8,%r14
+    0.00 :   1393c2: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1393c8: cmp    %r15,%r14
+    0.00 :   1393cb: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   1393d1: movzbl 0x1(%r10,%rdi,1),%edx
+    0.00 :   1393d7: lea    0x2(%rdi),%r14
+    0.00 :   1393db: mov    %edx,%esi
+    0.00 :   1393dd: and    $0x7f,%esi
+    0.00 :   1393e0: shl    $0x7,%esi
+    0.00 :   1393e3: or     %rsi,%rcx
+    0.00 :   1393e6: test   %dl,%dl
+    0.00 :   1393e8: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   1393ee: cmp    %r8,%r14
+    0.00 :   1393f1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1393f7: cmp    %r15,%r14
+    0.00 :   1393fa: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139400: movzbl 0x2(%r10,%rdi,1),%edx
+    0.00 :   139406: lea    0x3(%rdi),%r14
+    0.00 :   13940a: mov    %edx,%esi
+    0.00 :   13940c: and    $0x7f,%esi
+    0.00 :   13940f: shl    $0xe,%esi
+    0.00 :   139412: or     %rsi,%rcx
+    0.00 :   139415: test   %dl,%dl
+    0.00 :   139417: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   13941d: cmp    %r8,%r14
+    0.00 :   139420: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139426: cmp    %r15,%r14
+    0.00 :   139429: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   13942f: movzbl 0x3(%r10,%rdi,1),%edx
+    0.00 :   139435: lea    0x4(%rdi),%r14
+    0.00 :   139439: mov    %edx,%esi
+    0.00 :   13943b: and    $0x7f,%esi
+    0.00 :   13943e: shl    $0x15,%esi
+    0.00 :   139441: or     %rsi,%rcx
+    0.00 :   139444: test   %dl,%dl
+    0.00 :   139446: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   13944c: cmp    %r8,%r14
+    0.00 :   13944f: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139455: cmp    %r15,%r14
+    0.00 :   139458: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   13945e: movzbl 0x4(%r10,%rdi,1),%edx
+    0.00 :   139464: lea    0x5(%rdi),%r14
+    0.00 :   139468: mov    %edx,%esi
+    0.00 :   13946a: and    $0x7f,%esi
+    0.00 :   13946d: shl    $0x1c,%rsi
+    0.00 :   139471: or     %rsi,%rcx
+    0.00 :   139474: test   %dl,%dl
+    0.00 :   139476: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   13947c: cmp    %r8,%r14
+    0.00 :   13947f: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139485: cmp    %r15,%r14
+    0.00 :   139488: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   13948e: movzbl 0x5(%r10,%rdi,1),%edx
+    0.00 :   139494: lea    0x6(%rdi),%r14
+    0.00 :   139498: mov    %edx,%esi
+    0.00 :   13949a: and    $0x7f,%esi
+    0.00 :   13949d: shl    $0x23,%rsi
+    0.00 :   1394a1: or     %rsi,%rcx
+    0.00 :   1394a4: test   %dl,%dl
+    0.00 :   1394a6: jns    13957e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x12ae>
+    0.00 :   1394ac: cmp    %r8,%r14
+    0.00 :   1394af: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1394b5: cmp    %r15,%r14
+    0.00 :   1394b8: mov    (%rsp),%rdx
+    0.00 :   1394bc: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   1394c2: movzbl 0x6(%rdx,%rdi,1),%edx
+    0.00 :   1394c7: lea    0x7(%rdi),%r14
+    0.00 :   1394cb: mov    %edx,%esi
+    0.00 :   1394cd: and    $0x7f,%esi
+    0.00 :   1394d0: shl    $0x2a,%rsi
+    0.00 :   1394d4: or     %rsi,%rcx
+    0.00 :   1394d7: test   %dl,%dl
+    0.00 :   1394d9: jns    13956e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x129e>
+    0.00 :   1394df: cmp    %r8,%r14
+    0.00 :   1394e2: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1394e8: cmp    %r15,%r14
+    0.00 :   1394eb: mov    (%rsp),%rdx
+    0.00 :   1394ef: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   1394f5: movzbl 0x7(%rdx,%rdi,1),%edx
+    0.00 :   1394fa: lea    0x8(%rdi),%r14
+    0.00 :   1394fe: mov    %edx,%esi
+    0.00 :   139500: and    $0x7f,%esi
+    0.00 :   139503: shl    $0x31,%rsi
+    0.00 :   139507: or     %rsi,%rcx
+    0.00 :   13950a: test   %dl,%dl
+    0.00 :   13950c: jns    13956e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x129e>
+    0.00 :   13950e: cmp    %r8,%r14
+    0.00 :   139511: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139517: cmp    %r15,%r14
+    0.00 :   13951a: mov    (%rsp),%rdx
+    0.00 :   13951e: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139524: movzbl 0x8(%rdx,%rdi,1),%edx
+    0.00 :   139529: lea    0x9(%rdi),%r14
+    0.00 :   13952d: mov    %edx,%esi
+    0.00 :   13952f: and    $0x7f,%esi
+    0.00 :   139532: shl    $0x38,%rsi
+    0.00 :   139536: or     %rsi,%rcx
+    0.00 :   139539: test   %dl,%dl
+    0.00 :   13953b: jns    13956e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x129e>
+    0.00 :   13953d: cmp    %r8,%r14
+    0.00 :   139540: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139546: cmp    %r15,%r14
+    0.00 :   139549: mov    (%rsp),%rdx
+    0.00 :   13954d: jae    13b1c1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ef1>
+    0.00 :   139553: movzbl 0x9(%rdx,%rdi,1),%edx
+    0.00 :   139558: test   %dl,%dl
+    0.00 :   13955a: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   139560: add    $0xa,%rdi
+    0.00 :   139564: shl    $0x3f,%rdx
+    0.00 :   139568: or     %rdx,%rcx
+    0.00 :   13956b: mov    %rdi,%r14
+    0.00 :   13956e: mov    0x8(%rsp),%r11
+    0.00 :   139573: mov    (%rsp),%r10
+    0.00 :   139577: lea    -0x1002ba(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   13957e: sub    %r14,%r8
+    0.00 :   139581: cmp    %r8,%rcx
+    0.00 :   139584: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13958a: add    %r14,%rcx
+    0.00 :   13958d: mov    %rcx,0x28(%rsp)
+    0.00 :   139592: cmp    $0xf,%r9
+    0.00 :   139596: ja     13aceb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a1b>
+    0.00 :   13959c: mov    %r9,%rax
+    0.00 :   13959f: shl    $0x4,%rax
+    0.00 :   1395a3: mov    %rcx,(%r12,%rax,1)
+    0.00 :   1395a7: movl   $0x6,0x8(%r12,%rax,1)
+    0.00 :   1395b0: inc    %r9
+    0.00 :   1395b3: mov    %r9,0x48(%rbx)
+    0.00 :   1395b7: jmp    139741 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1471>
+    0.00 :   1395bc: mov    0x180(%rbx),%ecx
+    0.00 :   1395c2: test   %ecx,%ecx
+    0.00 :   1395c4: je     1395e0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1310>
+    0.00 :   1395c6: mov    0x150(%rbx),%rax
+    0.00 :   1395cd: test   %rax,%rax
+    0.00 :   1395d0: jne    13aa5a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x278a>
+    0.00 :   1395d6: movl   $0x0,0x180(%rbx)
+    0.00 :   1395e0: lea    0x18(%rsp),%rdi
+    0.00 :   1395e5: call   133870 <ak_core::fsm::FRd::skip>
+    0.00 :   1395ea: mov    0x38(%rsp),%eax
+    0.00 :   1395ee: test   %eax,%eax
+    0.00 :   1395f0: jne    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1395f6: cmpq   $0x0,0x50(%rsp)
+    0.00 :   1395fc: mov    (%rsp),%r10
+    0.00 :   139600: je     1383af <ak_core::generated::fsm::fsm_step_list_metrics_response+0xdf>
+    0.00 :   139606: mov    0x28(%rsp),%rsi
+    0.00 :   13960b: mov    %rsi,%r8
+    0.00 :   13960e: sub    %r14,%r8
+    0.00 :   139611: jb     13b143 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e73>
+    0.00 :   139617: cmp    %r15,%rsi
+    0.00 :   13961a: ja     13b143 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e73>
+    0.00 :   139620: mov    0x58(%rsp),%rdi
+    0.00 :   139625: mov    0x68(%rsp),%rsi
+    0.00 :   13962a: mov    0x70(%rsp),%rdx
+    0.00 :   13962f: mov    %rbp,%rcx
+    0.00 :   139632: call   1ae120 <ak_core::fsm::fsm_unk_put>
+    0.00 :   139637: test   %eax,%eax
+    0.00 :   139639: mov    (%rsp),%r10
+    0.00 :   13963d: je     1383af <ak_core::generated::fsm::fsm_step_list_metrics_response+0xdf>
+    0.00 :   139643: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139648: cmp    %r8,%rdi
+    0.00 :   13964b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139651: cmp    %r15,%rdi
+    0.00 :   139654: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13965a: movzbl 0x4(%r10,%r14,1),%r9d
+    0.00 :   139660: lea    0x5(%r14),%rdi
+    0.00 :   139664: mov    %rdi,0x28(%rsp)
+    0.00 :   139669: mov    %r9d,%edx
+    0.00 :   13966c: shl    $0x1c,%edx
+    0.00 :   13966f: or     %esi,%edx
+    0.00 :   139671: test   %r9b,%r9b
+    0.00 :   139674: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   13967a: cmp    %r8,%rdi
+    0.00 :   13967d: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139683: cmp    %r15,%rdi
+    0.00 :   139686: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13968c: lea    0x6(%r14),%rdi
+    0.00 :   139690: cmpb   $0x0,0x5(%r10,%r14,1)
+    0.00 :   139696: mov    %rdi,0x28(%rsp)
+    0.00 :   13969b: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   1396a1: cmp    %r8,%rdi
+    0.00 :   1396a4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1396aa: cmp    %r15,%rdi
+    0.00 :   1396ad: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1396b3: lea    0x7(%r14),%rdi
+    0.00 :   1396b7: cmpb   $0x0,0x6(%r10,%r14,1)
+    0.00 :   1396bd: mov    %rdi,0x28(%rsp)
+    0.00 :   1396c2: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   1396c4: cmp    %r8,%rdi
+    0.00 :   1396c7: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1396cd: cmp    %r15,%rdi
+    0.00 :   1396d0: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1396d6: lea    0x8(%r14),%rdi
+    0.00 :   1396da: cmpb   $0x0,0x7(%r10,%r14,1)
+    0.00 :   1396e0: mov    %rdi,0x28(%rsp)
+    0.00 :   1396e5: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   1396e7: cmp    %r8,%rdi
+    0.00 :   1396ea: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1396f0: cmp    %r15,%rdi
+    0.00 :   1396f3: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   1396f9: lea    0x9(%r14),%rdi
+    0.00 :   1396fd: cmpb   $0x0,0x8(%r10,%r14,1)
+    0.00 :   139703: mov    %rdi,0x28(%rsp)
+    0.00 :   139708: jns    139731 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1461>
+    0.00 :   13970a: cmp    %r8,%rdi
+    0.00 :   13970d: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139713: cmp    %r15,%rdi
+    0.00 :   139716: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13971c: lea    0xa(%r14),%rax
+    0.00 :   139720: cmpb   $0x0,0x9(%r10,%r14,1)
+    0.00 :   139726: mov    %rax,0x28(%rsp)
+    0.00 :   13972b: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   139731: mov    %edx,(%r11,%rcx,4)
+    0.00 :   139735: incq   0x150(%rbx)
+    0.00 :   13973c: mov    0x28(%rsp),%r14
+    0.00 :   139741: mov    %r14,0x40(%rbx)
+    0.00 :   139745: jmp    1383d0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x100>
+    0.00 :   13974a: mov    0x180(%rbx),%ecx
+    0.00 :   139750: mov    0x150(%rbx),%rdx
+    0.00 :   139757: cmp    $0x4,%ecx
+    0.00 :   13975a: jne    13982a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x155a>
+    0.00 :   139760: cmp    $0x8000,%rdx
+    0.00 :   139767: mov    0x8(%rsp),%r11
+    0.00 :   13976c: jne    139842 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1572>
+    0.00 :   139772: jmp    13adeb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2b1b>
+    0.00 :   139777: mov    0x180(%rbx),%ecx
+    0.00 :   13977d: mov    0x150(%rbx),%rax
+    0.00 :   139784: cmp    $0x2,%ecx
+    0.00 :   139787: jne    139a93 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17c3>
+    0.00 :   13978d: cmp    $0x1000,%rax
+    0.00 :   139793: mov    0x8(%rsp),%r9
+    0.00 :   139798: jne    139aab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17db>
+    0.00 :   13979e: jmp    13af1d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2c4d>
+    0.00 :   1397a3: mov    0x180(%rbx),%eax
+    0.00 :   1397a9: mov    0x150(%rbx),%rdx
+    0.00 :   1397b0: cmp    $0x3,%eax
+    0.00 :   1397b3: jne    139ae5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1815>
+    0.00 :   1397b9: cmp    $0x2000,%rdx
+    0.00 :   1397c0: mov    0x8(%rsp),%r11
+    0.00 :   1397c5: jne    139afd <ak_core::generated::fsm::fsm_step_list_metrics_response+0x182d>
+    0.00 :   1397cb: jmp    13aebe <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2bee>
+    0.00 :   1397d0: mov    0x180(%rbx),%eax
+    0.00 :   1397d6: mov    0x150(%rbx),%rdx
+    0.00 :   1397dd: cmp    $0x1,%eax
+    0.00 :   1397e0: jne    139cc9 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x19f9>
+    0.00 :   1397e6: cmp    $0x1000,%rdx
+    0.00 :   1397ed: mov    0x8(%rsp),%r11
+    0.00 :   1397f2: jne    139ce1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1a11>
+    0.00 :   1397f8: jmp    13afbd <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ced>
+    0.00 :   1397fd: mov    0x180(%rbx),%eax
+    0.00 :   139803: mov    0x150(%rbx),%rdx
+    0.00 :   13980a: cmp    $0x5,%eax
+    0.00 :   13980d: jne    139f2e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c5e>
+    0.00 :   139813: cmp    $0x2000,%rdx
+    0.00 :   13981a: mov    0x8(%rsp),%r11
+    0.00 :   13981f: jne    139f46 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c76>
+    0.00 :   139825: jmp    13affc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d2c>
+    0.00 :   13982a: test   %rdx,%rdx
+    0.00 :   13982d: mov    0x8(%rsp),%r11
+    0.00 :   139832: jne    13ae1c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2b4c>
+    0.00 :   139838: movl   $0x4,0x180(%rbx)
+    0.00 :   139842: mov    $0xfffffffd,%eax
+    0.00 :   139847: cmp    %r8,%rdi
+    0.00 :   13984a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139850: cmp    %r15,%rdi
+    0.00 :   139853: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   139859: movzbl (%r10,%rdi,1),%r9d
+    0.00 :   13985e: lea    0x1(%rdi),%rcx
+    0.00 :   139862: mov    %rcx,0x28(%rsp)
+    0.00 :   139867: mov    %r9d,%esi
+    0.00 :   13986a: and    $0x7f,%esi
+    0.00 :   13986d: test   %r9b,%r9b
+    0.00 :   139870: jns    139a86 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b6>
+    0.00 :   139876: cmp    %r8,%rcx
+    0.00 :   139879: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13987f: cmp    %r15,%rcx
+    0.00 :   139882: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139888: movzbl 0x1(%r10,%rdi,1),%r9d
+    0.00 :   13988e: lea    0x2(%rdi),%rcx
+    0.00 :   139892: mov    %rcx,0x28(%rsp)
+    0.00 :   139897: mov    %r9d,%r10d
+    0.00 :   13989a: and    $0x7f,%r10d
+    0.00 :   13989e: shl    $0x7,%r10d
+    0.00 :   1398a2: or     %r10,%rsi
+    0.00 :   1398a5: test   %r9b,%r9b
+    0.00 :   1398a8: jns    139a82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b2>
+    0.00 :   1398ae: cmp    %r8,%rcx
+    0.00 :   1398b1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1398b7: cmp    %r15,%rcx
+    0.00 :   1398ba: mov    (%rsp),%r9
+    0.00 :   1398be: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   1398c4: movzbl 0x2(%r9,%rdi,1),%r9d
+    0.00 :   1398ca: lea    0x3(%rdi),%rcx
+    0.00 :   1398ce: mov    %rcx,0x28(%rsp)
+    0.00 :   1398d3: mov    %r9d,%r10d
+    0.00 :   1398d6: and    $0x7f,%r10d
+    0.00 :   1398da: shl    $0xe,%r10d
+    0.00 :   1398de: or     %r10,%rsi
+    0.00 :   1398e1: test   %r9b,%r9b
+    0.00 :   1398e4: jns    139a82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b2>
+    0.00 :   1398ea: cmp    %r8,%rcx
+    0.00 :   1398ed: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1398f3: cmp    %r15,%rcx
+    0.00 :   1398f6: mov    (%rsp),%r9
+    0.00 :   1398fa: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139900: movzbl 0x3(%r9,%rdi,1),%r9d
+    0.00 :   139906: lea    0x4(%rdi),%rcx
+    0.00 :   13990a: mov    %rcx,0x28(%rsp)
+    0.00 :   13990f: mov    %r9d,%r10d
+    0.00 :   139912: and    $0x7f,%r10d
+    0.00 :   139916: shl    $0x15,%r10d
+    0.00 :   13991a: or     %r10,%rsi
+    0.00 :   13991d: test   %r9b,%r9b
+    0.00 :   139920: jns    139a82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b2>
+    0.00 :   139926: cmp    %r8,%rcx
+    0.00 :   139929: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13992f: cmp    %r15,%rcx
+    0.00 :   139932: mov    (%rsp),%r9
+    0.00 :   139936: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13993c: movzbl 0x4(%r9,%rdi,1),%r9d
+    0.00 :   139942: lea    0x5(%rdi),%rcx
+    0.00 :   139946: mov    %rcx,0x28(%rsp)
+    0.00 :   13994b: mov    %r9d,%r10d
+    0.00 :   13994e: and    $0x7f,%r10d
+    0.00 :   139952: shl    $0x1c,%r10
+    0.00 :   139956: or     %r10,%rsi
+    0.00 :   139959: test   %r9b,%r9b
+    0.00 :   13995c: jns    139a82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b2>
+    0.00 :   139962: cmp    %r8,%rcx
+    0.00 :   139965: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13996b: cmp    %r15,%rcx
+    0.00 :   13996e: mov    (%rsp),%r9
+    0.00 :   139972: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139978: movzbl 0x5(%r9,%rdi,1),%r9d
+    0.00 :   13997e: lea    0x6(%rdi),%rcx
+    0.00 :   139982: mov    %rcx,0x28(%rsp)
+    0.00 :   139987: mov    %r9d,%r10d
+    0.00 :   13998a: and    $0x7f,%r10d
+    0.00 :   13998e: shl    $0x23,%r10
+    0.00 :   139992: or     %r10,%rsi
+    0.00 :   139995: test   %r9b,%r9b
+    0.00 :   139998: jns    139a82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17b2>
+    0.00 :   13999e: cmp    %r8,%rcx
+    0.00 :   1399a1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1399a7: cmp    %r15,%rcx
+    0.00 :   1399aa: mov    (%rsp),%r9
+    0.00 :   1399ae: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   1399b4: movzbl 0x6(%r9,%rdi,1),%r9d
+    0.00 :   1399ba: lea    0x7(%rdi),%rcx
+    0.00 :   1399be: mov    %rcx,0x28(%rsp)
+    0.00 :   1399c3: mov    %r9d,%r10d
+    0.00 :   1399c6: and    $0x7f,%r10d
+    0.00 :   1399ca: shl    $0x2a,%r10
+    0.00 :   1399ce: or     %r10,%rsi
+    0.00 :   1399d1: test   %r9b,%r9b
+    0.00 :   1399d4: jns    139a7d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17ad>
+    0.00 :   1399da: cmp    %r8,%rcx
+    0.00 :   1399dd: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   1399e3: cmp    %r15,%rcx
+    0.00 :   1399e6: mov    (%rsp),%r9
+    0.00 :   1399ea: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   1399f0: movzbl 0x7(%r9,%rdi,1),%r9d
+    0.00 :   1399f6: lea    0x8(%rdi),%rcx
+    0.00 :   1399fa: mov    %rcx,0x28(%rsp)
+    0.00 :   1399ff: mov    %r9d,%r10d
+    0.00 :   139a02: and    $0x7f,%r10d
+    0.00 :   139a06: shl    $0x31,%r10
+    0.00 :   139a0a: or     %r10,%rsi
+    0.00 :   139a0d: test   %r9b,%r9b
+    0.00 :   139a10: jns    139a7d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17ad>
+    0.00 :   139a12: cmp    %r8,%rcx
+    0.00 :   139a15: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139a1b: cmp    %r15,%rcx
+    0.00 :   139a1e: mov    (%rsp),%r9
+    0.00 :   139a22: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139a28: movzbl 0x8(%r9,%rdi,1),%r9d
+    0.00 :   139a2e: lea    0x9(%rdi),%rcx
+    0.00 :   139a32: mov    %rcx,0x28(%rsp)
+    0.00 :   139a37: mov    %r9d,%r10d
+    0.00 :   139a3a: and    $0x7f,%r10d
+    0.00 :   139a3e: shl    $0x38,%r10
+    0.00 :   139a42: or     %r10,%rsi
+    0.00 :   139a45: test   %r9b,%r9b
+    0.00 :   139a48: jns    139a7d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x17ad>
+    0.00 :   139a4a: cmp    %r8,%rcx
+    0.00 :   139a4d: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139a53: cmp    %r15,%rcx
+    0.00 :   139a56: mov    (%rsp),%rax
+    0.00 :   139a5a: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139a60: movzbl 0x9(%rax,%rdi,1),%eax
+    0.00 :   139a65: add    $0xa,%rdi
+    0.00 :   139a69: mov    %rdi,0x28(%rsp)
+    0.00 :   139a6e: test   %al,%al
+    0.00 :   139a70: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   139a76: shl    $0x3f,%rax
+    0.00 :   139a7a: or     %rax,%rsi
+    0.00 :   139a7d: mov    0x8(%rsp),%r11
+    0.00 :   139a82: mov    (%rsp),%r10
+    0.00 :   139a86: test   %rsi,%rsi
+    0.00 :   139a89: setne  (%r11,%rdx,1)
+    0.00 :   139a8e: jmp    1383a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd8>
+    0.00 :   139a93: test   %rax,%rax
+    0.00 :   139a96: mov    0x8(%rsp),%r9
+    0.00 :   139a9b: jne    13af91 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2cc1>
+    0.00 :   139aa1: movl   $0x2,0x180(%rbx)
+    0.00 :   139aab: sub    %rdi,%r8
+    0.00 :   139aae: cmp    $0x8,%r8
+    0.00 :   139ab2: jb     13a9b3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26e3>
+    0.00 :   139ab8: lea    0x8(%rdi),%rsi
+    0.00 :   139abc: cmp    $0xfffffffffffffff7,%rdi
+    0.00 :   139ac0: ja     13b156 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e86>
+    0.00 :   139ac6: cmp    %r15,%rsi
+    0.00 :   139ac9: ja     13b156 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e86>
+    0.00 :   139acf: movsd  (%r10,%rdi,1),%xmm0
+    0.00 :   139ad5: mov    %rsi,0x28(%rsp)
+    0.00 :   139ada: movsd  %xmm0,(%r9,%rax,8)
+    0.00 :   139ae0: jmp    1383a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd8>
+    0.00 :   139ae5: test   %rdx,%rdx
+    0.00 :   139ae8: mov    0x8(%rsp),%r11
+    0.00 :   139aed: jne    13ae01 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2b31>
+    0.00 :   139af3: movl   $0x3,0x180(%rbx)
+    0.00 :   139afd: mov    $0xfffffffd,%eax
+    0.00 :   139b02: cmp    %r8,%rdi
+    0.00 :   139b05: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139b0b: cmp    %r15,%rdi
+    0.00 :   139b0e: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   139b14: movzbl (%r10,%rdi,1),%r9d
+    0.00 :   139b19: lea    0x1(%rdi),%rcx
+    0.00 :   139b1d: mov    %rcx,0x28(%rsp)
+    0.00 :   139b22: mov    %r9d,%esi
+    0.00 :   139b25: and    $0x7f,%esi
+    0.00 :   139b28: test   %r9b,%r9b
+    0.00 :   139b2b: jns    1383a4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd4>
+    0.00 :   139b31: cmp    %r8,%rcx
+    0.00 :   139b34: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139b3a: cmp    %r15,%rcx
+    0.00 :   139b3d: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139b43: movzbl 0x1(%r10,%rdi,1),%r9d
+    0.00 :   139b49: lea    0x2(%rdi),%rcx
+    0.00 :   139b4d: mov    %rcx,0x28(%rsp)
+    0.00 :   139b52: mov    %r9d,%r10d
+    0.00 :   139b55: and    $0x7f,%r10d
+    0.00 :   139b59: shl    $0x7,%r10d
+    0.00 :   139b5d: or     %r10d,%esi
+    0.00 :   139b60: test   %r9b,%r9b
+    0.00 :   139b63: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   139b69: cmp    %r8,%rcx
+    0.00 :   139b6c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139b72: cmp    %r15,%rcx
+    0.00 :   139b75: mov    (%rsp),%r9
+    0.00 :   139b79: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139b7f: movzbl 0x2(%r9,%rdi,1),%r9d
+    0.00 :   139b85: lea    0x3(%rdi),%rcx
+    0.00 :   139b89: mov    %rcx,0x28(%rsp)
+    0.00 :   139b8e: mov    %r9d,%r10d
+    0.00 :   139b91: and    $0x7f,%r10d
+    0.00 :   139b95: shl    $0xe,%r10d
+    0.00 :   139b99: or     %r10d,%esi
+    0.00 :   139b9c: test   %r9b,%r9b
+    0.00 :   139b9f: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   139ba5: cmp    %r8,%rcx
+    0.00 :   139ba8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139bae: cmp    %r15,%rcx
+    0.00 :   139bb1: mov    (%rsp),%r9
+    0.00 :   139bb5: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139bbb: movzbl 0x3(%r9,%rdi,1),%r10d
+    0.00 :   139bc1: lea    0x4(%rdi),%rcx
+    0.00 :   139bc5: mov    %rcx,0x28(%rsp)
+    0.00 :   139bca: mov    %r10d,%r9d
+    0.00 :   139bcd: and    $0x7f,%r9d
+    0.00 :   139bd1: shl    $0x15,%r9d
+    0.00 :   139bd5: or     %esi,%r9d
+    0.00 :   139bd8: test   %r10b,%r10b
+    0.00 :   139bdb: jns    13839d <ak_core::generated::fsm::fsm_step_list_metrics_response+0xcd>
+    0.00 :   139be1: cmp    %r8,%rcx
+    0.00 :   139be4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139bea: cmp    %r15,%rcx
+    0.00 :   139bed: mov    (%rsp),%rsi
+    0.00 :   139bf1: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139bf7: movzbl 0x4(%rsi,%rdi,1),%r10d
+    0.00 :   139bfd: lea    0x5(%rdi),%rcx
+    0.00 :   139c01: mov    %rcx,0x28(%rsp)
+    0.00 :   139c06: mov    %r10d,%esi
+    0.00 :   139c09: shl    $0x1c,%esi
+    0.00 :   139c0c: or     %r9d,%esi
+    0.00 :   139c0f: test   %r10b,%r10b
+    0.00 :   139c12: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   139c18: cmp    %r8,%rcx
+    0.00 :   139c1b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139c21: cmp    %r15,%rcx
+    0.00 :   139c24: mov    (%rsp),%r10
+    0.00 :   139c28: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139c2e: lea    0x6(%rdi),%rcx
+    0.00 :   139c32: cmpb   $0x0,0x5(%r10,%rdi,1)
+    0.00 :   139c38: mov    %rcx,0x28(%rsp)
+    0.00 :   139c3d: jns    1383a4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd4>
+    0.00 :   139c43: cmp    %r8,%rcx
+    0.00 :   139c46: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139c4c: cmp    %r15,%rcx
+    0.00 :   139c4f: mov    (%rsp),%r9
+    0.00 :   139c53: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139c59: lea    0x7(%rdi),%rcx
+    0.00 :   139c5d: cmpb   $0x0,0x6(%r9,%rdi,1)
+    0.00 :   139c63: mov    %rcx,0x28(%rsp)
+    0.00 :   139c68: jns    13a105 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e35>
+    0.00 :   139c6e: cmp    %r8,%rcx
+    0.00 :   139c71: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139c77: cmp    %r15,%rcx
+    0.00 :   139c7a: mov    (%rsp),%r9
+    0.00 :   139c7e: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139c84: lea    0x8(%rdi),%rcx
+    0.00 :   139c88: cmpb   $0x0,0x7(%r9,%rdi,1)
+    0.00 :   139c8e: mov    %rcx,0x28(%rsp)
+    0.00 :   139c93: jns    13a105 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e35>
+    0.00 :   139c99: cmp    %r8,%rcx
+    0.00 :   139c9c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139ca2: cmp    %r15,%rcx
+    0.00 :   139ca5: mov    (%rsp),%r9
+    0.00 :   139ca9: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139caf: lea    0x9(%rdi),%rcx
+    0.00 :   139cb3: cmpb   $0x0,0x8(%r9,%rdi,1)
+    0.00 :   139cb9: mov    %rcx,0x28(%rsp)
+    0.00 :   139cbe: jns    13a105 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e35>
+    0.00 :   139cc4: jmp    13a751 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2481>
+    0.00 :   139cc9: test   %rdx,%rdx
+    0.00 :   139ccc: mov    0x8(%rsp),%r11
+    0.00 :   139cd1: jne    13aef0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2c20>
+    0.00 :   139cd7: movl   $0x1,0x180(%rbx)
+    0.00 :   139ce1: mov    $0xfffffffd,%eax
+    0.00 :   139ce6: cmp    %r8,%rdi
+    0.00 :   139ce9: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139cef: cmp    %r15,%rdi
+    0.00 :   139cf2: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   139cf8: movzbl (%r10,%rdi,1),%r9d
+    0.00 :   139cfd: lea    0x1(%rdi),%rcx
+    0.00 :   139d01: mov    %rcx,0x28(%rsp)
+    0.00 :   139d06: mov    %r9d,%esi
+    0.00 :   139d09: and    $0x7f,%esi
+    0.00 :   139d0c: test   %r9b,%r9b
+    0.00 :   139d0f: jns    139f25 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c55>
+    0.00 :   139d15: cmp    %r8,%rcx
+    0.00 :   139d18: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139d1e: cmp    %r15,%rcx
+    0.00 :   139d21: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139d27: movzbl 0x1(%r10,%rdi,1),%r9d
+    0.00 :   139d2d: lea    0x2(%rdi),%rcx
+    0.00 :   139d31: mov    %rcx,0x28(%rsp)
+    0.00 :   139d36: mov    %r9d,%r10d
+    0.00 :   139d39: and    $0x7f,%r10d
+    0.00 :   139d3d: shl    $0x7,%r10d
+    0.00 :   139d41: or     %r10,%rsi
+    0.00 :   139d44: test   %r9b,%r9b
+    0.00 :   139d47: jns    139f21 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c51>
+    0.00 :   139d4d: cmp    %r8,%rcx
+    0.00 :   139d50: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139d56: cmp    %r15,%rcx
+    0.00 :   139d59: mov    (%rsp),%r9
+    0.00 :   139d5d: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139d63: movzbl 0x2(%r9,%rdi,1),%r9d
+    0.00 :   139d69: lea    0x3(%rdi),%rcx
+    0.00 :   139d6d: mov    %rcx,0x28(%rsp)
+    0.00 :   139d72: mov    %r9d,%r10d
+    0.00 :   139d75: and    $0x7f,%r10d
+    0.00 :   139d79: shl    $0xe,%r10d
+    0.00 :   139d7d: or     %r10,%rsi
+    0.00 :   139d80: test   %r9b,%r9b
+    0.00 :   139d83: jns    139f21 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c51>
+    0.00 :   139d89: cmp    %r8,%rcx
+    0.00 :   139d8c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139d92: cmp    %r15,%rcx
+    0.00 :   139d95: mov    (%rsp),%r9
+    0.00 :   139d99: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139d9f: movzbl 0x3(%r9,%rdi,1),%r9d
+    0.00 :   139da5: lea    0x4(%rdi),%rcx
+    0.00 :   139da9: mov    %rcx,0x28(%rsp)
+    0.00 :   139dae: mov    %r9d,%r10d
+    0.00 :   139db1: and    $0x7f,%r10d
+    0.00 :   139db5: shl    $0x15,%r10d
+    0.00 :   139db9: or     %r10,%rsi
+    0.00 :   139dbc: test   %r9b,%r9b
+    0.00 :   139dbf: jns    139f21 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c51>
+    0.00 :   139dc5: cmp    %r8,%rcx
+    0.00 :   139dc8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139dce: cmp    %r15,%rcx
+    0.00 :   139dd1: mov    (%rsp),%r9
+    0.00 :   139dd5: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139ddb: movzbl 0x4(%r9,%rdi,1),%r9d
+    0.00 :   139de1: lea    0x5(%rdi),%rcx
+    0.00 :   139de5: mov    %rcx,0x28(%rsp)
+    0.00 :   139dea: mov    %r9d,%r10d
+    0.00 :   139ded: and    $0x7f,%r10d
+    0.00 :   139df1: shl    $0x1c,%r10
+    0.00 :   139df5: or     %r10,%rsi
+    0.00 :   139df8: test   %r9b,%r9b
+    0.00 :   139dfb: jns    139f21 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c51>
+    0.00 :   139e01: cmp    %r8,%rcx
+    0.00 :   139e04: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139e0a: cmp    %r15,%rcx
+    0.00 :   139e0d: mov    (%rsp),%r9
+    0.00 :   139e11: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139e17: movzbl 0x5(%r9,%rdi,1),%r9d
+    0.00 :   139e1d: lea    0x6(%rdi),%rcx
+    0.00 :   139e21: mov    %rcx,0x28(%rsp)
+    0.00 :   139e26: mov    %r9d,%r10d
+    0.00 :   139e29: and    $0x7f,%r10d
+    0.00 :   139e2d: shl    $0x23,%r10
+    0.00 :   139e31: or     %r10,%rsi
+    0.00 :   139e34: test   %r9b,%r9b
+    0.00 :   139e37: jns    139f21 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c51>
+    0.00 :   139e3d: cmp    %r8,%rcx
+    0.00 :   139e40: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139e46: cmp    %r15,%rcx
+    0.00 :   139e49: mov    (%rsp),%r9
+    0.00 :   139e4d: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139e53: movzbl 0x6(%r9,%rdi,1),%r9d
+    0.00 :   139e59: lea    0x7(%rdi),%rcx
+    0.00 :   139e5d: mov    %rcx,0x28(%rsp)
+    0.00 :   139e62: mov    %r9d,%r10d
+    0.00 :   139e65: and    $0x7f,%r10d
+    0.00 :   139e69: shl    $0x2a,%r10
+    0.00 :   139e6d: or     %r10,%rsi
+    0.00 :   139e70: test   %r9b,%r9b
+    0.00 :   139e73: jns    139f1c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c4c>
+    0.00 :   139e79: cmp    %r8,%rcx
+    0.00 :   139e7c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139e82: cmp    %r15,%rcx
+    0.00 :   139e85: mov    (%rsp),%r9
+    0.00 :   139e89: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139e8f: movzbl 0x7(%r9,%rdi,1),%r9d
+    0.00 :   139e95: lea    0x8(%rdi),%rcx
+    0.00 :   139e99: mov    %rcx,0x28(%rsp)
+    0.00 :   139e9e: mov    %r9d,%r10d
+    0.00 :   139ea1: and    $0x7f,%r10d
+    0.00 :   139ea5: shl    $0x31,%r10
+    0.00 :   139ea9: or     %r10,%rsi
+    0.00 :   139eac: test   %r9b,%r9b
+    0.00 :   139eaf: jns    139f1c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c4c>
+    0.00 :   139eb1: cmp    %r8,%rcx
+    0.00 :   139eb4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139eba: cmp    %r15,%rcx
+    0.00 :   139ebd: mov    (%rsp),%r9
+    0.00 :   139ec1: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139ec7: movzbl 0x8(%r9,%rdi,1),%r9d
+    0.00 :   139ecd: lea    0x9(%rdi),%rcx
+    0.00 :   139ed1: mov    %rcx,0x28(%rsp)
+    0.00 :   139ed6: mov    %r9d,%r10d
+    0.00 :   139ed9: and    $0x7f,%r10d
+    0.00 :   139edd: shl    $0x38,%r10
+    0.00 :   139ee1: or     %r10,%rsi
+    0.00 :   139ee4: test   %r9b,%r9b
+    0.00 :   139ee7: jns    139f1c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1c4c>
+    0.00 :   139ee9: cmp    %r8,%rcx
+    0.00 :   139eec: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139ef2: cmp    %r15,%rcx
+    0.00 :   139ef5: mov    (%rsp),%rax
+    0.00 :   139ef9: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139eff: movzbl 0x9(%rax,%rdi,1),%eax
+    0.00 :   139f04: add    $0xa,%rdi
+    0.00 :   139f08: mov    %rdi,0x28(%rsp)
+    0.00 :   139f0d: test   %al,%al
+    0.00 :   139f0f: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   139f15: shl    $0x3f,%rax
+    0.00 :   139f19: or     %rax,%rsi
+    0.00 :   139f1c: mov    0x8(%rsp),%r11
+    0.00 :   139f21: mov    (%rsp),%r10
+    0.00 :   139f25: mov    %rsi,(%r11,%rdx,8)
+    0.00 :   139f29: jmp    1383a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd8>
+    0.00 :   139f2e: test   %rdx,%rdx
+    0.00 :   139f31: mov    0x8(%rsp),%r11
+    0.00 :   139f36: jne    13af65 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2c95>
+    0.00 :   139f3c: movl   $0x5,0x180(%rbx)
+    0.00 :   139f46: mov    $0xfffffffd,%eax
+    0.00 :   139f4b: cmp    %r8,%rdi
+    0.00 :   139f4e: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139f54: cmp    %r15,%rdi
+    0.00 :   139f57: jae    13b1a8 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ed8>
+    0.00 :   139f5d: movzbl (%r10,%rdi,1),%r9d
+    0.00 :   139f62: lea    0x1(%rdi),%rcx
+    0.00 :   139f66: mov    %rcx,0x28(%rsp)
+    0.00 :   139f6b: mov    %r9d,%esi
+    0.00 :   139f6e: and    $0x7f,%esi
+    0.00 :   139f71: test   %r9b,%r9b
+    0.00 :   139f74: jns    1383a4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd4>
+    0.00 :   139f7a: cmp    %r8,%rcx
+    0.00 :   139f7d: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139f83: cmp    %r15,%rcx
+    0.00 :   139f86: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139f8c: movzbl 0x1(%r10,%rdi,1),%r9d
+    0.00 :   139f92: lea    0x2(%rdi),%rcx
+    0.00 :   139f96: mov    %rcx,0x28(%rsp)
+    0.00 :   139f9b: mov    %r9d,%r10d
+    0.00 :   139f9e: and    $0x7f,%r10d
+    0.00 :   139fa2: shl    $0x7,%r10d
+    0.00 :   139fa6: or     %r10d,%esi
+    0.00 :   139fa9: test   %r9b,%r9b
+    0.00 :   139fac: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   139fb2: cmp    %r8,%rcx
+    0.00 :   139fb5: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139fbb: cmp    %r15,%rcx
+    0.00 :   139fbe: mov    (%rsp),%r9
+    0.00 :   139fc2: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   139fc8: movzbl 0x2(%r9,%rdi,1),%r9d
+    0.00 :   139fce: lea    0x3(%rdi),%rcx
+    0.00 :   139fd2: mov    %rcx,0x28(%rsp)
+    0.00 :   139fd7: mov    %r9d,%r10d
+    0.00 :   139fda: and    $0x7f,%r10d
+    0.00 :   139fde: shl    $0xe,%r10d
+    0.00 :   139fe2: or     %r10d,%esi
+    0.00 :   139fe5: test   %r9b,%r9b
+    0.00 :   139fe8: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   139fee: cmp    %r8,%rcx
+    0.00 :   139ff1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   139ff7: cmp    %r15,%rcx
+    0.00 :   139ffa: mov    (%rsp),%r9
+    0.00 :   139ffe: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a004: movzbl 0x3(%r9,%rdi,1),%r10d
+    0.00 :   13a00a: lea    0x4(%rdi),%rcx
+    0.00 :   13a00e: mov    %rcx,0x28(%rsp)
+    0.00 :   13a013: mov    %r10d,%r9d
+    0.00 :   13a016: and    $0x7f,%r9d
+    0.00 :   13a01a: shl    $0x15,%r9d
+    0.00 :   13a01e: or     %esi,%r9d
+    0.00 :   13a021: test   %r10b,%r10b
+    0.00 :   13a024: jns    13839d <ak_core::generated::fsm::fsm_step_list_metrics_response+0xcd>
+    0.00 :   13a02a: cmp    %r8,%rcx
+    0.00 :   13a02d: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a033: cmp    %r15,%rcx
+    0.00 :   13a036: mov    (%rsp),%rsi
+    0.00 :   13a03a: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a040: movzbl 0x4(%rsi,%rdi,1),%r10d
+    0.00 :   13a046: lea    0x5(%rdi),%rcx
+    0.00 :   13a04a: mov    %rcx,0x28(%rsp)
+    0.00 :   13a04f: mov    %r10d,%esi
+    0.00 :   13a052: shl    $0x1c,%esi
+    0.00 :   13a055: or     %r9d,%esi
+    0.00 :   13a058: test   %r10b,%r10b
+    0.00 :   13a05b: jns    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   13a061: cmp    %r8,%rcx
+    0.00 :   13a064: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a06a: cmp    %r15,%rcx
+    0.00 :   13a06d: mov    (%rsp),%r10
+    0.00 :   13a071: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a077: lea    0x6(%rdi),%rcx
+    0.00 :   13a07b: cmpb   $0x0,0x5(%r10,%rdi,1)
+    0.00 :   13a081: mov    %rcx,0x28(%rsp)
+    0.00 :   13a086: jns    1383a4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd4>
+    0.00 :   13a08c: cmp    %r8,%rcx
+    0.00 :   13a08f: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a095: cmp    %r15,%rcx
+    0.00 :   13a098: mov    (%rsp),%r9
+    0.00 :   13a09c: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a0a2: lea    0x7(%rdi),%rcx
+    0.00 :   13a0a6: cmpb   $0x0,0x6(%r9,%rdi,1)
+    0.00 :   13a0ac: mov    %rcx,0x28(%rsp)
+    0.00 :   13a0b1: jns    13a105 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e35>
+    0.00 :   13a0b3: cmp    %r8,%rcx
+    0.00 :   13a0b6: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a0bc: cmp    %r15,%rcx
+    0.00 :   13a0bf: mov    (%rsp),%r9
+    0.00 :   13a0c3: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a0c9: lea    0x8(%rdi),%rcx
+    0.00 :   13a0cd: cmpb   $0x0,0x7(%r9,%rdi,1)
+    0.00 :   13a0d3: mov    %rcx,0x28(%rsp)
+    0.00 :   13a0d8: jns    13a105 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1e35>
+    0.00 :   13a0da: cmp    %r8,%rcx
+    0.00 :   13a0dd: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a0e3: cmp    %r15,%rcx
+    0.00 :   13a0e6: mov    (%rsp),%r9
+    0.00 :   13a0ea: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a0f0: lea    0x9(%rdi),%rcx
+    0.00 :   13a0f4: cmpb   $0x0,0x8(%r9,%rdi,1)
+    0.00 :   13a0fa: mov    %rcx,0x28(%rsp)
+    0.00 :   13a0ff: js     13a751 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2481>
+    0.00 :   13a105: mov    0x8(%rsp),%r11
+    0.00 :   13a10a: jmp    1383a0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd0>
+    0.00 :   13a10f: cmp    %r8,%rcx
+    0.00 :   13a112: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a118: cmp    %r15,%rcx
+    0.00 :   13a11b: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a121: movzbl 0x1(%r10,%rdi,1),%esi
+    0.00 :   13a127: lea    0x2(%rdi),%rcx
+    0.00 :   13a12b: mov    %esi,%r10d
+    0.00 :   13a12e: and    $0x7f,%r10d
+    0.00 :   13a132: shl    $0x7,%r10d
+    0.00 :   13a136: or     %r10,%rdx
+    0.00 :   13a139: test   %sil,%sil
+    0.00 :   13a13c: jns    13a212 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f42>
+    0.00 :   13a142: cmp    %r8,%rcx
+    0.00 :   13a145: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a14b: cmp    %r15,%rcx
+    0.00 :   13a14e: mov    (%rsp),%rsi
+    0.00 :   13a152: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a158: movzbl 0x2(%rsi,%rdi,1),%esi
+    0.00 :   13a15d: lea    0x3(%rdi),%rcx
+    0.00 :   13a161: mov    %esi,%r10d
+    0.00 :   13a164: and    $0x7f,%r10d
+    0.00 :   13a168: shl    $0xe,%r10d
+    0.00 :   13a16c: or     %r10,%rdx
+    0.00 :   13a16f: test   %sil,%sil
+    0.00 :   13a172: jns    13a212 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f42>
+    0.00 :   13a178: cmp    %r8,%rcx
+    0.00 :   13a17b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a181: cmp    %r15,%rcx
+    0.00 :   13a184: mov    (%rsp),%rsi
+    0.00 :   13a188: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a18e: movzbl 0x3(%rsi,%rdi,1),%esi
+    0.00 :   13a193: lea    0x4(%rdi),%rcx
+    0.00 :   13a197: mov    %esi,%r10d
+    0.00 :   13a19a: and    $0x7f,%r10d
+    0.00 :   13a19e: shl    $0x15,%r10d
+    0.00 :   13a1a2: or     %r10,%rdx
+    0.00 :   13a1a5: test   %sil,%sil
+    0.00 :   13a1a8: jns    13a212 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f42>
+    0.00 :   13a1aa: cmp    %r8,%rcx
+    0.00 :   13a1ad: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a1b3: cmp    %r15,%rcx
+    0.00 :   13a1b6: mov    (%rsp),%rsi
+    0.00 :   13a1ba: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a1c0: movzbl 0x4(%rsi,%rdi,1),%esi
+    0.00 :   13a1c5: lea    0x5(%rdi),%rcx
+    0.00 :   13a1c9: mov    %esi,%r10d
+    0.00 :   13a1cc: and    $0x7f,%r10d
+    0.00 :   13a1d0: shl    $0x1c,%r10
+    0.00 :   13a1d4: or     %r10,%rdx
+    0.00 :   13a1d7: test   %sil,%sil
+    0.00 :   13a1da: jns    13a212 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f42>
+    0.00 :   13a1dc: cmp    %r8,%rcx
+    0.00 :   13a1df: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a1e5: cmp    %r15,%rcx
+    0.00 :   13a1e8: mov    (%rsp),%rsi
+    0.00 :   13a1ec: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a1f2: movzbl 0x5(%rsi,%rdi,1),%esi
+    0.00 :   13a1f7: lea    0x6(%rdi),%rcx
+    0.00 :   13a1fb: mov    %esi,%r10d
+    0.00 :   13a1fe: and    $0x7f,%r10d
+    0.00 :   13a202: shl    $0x23,%r10
+    0.00 :   13a206: or     %r10,%rdx
+    0.00 :   13a209: test   %sil,%sil
+    0.00 :   13a20c: js     13a517 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2247>
+    0.00 :   13a212: mov    %rcx,%rdi
+    0.00 :   13a215: mov    (%rsp),%r10
+    0.00 :   13a219: sub    %rdi,%r8
+    0.00 :   13a21c: cmp    %r8,%rdx
+    0.00 :   13a21f: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a225: cmp    $0xf,%r9
+    0.00 :   13a229: ja     13aceb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a1b>
+    0.00 :   13a22f: add    %rdi,%rdx
+    0.00 :   13a232: mov    %r9,%rax
+    0.00 :   13a235: shl    $0x4,%rax
+    0.00 :   13a239: mov    %rdx,(%r12,%rax,1)
+    0.00 :   13a23d: movl   $0x3,0x8(%r12,%rax,1)
+    0.00 :   13a246: jmp    13a4be <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ee>
+    0.00 :   13a24b: cmp    %r8,%rcx
+    0.00 :   13a24e: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a254: cmp    %r15,%rcx
+    0.00 :   13a257: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a25d: movzbl 0x1(%r10,%rdi,1),%esi
+    0.00 :   13a263: lea    0x2(%rdi),%rcx
+    0.00 :   13a267: mov    %esi,%r10d
+    0.00 :   13a26a: and    $0x7f,%r10d
+    0.00 :   13a26e: shl    $0x7,%r10d
+    0.00 :   13a272: or     %r10,%rdx
+    0.00 :   13a275: test   %sil,%sil
+    0.00 :   13a278: jns    13a34e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x207e>
+    0.00 :   13a27e: cmp    %r8,%rcx
+    0.00 :   13a281: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a287: cmp    %r15,%rcx
+    0.00 :   13a28a: mov    (%rsp),%rsi
+    0.00 :   13a28e: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a294: movzbl 0x2(%rsi,%rdi,1),%esi
+    0.00 :   13a299: lea    0x3(%rdi),%rcx
+    0.00 :   13a29d: mov    %esi,%r10d
+    0.00 :   13a2a0: and    $0x7f,%r10d
+    0.00 :   13a2a4: shl    $0xe,%r10d
+    0.00 :   13a2a8: or     %r10,%rdx
+    0.00 :   13a2ab: test   %sil,%sil
+    0.00 :   13a2ae: jns    13a34e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x207e>
+    0.00 :   13a2b4: cmp    %r8,%rcx
+    0.00 :   13a2b7: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a2bd: cmp    %r15,%rcx
+    0.00 :   13a2c0: mov    (%rsp),%rsi
+    0.00 :   13a2c4: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a2ca: movzbl 0x3(%rsi,%rdi,1),%esi
+    0.00 :   13a2cf: lea    0x4(%rdi),%rcx
+    0.00 :   13a2d3: mov    %esi,%r10d
+    0.00 :   13a2d6: and    $0x7f,%r10d
+    0.00 :   13a2da: shl    $0x15,%r10d
+    0.00 :   13a2de: or     %r10,%rdx
+    0.00 :   13a2e1: test   %sil,%sil
+    0.00 :   13a2e4: jns    13a34e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x207e>
+    0.00 :   13a2e6: cmp    %r8,%rcx
+    0.00 :   13a2e9: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a2ef: cmp    %r15,%rcx
+    0.00 :   13a2f2: mov    (%rsp),%rsi
+    0.00 :   13a2f6: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a2fc: movzbl 0x4(%rsi,%rdi,1),%esi
+    0.00 :   13a301: lea    0x5(%rdi),%rcx
+    0.00 :   13a305: mov    %esi,%r10d
+    0.00 :   13a308: and    $0x7f,%r10d
+    0.00 :   13a30c: shl    $0x1c,%r10
+    0.00 :   13a310: or     %r10,%rdx
+    0.00 :   13a313: test   %sil,%sil
+    0.00 :   13a316: jns    13a34e <ak_core::generated::fsm::fsm_step_list_metrics_response+0x207e>
+    0.00 :   13a318: cmp    %r8,%rcx
+    0.00 :   13a31b: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a321: cmp    %r15,%rcx
+    0.00 :   13a324: mov    (%rsp),%rsi
+    0.00 :   13a328: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a32e: movzbl 0x5(%rsi,%rdi,1),%esi
+    0.00 :   13a333: lea    0x6(%rdi),%rcx
+    0.00 :   13a337: mov    %esi,%r10d
+    0.00 :   13a33a: and    $0x7f,%r10d
+    0.00 :   13a33e: shl    $0x23,%r10
+    0.00 :   13a342: or     %r10,%rdx
+    0.00 :   13a345: test   %sil,%sil
+    0.00 :   13a348: js     13a5d5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2305>
+    0.00 :   13a34e: mov    %rcx,%rdi
+    0.00 :   13a351: mov    (%rsp),%r10
+    0.00 :   13a355: sub    %rdi,%r8
+    0.00 :   13a358: cmp    %r8,%rdx
+    0.00 :   13a35b: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a361: cmp    $0xf,%r9
+    0.00 :   13a365: ja     13aceb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a1b>
+    0.00 :   13a36b: add    %rdi,%rdx
+    0.00 :   13a36e: mov    %r9,%rax
+    0.00 :   13a371: shl    $0x4,%rax
+    0.00 :   13a375: mov    %rdx,(%r12,%rax,1)
+    0.00 :   13a379: movl   $0x4,0x8(%r12,%rax,1)
+    0.00 :   13a382: jmp    13a4be <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ee>
+    0.00 :   13a387: cmp    %r8,%rcx
+    0.00 :   13a38a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a390: cmp    %r15,%rcx
+    0.00 :   13a393: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a399: movzbl 0x1(%r10,%rdi,1),%esi
+    0.00 :   13a39f: lea    0x2(%rdi),%rcx
+    0.00 :   13a3a3: mov    %esi,%r10d
+    0.00 :   13a3a6: and    $0x7f,%r10d
+    0.00 :   13a3aa: shl    $0x7,%r10d
+    0.00 :   13a3ae: or     %r10,%rdx
+    0.00 :   13a3b1: test   %sil,%sil
+    0.00 :   13a3b4: jns    13a48a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ba>
+    0.00 :   13a3ba: cmp    %r8,%rcx
+    0.00 :   13a3bd: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a3c3: cmp    %r15,%rcx
+    0.00 :   13a3c6: mov    (%rsp),%rsi
+    0.00 :   13a3ca: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a3d0: movzbl 0x2(%rsi,%rdi,1),%esi
+    0.00 :   13a3d5: lea    0x3(%rdi),%rcx
+    0.00 :   13a3d9: mov    %esi,%r10d
+    0.00 :   13a3dc: and    $0x7f,%r10d
+    0.00 :   13a3e0: shl    $0xe,%r10d
+    0.00 :   13a3e4: or     %r10,%rdx
+    0.00 :   13a3e7: test   %sil,%sil
+    0.00 :   13a3ea: jns    13a48a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ba>
+    0.00 :   13a3f0: cmp    %r8,%rcx
+    0.00 :   13a3f3: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a3f9: cmp    %r15,%rcx
+    0.00 :   13a3fc: mov    (%rsp),%rsi
+    0.00 :   13a400: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a406: movzbl 0x3(%rsi,%rdi,1),%esi
+    0.00 :   13a40b: lea    0x4(%rdi),%rcx
+    0.00 :   13a40f: mov    %esi,%r10d
+    0.00 :   13a412: and    $0x7f,%r10d
+    0.00 :   13a416: shl    $0x15,%r10d
+    0.00 :   13a41a: or     %r10,%rdx
+    0.00 :   13a41d: test   %sil,%sil
+    0.00 :   13a420: jns    13a48a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ba>
+    0.00 :   13a422: cmp    %r8,%rcx
+    0.00 :   13a425: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a42b: cmp    %r15,%rcx
+    0.00 :   13a42e: mov    (%rsp),%rsi
+    0.00 :   13a432: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a438: movzbl 0x4(%rsi,%rdi,1),%esi
+    0.00 :   13a43d: lea    0x5(%rdi),%rcx
+    0.00 :   13a441: mov    %esi,%r10d
+    0.00 :   13a444: and    $0x7f,%r10d
+    0.00 :   13a448: shl    $0x1c,%r10
+    0.00 :   13a44c: or     %r10,%rdx
+    0.00 :   13a44f: test   %sil,%sil
+    0.00 :   13a452: jns    13a48a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21ba>
+    0.00 :   13a454: cmp    %r8,%rcx
+    0.00 :   13a457: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a45d: cmp    %r15,%rcx
+    0.00 :   13a460: mov    (%rsp),%rsi
+    0.00 :   13a464: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a46a: movzbl 0x5(%rsi,%rdi,1),%esi
+    0.00 :   13a46f: lea    0x6(%rdi),%rcx
+    0.00 :   13a473: mov    %esi,%r10d
+    0.00 :   13a476: and    $0x7f,%r10d
+    0.00 :   13a47a: shl    $0x23,%r10
+    0.00 :   13a47e: or     %r10,%rdx
+    0.00 :   13a481: test   %sil,%sil
+    0.00 :   13a484: js     13a693 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x23c3>
+    0.00 :   13a48a: mov    %rcx,%rdi
+    0.00 :   13a48d: mov    (%rsp),%r10
+    0.00 :   13a491: sub    %rdi,%r8
+    0.00 :   13a494: cmp    %r8,%rdx
+    0.00 :   13a497: ja     138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a49d: cmp    $0xf,%r9
+    0.00 :   13a4a1: ja     13aceb <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a1b>
+    0.00 :   13a4a7: add    %rdi,%rdx
+    0.00 :   13a4aa: mov    %r9,%rax
+    0.00 :   13a4ad: shl    $0x4,%rax
+    0.00 :   13a4b1: mov    %rdx,(%r12,%rax,1)
+    0.00 :   13a4b5: movl   $0x2,0x8(%r12,%rax,1)
+    0.00 :   13a4be: inc    %r9
+    0.00 :   13a4c1: mov    %r9,0x48(%rbx)
+    0.00 :   13a4c5: mov    %rdi,0x40(%rbx)
+    0.00 :   13a4c9: mov    %rdi,%r14
+    0.00 :   13a4cc: jmp    1383d0 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x100>
+    0.00 :   13a4d1: cmp    %r8,%rdi
+    0.00 :   13a4d4: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a4da: cmp    %r15,%rdi
+    0.00 :   13a4dd: mov    (%rsp),%r10
+    0.00 :   13a4e1: jae    13b198 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2ec8>
+    0.00 :   13a4e7: movzbl 0x9(%r10,%r14,1),%eax
+    0.00 :   13a4ed: lea    0xa(%r14),%rdi
+    0.00 :   13a4f1: mov    %rdi,0x28(%rsp)
+    0.00 :   13a4f6: test   %al,%al
+    0.00 :   13a4f8: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13a4fe: shl    $0x3f,%rax
+    0.00 :   13a502: or     %rax,%rdx
+    0.00 :   13a505: mov    %rdx,%rax
+    0.00 :   13a508: shr    $0x20,%rax
+    0.00 :   13a50c: je     138c0d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x93d>
+    0.00 :   13a512: jmp    13a9c4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26f4>
+    0.00 :   13a517: cmp    %r8,%rcx
+    0.00 :   13a51a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a520: cmp    %r15,%rcx
+    0.00 :   13a523: mov    (%rsp),%rsi
+    0.00 :   13a527: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a52d: movzbl 0x6(%rsi,%rdi,1),%esi
+    0.00 :   13a532: lea    0x7(%rdi),%rcx
+    0.00 :   13a536: mov    %esi,%r10d
+    0.00 :   13a539: and    $0x7f,%r10d
+    0.00 :   13a53d: shl    $0x2a,%r10
+    0.00 :   13a541: or     %r10,%rdx
+    0.00 :   13a544: test   %sil,%sil
+    0.00 :   13a547: jns    13a5b1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x22e1>
+    0.00 :   13a549: cmp    %r8,%rcx
+    0.00 :   13a54c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a552: cmp    %r15,%rcx
+    0.00 :   13a555: mov    (%rsp),%rsi
+    0.00 :   13a559: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a55f: movzbl 0x7(%rsi,%rdi,1),%esi
+    0.00 :   13a564: lea    0x8(%rdi),%rcx
+    0.00 :   13a568: mov    %esi,%r10d
+    0.00 :   13a56b: and    $0x7f,%r10d
+    0.00 :   13a56f: shl    $0x31,%r10
+    0.00 :   13a573: or     %r10,%rdx
+    0.00 :   13a576: test   %sil,%sil
+    0.00 :   13a579: jns    13a5b1 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x22e1>
+    0.00 :   13a57b: cmp    %r8,%rcx
+    0.00 :   13a57e: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a584: cmp    %r15,%rcx
+    0.00 :   13a587: mov    (%rsp),%rsi
+    0.00 :   13a58b: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a591: movzbl 0x8(%rsi,%rdi,1),%esi
+    0.00 :   13a596: lea    0x9(%rdi),%rcx
+    0.00 :   13a59a: mov    %esi,%r10d
+    0.00 :   13a59d: and    $0x7f,%r10d
+    0.00 :   13a5a1: shl    $0x38,%r10
+    0.00 :   13a5a5: or     %r10,%rdx
+    0.00 :   13a5a8: test   %sil,%sil
+    0.00 :   13a5ab: js     13a786 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x24b6>
+    0.00 :   13a5b1: mov    %rcx,%rdi
+    0.00 :   13a5b4: mov    0x8(%rsp),%r11
+    0.00 :   13a5b9: mov    (%rsp),%r10
+    0.00 :   13a5bd: lea    -0x101300(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   13a5c4: sub    %rdi,%r8
+    0.00 :   13a5c7: cmp    %r8,%rdx
+    0.00 :   13a5ca: jbe    13a225 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x1f55>
+    0.00 :   13a5d0: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a5d5: cmp    %r8,%rcx
+    0.00 :   13a5d8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a5de: cmp    %r15,%rcx
+    0.00 :   13a5e1: mov    (%rsp),%rsi
+    0.00 :   13a5e5: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a5eb: movzbl 0x6(%rsi,%rdi,1),%esi
+    0.00 :   13a5f0: lea    0x7(%rdi),%rcx
+    0.00 :   13a5f4: mov    %esi,%r10d
+    0.00 :   13a5f7: and    $0x7f,%r10d
+    0.00 :   13a5fb: shl    $0x2a,%r10
+    0.00 :   13a5ff: or     %r10,%rdx
+    0.00 :   13a602: test   %sil,%sil
+    0.00 :   13a605: jns    13a66f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x239f>
+    0.00 :   13a607: cmp    %r8,%rcx
+    0.00 :   13a60a: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a610: cmp    %r15,%rcx
+    0.00 :   13a613: mov    (%rsp),%rsi
+    0.00 :   13a617: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a61d: movzbl 0x7(%rsi,%rdi,1),%esi
+    0.00 :   13a622: lea    0x8(%rdi),%rcx
+    0.00 :   13a626: mov    %esi,%r10d
+    0.00 :   13a629: and    $0x7f,%r10d
+    0.00 :   13a62d: shl    $0x31,%r10
+    0.00 :   13a631: or     %r10,%rdx
+    0.00 :   13a634: test   %sil,%sil
+    0.00 :   13a637: jns    13a66f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x239f>
+    0.00 :   13a639: cmp    %r8,%rcx
+    0.00 :   13a63c: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a642: cmp    %r15,%rcx
+    0.00 :   13a645: mov    (%rsp),%rsi
+    0.00 :   13a649: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a64f: movzbl 0x8(%rsi,%rdi,1),%esi
+    0.00 :   13a654: lea    0x9(%rdi),%rcx
+    0.00 :   13a658: mov    %esi,%r10d
+    0.00 :   13a65b: and    $0x7f,%r10d
+    0.00 :   13a65f: shl    $0x38,%r10
+    0.00 :   13a663: or     %r10,%rdx
+    0.00 :   13a666: test   %sil,%sil
+    0.00 :   13a669: js     13a7be <ak_core::generated::fsm::fsm_step_list_metrics_response+0x24ee>
+    0.00 :   13a66f: mov    %rcx,%rdi
+    0.00 :   13a672: mov    0x8(%rsp),%r11
+    0.00 :   13a677: mov    (%rsp),%r10
+    0.00 :   13a67b: lea    -0x1013be(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   13a682: sub    %rdi,%r8
+    0.00 :   13a685: cmp    %r8,%rdx
+    0.00 :   13a688: jbe    13a361 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2091>
+    0.00 :   13a68e: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a693: cmp    %r8,%rcx
+    0.00 :   13a696: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a69c: cmp    %r15,%rcx
+    0.00 :   13a69f: mov    (%rsp),%rsi
+    0.00 :   13a6a3: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a6a9: movzbl 0x6(%rsi,%rdi,1),%esi
+    0.00 :   13a6ae: lea    0x7(%rdi),%rcx
+    0.00 :   13a6b2: mov    %esi,%r10d
+    0.00 :   13a6b5: and    $0x7f,%r10d
+    0.00 :   13a6b9: shl    $0x2a,%r10
+    0.00 :   13a6bd: or     %r10,%rdx
+    0.00 :   13a6c0: test   %sil,%sil
+    0.00 :   13a6c3: jns    13a72d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x245d>
+    0.00 :   13a6c5: cmp    %r8,%rcx
+    0.00 :   13a6c8: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a6ce: cmp    %r15,%rcx
+    0.00 :   13a6d1: mov    (%rsp),%rsi
+    0.00 :   13a6d5: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a6db: movzbl 0x7(%rsi,%rdi,1),%esi
+    0.00 :   13a6e0: lea    0x8(%rdi),%rcx
+    0.00 :   13a6e4: mov    %esi,%r10d
+    0.00 :   13a6e7: and    $0x7f,%r10d
+    0.00 :   13a6eb: shl    $0x31,%r10
+    0.00 :   13a6ef: or     %r10,%rdx
+    0.00 :   13a6f2: test   %sil,%sil
+    0.00 :   13a6f5: jns    13a72d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x245d>
+    0.00 :   13a6f7: cmp    %r8,%rcx
+    0.00 :   13a6fa: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a700: cmp    %r15,%rcx
+    0.00 :   13a703: mov    (%rsp),%rsi
+    0.00 :   13a707: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a70d: movzbl 0x8(%rsi,%rdi,1),%esi
+    0.00 :   13a712: lea    0x9(%rdi),%rcx
+    0.00 :   13a716: mov    %esi,%r10d
+    0.00 :   13a719: and    $0x7f,%r10d
+    0.00 :   13a71d: shl    $0x38,%r10
+    0.00 :   13a721: or     %r10,%rdx
+    0.00 :   13a724: test   %sil,%sil
+    0.00 :   13a727: js     13a7f6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2526>
+    0.00 :   13a72d: mov    %rcx,%rdi
+    0.00 :   13a730: mov    0x8(%rsp),%r11
+    0.00 :   13a735: mov    (%rsp),%r10
+    0.00 :   13a739: lea    -0x10147c(%rip),%rbp        # 392c4 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x27e>
+    0.00 :   13a740: sub    %rdi,%r8
+    0.00 :   13a743: cmp    %r8,%rdx
+    0.00 :   13a746: jbe    13a49d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x21cd>
+    0.00 :   13a74c: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a751: cmp    %r8,%rcx
+    0.00 :   13a754: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a75a: cmp    %r15,%rcx
+    0.00 :   13a75d: mov    0x8(%rsp),%r11
+    0.00 :   13a762: mov    (%rsp),%r10
+    0.00 :   13a766: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a76c: lea    0xa(%rdi),%rax
+    0.00 :   13a770: cmpb   $0x0,0x9(%r10,%rdi,1)
+    0.00 :   13a776: mov    %rax,0x28(%rsp)
+    0.00 :   13a77b: jns    1383a4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0xd4>
+    0.00 :   13a781: jmp    13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13a786: cmp    %r8,%rcx
+    0.00 :   13a789: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a78f: cmp    %r15,%rcx
+    0.00 :   13a792: mov    (%rsp),%rsi
+    0.00 :   13a796: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a79c: movzbl 0x9(%rsi,%rdi,1),%ecx
+    0.00 :   13a7a1: add    $0xa,%rdi
+    0.00 :   13a7a5: mov    %rdi,0x28(%rsp)
+    0.00 :   13a7aa: test   %cl,%cl
+    0.00 :   13a7ac: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13a7b2: shl    $0x3f,%rcx
+    0.00 :   13a7b6: or     %rcx,%rdx
+    0.00 :   13a7b9: jmp    13a5b4 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x22e4>
+    0.00 :   13a7be: cmp    %r8,%rcx
+    0.00 :   13a7c1: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a7c7: cmp    %r15,%rcx
+    0.00 :   13a7ca: mov    (%rsp),%rsi
+    0.00 :   13a7ce: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a7d4: movzbl 0x9(%rsi,%rdi,1),%ecx
+    0.00 :   13a7d9: add    $0xa,%rdi
+    0.00 :   13a7dd: mov    %rdi,0x28(%rsp)
+    0.00 :   13a7e2: test   %cl,%cl
+    0.00 :   13a7e4: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13a7ea: shl    $0x3f,%rcx
+    0.00 :   13a7ee: or     %rcx,%rdx
+    0.00 :   13a7f1: jmp    13a672 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x23a2>
+    0.00 :   13a7f6: cmp    %r8,%rcx
+    0.00 :   13a7f9: jae    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13a7ff: cmp    %r15,%rcx
+    0.00 :   13a802: mov    (%rsp),%rsi
+    0.00 :   13a806: jae    13b1ab <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2edb>
+    0.00 :   13a80c: movzbl 0x9(%rsi,%rdi,1),%ecx
+    0.00 :   13a811: add    $0xa,%rdi
+    0.00 :   13a815: mov    %rdi,0x28(%rsp)
+    0.00 :   13a81a: test   %cl,%cl
+    0.00 :   13a81c: js     13b166 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e96>
+    0.00 :   13a822: shl    $0x3f,%rcx
+    0.00 :   13a826: or     %rcx,%rdx
+    0.00 :   13a829: jmp    13a730 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2460>
+    0.14 :   13a82e: mov    0x150(%rbx),%rax
+    0.00 :   13a835: test   %rax,%rax
+    0.00 :   13a838: je     13a8b5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x25e5>
+    0.00 :   13a83a: mov    0x180(%rbx),%ecx
+    0.00 :   13a840: dec    %ecx
+    0.00 :   13a842: cmp    $0x4,%ecx
+    0.00 :   13a845: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13a84b: lea    -0x1015a2(%rip),%rdx        # 392b0 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x26a>
+    0.00 :   13a852: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13a856: add    %rdx,%rcx
+    0.00 :   13a859: jmp    *%rcx
+    0.00 :   13a85b: lea    0x0(,%rax,8),%ecx
+    0.00 :   13a862: mov    $0x10001,%edx
+    0.00 :   13a867: jmp    13aa03 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2733>
+    0.03 :   13a86c: cmpq   $0x0,0x150(%rbx)
+    0.01 :   13a874: jne    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13a87a: movabs $0x100000000,%rax
+    0.00 :   13a884: mov    0x10(%rsp),%rcx
+    0.00 :   13a889: mov    %rax,(%rcx)
+    0.02 :   13a88c: movq   $0xffffffffffffffff,0x8(%rcx)
+    0.00 :   13a894: mov    0x48(%rsp),%rax
+    0.00 :   13a899: mov    %rax,0x10(%rcx)
+    0.00 :   13a89d: movl   $0x18,0x18(%rcx)
+    0.00 :   13a8a4: movb   $0x2,0x188(%rbx)
+    0.00 :   13a8ab: mov    $0x1,%eax
+    0.00 :   13a8b0: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.07 :   13a8b5: mov    0x158(%rbx),%rax
+    0.00 :   13a8bc: movabs $0x100010000,%rcx
+    0.00 :   13a8c6: mov    0x10(%rsp),%rdx
+    0.01 :   13a8cb: mov    %rcx,(%rdx)
+    2.11 :   13a8ce: mov    %rax,0x8(%rdx)
+    0.01 :   13a8d2: mov    0x40(%rsp),%rax
+    0.10 :   13a8d7: mov    %rax,0x10(%rdx)
+    0.01 :   13a8db: movl   $0x28,0x18(%rdx)
+    0.03 :   13a8e2: mov    %rdi,0x48(%rbx)
+    0.00 :   13a8e6: movl   $0x0,0x180(%rbx)
+    0.01 :   13a8f0: mov    $0x4,%eax
+    0.01 :   13a8f5: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.00 :   13a8fa: mov    0x180(%rbx),%eax
+    0.00 :   13a900: lea    -0x1(%rax),%ecx
+    0.00 :   13a903: cmp    $0x5,%ecx
+    0.00 :   13a906: jae    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13a90c: or     $0x10000,%eax
+    0.00 :   13a911: mov    %ecx,%ecx
+    0.00 :   13a913: lea    -0x1013da(%rip),%rdx        # 39540 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x4fa>
+    0.00 :   13a91a: mov    (%rdx,%rcx,4),%ecx
+    0.00 :   13a91d: mov    0x158(%rbx),%rdx
+    0.00 :   13a924: mov    0x10(%rsp),%rsi
+    0.00 :   13a929: mov    %eax,(%rsi)
+    0.00 :   13a92b: movl   $0x2000,0x4(%rsi)
+    0.00 :   13a932: jmp    13a9a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26d6>
+    0.00 :   13a934: mov    0x180(%rbx),%eax
+    0.00 :   13a93a: lea    -0x1(%rax),%ecx
+    0.00 :   13a93d: cmp    $0x5,%ecx
+    0.00 :   13a940: jae    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13a946: or     $0x10000,%eax
+    0.00 :   13a94b: mov    %ecx,%ecx
+    0.00 :   13a94d: lea    -0x10143c(%rip),%rdx        # 39518 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x4d2>
+    0.00 :   13a954: mov    (%rdx,%rcx,4),%ecx
+    0.00 :   13a957: mov    0x158(%rbx),%rdx
+    0.00 :   13a95e: mov    0x10(%rsp),%rsi
+    0.00 :   13a963: mov    %eax,(%rsi)
+    0.00 :   13a965: movl   $0x1000,0x4(%rsi)
+    0.00 :   13a96c: jmp    13a9a6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x26d6>
+    0.00 :   13a96e: mov    0x180(%rbx),%eax
+    0.00 :   13a974: lea    -0x1(%rax),%ecx
+    0.00 :   13a977: cmp    $0x5,%ecx
+    0.00 :   13a97a: jae    13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13a980: or     $0x10000,%eax
+    0.00 :   13a985: mov    %ecx,%ecx
+    0.00 :   13a987: lea    -0x101462(%rip),%rdx        # 3952c <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x4e6>
+    0.00 :   13a98e: mov    (%rdx,%rcx,4),%ecx
+    0.00 :   13a991: mov    0x158(%rbx),%rdx
+    0.00 :   13a998: mov    0x10(%rsp),%rsi
+    0.00 :   13a99d: mov    %eax,(%rsi)
+    0.00 :   13a99f: movl   $0x8000,0x4(%rsi)
+    0.00 :   13a9a6: mov    %rdx,0x8(%rsi)
+    0.00 :   13a9aa: mov    %r11,0x10(%rsi)
+    0.00 :   13a9ae: mov    %ecx,0x18(%rsi)
+    0.00 :   13a9b1: jmp    13aa1f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x274f>
+    0.00 :   13a9b3: movb   $0x3,0x188(%rbx)
+    0.00 :   13a9ba: mov    $0xfffffffd,%eax
+    0.00 :   13a9bf: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.00 :   13a9c4: movb   $0x3,0x188(%rbx)
+    0.00 :   13a9cb: mov    $0xfffffffe,%eax
+    0.00 :   13a9d0: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.00 :   13a9d2: lea    0x0(,%rax,4),%ecx
+    0.00 :   13a9d9: mov    $0x10005,%edx
+    0.00 :   13a9de: jmp    13aa03 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2733>
+    0.00 :   13a9e0: lea    0x0(,%rax,4),%ecx
+    0.00 :   13a9e7: mov    $0x10003,%edx
+    0.00 :   13a9ec: jmp    13aa03 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2733>
+    0.00 :   13a9ee: mov    $0x10004,%edx
+    0.00 :   13a9f3: mov    %eax,%ecx
+    0.00 :   13a9f5: jmp    13aa03 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2733>
+    0.00 :   13a9f7: lea    0x0(,%rax,8),%ecx
+    0.00 :   13a9fe: mov    $0x10002,%edx
+    0.00 :   13aa03: mov    0x158(%rbx),%rsi
+    0.00 :   13aa0a: mov    0x10(%rsp),%rdi
+    0.00 :   13aa0f: mov    %edx,(%rdi)
+    0.00 :   13aa11: mov    %eax,0x4(%rdi)
+    0.00 :   13aa14: mov    %rsi,0x8(%rdi)
+    0.00 :   13aa18: mov    %r11,0x10(%rdi)
+    0.00 :   13aa1c: mov    %ecx,0x18(%rdi)
+    0.00 :   13aa1f: movq   $0x0,0x150(%rbx)
+    0.00 :   13aa2a: mov    $0x2,%eax
+    0.00 :   13aa2f: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.66 :   13aa31: test   %eax,%eax
+    0.00 :   13aa33: je     13aa8c <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27bc>
+    0.00 :   13aa35: cmpq   $0x0,0x150(%rbx)
+    0.00 :   13aa3d: je     13aa82 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27b2>
+    0.00 :   13aa3f: movb   $0x3,0x188(%rbx)
+    0.00 :   13aa46: mov    $0xfffffff5,%eax
+    2.29 :   13aa4b: add    $0x78,%rsp
+    0.34 :   13aa4f: pop    %rbx
+    2.82 :   13aa50: pop    %r12
+    0.30 :   13aa52: pop    %r13
+    0.26 :   13aa54: pop    %r14
+    0.58 :   13aa56: pop    %r15
+    0.78 :   13aa58: pop    %rbp
+    0.16 :   13aa59: ret
+    0.00 :   13aa5a: dec    %ecx
+    0.00 :   13aa5c: cmp    $0x4,%ecx
+    0.00 :   13aa5f: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13aa61: lea    -0x1016d4(%rip),%rdx        # 39394 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x34e>
+    0.00 :   13aa68: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13aa6c: add    %rdx,%rcx
+    0.00 :   13aa6f: jmp    *%rcx
+    0.00 :   13aa71: lea    0x0(,%rax,8),%ecx
+    0.00 :   13aa78: mov    $0x10001,%edx
+    0.00 :   13aa7d: jmp    13ad8b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2abb>
+    0.00 :   13aa82: movl   $0x0,0x180(%rbx)
+    0.07 :   13aa8c: mov    $0xfffffffd,%ecx
+    1.25 :   13aa91: cmp    %r8,%rdi
+    0.00 :   13aa94: jae    13aca2 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29d2>
+    0.00 :   13aa9a: cmp    %r15,%rdi
+    0.00 :   13aa9d: jae    13b1ea <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1a>
+    0.02 :   13aaa3: movzbl (%r10,%rdi,1),%esi
+    0.09 :   13aaa8: lea    0x1(%rdi),%rax
+    0.35 :   13aaac: mov    %esi,%edx
+    0.02 :   13aaae: and    $0x7f,%edx
+    0.56 :   13aab1: test   %sil,%sil
+    0.00 :   13aab4: js     13aacf <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27ff>
+    0.04 :   13aab6: mov    %rax,%rdi
+    1.29 :   13aab9: sub    %rdi,%r8
+    0.02 :   13aabc: cmp    %r8,%rdx
+    0.10 :   13aabf: mov    0x40(%rsp),%rsi
+    0.07 :   13aac4: ja     13aca7 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29d7>
+    0.35 :   13aaca: jmp    13acb6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29e6>
+    0.00 :   13aacf: cmp    %r8,%rax
+    0.00 :   13aad2: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13aad8: cmp    %r15,%rax
+    0.00 :   13aadb: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13aae1: movzbl 0x1(%r10,%rdi,1),%esi
+    0.00 :   13aae7: lea    0x2(%rdi),%rax
+    0.00 :   13aaeb: mov    %esi,%r10d
+    0.00 :   13aaee: and    $0x7f,%r10d
+    0.00 :   13aaf2: shl    $0x7,%r10d
+    0.00 :   13aaf6: or     %r10,%rdx
+    0.00 :   13aaf9: test   %sil,%sil
+    0.00 :   13aafc: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13aafe: cmp    %r8,%rax
+    0.00 :   13ab01: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ab07: cmp    %r15,%rax
+    0.00 :   13ab0a: mov    (%rsp),%rsi
+    0.00 :   13ab0e: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ab14: movzbl 0x2(%rsi,%rdi,1),%esi
+    0.00 :   13ab19: lea    0x3(%rdi),%rax
+    0.00 :   13ab1d: mov    %esi,%r10d
+    0.00 :   13ab20: and    $0x7f,%r10d
+    0.00 :   13ab24: shl    $0xe,%r10d
+    0.00 :   13ab28: or     %r10,%rdx
+    0.00 :   13ab2b: test   %sil,%sil
+    0.00 :   13ab2e: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ab30: cmp    %r8,%rax
+    0.00 :   13ab33: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ab39: cmp    %r15,%rax
+    0.00 :   13ab3c: mov    (%rsp),%rsi
+    0.00 :   13ab40: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ab46: movzbl 0x3(%rsi,%rdi,1),%esi
+    0.00 :   13ab4b: lea    0x4(%rdi),%rax
+    0.00 :   13ab4f: mov    %esi,%r10d
+    0.00 :   13ab52: and    $0x7f,%r10d
+    0.00 :   13ab56: shl    $0x15,%r10d
+    0.00 :   13ab5a: or     %r10,%rdx
+    0.00 :   13ab5d: test   %sil,%sil
+    0.00 :   13ab60: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ab66: cmp    %r8,%rax
+    0.00 :   13ab69: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ab6f: cmp    %r15,%rax
+    0.00 :   13ab72: mov    (%rsp),%rsi
+    0.00 :   13ab76: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ab7c: movzbl 0x4(%rsi,%rdi,1),%esi
+    0.00 :   13ab81: lea    0x5(%rdi),%rax
+    0.00 :   13ab85: mov    %esi,%r10d
+    0.00 :   13ab88: and    $0x7f,%r10d
+    0.00 :   13ab8c: shl    $0x1c,%r10
+    0.00 :   13ab90: or     %r10,%rdx
+    0.00 :   13ab93: test   %sil,%sil
+    0.00 :   13ab96: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ab9c: cmp    %r8,%rax
+    0.00 :   13ab9f: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13aba5: cmp    %r15,%rax
+    0.00 :   13aba8: mov    (%rsp),%rsi
+    0.00 :   13abac: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13abb2: movzbl 0x5(%rsi,%rdi,1),%esi
+    0.00 :   13abb7: lea    0x6(%rdi),%rax
+    0.00 :   13abbb: mov    %esi,%r10d
+    0.00 :   13abbe: and    $0x7f,%r10d
+    0.00 :   13abc2: shl    $0x23,%r10
+    0.00 :   13abc6: or     %r10,%rdx
+    0.00 :   13abc9: test   %sil,%sil
+    0.00 :   13abcc: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13abd2: cmp    %r8,%rax
+    0.00 :   13abd5: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13abdb: cmp    %r15,%rax
+    0.00 :   13abde: mov    (%rsp),%rsi
+    0.00 :   13abe2: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13abe8: movzbl 0x6(%rsi,%rdi,1),%esi
+    0.00 :   13abed: lea    0x7(%rdi),%rax
+    0.00 :   13abf1: mov    %esi,%r10d
+    0.00 :   13abf4: and    $0x7f,%r10d
+    0.00 :   13abf8: shl    $0x2a,%r10
+    0.00 :   13abfc: or     %r10,%rdx
+    0.00 :   13abff: test   %sil,%sil
+    0.00 :   13ac02: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ac08: cmp    %r8,%rax
+    0.00 :   13ac0b: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ac11: cmp    %r15,%rax
+    0.00 :   13ac14: mov    (%rsp),%rsi
+    0.00 :   13ac18: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ac1e: movzbl 0x7(%rsi,%rdi,1),%esi
+    0.00 :   13ac23: lea    0x8(%rdi),%rax
+    0.00 :   13ac27: mov    %esi,%r10d
+    0.00 :   13ac2a: and    $0x7f,%r10d
+    0.00 :   13ac2e: shl    $0x31,%r10
+    0.00 :   13ac32: or     %r10,%rdx
+    0.00 :   13ac35: test   %sil,%sil
+    0.00 :   13ac38: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ac3e: cmp    %r8,%rax
+    0.00 :   13ac41: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ac43: cmp    %r15,%rax
+    0.00 :   13ac46: mov    (%rsp),%rsi
+    0.00 :   13ac4a: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ac50: movzbl 0x8(%rsi,%rdi,1),%esi
+    0.00 :   13ac55: lea    0x9(%rdi),%rax
+    0.00 :   13ac59: mov    %esi,%r10d
+    0.00 :   13ac5c: and    $0x7f,%r10d
+    0.00 :   13ac60: shl    $0x38,%r10
+    0.00 :   13ac64: or     %r10,%rdx
+    0.00 :   13ac67: test   %sil,%sil
+    0.00 :   13ac6a: jns    13aab6 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e6>
+    0.00 :   13ac70: cmp    %r8,%rax
+    0.00 :   13ac73: jae    13ac9f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29cf>
+    0.00 :   13ac75: cmp    %r15,%rax
+    0.00 :   13ac78: mov    (%rsp),%rsi
+    0.00 :   13ac7c: jae    13b1ed <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f1d>
+    0.00 :   13ac82: movzbl 0x9(%rsi,%rdi,1),%eax
+    0.00 :   13ac87: add    $0xa,%rdi
+    0.00 :   13ac8b: test   %al,%al
+    0.00 :   13ac8d: js     13b200 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2f30>
+    0.00 :   13ac93: shl    $0x3f,%rax
+    0.00 :   13ac97: or     %rax,%rdx
+    0.00 :   13ac9a: jmp    13aab9 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x27e9>
+    0.00 :   13ac9f: mov    %rax,%rdi
+    0.00 :   13aca2: mov    0x40(%rsp),%rsi
+    0.00 :   13aca7: mov    %ecx,0x184(%rbx)
+    0.00 :   13acad: mov    %r9,0x168(%rbx)
+    0.00 :   13acb4: xor    %edx,%edx
+    0.08 :   13acb6: mov    0x160(%rbx),%rax
+    0.63 :   13acbd: lea    0x1(%rax),%rcx
+    0.03 :   13acc1: mov    %rcx,0x160(%rbx)
+    1.35 :   13acc8: mov    %rax,0x158(%rbx)
+    0.04 :   13accf: xorps  %xmm0,%xmm0
+    0.05 :   13acd2: movups %xmm0,0x10(%rsi)
+    0.03 :   13acd6: movups %xmm0,(%rsi)
+    0.37 :   13acd9: movq   $0x0,0x20(%rsi)
+    0.04 :   13ace1: mov    0x48(%rbx),%rcx
+    0.60 :   13ace5: cmp    $0x10,%rcx
+    0.00 :   13ace9: jb     13acfc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2a2c>
+    0.00 :   13aceb: movb   $0x3,0x188(%rbx)
+    0.00 :   13acf2: mov    $0xfffffffc,%eax
+    0.00 :   13acf7: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.06 :   13acfc: add    %rdi,%rdx
+    1.59 :   13acff: mov    %rcx,%rsi
+    0.02 :   13ad02: shl    $0x4,%rsi
+    0.55 :   13ad06: mov    %rdx,(%r12,%rsi,1)
+    5.50 :   13ad0a: movl   $0x1,0x8(%r12,%rsi,1)
+    0.52 :   13ad13: inc    %rcx
+    0.01 :   13ad16: mov    %rcx,0x48(%rbx)
+    0.18 :   13ad1a: mov    %rdi,0x40(%rbx)
+    1.61 :   13ad1e: mov    0x10(%rsp),%rcx
+    2.95 :   13ad23: movq   $0x10000,(%rcx)
+    0.20 :   13ad2a: mov    %rax,0x8(%rcx)
+    0.03 :   13ad2e: movq   $0x0,0x10(%rcx)
+    0.37 :   13ad36: movl   $0x0,0x18(%rcx)
+    0.05 :   13ad3d: mov    $0x3,%eax
+    0.06 :   13ad42: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.00 :   13ad47: lea    0x1efd72(%rip),%rcx        # 32aac0 <__frame_dummy_init_array_entry+0x1430>
+    0.00 :   13ad4e: mov    %r14,%rdi
+    0.00 :   13ad51: mov    %r15,%rdx
+    0.00 :   13ad54: call   *0x2095b6(%rip)        # 344310 <_DYNAMIC+0x288>
+    0.00 :   13ad5a: lea    0x0(,%rax,4),%ecx
+    0.00 :   13ad61: mov    $0x10005,%edx
+    0.00 :   13ad66: jmp    13ad8b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2abb>
+    0.00 :   13ad68: lea    0x0(,%rax,4),%ecx
+    0.00 :   13ad6f: mov    $0x10003,%edx
+    0.00 :   13ad74: jmp    13ad8b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2abb>
+    0.00 :   13ad76: mov    $0x10004,%edx
+    0.00 :   13ad7b: mov    %eax,%ecx
+    0.00 :   13ad7d: jmp    13ad8b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2abb>
+    0.00 :   13ad7f: lea    0x0(,%rax,8),%ecx
+    0.00 :   13ad86: mov    $0x10002,%edx
+    0.00 :   13ad8b: mov    0x8(%rsp),%r8
+    0.00 :   13ad90: mov    0x158(%rbx),%rsi
+    0.00 :   13ad97: mov    0x10(%rsp),%rdi
+    0.00 :   13ad9c: mov    %edx,(%rdi)
+    0.00 :   13ad9e: mov    %eax,0x4(%rdi)
+    0.00 :   13ada1: mov    %rsi,0x8(%rdi)
+    0.00 :   13ada5: mov    %r8,0x10(%rdi)
+    0.00 :   13ada9: jmp    13b0fc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e2c>
+    0.00 :   13adae: dec    %ecx
+    0.00 :   13adb0: cmp    $0x4,%ecx
+    0.00 :   13adb3: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13adb9: lea    -0x101a40(%rip),%rdx        # 39380 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x33a>
+    0.00 :   13adc0: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13adc4: add    %rdx,%rcx
+    0.00 :   13adc7: jmp    *%rcx
+    0.00 :   13adc9: lea    0x0(,%rax,8),%ecx
+    0.00 :   13add0: mov    $0x10002,%edx
+    0.00 :   13add5: jmp    13b0e3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e13>
+    0.00 :   13adda: movb   $0x3,0x188(%rbx)
+    0.00 :   13ade1: mov    $0xfffffffa,%eax
+    0.00 :   13ade6: jmp    13aa4b <ak_core::generated::fsm::fsm_step_list_metrics_response+0x277b>
+    0.00 :   13adeb: mov    0x158(%rbx),%rax
+    0.00 :   13adf2: movabs $0x800000010004,%rcx
+    0.00 :   13adfc: jmp    13b00d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d3d>
+    0.00 :   13ae01: dec    %eax
+    0.00 :   13ae03: cmp    $0x4,%eax
+    0.00 :   13ae06: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13ae0c: lea    -0x101aef(%rip),%rcx        # 39324 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x2de>
+    0.00 :   13ae13: movslq (%rcx,%rax,4),%rax
+    0.00 :   13ae17: add    %rcx,%rax
+    0.00 :   13ae1a: jmp    *%rax
+    0.00 :   13ae1c: dec    %ecx
+    0.00 :   13ae1e: cmp    $0x5,%ecx
+    0.00 :   13ae21: setb   %al
+    0.00 :   13ae24: mov    $0x17,%sil
+    0.00 :   13ae27: shr    %cl,%sil
+    0.00 :   13ae2a: test   %sil,%al
+    0.00 :   13ae2d: je     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13ae33: mov    %ecx,%eax
+    0.00 :   13ae35: lea    -0x1018e8(%rip),%rcx        # 39554 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x50e>
+    0.00 :   13ae3c: movzbl (%rcx,%rax,4),%ecx
+    0.00 :   13ae40: lea    -0x100573(%rip),%rsi        # 3a8d4 <anon.da5b300d86fc5ea06c661bffbf908d85.138.llvm.10465555882300855244+0x8f4>
+    0.00 :   13ae47: mov    (%rsi,%rax,4),%eax
+    0.00 :   13ae4a: mov    0x158(%rbx),%rsi
+    0.00 :   13ae51: mov    0x10(%rsp),%rdi
+    0.00 :   13ae56: mov    %eax,(%rdi)
+    0.00 :   13ae58: mov    %edx,0x4(%rdi)
+    0.00 :   13ae5b: shl    %cl,%edx
+    0.00 :   13ae5d: mov    %rsi,0x8(%rdi)
+    0.00 :   13ae61: mov    %r11,0x10(%rdi)
+    0.00 :   13ae65: mov    %edx,0x18(%rdi)
+    0.00 :   13ae68: jmp    13b0ff <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e2f>
+    0.00 :   13ae6d: dec    %ecx
+    0.00 :   13ae6f: cmp    $0x5,%ecx
+    0.00 :   13ae72: setb   %dl
+    0.00 :   13ae75: mov    $0x17,%sil
+    0.00 :   13ae78: shr    %cl,%sil
+    0.00 :   13ae7b: test   %sil,%dl
+    0.00 :   13ae7e: je     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13ae84: mov    %ecx,%edx
+    0.00 :   13ae86: lea    -0x101939(%rip),%rcx        # 39554 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x50e>
+    0.00 :   13ae8d: movzbl (%rcx,%rdx,4),%ecx
+    0.00 :   13ae91: lea    -0x1005c4(%rip),%rsi        # 3a8d4 <anon.da5b300d86fc5ea06c661bffbf908d85.138.llvm.10465555882300855244+0x8f4>
+    0.00 :   13ae98: mov    (%rsi,%rdx,4),%edx
+    0.00 :   13ae9b: mov    0x158(%rbx),%rsi
+    0.00 :   13aea2: mov    0x10(%rsp),%rdi
+    0.00 :   13aea7: mov    %edx,(%rdi)
+    0.00 :   13aea9: mov    %eax,0x4(%rdi)
+    0.00 :   13aeac: shl    %cl,%eax
+    0.00 :   13aeae: mov    %rsi,0x8(%rdi)
+    0.00 :   13aeb2: mov    %r11,0x10(%rdi)
+    0.00 :   13aeb6: mov    %eax,0x18(%rdi)
+    0.00 :   13aeb9: jmp    13b0ff <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e2f>
+    0.00 :   13aebe: mov    0x158(%rbx),%rax
+    0.00 :   13aec5: movabs $0x200000010003,%rcx
+    0.00 :   13aecf: jmp    13b00d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d3d>
+    0.00 :   13aed4: add    $0xfffffffe,%ecx
+    0.00 :   13aed7: cmp    $0x3,%ecx
+    0.00 :   13aeda: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13aee0: lea    -0x101b87(%rip),%rdx        # 39360 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x31a>
+    0.00 :   13aee7: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13aeeb: add    %rdx,%rcx
+    0.00 :   13aeee: jmp    *%rcx
+    0.00 :   13aef0: add    $0xfffffffe,%eax
+    0.00 :   13aef3: cmp    $0x3,%eax
+    0.00 :   13aef6: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13aefc: lea    -0x101b93(%rip),%rcx        # 39370 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x32a>
+    0.00 :   13af03: movslq (%rcx,%rax,4),%rax
+    0.00 :   13af07: add    %rcx,%rax
+    0.00 :   13af0a: jmp    *%rax
+    0.00 :   13af0c: lea    0x0(,%rdx,4),%eax
+    0.00 :   13af13: mov    $0x10005,%ecx
+    0.00 :   13af18: jmp    13b125 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e55>
+    0.00 :   13af1d: mov    0x158(%rbx),%rax
+    0.00 :   13af24: movabs $0x100000010002,%rcx
+    0.00 :   13af2e: mov    0x10(%rsp),%rdx
+    0.00 :   13af33: mov    %rcx,(%rdx)
+    0.00 :   13af36: mov    %rax,0x8(%rdx)
+    0.00 :   13af3a: mov    %r9,0x10(%rdx)
+    0.00 :   13af3e: movl   $0x8000,0x18(%rdx)
+    0.00 :   13af45: jmp    13aa1f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x274f>
+    0.00 :   13af4a: dec    %ecx
+    0.00 :   13af4c: cmp    $0x4,%ecx
+    0.00 :   13af4f: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13af55: lea    -0x101c24(%rip),%rdx        # 39338 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x2f2>
+    0.00 :   13af5c: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13af60: add    %rdx,%rcx
+    0.00 :   13af63: jmp    *%rcx
+    0.00 :   13af65: dec    %eax
+    0.00 :   13af67: cmp    $0x3,%eax
+    0.00 :   13af6a: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13af70: lea    -0x101c77(%rip),%rcx        # 39300 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x2ba>
+    0.00 :   13af77: movslq (%rcx,%rax,4),%rax
+    0.00 :   13af7b: add    %rcx,%rax
+    0.00 :   13af7e: jmp    *%rax
+    0.00 :   13af80: lea    0x0(,%rdx,8),%eax
+    0.00 :   13af87: mov    $0x10001,%ecx
+    0.00 :   13af8c: jmp    13b125 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e55>
+    0.00 :   13af91: dec    %ecx
+    0.00 :   13af93: cmp    $0x4,%ecx
+    0.00 :   13af96: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13af9c: lea    -0x101c57(%rip),%rdx        # 3934c <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x306>
+    0.00 :   13afa3: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13afa7: add    %rdx,%rcx
+    0.00 :   13afaa: jmp    *%rcx
+    0.00 :   13afac: lea    0x0(,%rax,8),%ecx
+    0.00 :   13afb3: mov    $0x10001,%edx
+    0.00 :   13afb8: jmp    13b0e3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e13>
+    0.00 :   13afbd: mov    0x158(%rbx),%rax
+    0.00 :   13afc4: movabs $0x100000010001,%rcx
+    0.00 :   13afce: jmp    13b00d <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2d3d>
+    0.00 :   13afd0: dec    %ecx
+    0.00 :   13afd2: cmp    $0x3,%ecx
+    0.00 :   13afd5: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13afdb: lea    -0x101cf2(%rip),%rdx        # 392f0 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x2aa>
+    0.00 :   13afe2: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13afe6: add    %rdx,%rcx
+    0.00 :   13afe9: jmp    *%rcx
+    0.00 :   13afeb: lea    0x0(,%rax,4),%ecx
+    0.00 :   13aff2: mov    $0x10003,%edx
+    0.00 :   13aff7: jmp    13b0a5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2dd5>
+    0.00 :   13affc: mov    0x158(%rbx),%rax
+    0.00 :   13b003: movabs $0x200000010005,%rcx
+    0.00 :   13b00d: mov    0x10(%rsp),%rdx
+    0.00 :   13b012: mov    %rcx,(%rdx)
+    0.00 :   13b015: mov    %rax,0x8(%rdx)
+    0.00 :   13b019: mov    %r11,0x10(%rdx)
+    0.00 :   13b01d: movl   $0x8000,0x18(%rdx)
+    0.00 :   13b024: jmp    13aa1f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x274f>
+    0.00 :   13b029: dec    %ecx
+    0.00 :   13b02b: cmp    $0x4,%ecx
+    0.00 :   13b02e: ja     13aa3f <ak_core::generated::fsm::fsm_step_list_metrics_response+0x276f>
+    0.00 :   13b034: lea    -0x101d2b(%rip),%rdx        # 39310 <anon.80bbd4d3c7a1d527e6e4566bfaa57db6.10.llvm.1976911650716143973+0x2ca>
+    0.00 :   13b03b: movslq (%rdx,%rcx,4),%rcx
+    0.00 :   13b03f: add    %rdx,%rcx
+    0.00 :   13b042: jmp    *%rcx
+    0.00 :   13b044: lea    0x0(,%rax,8),%ecx
+    0.00 :   13b04b: mov    $0x10001,%edx
+    0.00 :   13b050: jmp    13b0a5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2dd5>
+    0.00 :   13b052: mov    $0x10004,%edx
+    0.00 :   13b057: mov    %eax,%ecx
+    0.00 :   13b059: jmp    13b0a5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2dd5>
+    0.00 :   13b05b: lea    0x1efc86(%rip),%rcx        # 32ace8 <__frame_dummy_init_array_entry+0x1658>
+    0.00 :   13b062: mov    %r14,%rdi
+    0.00 :   13b065: mov    %r15,%rdx
+    0.00 :   13b068: call   *0x2092a2(%rip)        # 344310 <_DYNAMIC+0x288>
+    0.00 :   13b06e: mov    $0x10004,%ecx
+    0.00 :   13b073: mov    %edx,%eax
+    0.00 :   13b075: jmp    13b125 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e55>
+    0.00 :   13b07a: lea    0x0(,%rdx,8),%eax
+    0.00 :   13b081: mov    $0x10002,%ecx
+    0.00 :   13b086: jmp    13b125 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e55>
+    0.00 :   13b08b: lea    0x0(,%rax,4),%ecx
+    0.00 :   13b092: mov    $0x10005,%edx
+    0.00 :   13b097: jmp    13b0a5 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2dd5>
+    0.00 :   13b099: lea    0x0(,%rax,8),%ecx
+    0.00 :   13b0a0: mov    $0x10002,%edx
+    0.00 :   13b0a5: mov    0x158(%rbx),%rsi
+    0.00 :   13b0ac: mov    0x10(%rsp),%rdi
+    0.00 :   13b0b1: mov    %edx,(%rdi)
+    0.00 :   13b0b3: mov    %eax,0x4(%rdi)
+    0.00 :   13b0b6: mov    %rsi,0x8(%rdi)
+    0.00 :   13b0ba: mov    %r11,0x10(%rdi)
+    0.00 :   13b0be: jmp    13b0fc <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e2c>
+    0.00 :   13b0c0: mov    $0x10004,%edx
+    0.00 :   13b0c5: mov    %eax,%ecx
+    0.00 :   13b0c7: jmp    13b0e3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e13>
+    0.00 :   13b0c9: lea    0x0(,%rax,4),%ecx
+    0.00 :   13b0d0: mov    $0x10005,%edx
+    0.00 :   13b0d5: jmp    13b0e3 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e13>
+    0.00 :   13b0d7: lea    0x0(,%rax,4),%ecx
+    0.00 :   13b0de: mov    $0x10003,%edx
+    0.00 :   13b0e3: mov    0x158(%rbx),%rsi
+    0.00 :   13b0ea: mov    0x10(%rsp),%rdi
+    0.00 :   13b0ef: mov    %edx,(%rdi)
+    0.00 :   13b0f1: mov    %eax,0x4(%rdi)
+    0.00 :   13b0f4: mov    %rsi,0x8(%rdi)
+    0.00 :   13b0f8: mov    %r9,0x10(%rdi)
+    0.00 :   13b0fc: mov    %ecx,0x18(%rdi)
+    0.00 :   13b0ff: movq   $0x0,0x150(%rbx)
+    0.00 :   13b10a: movl   $0x0,0x180(%rbx)
+    0.00 :   13b114: jmp    13aa2a <ak_core::generated::fsm::fsm_step_list_metrics_response+0x275a>
+    0.00 :   13b119: lea    0x0(,%rdx,4),%eax
+    0.00 :   13b120: mov    $0x10003,%ecx
+    0.00 :   13b125: mov    0x158(%rbx),%rsi
+    0.00 :   13b12c: mov    0x10(%rsp),%rdi
+    0.00 :   13b131: mov    %ecx,(%rdi)
+    0.00 :   13b133: mov    %edx,0x4(%rdi)
+    0.00 :   13b136: mov    %rsi,0x8(%rdi)
+    0.00 :   13b13a: mov    %r11,0x10(%rdi)
+    0.00 :   13b13e: mov    %eax,0x18(%rdi)
+    0.00 :   13b141: jmp    13b0ff <ak_core::generated::fsm::fsm_step_list_metrics_response+0x2e2f>
+    0.00 :   13b143: lea    0x1efbce(%rip),%rcx        # 32ad18 <__frame_dummy_init_array_entry+0x1688>
+    0.00 :   13b14a: mov    %r14,%rdi
+    0.00 :   13b14d: mov    %r15,%rdx
+    0.00 :   13b150: call   *0x2091ba(%rip)        # 344310 <_DYNAMIC+0x288>
+    0.00 :   13b156: lea    0x1ef963(%rip),%rcx        # 32aac0 <__frame_dummy_init_array_entry+0x1430>
+    0.00 :   13b15d: mov    %r15,%rdx
+    0.00 :   13b160: call   *0x2091aa(%rip)        # 344310 <_DYNAMIC+0x288>
+    0.00 :   13b166: mov    $0xfffffffe,%eax
+    0.00 :   13b16b: jmp    138335 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x65>
+    0.00 :   13b170: lea    0x1efb89(%rip),%rcx        # 32ad00 <__frame_dummy_init_array_entry+0x1670>
+    0.00 :   13b177: mov    %rbp,%rdi
+    0.00 :   13b17a: mov    %r15,%rdx
+    0.00 :   13b17d: call   *0x20918d(%rip)        # 344310 <_DYNAMIC+0x288>
+    0.00 :   13b183: lea    0x1efb46(%rip),%rdx        # 32acd0 <__frame_dummy_init_array_entry+0x1640>
+    0.00 :   13b18a: mov    $0x10,%esi
+    0.00 :   13b18f: call   *0x209163(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b195: mov    %r14,%rdi
+    0.00 :   13b198: lea    0x1ef939(%rip),%rdx        # 32aad8 <__frame_dummy_init_array_entry+0x1448>
+    0.00 :   13b19f: mov    %r15,%rsi
+    0.00 :   13b1a2: call   *0x209150(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b1a8: mov    %rdi,%rcx
+    0.00 :   13b1ab: lea    0x1ef926(%rip),%rdx        # 32aad8 <__frame_dummy_init_array_entry+0x1448>
+    0.00 :   13b1b2: mov    %rcx,%rdi
+    0.00 :   13b1b5: mov    %r15,%rsi
+    0.00 :   13b1b8: call   *0x20913a(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b1be: mov    %rdi,%r14
+    0.00 :   13b1c1: lea    0x1ef910(%rip),%rdx        # 32aad8 <__frame_dummy_init_array_entry+0x1448>
+    0.00 :   13b1c8: mov    %r14,%rdi
+    0.00 :   13b1cb: mov    %r15,%rsi
+    0.00 :   13b1ce: call   *0x209124(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b1d4: mov    %rdi,%rbp
+    0.00 :   13b1d7: lea    0x1ef8fa(%rip),%rdx        # 32aad8 <__frame_dummy_init_array_entry+0x1448>
+    0.00 :   13b1de: mov    %rbp,%rdi
+    0.00 :   13b1e1: mov    %r15,%rsi
+    0.00 :   13b1e4: call   *0x20910e(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b1ea: mov    %rdi,%rax
+    0.00 :   13b1ed: lea    0x1ef8e4(%rip),%rdx        # 32aad8 <__frame_dummy_init_array_entry+0x1448>
+    0.00 :   13b1f4: mov    %rax,%rdi
+    0.00 :   13b1f7: mov    %r15,%rsi
+    0.00 :   13b1fa: call   *0x2090f8(%rip)        # 3442f8 <_DYNAMIC+0x270>
+    0.00 :   13b200: mov    $0xfffffffe,%ecx
+    0.00 :   13b205: jmp    13aca2 <ak_core::generated::fsm::fsm_step_list_metrics_response+0x29d2>

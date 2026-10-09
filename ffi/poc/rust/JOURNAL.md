@@ -4524,3 +4524,17 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   C# slice was NOT regenerated or checked here (D23_SKIP_SLICES=csharp; it regenerates its own),
   and the plants ran in a separate worktree (D23_PLANT_POC) so its builds never saw a planted
   core. Checks: `checks/rust-checks-op-return.log`. No timing (owner: trivial change).
+
+## 2026-10-09: D23 attribution (coordinator): why the FSM is slower on some rows (measurement only)
+
+- perf installed from linux-tools-6.8.0-146-generic; the VM has no PMU (cycles, instructions not
+  supported), so cpu-clock sampling only.
+- fsm_attrib: three families interleaved per round in one process, plus core-only arms and probes.
+  First reading: the gap is per packed value and per event, both in the core; then on facade-heavy
+  rows a host-side share. The fsm-collect probe (collect events, replay after) was added to test
+  whether the host-side share is the interleaving of decode and facade construction: on P2.2 it
+  recovers 45 us of the 156 us gap net of its ~67 us copy; on P6.1 only 2 us.
+- Slopes and perf (STATE "D23 attribution"): packed bodies go round the step loop per value (frame
+  reload, reader rebuilt on the stack, kind jump table, state written back), the reader double-checks
+  bounds per byte, and each event pays the next() wrapper plus the step prologue. Not done: any fix;
+  the retain-mode core split (core-only arms run in drop mode only); hardware-counter evidence.

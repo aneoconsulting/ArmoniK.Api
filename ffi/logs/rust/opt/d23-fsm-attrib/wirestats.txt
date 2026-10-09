@@ -1,0 +1,34 @@
+# P6.1.bin: 123354 bytes
+  field 1.1.2        occurrences    200  as packed varints: 7200 values, 1.00 B/value
+  field 1.2          occurrences    200
+  field 1.2.2        occurrences    200  as packed varints: 6000 values, 5.96 B/value
+  field 1.3.2        occurrences    200  as packed varints: 27072 values, 1.77 B/value
+  field 1.4.2        occurrences    200  as packed varints: 6000 values, 2.83 B/value
+  field 1.5.2        occurrences    200  as packed varints: 6000 values, 1.00 B/value
+  field 1.6.2        occurrences    200  as packed varints: 6000 values, 1.00 B/value
+# U-wire-ListMetricsResponse-batches-as-wt0.bin: 1243 bytes
+  field 1.0          occurrences      1
+  field 1.1.2        occurrences      2  as packed varints: 72 values, 1.00 B/value
+  field 1.2          occurrences      2
+  field 1.2.2        occurrences      2  as packed varints: 60 values, 6.00 B/value
+  field 1.3.2        occurrences      2  as packed varints: 271 values, 1.77 B/value
+  field 1.4.2        occurrences      2  as packed varints: 60 values, 2.90 B/value
+  field 1.5.2        occurrences      2  as packed varints: 60 values, 1.00 B/value
+  field 1.6.2        occurrences      2  as packed varints: 60 values, 1.00 B/value
+# P7.1.bin: 98 bytes
+  field 1.1.2        occurrences      3  as packed varints: 26 values, 1.00 B/value
+  field 1.2          occurrences      3
+  field 1.2.0        occurrences      3
+  field 2.1.2        occurrences      3  as packed varints: 26 values, 1.00 B/value
+  field 2.2          occurrences      3
+  field 2.2.0        occurrences      3
+# P4.1.bin: 65321 bytes
+  field 1.1.2        occurrences    200  as packed varints: 7200 values, 1.00 B/value
+  field 1.11.0       occurrences    200
+  field 1.2          occurrences    200
+  field 1.2.2        occurrences    200  as packed varints: 7200 values, 1.00 B/value
+  field 1.3.2        occurrences    200  as packed varints: 34944 values, 1.04 B/value
+  field 1.4.0        occurrences    185
+  field 1.5.2        occurrences    200  as packed varints: 798 values, 2.50 B/value
+  field 1.8.2        occurrences     67  as packed varints: 1956 values, 1.00 B/value
+  field 1.9.2        occurrences    200  as packed varints: 5945 values, 1.00 B/value

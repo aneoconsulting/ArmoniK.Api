@@ -363,6 +363,9 @@ pub trait Ops {
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
     /// FIX-PLAN D23: the FSM decode family (`core-ffi-fsm`, a labelled extra arm, AK_FSM=1).
     fn f_fsm(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
+    /// D23 attribution probe (drop mode): the FSM's events collected into a pull-format
+    /// buffer, then the pull family's replay. Not a campaign arm.
+    fn f_fsm_collect(c: &Ctx, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<Self::F, i32>;
     /// Optimisation Z1 (labelled extra arm `core-ffi-zc`): `bytes` fields share `b`.
     fn f_decode_zc(c: &Ctx, b: &bytes::Bytes, retain: bool) -> Result<Self::F, i32>;
     /// Decision 11 rule 6: this root's (bound) decode context.

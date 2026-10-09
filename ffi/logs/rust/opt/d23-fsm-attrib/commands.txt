@@ -1,0 +1,13 @@
+# D23 attribution (coordinator 2026-10-09), how each file was produced. Container instrumentation.
+# machine: 4 vCPU VM, no other job; every run pinned to CPU 1 (taskset); rustc 1.94.1; core built with the
+# campaign features (rpc, init-guard), release profile.
+bench-1.txt          taskset -c 1 fsm_attrib bench --rounds 31 --round-ms 20 <rows>            (drop), then --retain
+bench-2-drop.txt     the same, drop, with the PK-flags / PK-codes probes and the fsm-collect arm
+derived-bench-2.txt  gen/d23_attrib_tables.py bench-2-drop.txt (slopes between probe sizes; per-row deltas)
+wirestats.txt        fsm_attrib dump ROW FILE; gen/d23_wirestats.py FILE --nested (its "packed varints" line is
+                     meaningful for packed scalar fields only: MetricsBatch fields 2, 4, 5, 6 of P6.1)
+perf/*.top.txt       perf 6.8.12 (linux-tools-6.8.0-146-generic; the VM exposes no hardware counters, so
+                     cpu-clock sampling): taskset -c 1 perf record -e cpu-clock -F 10000 -- fsm_attrib loop ROW ARM 4
+                     then perf report --stdio --no-children --sort symbol
+perf/*.annotate.txt  perf annotate --stdio -s <symbol> on the same recordings (instruction-level shares; sampling
+                     skid moves samples to neighbouring instructions, so read regions, not single lines)

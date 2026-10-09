@@ -5099,6 +5099,36 @@ pub fn fsm_with_list_results_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i6
     fsm_with_list_results_response_armed(ctxs, b, toks)
 }
 
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_list_results_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
+    let mut out = ListResultsResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListResultsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_ListResultsResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_list_results_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
 pub fn fsm_graph_list_results_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
     let mut toks = Vec::new();
@@ -5227,6 +5257,36 @@ pub fn fsm_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], toks: &mut
     fsm_with_list_tasks_detailed_response_armed(ctxs, b, toks)
 }
 
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
+    let mut out = ListTasksDetailedResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_list_tasks_detailed_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
 pub fn fsm_graph_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
     let mut toks = Vec::new();
@@ -5346,6 +5406,36 @@ fn fsm_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i6
 /// D23: the FSM family, unknown fields dropped.
 pub fn fsm_with_list_probe_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
     fsm_with_list_probe_response_armed(ctxs, b, toks)
+}
+
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_list_probe_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
+    let mut out = ListProbeResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListProbeResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_ListProbeResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_list_probe_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
@@ -5472,6 +5562,36 @@ pub fn fsm_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8], toks: &mut V
     fsm_with_list_task_summary_response_armed(ctxs, b, toks)
 }
 
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
+    let mut out = ListTaskSummaryResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_list_task_summary_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
 pub fn fsm_graph_list_task_summary_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
     let mut toks = Vec::new();
@@ -5589,6 +5709,36 @@ fn fsm_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8], toks: &mut
 /// D23: the FSM family, unknown fields dropped.
 pub fn fsm_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
     fsm_with_upload_result_data_message_armed(ctxs, b, toks)
+}
+
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
+    let mut out = UploadResultDataMessage::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_UploadResultDataMessage(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_upload_result_data_message(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
@@ -5718,6 +5868,36 @@ pub fn fsm_with_list_metrics_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i6
     fsm_with_list_metrics_response_armed(ctxs, b, toks)
 }
 
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_list_metrics_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
+    let mut out = ListMetricsResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListMetricsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_ListMetricsResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_list_metrics_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
 pub fn fsm_graph_list_metrics_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
     let mut toks = Vec::new();
@@ -5839,6 +6019,36 @@ fn fsm_with_dual_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) ->
 /// D23: the FSM family, unknown fields dropped.
 pub fn fsm_with_dual_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
     fsm_with_dual_response_armed(ctxs, b, toks)
+}
+
+/// D23 attribution probe: FSM decode with every event copied into a pull-format record
+/// buffer (`buf`), then the pull family's replay over it. Drop mode.
+pub fn fsm_collect_with_dual_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
+    let mut out = DualResponse::default();
+    toks.clear();
+    buf.clear();
+    let rc = unsafe {
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_DualResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc > 0 {
+            let pad = ((ev.bytes as usize) + 7) / 8;
+            let h = ak_bdr_rec { op: rc as u32, slot: ev.slot, token: ev.token, n: ev.n, bytes: (pad * 8) as u32 };
+            let at = buf.len();
+            buf.resize(at + 3 + pad, 0);
+            ::core::ptr::write(buf.as_mut_ptr().add(at) as *mut ak_bdr_rec, h);
+            if ev.bytes != 0 { ::core::ptr::copy_nonoverlapping(ev.data as *const u8, buf.as_mut_ptr().add(at + 3) as *mut u8, ev.bytes as usize); }
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
+            rc = ak_fsm_next_DualResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else {
+            let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
+            let obj = &mut sink as *mut _ as *mut c_void;
+            replay_dual_response(ctx, obj, buf, toks);
+            host_call(); ak_dec_err(ctx)
+        }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
 }
 
 /// D23 check: the FSM consumer's graph against push's (same mode), or the same error.

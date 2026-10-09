@@ -185,6 +185,10 @@ def emit(p):
         o.append("        let _ = retain;")
         o.append("        binding::fsm_with_%s(c.dec, b, toks)" % s)
         o.append("    }")
+        # D23 attribution probe (drop mode): FSM events collected, then pull's replay.
+        o.append("    fn f_fsm_collect(c: &Ctx, b: &[u8], toks: &mut Vec<i64>, buf: &mut Vec<u64>) -> Result<Self::F, i32> {")
+        o.append("        binding::fsm_collect_with_%s(c.dec, b, toks, buf)" % s)
+        o.append("    }")
         o.append("    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.%s }" % s)
         o.append("    fn touch_f(v: &Self::F) -> u64 { touch_f_%s(v, 0) }" % s)
         o.append("    fn touch_p(v: &Self::P) -> u64 { touch_p_%s(v, 0) }" % s)

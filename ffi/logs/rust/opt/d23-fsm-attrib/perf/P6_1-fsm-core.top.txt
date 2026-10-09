@@ -1,0 +1,25 @@
+    93.58%  [.] ak_core::generated::fsm::fsm_step_list_metrics_response                                                                                                                 -      -            
+     2.46%  [.] ak_fsm_next_ListMetricsResponse                                                                                                                                         -      -            
+     1.99%  [.] core::str::converts::from_utf8                                                                                                                                          -      -            
+     0.58%  [.] _$LT$fsm_attrib..Build$u20$as$u20$campaign..Visit$GT$::visit::_$u7b$$u7b$closure$u7d$$u7d$::h063d66709f3cd1f9                                                           -      -            
+     0.28%  [.] sha2::sha256::compress256                                                                                                                                               -      -            
+     0.13%  [.] simdutf8::implementation::x86::validate_utf8_basic                                                                                                                      -      -            
+     0.05%  [.] __memmove_evex_unaligned_erms                                                                                                                                           -      -            
+     0.05%  [.] _int_malloc                                                                                                                                                             -      -            
+     0.03%  [.] core::num::flt2dec::strategy::grisu::format_shortest_opt                                                                                                                -      -            
+     0.03%  [.] ak_fsm_begin_ListMetricsResponse                                                                                                                                        -      -            
+     0.03%  [k] do_user_addr_fault                                                                                                                                                      -      -            
+     0.03%  [.] malloc_consolidate                                                                                                                                                      -      -            
+     0.02%  [.] core::str::converts::from_utf8                                                                                                                                          -      -            
+     0.02%  [.] _ZN98_$LT$$RF$mut$u20$serde_json..de..Deserializer$LT$R$GT$$u20$as$u20$serde_core..de..Deserializer$GT$15deserialize_any17hd8f4de773db3ed14E.llvm.17415952516741517162  -      -            
+     0.02%  [.] __memcmp_evex_movbe                                                                                                                                                     -      -            
+     0.02%  [.] serde_json::read::SliceRead::skip_to_escape                                                                                                                             -      -            
+     0.02%  [.] unlink_chunk.isra.0                                                                                                                                                     -      -            
+     0.02%  [.] <alloc::string::String as core::fmt::Write>::write_str                                                                                                                  -      -            
+     0.02%  [.] _int_free                                                                                                                                                               -      -            
+     0.02%  [.] intel_check_word.constprop.0                                                                                                                                            -      -            
+     0.02%  [.] malloc                                                                                                                                                                  -      -            
+     0.02%  [k] _raw_spin_unlock_irqrestore                                                                                                                                             -      -            
+     0.02%  [.] alloc::raw_vec::RawVecInner<A>::reserve::do_reserve_and_handle                                                                                                          -      -            
+     0.02%  [.] cfree@GLIBC_2.2.5                                                                                                                                                       -      -            
+     0.02%  [.] core::fmt::Formatter::pad                                                                                                                                               -      -            
