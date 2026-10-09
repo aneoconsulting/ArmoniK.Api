@@ -49,8 +49,20 @@ echo "commit $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ../codec 
 nproc; grep -m1 'model name' /proc/cpuinfo || true; uptime
 
 step "1. generators current (every slice), one core"
-python3 ../codec/gen/generate.py --check 2>/dev/null | grep -vE "^ok " | sed 's/^/  /'
-python3 ../codec/gen/generate.py --check >/dev/null 2>&1 || { echo "  STALE generated files"; exit 1; }
+# D23_SKIP_SLICES (space-separated): slices whose generator is not checked here, named in the
+# log. Used when another agent is editing that slice's generator in the same tree.
+if [ -z "${D23_SKIP_SLICES:-}" ]; then
+  python3 ../codec/gen/generate.py --check 2>/dev/null | grep -vE "^ok " | sed 's/^/  /'
+  python3 ../codec/gen/generate.py --check >/dev/null 2>&1 || { echo "  STALE generated files"; exit 1; }
+else
+  echo "  NOT CHECKED here (D23_SKIP_SLICES): $D23_SKIP_SLICES"
+  python3 ../codec/gen/generate.py --check --core-only 2>/dev/null | grep -vE "^ok " | sed 's/^/  /'
+  python3 ../codec/gen/generate.py --check --core-only >/dev/null 2>&1 || { echo "  STALE core files"; exit 1; }
+  for sl in rust cpp java csharp python; do
+    case " $D23_SKIP_SLICES " in *" $sl "*) continue ;; esac
+    if AK_GEN_CORE_ONLY=1 python3 ../$sl/gen/generate.py --check >/dev/null 2>&1; then echo "  slice $sl --check: current"; else echo "  slice $sl --check: STALE"; exit 1; fi
+  done
+fi
 ../codec/gen/one_core.sh | tail -2
 
 step "S. separation: push and pull's generated code unchanged, everything else additive"
@@ -105,7 +117,11 @@ timeout 600 "$HERE/../target-corpus/release/corpus" --fsm-diff
 timeout 600 "$HERE/../target-corpus-nounk/release/corpus" --fsm-diff
 
 step "F5. planted defects in the generated FSM (each must FAIL the differential)"
-FSM=../codec/crates/ak-core/src/generated/fsm.rs
+# D23_PLANT_POC: an ffi/poc of a separate worktree to plant in (so another agent building the
+# core in this tree never picks up a planted core); default this tree.
+PP=$(cd "${D23_PLANT_POC:-$HERE/../..}" && pwd)
+echo "  planting in $PP"
+FSM=$PP/codec/crates/ak-core/src/generated/fsm.rs
 SAVE=$(mktemp)
 cp "$FSM" "$SAVE"
 restore() { cp "$SAVE" "$FSM"; rm -f "$SAVE"; }
@@ -121,7 +137,7 @@ t = eval(expr)
 assert t != s, "the plant changed nothing"
 open(f, "w").write(t)
 PY
-  CARGO_TARGET_DIR="$PT" cargo build --release -q -p campaign --bin fsm_diff 2>/dev/null
+  ( cd "$PP/rust" && CARGO_TARGET_DIR="$PT" cargo build --release -q -p campaign --bin fsm_diff 2>/dev/null )
   if timeout 600 "$PT/release/fsm_diff" > /tmp/d23-plant.$$ 2>&1; then
     echo "  PLANT NOT CAUGHT: $1"; tail -3 /tmp/d23-plant.$$; rm -f /tmp/d23-plant.$$; exit 1
   fi
@@ -129,13 +145,13 @@ PY
   rm -f /tmp/d23-plant.$$
 }
 plant "a minted token off by one" "s.replace('let tok = f.mint();', 'let tok = f.mint() + 1;', 1)"
-plant "a lost run (the root's last run never flushed: ListResultsResponse)" "s.replace('if f.n > 0 { ev_run_root!(); return AK_OK; }', '', 1)"
+plant "a lost run (the root's last run never flushed: ListResultsResponse)" "s.replace('if f.n > 0 { ev_run_root!(); return FSM_ADD; }', '', 1)"
 plant "a run split one element early (ListResultsResponse.results arena - 1)" "s.replace('const FSM_N_LISTRESULTSRESPONSE_ROOT_RESULTS: usize = fsm_arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>());', 'const FSM_N_LISTRESULTSRESPONSE_ROOT_RESULTS: usize = fsm_arena_n(::core::mem::size_of::<ak_dfix_ResultRaw>()) - 1;', 1)"
-plant "the rewind after a flush lands one byte late (element scope)" "s.replace('if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = \$s0; return AK_OK; }', 'if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = \$s0 + 1; return AK_OK; }')"
+plant "the rewind after a flush lands one byte late (element scope)" "s.replace('if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = \$s0; return FSM_ADD; }', 'if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = \$s0 + 1; return FSM_ADD; }')"
 plant "the owed error of a truncated element dropped" "s.replace('if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }', '')"
 plant "the FSM ignores its D20 mask" "s.replace('f.sk = f.utf8_skip;', 'f.sk = 0;')"
 restore; trap - EXIT
-python3 ../codec/gen/generate.py --check --core-only 2>/dev/null | grep -c "^ok" | sed 's/^/  generated core restored, files ok: /'
+python3 "$PP/codec/gen/generate.py" --check --core-only 2>/dev/null | grep -c "^ok" | sed 's/^/  generated core restored, files ok: /'
 rm -rf "$PT"
 
 step "F6. the C header: C11 / C++17, full and no-unknown; a C host through ak_fsm_* against the core"
@@ -156,14 +172,15 @@ int main(void) {
   if (ak_init(&o, &e) < 0) { puts("ak_init failed"); return 1; }
   ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
   const uint8_t m[] = { 0x0a, 0x03, 0x0a, 0x01, 'a', 0x0a, 0x03, 0x0a, 0x01, 'b', 0x10, 0x03 };
+  /* The return value is the event's op (AK_BDR_*), < 0 an error; AK_BDR_APPLY is the last. */
   struct ak_fsm_ev ev; int32_t rc = ak_fsm_begin_ListResultsResponse(c, m, sizeof m, &ev); int n = 1;
-  printf("  C host: event %d rc %d op %u slot %u token %lld n %u bytes %u\n", n, rc, ev.op, ev.slot, (long long)ev.token, ev.n, ev.bytes);
-  int ok = rc == AK_OK && ev.op == AK_BDR_ADD && ev.slot == 1 && ev.n == 2;
-  while (rc == AK_OK) {
+  printf("  C host: event %d op %d slot %u token %lld n %u bytes %u\n", n, rc, ev.slot, (long long)ev.token, ev.n, ev.bytes);
+  int ok = rc == (int32_t)AK_BDR_ADD && ev.slot == 1 && ev.n == 2;
+  while (rc > 0 && rc != (int32_t)AK_BDR_APPLY) {
     rc = ak_fsm_next_ListResultsResponse(c, &ev); n++;
-    printf("  C host: event %d rc %d op %u slot %u token %lld n %u bytes %u\n", n, rc, ev.op, ev.slot, (long long)ev.token, ev.n, ev.bytes);
+    printf("  C host: event %d op %d slot %u token %lld n %u bytes %u\n", n, rc, ev.slot, (long long)ev.token, ev.n, ev.bytes);
   }
-  ok = ok && rc == AK_FSM_END && n == 2 && ev.op == AK_BDR_APPLY && ((const struct ak_dfix_ListResultsResponse *)ev.data)->page == 3;
+  ok = ok && rc == (int32_t)AK_BDR_APPLY && n == 2 && ev.slot == 0 && ((const struct ak_dfix_ListResultsResponse *)ev.data)->page == 3;
   ok = ok && ak_fsm_next_ListResultsResponse(c, &ev) == AK_ERR_INVALID_STATE;
   ak_dec_ctx_free(c);
   puts(ok ? "  C HOST OK" : "  C HOST FAILED");

@@ -8097,8 +8097,8 @@ fn fsm_canon_rec_list_results_response(op: u32, slot: u32, n: u32, body: &[u8]) 
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_list_results_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_list_results_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_list_results_response(ctx, sink, ev.data as *const ak_dfix_ListResultsResponse),
         (AK_BDR_ADD, 1) => add_list_results_response_results(ctx, sink, ev.token, ev.data as *const ak_dfix_ResultRaw, ev.n as i32),
         // An event for a slot this host does not know is a generator disagreement.
@@ -8118,9 +8118,11 @@ fn fsm_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_ListResultsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_list_results_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_list_results_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_ListResultsResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8202,15 +8204,16 @@ pub fn fsm_diff_list_results_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk:
         let mut rc = ak_fsm_begin_ListResultsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_results_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_list_results_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_ListResultsResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8225,7 +8228,7 @@ pub fn fsm_diff_list_results_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk:
         ak_fsm_set_pvt_ListResultsResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -8246,8 +8249,8 @@ fn fsm_canon_rec_list_tasks_detailed_response(op: u32, slot: u32, n: u32, body: 
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_list_tasks_detailed_response(ctx, sink, ev.data as *const ak_dfix_ListTasksDetailedResponse),
         (AK_BDR_NEW, 65536) => toks.push(new_list_tasks_detailed_response_tasks(ctx, sink)),
         (AK_BDR_APPLY_ELEM, 65536) => apply_list_tasks_detailed_response_tasks(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskDetailed),
@@ -8273,9 +8276,11 @@ fn fsm_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8], toks: &m
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_list_tasks_detailed_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_list_tasks_detailed_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8371,15 +8376,16 @@ pub fn fsm_diff_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], retain: bo
         let mut rc = ak_fsm_begin_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_tasks_detailed_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_list_tasks_detailed_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8394,7 +8400,7 @@ pub fn fsm_diff_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], retain: bo
         ak_fsm_set_pvt_ListTasksDetailedResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -8414,8 +8420,8 @@ fn fsm_canon_rec_list_probe_response(op: u32, slot: u32, n: u32, body: &[u8]) ->
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_list_probe_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_list_probe_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_list_probe_response(ctx, sink, ev.data as *const ak_dfix_ListProbeResponse),
         (AK_BDR_ADD, 1) => add_list_probe_response_probes(ctx, sink, ev.token, ev.data as *const ak_dfix_Probe, ev.n as i32),
         // An event for a slot this host does not know is a generator disagreement.
@@ -8435,9 +8441,11 @@ fn fsm_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i6
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_ListProbeResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_list_probe_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_list_probe_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_ListProbeResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8518,15 +8526,16 @@ pub fn fsm_diff_list_probe_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u
         let mut rc = ak_fsm_begin_ListProbeResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_probe_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_list_probe_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_ListProbeResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8541,7 +8550,7 @@ pub fn fsm_diff_list_probe_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u
         ak_fsm_set_pvt_ListProbeResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -8562,8 +8571,8 @@ fn fsm_canon_rec_list_task_summary_response(op: u32, slot: u32, n: u32, body: &[
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_list_task_summary_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_list_task_summary_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_list_task_summary_response(ctx, sink, ev.data as *const ak_dfix_ListTaskSummaryResponse),
         (AK_BDR_NEW, 65536) => toks.push(new_list_task_summary_response_tasks(ctx, sink)),
         (AK_BDR_APPLY_ELEM, 65536) => apply_list_task_summary_response_tasks(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskSummary),
@@ -8585,9 +8594,11 @@ fn fsm_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_list_task_summary_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_list_task_summary_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8671,15 +8682,16 @@ pub fn fsm_diff_list_task_summary_response(ctxs: DecCtxs, b: &[u8], retain: bool
         let mut rc = ak_fsm_begin_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_task_summary_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_list_task_summary_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8694,7 +8706,7 @@ pub fn fsm_diff_list_task_summary_response(ctxs: DecCtxs, b: &[u8], retain: bool
         ak_fsm_set_pvt_ListTaskSummaryResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -8713,8 +8725,8 @@ fn fsm_canon_rec_upload_result_data_message(op: u32, slot: u32, n: u32, body: &[
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_upload_result_data_message(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_upload_result_data_message(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_upload_result_data_message(ctx, sink, ev.data as *const ak_dfix_UploadResultDataMessage),
         // An event for a slot this host does not know is a generator disagreement.
         _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
@@ -8733,9 +8745,11 @@ fn fsm_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8], toks: &mut
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_UploadResultDataMessage(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_upload_result_data_message(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_upload_result_data_message(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8815,15 +8829,16 @@ pub fn fsm_diff_upload_result_data_message(ctxs: DecCtxs, b: &[u8], retain: bool
         let mut rc = ak_fsm_begin_UploadResultDataMessage(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_upload_result_data_message(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_upload_result_data_message(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8838,7 +8853,7 @@ pub fn fsm_diff_upload_result_data_message(ctxs: DecCtxs, b: &[u8], retain: bool
         ak_fsm_set_pvt_UploadResultDataMessage(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -8858,8 +8873,8 @@ fn fsm_canon_rec_list_metrics_response(op: u32, slot: u32, n: u32, body: &[u8]) 
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_list_metrics_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_list_metrics_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_list_metrics_response(ctx, sink, ev.data as *const ak_dfix_ListMetricsResponse),
         (AK_BDR_NEW, 65536) => toks.push(new_list_metrics_response_batches(ctx, sink)),
         (AK_BDR_APPLY_ELEM, 65536) => apply_list_metrics_response_batches(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_MetricsBatch),
@@ -8885,9 +8900,11 @@ fn fsm_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_ListMetricsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_list_metrics_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_list_metrics_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_ListMetricsResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -8967,15 +8984,16 @@ pub fn fsm_diff_list_metrics_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk:
         let mut rc = ak_fsm_begin_ListMetricsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_metrics_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_list_metrics_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_ListMetricsResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -8990,7 +9008,7 @@ pub fn fsm_diff_list_metrics_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk:
         ak_fsm_set_pvt_ListMetricsResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -9011,8 +9029,8 @@ fn fsm_canon_rec_dual_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u
 
 /// D23: one FSM event to the host functions the push vtable registers.
 #[inline(always)]
-unsafe fn fsm_feed_dual_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
-    match (ev.op, ev.slot) {
+unsafe fn fsm_feed_dual_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (op, ev.slot) {
         (AK_BDR_APPLY, 0) => apply_dual_response(ctx, sink, ev.data as *const ak_dfix_DualResponse),
         (AK_BDR_ADD, 1) => add_dual_response_left(ctx, sink, ev.token, ev.data as *const ak_dfix_Pair, ev.n as i32),
         (AK_BDR_ADD, 2) => add_dual_response_right(ctx, sink, ev.token, ev.data as *const ak_dfix_Pair, ev.n as i32),
@@ -9033,9 +9051,11 @@ fn fsm_with_dual_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) ->
         let obj = &mut sink as *mut _ as *mut c_void;
         let mut ev = ak_fsm_ev::default();
         let mut rc = ak_fsm_begin_DualResponse(ctx, b.as_ptr(), b.len(), &mut ev);
-        while rc >= 0 {
-            fsm_feed_dual_response(ctx, obj, &ev, toks);
-            if rc == AK_FSM_END { break; }
+        // The return value is the event's op; the root group (APPLY) is the last.
+        loop {
+            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }
+            fsm_feed_dual_response(ctx, obj, rc as u32, &ev, toks);
+            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }
             rc = ak_fsm_next_DualResponse(ctx, &mut ev);
         }
         if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
@@ -9116,15 +9136,16 @@ pub fn fsm_diff_dual_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) ->
         let mut rc = ak_fsm_begin_DualResponse(ctx, b.as_ptr(), b.len(), &mut ev);
         d.calls = 1;
         let mut bad: Option<String> = None;
-        while rc >= 0 {
+        while rc > 0 {
             let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
-            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_dual_response(ev.op, ev.slot, ev.n, &body)));
-            if rc == AK_FSM_END { break; }
-            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            // The op is the return value (D23 as amended 2026-10-09).
+            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_dual_response(rc as u32, ev.slot, ev.n, &body)));
+            if rc == AK_BDR_APPLY as i32 { break; }
             if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
             rc = ak_fsm_next_DualResponse(ctx, &mut ev);
             d.calls += 1;
         }
+        if rc == 0 { bad = Some("begin/next returned 0 (neither an op nor an error)".into()); }
         d.fsm_rc = rc;
         (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
         // A call after the end or an error is refused.
@@ -9139,7 +9160,7 @@ pub fn fsm_diff_dual_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) ->
         ak_fsm_set_pvt_DualResponse(ctx, ::core::ptr::null());
         d.records = pull.len();
         d.events = fsm.len();
-        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };
         if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
         if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
         d.mismatch = bad;
@@ -9183,7 +9204,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_ListResultsResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListResultsResponse: setter on a ListTasksDetailedResponse context".into());
             chk(ak_fsm_begin_ListResultsResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListResultsResponse: NULL event".into());
             let rc = ak_fsm_begin_ListResultsResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListResultsResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListResultsResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_ListResultsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListResultsResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9197,7 +9218,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_ListTasksDetailedResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: setter on a ListProbeResponse context".into());
             chk(ak_fsm_begin_ListTasksDetailedResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: NULL event".into());
             let rc = ak_fsm_begin_ListTasksDetailedResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTasksDetailedResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTasksDetailedResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_ListTasksDetailedResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9211,7 +9232,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_ListProbeResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListProbeResponse: setter on a ListTaskSummaryResponse context".into());
             chk(ak_fsm_begin_ListProbeResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListProbeResponse: NULL event".into());
             let rc = ak_fsm_begin_ListProbeResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListProbeResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListProbeResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_ListProbeResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListProbeResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9225,7 +9246,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_ListTaskSummaryResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: setter on a UploadResultDataMessage context".into());
             chk(ak_fsm_begin_ListTaskSummaryResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: NULL event".into());
             let rc = ak_fsm_begin_ListTaskSummaryResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTaskSummaryResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTaskSummaryResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_ListTaskSummaryResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9239,7 +9260,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_UploadResultDataMessage(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: setter on a ListMetricsResponse context".into());
             chk(ak_fsm_begin_UploadResultDataMessage(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: NULL event".into());
             let rc = ak_fsm_begin_UploadResultDataMessage(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("UploadResultDataMessage: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("UploadResultDataMessage: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_UploadResultDataMessage(c, &mut ev) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9253,7 +9274,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_ListMetricsResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListMetricsResponse: setter on a DualResponse context".into());
             chk(ak_fsm_begin_ListMetricsResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListMetricsResponse: NULL event".into());
             let rc = ak_fsm_begin_ListMetricsResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListMetricsResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListMetricsResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_ListMetricsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListMetricsResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);
@@ -9267,7 +9288,7 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
             chk(ak_fsm_set_pvt_DualResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "DualResponse: setter on a ListResultsResponse context".into());
             chk(ak_fsm_begin_DualResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "DualResponse: NULL event".into());
             let rc = ak_fsm_begin_DualResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
-            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("DualResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("DualResponse: empty message is one root-group event (rc {rc}, slot {})", ev.slot));
             chk(ak_fsm_next_DualResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "DualResponse: next after the end".into());
             ak_dec_ctx_free(c);
             ak_dec_ctx_free(w);

@@ -7,7 +7,7 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; section "D23" |
+| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; owner's amendment the same day: the op is the return value (re-checked, `checks/rust-checks-op-return.log`); section "D23" |
 | **Next step** | none assigned in this slice. Latest unit (2026-10-09, owner): **D23, the FSM decode family**, in the shared core and generator, checked and timed in the container (section "D23" below, `logs/rust/opt/d23-fsm/`); the C# consumer is the C# slice's next unit (its contract is in the section). Before it (2026-10-04, owner): the decode vtables in static storage (e0586a85: cpp_binding `static const struct ak_dvt_<Root> k_dvt_<Root>`, positional, plan.dec_vtable order; rust_binding `static VT`); checks only, no timing and no gate (owner: impact trivial): `logs/rust/opt/static-vtables/checks/` (rust-checks.log: STATIC-VTABLE CHECKS PASSED, crossings 1,092 / 567 identical; cpp-check.log: conformance 8 arms, corpus 4 arms, counts 530 / 530 / 301 identical, campaign_codec pre-checks, c++11/14/17 -Werror=missing-field-initializers; its plant line is void, cpp-plant.log is the valid control); rdrepro / stickyerr left per call (untimed gate drivers). Not run: ASan, timing, other slices' gates. Before it (2026-10-04): D20, the host-selected UTF-8 skip bits on decode (push vtable member, pull vtable and setter) in the shared core and generator, every slice regenerated with every bit 0; section "D20" below. Before it (2026-10-04): D19, the shared core's UTF-16 transcoder on simdutf and the additive UTF exports, built in an isolated worktree (not pushed; the aggregating session merges); section "D19" below. Before it (2026-10-02): the owner's backward-encode experiment, built as a patch (`logs/rust/opt/patches/backward-encode/`, not in poc/codec), gated and measured in the container; section "Backward-encode experiment" below. Before it: WP12 item 1 (both h2 variants gated, `logs/rust/opt/wp12-gates/`) and the TCP worker sweep (`logs/rust/opt/tcp-sweep/`); the core worker count is the owner's decision. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate, both builds, passes on rustc 1.88.0 from a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
@@ -23,19 +23,23 @@ slice regenerated) and 475b51a2 (this slice: consumer, checks, harness). Logs:
 `checks/events-counting.txt`, `bench/`). Nothing here is a recommendation; every timing is
 container instrumentation.
 
-- **ABI** (plan.py, THE FSM DECODE FAMILY; `fsm_entry_points`; FIXED `ak_fsm_ev`, `AK_FSM_END`):
-  `int32_t ak_fsm_begin_<Root>(ak_dec_ctx*, const uint8_t *buf, size_t len, ak_fsm_ev *ev)`
-  returns the FIRST event; `int32_t ak_fsm_next_<Root>(ak_dec_ctx*, ak_fsm_ev *ev)` the next;
-  `int32_t ak_fsm_set_pvt_<Root>(ak_dec_ctx*, const ak_pvt_<Root>*)` copies the D20 mask for later
-  FSM decodes (the FSM's own setter; pull's setter and mask are separate, push's vtable mask is
-  per call). Returns: AK_OK = an event, more follow; AK_FSM_END (1) = the event is the root group
-  (AK_BDR_APPLY), the last; < 0 = error, no event. A decode is begin + (events - 1) next; an empty
-  message is one call. After the end or an error, a next without begin, a context bound to another
-  root, a NULL ctx or event: AK_ERR_INVALID_STATE. `ak_fsm_ev` (repr(C), 32 B, asserted in fsm.rs,
-  every C header, the C# by-name probe): `op u32, slot u32, token i64, n u32, bytes u32, data
-  *const void` = `ak_bdr_rec`'s members at its offsets plus the payload pointer; `bytes` exact
-  (pull pads to 8); `data` NULL for AK_BDR_NEW. Payload valid until the next call on the context;
-  spans index the input, which must stay valid and unmoved until the end event or an error.
+- **ABI** (plan.py, THE FSM DECODE FAMILY; `fsm_entry_points`; FIXED `ak_fsm_ev`), **as amended
+  by the owner 2026-10-09 (op = return value)**: `int32_t ak_fsm_begin_<Root>(ak_dec_ctx*, const
+  uint8_t *buf, size_t len, ak_fsm_ev *ev)` writes the FIRST event; `int32_t
+  ak_fsm_next_<Root>(ak_dec_ctx*, ak_fsm_ev *ev)` the next; both RETURN the event's op, positive
+  (AK_BDR_NEW 3, AK_BDR_ADD 2, AK_BDR_APPLY_ELEM 4, AK_BDR_APPLY 1; APPLY, the root group, is
+  always the last event and so is the end; no AK_FSM_END), or a negative error code with no event
+  written. `int32_t ak_fsm_set_pvt_<Root>(ak_dec_ctx*, const ak_pvt_<Root>*)` copies the D20 mask
+  for later FSM decodes (the FSM's own setter). A decode is begin + (events - 1) next; an empty
+  message is one call. After the root group or an error, a next without begin, a context bound to
+  another root, a NULL ctx or event: AK_ERR_INVALID_STATE. `ak_fsm_ev` (repr(C), 32 B, align 8,
+  asserted in fsm.rs and every C header; the C# by-name probe is regenerated by the C# slice):
+  `slot u32 @0, n u32 @4, token i64 @8, data *const void @16, bytes u32 @24` (4 bytes tail
+  padding); no `op` member, no relation to `ak_bdr_rec`. `bytes` exact (pull pads to 8); `data`
+  NULL for AK_BDR_NEW. Payload valid until the next call on the context; spans index the input,
+  which must stay valid and unmoved until the root group's event or an error. (The first version,
+  op a member and AK_OK / AK_FSM_END returns, is what the timing below ran; the change moves no
+  work: the same write minus one member, the op returned instead.)
 - **Separation** (owner's rule): the FSM's emitter `poc/codec/gen/rust_fsm.py` shares no function
   with rust_abi.py's push/pull emitter (`dec_walk` etc.); its runtime `crates/ak-core/src/fsm.rs`
   has its own reader `FRd` (varint, fixed, len_body, skip, bounded group skip), UTF-8 check
@@ -100,16 +104,15 @@ container instrumentation.
   entries).
 - **What a C# consumer needs** (for the C# slice): DllImports per root `int ak_fsm_begin_<R>(IntPtr
   ctx, byte* buf, nuint len, ak_fsm_ev* ev)`, `int ak_fsm_next_<R>(IntPtr ctx, ak_fsm_ev* ev)`,
-  `int ak_fsm_set_pvt_<R>(IntPtr ctx, ak_pvt_<R>* pvt)` (struct `ak_fsm_ev` is already in Abi.cs);
-  pin the input with ONE `fixed` spanning begin and every next until AK_FSM_END or an error (the
-  core reads it across calls); loop `rc = begin(..., &ev); while (rc >= 0) { dispatch(ev); if (rc
-  == 1) break; rc = next(..., &ev); }`; dispatch on `(ev.op, ev.slot >> 16, ev.slot & 0xFFFF)` with
-  the body of today's `Replay` (`ak_bdr_rec r` -> `ev`, `body` -> `(byte*)ev.data`, `r.n` -> `ev.n`,
-  `r.token` -> `ev.token`; do not advance by `bytes`): APPLY last, NEW appends the element (token =
-  its index), APPLY_ELEM / ADD index by token; consume each payload before the next call (it is
-  overwritten); arming (ArmFor/Disarm), retain buffer ownership (a delivered group's buffers are
-  the host's) and the failure path are pull's; `_fwd += calls` (= events); a failed decode
-  discards the partially built object. The mask is 0 unless `ak_fsm_set_pvt_<R>` is called.
+  `int ak_fsm_set_pvt_<R>(IntPtr ctx, ak_pvt_<R>* pvt)`; struct `ak_fsm_ev { uint slot; uint n;
+  long token; IntPtr data; uint bytes; }` (32 B, rendered from plan.FIXED by the C# generator);
+  pin the input with ONE `fixed` spanning begin and every next until APPLY or an error; loop
+  `op = begin(..., &ev); while (op > 0) { Dispatch((uint)op, ev); if (op == AK_BDR_APPLY) break;
+  op = next(..., &ev); } if (op < 0) fail`; dispatch on `(op, ev.slot >> 16, ev.slot & 0xFFFF)`
+  with the body of today's `Replay` (`r.op` -> the returned op, `body` -> `(byte*)ev.data`, `r.n`
+  -> `ev.n`, `r.token` -> `ev.token`); consume each payload before the next call; arming, retain
+  ownership and the failure path are pull's; `_fwd += calls` (= events); a failed decode discards
+  the partially built object. The mask is 0 unless `ak_fsm_set_pvt_<R>` is called.
 
 ## D20: decode UTF-8 validation per string field, host-selected (2026-10-04, owner; shared core and generator; container)
 

@@ -4515,3 +4515,12 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
 - Instrumentation (`bench/tables.md`, 619 s): FSM range above both push and pull in 49 of 228
   cells, below in none; packed rows (P6.1 about 302-312 us against 213-243) and small U-* rows by
   5-25 ns; large string rows overlap. Not attributed; nothing tuned (setup phase).
+- Owner amendment (2026-10-09, same day): the op is the RETURN VALUE of begin / next (positive
+  AK_BDR_*, APPLY last = the end; negative = error); `op` removed from `ak_fsm_ev`, now `slot u32,
+  n u32, token i64, data ptr, bytes u32` (32 B), asserted in fsm.rs and the C headers;
+  AK_FSM_END removed. Emitter returns FSM_NEW / FSM_ADD / FSM_APPLY_ELEM / FSM_APPLY (fsm.rs
+  consts); consumer, fsm_diff (compares the returned op with the record's), API checks, C host and
+  plants updated. The C# agent was editing its slice and cs_*.py in the same tree at the time: the
+  C# slice was NOT regenerated or checked here (D23_SKIP_SLICES=csharp; it regenerates its own),
+  and the plants ran in a separate worktree (D23_PLANT_POC) so its builds never saw a planted
+  core. Checks: `checks/rust-checks-op-return.log`. No timing (owner: trivial change).
