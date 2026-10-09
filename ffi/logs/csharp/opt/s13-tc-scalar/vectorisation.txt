@@ -1,0 +1,7 @@
+tcword _ZN7ak_core16utf16_write_word17had31b102aa58472fE: instructions touching xmm/ymm/zmm: 23 (packed-integer: 11)
+tcword _ZN7ak_core8tc_utf1617h11f729931cfa41d8E: instructions touching xmm/ymm/zmm: 0 (packed-integer: 0)
+tcword ak_utf16_utf8_len: instructions touching xmm/ymm/zmm: 0 (packed-integer: 0)
+tcnaive _ZN7ak_core18utf16_to_utf8_into17h4b131e3c2bb5294eE: instructions touching xmm/ymm/zmm: 0 (packed-integer: 0)
+tcnaive _ZN7ak_core8tc_utf1617h600afac59d7c0579E: instructions touching xmm/ymm/zmm: 0 (packed-integer: 0)
+tcnaive ak_utf16_utf8_len: instructions touching xmm/ymm/zmm: 0 (packed-integer: 0)
+# note: in tc-scalar-word, LLVM SLP-vectorised utf16_write_word's 8-unit path (two u64 tests as one SSE2 16-byte load + pshufd/por, the 8-byte pack as pand/psrlq/por/pshufd, movq store); the 4-unit and per-unit paths are scalar; no intrinsics in the source. tc-scalar-naive: no vector instruction in the transcoder.

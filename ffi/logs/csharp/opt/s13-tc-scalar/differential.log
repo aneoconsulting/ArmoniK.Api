@@ -1,0 +1,13 @@
+# s13 differential: cargo test -p ak-core (s13_scalar_tc_tests: utf16_write_word and this build's utf16_to_utf8_into vs utf16_write_replacing, lengths 0-300 x 4 mixes x 6 + 1023/1024/4096/4099/65537, caps 3n, 3n-1, need, need-1, need+1, 0; d19_utf16_tests: tc_utf16 vs tc_utf16_scalar and std, the exports; tc_empty_tests) at cb20ae6e; 2026-10-09T22:18:19Z
+$ cargo test --release -p ak-core 
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.07s
+$ cargo test --release -p ak-core --features tc-scalar-naive
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.09s
+$ cargo test --release -p ak-core --features tc-scalar-word
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.08s
+$ cargo test  -p ak-core 
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.49s
+$ cargo test  -p ak-core --features tc-scalar-naive
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.48s
+$ cargo test  -p ak-core --features tc-scalar-word
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.57s

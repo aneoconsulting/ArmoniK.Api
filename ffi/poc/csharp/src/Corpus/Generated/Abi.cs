@@ -10300,7 +10300,10 @@ public static class AbiVariant
     {
 #if NETCOREAPP3_0_OR_GREATER
         AbiInit.Ensure();
-        var h = NativeLibrary.Load(Abi.Lib, typeof(Abi).Assembly, null);
+        // AK_CORE_LIB (a measurement core bound by the host's DllImport resolver, poc/csharp
+        // src/Harness/CoreLib.cs): check THAT file, not a second copy found by name.
+        var lib = Environment.GetEnvironmentVariable("AK_CORE_LIB");
+        var h = string.IsNullOrEmpty(lib) ? NativeLibrary.Load(Abi.Lib, typeof(Abi).Assembly, null) : NativeLibrary.Load(lib);
         bool has = NativeLibrary.TryGetExport(h, "ak_uencode_Timestamp", out _);
         if (has == UnknownCompiledOut) return $"the loaded core {(has ? "exports" : "lacks")} ak_uencode_Timestamp: it is not the {Name} variant this binding was rendered for";
         return null;

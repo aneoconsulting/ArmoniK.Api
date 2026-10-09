@@ -144,10 +144,20 @@ public static class Alloc
     }
     /// Under the default toolchain the child's probe is written for the host (one file per
     /// child process), and the host puts it on the case's first row.
+    /// s13: the libak_core.so files mapped in this process (after BuildCheck loaded the core), so
+    /// a row says which core the case ran on (AK_CORE_LIB, src/Harness/CoreLib.cs); "" when only
+    /// the default copy is mapped and AK_CORE_LIB is unset.
+    private static string CoreMaps()
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AK_CORE_LIB"))) return "";
+        var m = System.Linq.Enumerable.Distinct(System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(System.IO.File.ReadLines("/proc/self/maps"),
+            l => l.EndsWith("libak_core.so", StringComparison.Ordinal)), l => l.Substring(l.LastIndexOf(' ') + 1)));
+        return ",\"core_maps\":\"" + string.Join(";", m) + "\"";
+    }
     private static void WriteChild()
     {
         if (CpuClock.ChildDir == null) return;
-        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n" + CpuGuard.Fields() + "\n");
+        System.IO.File.WriteAllText(System.IO.Path.Combine(CpuClock.ChildDir, "probe-" + Environment.ProcessId + ".txt"), _probe + "\n" + CpuGuard.Fields() + CoreMaps() + "\n");
         ChildFile = "probe-" + Environment.ProcessId + ".txt";
     }
     /// The build the host was compiled as (full or no-unknown) must be the build every BDN

@@ -1,0 +1,48 @@
+# s13_checks.sh at cb20ae6e; 2026-10-09T22:08:11Z
+## default-simdutf: shapes core 7b8ed0b888940ab7, corpus core 44c28bac239c673c
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+## tc-scalar-naive: shapes core f1c93866089f7343, corpus core b434da19b488ad90
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+## tc-scalar-word: shapes core 919732011451eb12, corpus core ff87355ba181e97d
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+
+S13 CHECKS PASSED (net8.0; not the gate)

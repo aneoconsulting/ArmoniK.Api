@@ -1,0 +1,7 @@
+# s13 cores: git archive HEAD ffi/poc/codec, last core commit cb20ae6e; rustc 1.94.1
+#   target-core-tcnaive: --features rpc,init-guard,tc-scalar-naive -> f1c93866089f7343 (168 ak_* exports)
+#   target-core-tcword: --features rpc,init-guard,tc-scalar-word -> 919732011451eb12 (168 ak_* exports)
+#   target-core-corpus-tcnaive: --features corpus,init-guard,tc-scalar-naive -> b434da19b488ad90 (365 ak_* exports)
+#   target-core-corpus-tcword: --features corpus,init-guard,tc-scalar-word -> ff87355ba181e97d (365 ak_* exports)
+#   target-core-s13default: --features rpc,init-guard -> 7b8ed0b888940ab7 (168 ak_* exports)
+# default build from this snapshot == target-core (byte-identical: 7b8ed0b888940ab7)

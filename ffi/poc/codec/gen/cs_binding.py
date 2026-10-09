@@ -518,7 +518,10 @@ def emit_abi(x, ns, lib="ak_core"):
     o += "    {"
     o += "#if NETCOREAPP3_0_OR_GREATER"
     o += "        AbiInit.Ensure();"
-    o += "        var h = NativeLibrary.Load(Abi.Lib, typeof(Abi).Assembly, null);"
+    o += "        // AK_CORE_LIB (a measurement core bound by the host's DllImport resolver, poc/csharp"
+    o += "        // src/Harness/CoreLib.cs): check THAT file, not a second copy found by name."
+    o += "        var lib = Environment.GetEnvironmentVariable(\"AK_CORE_LIB\");"
+    o += "        var h = string.IsNullOrEmpty(lib) ? NativeLibrary.Load(Abi.Lib, typeof(Abi).Assembly, null) : NativeLibrary.Load(lib);"
     o += "        bool has = NativeLibrary.TryGetExport(h, \"%s\", out _);" % probe
     o += "        if (has == UnknownCompiledOut) return $\"the loaded core {(has ? \"exports\" : \"lacks\")} %s: it is not the {Name} variant this binding was rendered for\";" % probe
     o += "        return null;"

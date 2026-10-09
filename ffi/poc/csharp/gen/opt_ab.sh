@@ -57,6 +57,9 @@ for r in $(seq "$REP0" "$REPS"); do
     name="${v%%=*}"; sd="${v#*=}"; venv=(); [ "${sd#*@}" != "$sd" ] && IFS=, read -r -a venv <<< "${sd#*@}"; sd="${sd%%@*}"
     for b in $BUILDS; do
       if [ "$b" = full ]; then bd="$sd/src/BenchDotNet/bin/Release/net8.0"; core="$SLICE/target-core/release/libak_core.so"; else bd="$sd/src/BenchDotNet/bin-nounk/Release/net8.0"; core="$SLICE/target-core-nounk/release/libak_core.so"; fi
+      # s13: a variant may name its own core directory (AK_AB_CORE=<dir under the slice>, full build only).
+      # The children BDN rebuilds load target-core's copy unless told otherwise: AK_CORE_LIB (src/Harness/CoreLib.cs).
+      for e in "${venv[@]}"; do case "$e" in AK_AB_CORE=*) [ "$b" = full ] && { core="$SLICE/${e#AK_AB_CORE=}/release/libak_core.so"; venv+=("AK_CORE_LIB=$core"); } ;; esac; done
       cp "$core" "$bd/"
       f="$OUT/$name-$b-r$r.jsonl"
       q=$(quiet)
@@ -64,7 +67,7 @@ for r in $(seq "$REP0" "$REPS"); do
       ( cd "$sd" && exec env "${venv[@]}" taskset -c "$AK_CPU_CLIENT" dotnet "$bd/BenchDotNet.dll" --launch "$r" --out "$f" --artifacts "$SCRATCH/bdn-$name-$b-$r" \
         --rounds 6 --warmup 25 --iteration-ms 40 --toolchain process ) > "$OUT/$name-$b-r$r.bdn.log" 2>&1
       rc=$?
-      echo "# rep $r $name $b: rc=$rc $(( $(date +%s) - t0 )) s; $q; $(grep -m1 '^# correctness' "$f" | cut -c1-60)" | tee -a "$OUT/header.txt"
+      echo "# rep $r $name $b: rc=$rc $(( $(date +%s) - t0 )) s; core $(sha256sum "$core" | cut -c1-16); $q; $(grep -m1 '^# correctness' "$f" | cut -c1-60)" | tee -a "$OUT/header.txt"
       [ $rc = 0 ] || exit 1
     done
   done
