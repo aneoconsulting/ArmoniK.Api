@@ -291,14 +291,12 @@ const _: () = assert!(1 <= FSM_MAX_FRAMES);
 
 /// `ListResultsResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root ListResultsResponse.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_ListResultsResponse;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_ListResultsResponse;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -341,8 +339,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -426,7 +423,6 @@ pub unsafe extern "C" fn ak_fsm_begin_ListResultsResponse(ctx: *mut ak_dec_ctx, 
     }
     f.start(buf, len, FSM_ROOT_WORDS_LISTRESULTSRESPONSE + FSM_ELEM_WORDS_LISTRESULTSRESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_ListResultsResponse).write(ak_dfix_ListResultsResponse::ZERO);
     fsm_step_list_results_response(dcx, f, ev)
 }
@@ -442,11 +438,14 @@ pub unsafe extern "C" fn ak_fsm_next_ListResultsResponse(ctx: *mut ak_dec_ctx, e
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 1) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 1); }
+    if (*dcx).root != 1 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_list_results_response(dcx, f, ev)
 }
 
@@ -478,15 +477,13 @@ const _: () = assert!(4 <= FSM_MAX_FRAMES);
 
 /// `ListTasksDetailedResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root ListTasksDetailedResponse, 1 elem TaskDetailed, 2 child TaskOptions, 3 child Duration, 4 child Timestamp, 5 child Timestamp, 6 child Timestamp, 7 child Timestamp, 8 child Timestamp, 9 child TaskOutput, 10 child Timestamp, 11 child Timestamp, 12 child Duration, 13 child Duration, 14 child Duration, 15 child Timestamp, 16 child Timestamp.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_ListTasksDetailedResponse;
-    let ge_0 = f.gp.add(FSM_ROOT_WORDS_LISTTASKSDETAILEDRESPONSE) as *mut ak_dfix_TaskDetailed;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_ListTasksDetailedResponse;
+    let ge_0 = f.grp.as_mut_ptr().add(FSM_ROOT_WORDS_LISTTASKSDETAILEDRESPONSE) as *mut ak_dfix_TaskDetailed;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -563,8 +560,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -1220,7 +1216,6 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTasksDetailedResponse(ctx: *mut ak_dec
     }
     f.start(buf, len, FSM_ROOT_WORDS_LISTTASKSDETAILEDRESPONSE + FSM_ELEM_WORDS_LISTTASKSDETAILEDRESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_ListTasksDetailedResponse).write(ak_dfix_ListTasksDetailedResponse::ZERO);
     fsm_step_list_tasks_detailed_response(dcx, f, ev)
 }
@@ -1236,11 +1231,14 @@ pub unsafe extern "C" fn ak_fsm_next_ListTasksDetailedResponse(ctx: *mut ak_dec_
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 2) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 2); }
+    if (*dcx).root != 2 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_list_tasks_detailed_response(dcx, f, ev)
 }
 
@@ -1268,14 +1266,12 @@ const _: () = assert!(1 <= FSM_MAX_FRAMES);
 
 /// `ListProbeResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root ListProbeResponse.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_ListProbeResponse;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_ListProbeResponse;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -1318,8 +1314,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -1391,7 +1386,6 @@ pub unsafe extern "C" fn ak_fsm_begin_ListProbeResponse(ctx: *mut ak_dec_ctx, bu
     }
     f.start(buf, len, FSM_ROOT_WORDS_LISTPROBERESPONSE + FSM_ELEM_WORDS_LISTPROBERESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_ListProbeResponse).write(ak_dfix_ListProbeResponse::ZERO);
     fsm_step_list_probe_response(dcx, f, ev)
 }
@@ -1407,11 +1401,14 @@ pub unsafe extern "C" fn ak_fsm_next_ListProbeResponse(ctx: *mut ak_dec_ctx, ev:
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 3) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 3); }
+    if (*dcx).root != 3 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_list_probe_response(dcx, f, ev)
 }
 
@@ -1439,15 +1436,13 @@ const _: () = assert!(4 <= FSM_MAX_FRAMES);
 
 /// `ListTaskSummaryResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root ListTaskSummaryResponse, 1 elem TaskSummary, 2 child TaskOptions, 3 child Duration, 4 child Timestamp.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_ListTaskSummaryResponse;
-    let ge_0 = f.gp.add(FSM_ROOT_WORDS_LISTTASKSUMMARYRESPONSE) as *mut ak_dfix_TaskSummary;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_ListTaskSummaryResponse;
+    let ge_0 = f.grp.as_mut_ptr().add(FSM_ROOT_WORDS_LISTTASKSUMMARYRESPONSE) as *mut ak_dfix_TaskSummary;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -1520,8 +1515,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -1786,7 +1780,6 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTaskSummaryResponse(ctx: *mut ak_dec_c
     }
     f.start(buf, len, FSM_ROOT_WORDS_LISTTASKSUMMARYRESPONSE + FSM_ELEM_WORDS_LISTTASKSUMMARYRESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_ListTaskSummaryResponse).write(ak_dfix_ListTaskSummaryResponse::ZERO);
     fsm_step_list_task_summary_response(dcx, f, ev)
 }
@@ -1802,11 +1795,14 @@ pub unsafe extern "C" fn ak_fsm_next_ListTaskSummaryResponse(ctx: *mut ak_dec_ct
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 4) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 4); }
+    if (*dcx).root != 4 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_list_task_summary_response(dcx, f, ev)
 }
 
@@ -1833,14 +1829,12 @@ const _: () = assert!(2 <= FSM_MAX_FRAMES);
 
 /// `UploadResultDataMessage`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root UploadResultDataMessage, 1 child UploadResultData.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_UploadResultDataMessage;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_UploadResultDataMessage;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -1882,8 +1876,7 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -1979,7 +1972,6 @@ pub unsafe extern "C" fn ak_fsm_begin_UploadResultDataMessage(ctx: *mut ak_dec_c
     }
     f.start(buf, len, FSM_ROOT_WORDS_UPLOADRESULTDATAMESSAGE + FSM_ELEM_WORDS_UPLOADRESULTDATAMESSAGE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_UploadResultDataMessage).write(ak_dfix_UploadResultDataMessage::ZERO);
     fsm_step_upload_result_data_message(dcx, f, ev)
 }
@@ -1995,11 +1987,14 @@ pub unsafe extern "C" fn ak_fsm_next_UploadResultDataMessage(ctx: *mut ak_dec_ct
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 5) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 5); }
+    if (*dcx).root != 5 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_upload_result_data_message(dcx, f, ev)
 }
 
@@ -2031,15 +2026,13 @@ const _: () = assert!(3 <= FSM_MAX_FRAMES);
 
 /// `ListMetricsResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root ListMetricsResponse, 1 elem MetricsBatch, 2 packed (slot 1), 3 packed (slot 2), 4 packed (slot 3), 5 packed (slot 4), 6 packed (slot 5).
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_ListMetricsResponse;
-    let ge_0 = f.gp.add(FSM_ROOT_WORDS_LISTMETRICSRESPONSE) as *mut ak_dfix_MetricsBatch;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_ListMetricsResponse;
+    let ge_0 = f.grp.as_mut_ptr().add(FSM_ROOT_WORDS_LISTMETRICSRESPONSE) as *mut ak_dfix_MetricsBatch;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -2116,8 +2109,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -2440,7 +2432,6 @@ pub unsafe extern "C" fn ak_fsm_begin_ListMetricsResponse(ctx: *mut ak_dec_ctx, 
     }
     f.start(buf, len, FSM_ROOT_WORDS_LISTMETRICSRESPONSE + FSM_ELEM_WORDS_LISTMETRICSRESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_ListMetricsResponse).write(ak_dfix_ListMetricsResponse::ZERO);
     fsm_step_list_metrics_response(dcx, f, ev)
 }
@@ -2456,11 +2447,14 @@ pub unsafe extern "C" fn ak_fsm_next_ListMetricsResponse(ctx: *mut ak_dec_ctx, e
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 6) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 6); }
+    if (*dcx).root != 6 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_list_metrics_response(dcx, f, ev)
 }
 
@@ -2489,14 +2483,12 @@ const _: () = assert!(1 <= FSM_MAX_FRAMES);
 
 /// `DualResponse`'s state machine: advance from the context's state to the next event.
 /// Frames: 0 root DualResponse.
-/// D23 fix C: inlined into begin and next; what it needs from the context was computed at begin.
 #[allow(unused_variables, unused_mut, unused_macros, unreachable_code, unused_unsafe)]
-#[inline(always)]
 unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev) -> i32 {
     let buf: &[u8] = f.input();
-    let gr = f.gp as *mut ak_dfix_DualResponse;
-    let ar = f.ap;
-    let u0 = f.u;
+    let gr = f.grp.as_mut_ptr() as *mut ak_dfix_DualResponse;
+    let ar = f.arena.as_mut_ptr();
+    let u0 = FsmU::root(dcx);
     let sk = f.sk;
     macro_rules! fail {
         ($e:expr) => {{
@@ -2540,8 +2532,7 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     // An error owed since a truncated non-leaf element falls due once its frame closed.
     if f.pend != 0 && f.depth <= f.pend_depth { fail!(f.pend); }
     loop {
-        // depth is 1..=FSM_MAX_FRAMES while a decode runs (push refuses beyond).
-        let top = *f.frames.get_unchecked(f.depth - 1);
+        let top = f.frames[f.depth - 1];
         if f.pos >= top.end {
             // The open message ends here.
             match top.kind {
@@ -2624,7 +2615,6 @@ pub unsafe extern "C" fn ak_fsm_begin_DualResponse(ctx: *mut ak_dec_ctx, buf: *c
     }
     f.start(buf, len, FSM_ROOT_WORDS_DUALRESPONSE + FSM_ELEM_WORDS_DUALRESPONSE);
     f.sk = f.utf8_skip;
-    f.u = FsmU::root(dcx);
     (f.grp.as_mut_ptr() as *mut ak_dfix_DualResponse).write(ak_dfix_DualResponse::ZERO);
     fsm_step_dual_response(dcx, f, ev)
 }
@@ -2640,11 +2630,14 @@ pub unsafe extern "C" fn ak_fsm_next_DualResponse(ctx: *mut ak_dec_ctx, ev: *mut
     if ctx.is_null() || ev.is_null() { return AK_ERR_INVALID_STATE; }
     let dcx = ctx as *mut DecCtxImpl;
     ak_rt::bump!((*dcx).c, forward);
-    // Never begun: refused.
-    let Some(f) = (*dcx).fsm.as_deref_mut() else { return AK_ERR_INVALID_STATE };
-    // D23 fix C: the entry checks merged into one branch (another root, a decode not
-    // running, a host ak_fail since the last event); fsm_refuse sorts them out.
-    if ((*dcx).root != 7) | (f.state != ST_RUN) | ((*dcx).hdr.err != AK_OK) { return fsm_refuse(dcx, f, 7); }
+    if (*dcx).root != 7 { return AK_ERR_INVALID_STATE; }
+    let f = match (*dcx).fsm.as_deref_mut() {
+        Some(f) if f.state == ST_RUN => f,
+        // Never begun, ended, or failed: refused.
+        _ => return AK_ERR_INVALID_STATE,
+    };
+    // The host failed the operation between two events (ak_fail): it ends here.
+    if (*dcx).hdr.err != AK_OK { f.state = ST_FAILED; return (*dcx).hdr.err; }
     fsm_step_dual_response(dcx, f, ev)
 }
 
