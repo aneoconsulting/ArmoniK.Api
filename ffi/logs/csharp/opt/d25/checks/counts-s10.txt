@@ -1,0 +1,152 @@
+# CAMPAIGN req 19 (R-H31): per core-ffi case of the codec suite (full build), one call of the timed operation, counted by name in the host (AK_HOST_COUNT).
+# fields: payload content arm dir mode | fwd N (every exported entry point called, resets included) rev N (core->host callbacks, grow excluded) grow N (ak_grow_fn calls, geometric grow as timed) reset N (of fwd: ak_dec_reset_<Root>, one per decode, before it) | entry=count ...
+P1.1 ascii core-ffi-push decode-read retain | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.1 ascii core-ffi-push decode-read drop | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.1 ascii core-ffi decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=1
+P1.1 ascii core-ffi decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=1
+P1.2 ascii core-ffi-push decode-read retain | fwd 2 rev 8 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.2 ascii core-ffi-push decode-read drop | fwd 2 rev 8 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.2 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.2 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.2 ascii core-ffi decode-read retain | fwd 9 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=7
+P1.2 ascii core-ffi decode-read drop | fwd 9 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=7
+P1.3 ascii core-ffi-push decode-read retain | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.3 ascii core-ffi-push decode-read drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+P1.3 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.3 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+P1.3 ascii core-ffi decode-read retain | fwd 4 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=2
+P1.3 ascii core-ffi decode-read drop | fwd 4 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=2
+P2.1 ascii core-ffi-push decode-read retain | fwd 2 rev 8 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi-push decode-read drop | fwd 2 rev 8 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.1 ascii core-ffi decode-read retain | fwd 9 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=7
+P2.1 ascii core-ffi decode-read drop | fwd 9 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=7
+P2.2 ascii core-ffi-push decode-read retain | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi-push decode-read drop | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 ascii core-ffi decode-read retain | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.2 ascii core-ffi decode-read drop | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.2 latin1 core-ffi-push decode-read retain | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi-push decode-read drop | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 latin1 core-ffi decode-read retain | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.2 latin1 core-ffi decode-read drop | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.2 wide core-ffi-push decode-read retain | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi-push decode-read drop | fwd 2 rev 3501 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.2 wide core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 wide core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.2 wide core-ffi decode-read retain | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.2 wide core-ffi decode-read drop | fwd 3502 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=3500
+P2.3 ascii core-ffi-push decode-read retain | fwd 2 rev 876 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi-push decode-read drop | fwd 2 rev 876 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.3 ascii core-ffi decode-read retain | fwd 877 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=875
+P2.3 ascii core-ffi decode-read drop | fwd 877 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=875
+P2.4 ascii core-ffi-push decode-read retain | fwd 2 rev 561 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi-push decode-read drop | fwd 2 rev 561 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.4 ascii core-ffi decode-read retain | fwd 562 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=560
+P2.4 ascii core-ffi decode-read drop | fwd 562 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=560
+P2.5 ascii core-ffi-push decode-read retain | fwd 2 rev 141 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi-push decode-read drop | fwd 2 rev 141 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+P2.5 ascii core-ffi decode-read retain | fwd 142 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=140
+P2.5 ascii core-ffi decode-read drop | fwd 142 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=140
+P3.1 ascii core-ffi-push decode-read retain | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
+P3.1 ascii core-ffi-push decode-read drop | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
+P3.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListProbeResponse=1 ak_parse_ListProbeResponse=1
+P3.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListProbeResponse=1 ak_parse_ListProbeResponse=1
+P3.1 ascii core-ffi decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_fsm_begin_ListProbeResponse=1 ak_fsm_next_ListProbeResponse=1
+P3.1 ascii core-ffi decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_fsm_begin_ListProbeResponse=1 ak_fsm_next_ListProbeResponse=1
+P4.1 ascii core-ffi-push decode-read retain | fwd 2 rev 601 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi-push decode-read drop | fwd 2 rev 601 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_parse_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_parse_ListTaskSummaryResponse=1
+P4.1 ascii core-ffi decode-read retain | fwd 602 rev 0 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_fsm_begin_ListTaskSummaryResponse=1 ak_fsm_next_ListTaskSummaryResponse=600
+P4.1 ascii core-ffi decode-read drop | fwd 602 rev 0 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_fsm_begin_ListTaskSummaryResponse=1 ak_fsm_next_ListTaskSummaryResponse=600
+P5.1 ascii core-ffi-push decode-read retain | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.1 ascii core-ffi-push decode-read drop | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.1 ascii core-ffi decode-read retain | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.1 ascii core-ffi decode-read drop | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.2 ascii core-ffi-push decode-read retain | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.2 ascii core-ffi-push decode-read drop | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.2 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.2 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.2 ascii core-ffi decode-read retain | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.2 ascii core-ffi decode-read drop | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.3 ascii core-ffi-push decode-read retain | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.3 ascii core-ffi-push decode-read drop | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.3 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.3 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.3 ascii core-ffi decode-read retain | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.3 ascii core-ffi decode-read drop | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.4 ascii core-ffi-push decode-read retain | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.4 ascii core-ffi-push decode-read drop | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+P5.4 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.4 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+P5.4 ascii core-ffi decode-read retain | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P5.4 ascii core-ffi decode-read drop | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+P6.1 ascii core-ffi-push decode-read retain | fwd 2 rev 1401 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
+P6.1 ascii core-ffi-push decode-read drop | fwd 2 rev 1401 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
+P6.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListMetricsResponse=1 ak_parse_ListMetricsResponse=1
+P6.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListMetricsResponse=1 ak_parse_ListMetricsResponse=1
+P6.1 ascii core-ffi decode-read retain | fwd 1402 rev 0 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_fsm_begin_ListMetricsResponse=1 ak_fsm_next_ListMetricsResponse=1400
+P6.1 ascii core-ffi decode-read drop | fwd 1402 rev 0 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_fsm_begin_ListMetricsResponse=1 ak_fsm_next_ListMetricsResponse=1400
+P7.1 ascii core-ffi-push decode-read retain | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi-push decode-read drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi-pull decode-read retain | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+P7.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+P7.1 ascii core-ffi decode-read retain | fwd 8 rev 0 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_fsm_begin_DualResponse=1 ak_fsm_next_DualResponse=6
+P7.1 ascii core-ffi decode-read drop | fwd 8 rev 0 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_fsm_begin_DualResponse=1 ak_fsm_next_DualResponse=6
+U-nested-before corpus core-ffi-push decode-read retain | fwd 2 rev 2 grow 2 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+U-nested-before corpus core-ffi-push decode-read drop | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_decode_ListResultsResponse=1
+U-nested-before corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 2 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+U-nested-before corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListResultsResponse=1 ak_parse_ListResultsResponse=1
+U-nested-before corpus core-ffi decode-read retain | fwd 3 rev 0 grow 2 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=1
+U-nested-before corpus core-ffi decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListResultsResponse=1 ak_fsm_begin_ListResultsResponse=1 ak_fsm_next_ListResultsResponse=1
+U-deep-u-repeated corpus core-ffi-push decode-read retain | fwd 2 rev 8 grow 1 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi-push decode-read drop | fwd 2 rev 8 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_decode_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTasksDetailedResponse=1 ak_parse_ListTasksDetailedResponse=1
+U-deep-u-repeated corpus core-ffi decode-read retain | fwd 9 rev 0 grow 1 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=7
+U-deep-u-repeated corpus core-ffi decode-read drop | fwd 9 rev 0 grow 0 reset 1 | ak_dec_reset_ListTasksDetailedResponse=1 ak_fsm_begin_ListTasksDetailedResponse=1 ak_fsm_next_ListTasksDetailedResponse=7
+U-oneof-u-repeated corpus core-ffi-push decode-read retain | fwd 2 rev 2 grow 1 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi-push decode-read drop | fwd 2 rev 2 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_decode_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListProbeResponse=1 ak_parse_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListProbeResponse=1 ak_parse_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_fsm_begin_ListProbeResponse=1 ak_fsm_next_ListProbeResponse=1
+U-oneof-u-repeated corpus core-ffi decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_dec_reset_ListProbeResponse=1 ak_fsm_begin_ListProbeResponse=1 ak_fsm_next_ListProbeResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi-push decode-read retain | fwd 2 rev 7 grow 1 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi-push decode-read drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_decode_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_parse_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListTaskSummaryResponse=1 ak_parse_ListTaskSummaryResponse=1
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi decode-read retain | fwd 8 rev 0 grow 1 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_fsm_begin_ListTaskSummaryResponse=1 ak_fsm_next_ListTaskSummaryResponse=6
+U-wire-ListTaskSummaryResponse-tasks-as-wt5 corpus core-ffi decode-read drop | fwd 8 rev 0 grow 0 reset 1 | ak_dec_reset_ListTaskSummaryResponse=1 ak_fsm_begin_ListTaskSummaryResponse=1 ak_fsm_next_ListTaskSummaryResponse=6
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi-push decode-read retain | fwd 2 rev 1 grow 1 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi-push decode-read drop | fwd 2 rev 1 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_decode_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_UploadResultDataMessage=1 ak_parse_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-read retain | fwd 2 rev 0 grow 1 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+U-wire-UploadResultDataMessage-upload-as-wt5 corpus core-ffi decode-read drop | fwd 2 rev 0 grow 0 reset 1 | ak_dec_reset_UploadResultDataMessage=1 ak_fsm_begin_UploadResultDataMessage=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi-push decode-read retain | fwd 2 rev 15 grow 1 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi-push decode-read drop | fwd 2 rev 15 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_decode_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListMetricsResponse=1 ak_parse_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_ListMetricsResponse=1 ak_parse_ListMetricsResponse=1
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi decode-read retain | fwd 16 rev 0 grow 1 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_fsm_begin_ListMetricsResponse=1 ak_fsm_next_ListMetricsResponse=14
+U-wire-ListMetricsResponse-batches-as-wt0 corpus core-ffi decode-read drop | fwd 16 rev 0 grow 0 reset 1 | ak_dec_reset_ListMetricsResponse=1 ak_fsm_begin_ListMetricsResponse=1 ak_fsm_next_ListMetricsResponse=14
+U-wire-DualResponse-left-as-wt5 corpus core-ffi-push decode-read retain | fwd 2 rev 3 grow 1 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi-push decode-read drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi-pull decode-read retain | fwd 3 rev 0 grow 1 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+U-wire-DualResponse-left-as-wt5 corpus core-ffi decode-read retain | fwd 4 rev 0 grow 1 reset 1 | ak_dec_reset_DualResponse=1 ak_fsm_begin_DualResponse=1 ak_fsm_next_DualResponse=2
+U-wire-DualResponse-left-as-wt5 corpus core-ffi decode-read drop | fwd 4 rev 0 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_fsm_begin_DualResponse=1 ak_fsm_next_DualResponse=2

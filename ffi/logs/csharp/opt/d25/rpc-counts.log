@@ -1,0 +1,6 @@
+    0 Error(s)
+    0 Error(s)
+rpc-counts: identical to gen/rpc-counts.txt (105 rows)
+rpc-counts-nounk: identical to gen/rpc-counts-nounk.txt (62 rows)
+rpc-delivery-counts: identical to gen/rpc-delivery-counts.txt (66 rows)
+rpc-delivery-counts-nounk: identical to gen/rpc-delivery-counts-nounk.txt (54 rows)

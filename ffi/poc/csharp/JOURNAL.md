@@ -2901,3 +2901,16 @@ Container instrumentation. Logs `ffi/logs/csharp/opt/s12-sgt/`.
   P2.2, P2.5 and P5.2 in drop only; above both on P1.1, P1.2, P2.2/wide and P5.3 in drop and P1.3,
   P2.4 in no-unknown; the rest overlap. One process per arm and mode, two reps: a row's verdict
   rests on two medians per arm.
+
+## 83. D25: [SuppressGCTransition] dropped (2026-10-09)
+
+Owner decision D25 (FIX-PLAN d479b702). Removed: cs_binding's `_sgt` imports (emit_import_sgt,
+fsm_sgt_imports), TryFsmSgt and the attributed loop in cs_host (FsmRun back to TryFsm's plain
+loop), the arm core-ffi-sgt, AK_BDN_S12, AK_FSM_SGT, --sgtbench and SgtBench.cs, the
+InternalsVisibleTo("BenchDotNet") it needed, gen/s12_checks.sh and s10_checks.sh's SGT-only
+plant: every code file restored to 357319f6. generate.py then rewrote every generated file back
+to 357319f6's text (git diff against it: only STATE, JOURNAL and gen/s12_tables.py, which is kept
+to re-render the s12 table from its jsonl, checked byte-identical). gen/s10_checks.sh PASSED
+(`logs/csharp/opt/d25/checks.log`; codec counts equal to the committed files in both builds),
+and the RPC count files reproduced identical against the server (`d25/rpc-counts.log`). The s12
+logs stay as the record. No timing.

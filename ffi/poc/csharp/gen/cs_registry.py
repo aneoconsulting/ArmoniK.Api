@@ -137,8 +137,6 @@ def emit_corpus_dispatch(abi, refused):
     for r in abi.roots:
         o += "    private static CoreFfi_%s _%s;" % (r, r)
     o += ""
-    o += "    /// s12: AK_FSM_SGT=1 sends the FSM decodes through TryFsmSgt ([SuppressGCTransition] imports, drop only)."
-    o += "    public static readonly bool Sgt = Environment.GetEnvironmentVariable(\"AK_FSM_SGT\") == \"1\";"
     o += "    /// D24: the FSM, the target decode family (DecodeFam: push 0, pull 1, FSM 2)."
     o += "    /// < 0: the core's code (the output is unspecified, R-G6); 1: not in the C ABI."
     o += "    public static int Decode(string root, byte[] b, bool retain, out object msg)"
@@ -147,7 +145,7 @@ def emit_corpus_dispatch(abi, refused):
     o += "        switch (root)"
     o += "        {"
     for r in abi.roots:
-        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = Sgt ? c.TryFsmSgt(b, b.Length, retain, out var t) : c.TryFsm(b, b.Length, retain, out t); msg = t; return rc; }" % (r, r, r)
+        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = c.TryFsm(b, b.Length, retain, out var t); msg = t; return rc; }" % (r, r, r)
     o += "            default: return 1;"
     o += "        }"
     o += "    }"
@@ -159,7 +157,7 @@ def emit_corpus_dispatch(abi, refused):
     o += "        switch (root)"
     o += "        {"
     for r in abi.roots:
-        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = fam == 2 ? (Sgt ? c.TryFsmSgt(b, b.Length, retain, out var t) : c.TryFsm(b, b.Length, retain, out t)) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }" % (r, r, r)
+        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }" % (r, r, r)
     o += "            default: return 1;"
     o += "        }"
     o += "    }"

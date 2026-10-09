@@ -1936,20 +1936,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private static readonly ak_pvt_ListResultsResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListResultsResponse* MakeFsmPvt() { var v = (ak_pvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListResultsResponse)); v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out ListResultsResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out ListResultsResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out ListResultsResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out ListResultsResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListResultsResponse();
@@ -1961,43 +1951,21 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_ListResultsResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListResultsResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -3360,20 +3328,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static readonly ak_pvt_ListTasksDetailedResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListTasksDetailedResponse* MakeFsmPvt() { var v = (ak_pvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTasksDetailedResponse)); v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out ListTasksDetailedResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out ListTasksDetailedResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTasksDetailedResponse();
@@ -3385,43 +3343,21 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_ListTasksDetailedResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListTasksDetailedResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -4077,20 +4013,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private static readonly ak_pvt_ListProbeResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListProbeResponse* MakeFsmPvt() { var v = (ak_pvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListProbeResponse)); v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out ListProbeResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out ListProbeResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out ListProbeResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out ListProbeResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListProbeResponse();
@@ -4102,43 +4028,21 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_ListProbeResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListProbeResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -4930,20 +4834,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static readonly ak_pvt_ListTaskSummaryResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListTaskSummaryResponse* MakeFsmPvt() { var v = (ak_pvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTaskSummaryResponse)); v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out ListTaskSummaryResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out ListTaskSummaryResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListTaskSummaryResponse();
@@ -4955,43 +4849,21 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_ListTaskSummaryResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListTaskSummaryResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -5527,20 +5399,10 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private static readonly ak_pvt_UploadResultDataMessage* FsmPvt = MakeFsmPvt();
     private static ak_pvt_UploadResultDataMessage* MakeFsmPvt() { var v = (ak_pvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultDataMessage)); v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out UploadResultDataMessage result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out UploadResultDataMessage result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out UploadResultDataMessage result)
+    public int TryFsm(byte[] src, int len, bool retain, out UploadResultDataMessage result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new UploadResultDataMessage();
@@ -5552,43 +5414,21 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_UploadResultDataMessage_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_UploadResultDataMessage_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -6473,20 +6313,10 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static readonly ak_pvt_ListMetricsResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_ListMetricsResponse* MakeFsmPvt() { var v = (ak_pvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListMetricsResponse)); v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out ListMetricsResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out ListMetricsResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out ListMetricsResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out ListMetricsResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new ListMetricsResponse();
@@ -6498,43 +6328,21 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_ListMetricsResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListMetricsResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -7307,20 +7115,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private static readonly ak_pvt_DualResponse* FsmPvt = MakeFsmPvt();
     private static ak_pvt_DualResponse* MakeFsmPvt() { var v = (ak_pvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_DualResponse)); v->utf8_skip = AkUtf8Skip.DualResponse_ALL; return v; }
 
-    public int TryFsm(byte[] src, int len, bool retain, out DualResponse result) => FsmRun(src, len, retain, false, out result);
-    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of
-    /// begin / next, where they are valid: DROP mode only (in retain the core may call the
-    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes
-    /// the plain imports), and never a context's first FSM decode (that begin allocates the
-    /// context's FSM state, and malloc takes locks: it goes through the plain import).
-    public int TryFsmSgt(byte[] src, int len, bool retain, out DualResponse result) => FsmRun(src, len, retain, true, out result);
-    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)
-
-    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out DualResponse result)
+    public int TryFsm(byte[] src, int len, bool retain, out DualResponse result)
     {
         result = null;
         EnsureDec();
-        sgt = sgt && !retain && _fsmWarm;
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
         var t = new DualResponse();
@@ -7332,43 +7130,21 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                int op;
+                _fwd++;
+                int op = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    if (sgt)
+                    while (op > 0)
                     {
-                        _fwd++;
-                        op = Abi.ak_fsm_begin_DualResponse_sgt(_dctx, b, (nuint)len, &ev);
-                        while (op > 0)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_DualResponse_sgt(_dctx, &ev);
+                            // The root group: always the last event, the end.
+                            G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
+                            break;
                         }
-                    }
-                    else
-                    {
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        op = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
-                        _fsmWarm = true;
-                        while (op > 0)
-                        {
-                            if (op == (int)Abi.AK_BDR_APPLY)
-                            {
-                                // The root group: always the last event, the end.
-                                G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
-                                break;
-                            }
-                            FsmDispatch(t, b, (uint)op, &ev);
-                            _fwd++;
-                            op = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
-                        }
+                        op = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }

@@ -66,10 +66,6 @@ public static class VerifyFsm
         foreach (var (name, ops, wire, malform) in inputsList)
         {
             inputs++;
-            // s12: under AK_FSM_SGT=1 the FSM family is TryFsmSgt, whose first decode on a context
-            // takes the plain imports (it allocates the FSM state): warm it so the graphs below
-            // come from the attributed imports.
-            if (RootOps.FsmSgt) ops.TryFsmRc(wire, wire.Length, false);
             foreach (var retain in Modes)
             {
                 string mode = retain ? "retain" : "drop";
@@ -144,12 +140,7 @@ public static class VerifyFsm
             Armonik.Ffi.Harness.AbiVariant.Name, inputs, graphs, rustCompared, rustMissing);
         Console.WriteLine("malformed variants: {0} decodes per family ({1} refused by pull, FSM code == pull code required; {2} accepted by all, graphs compared); push's code differs from pull's on {3}",
             malformed, refused, accepted, pushDiffers);
-#if AK_HOST_COUNT
-        long sgtCalls = Armonik.Ffi.Harness.Abi.EntryCounts().Where(e => e.Name.EndsWith("_sgt", StringComparison.Ordinal)).Sum(e => e.Calls);
-        long fsmCalls = Armonik.Ffi.Harness.Abi.EntryCounts().Where(e => e.Name.StartsWith("ak_fsm_begin_", StringComparison.Ordinal) || e.Name.StartsWith("ak_fsm_next_", StringComparison.Ordinal)).Sum(e => e.Calls);
-        Console.WriteLine("FSM calls through the [SuppressGCTransition] imports: {0} of {1} (counting build; AK_FSM_SGT={2})", sgtCalls, fsmCalls, RootOps.FsmSgt ? "1" : "unset");
-#endif
-        Console.WriteLine("verify-fsm{0}: {1} failure(s)", RootOps.FsmSgt ? " (AK_FSM_SGT=1: the FSM family through TryFsmSgt)" : "", _bad);
+        Console.WriteLine("verify-fsm: {0} failure(s)", _bad);
         return _bad == 0 ? 0 : 1;
     }
 

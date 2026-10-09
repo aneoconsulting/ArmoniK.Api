@@ -2196,20 +2196,10 @@ def _emit_fsm(o, p, root, slots):
     o += "    private static readonly ak_pvt_%s* FsmPvt = MakeFsmPvt();" % root
     o += "    private static ak_pvt_%s* MakeFsmPvt() { var v = (ak_pvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_%s)); v->utf8_skip = AkUtf8Skip.%s_ALL; return v; }" % (root, root, root, root)
     o += ""
-    o += "    public int TryFsm(byte[] src, int len, bool retain, out %s result) => FsmRun(src, len, retain, false, out result);" % root
-    o += "    /// s12 (owner, 2026-10-09): the same decode through the [SuppressGCTransition] twins of"
-    o += "    /// begin / next, where they are valid: DROP mode only (in retain the core may call the"
-    o += "    /// host's grow from inside next, a reverse call the attribute forbids: retain here takes"
-    o += "    /// the plain imports), and never a context's first FSM decode (that begin allocates the"
-    o += "    /// context's FSM state, and malloc takes locks: it goes through the plain import)."
-    o += "    public int TryFsmSgt(byte[] src, int len, bool retain, out %s result) => FsmRun(src, len, retain, true, out result);" % root
-    o += "    private bool _fsmWarm;   // a plain begin has run on this context (its FSM state exists)"
-    o += ""
-    o += "    private int FsmRun(byte[] src, int len, bool retain, bool sgt, out %s result)" % root
+    o += "    public int TryFsm(byte[] src, int len, bool retain, out %s result)" % root
     o += "    {"
     o += "        result = null;"
     o += "        EnsureDec();"
-    o += "        sgt = sgt && !retain && _fsmWarm;"
     o += "        int ar = ArmFor(retain ? -1 : -2);"
     o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var t = new %s();" % root
@@ -2221,29 +2211,22 @@ def _emit_fsm(o, p, root, slots):
     o += "            {"
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                ak_fsm_ev ev;"
-    o += "                int op;"
+    o += "                _fwd++;"
+    o += "                int op = Abi.ak_fsm_begin_%s(_dctx, b, (nuint)len, &ev);" % root
     o += "                try"
     o += "                {"
-    for sfx, ind in (("_sgt", "                        "), ("", "                        ")):
-        o += ("                    if (sgt)" if sfx else "                    else")
-        o += "                    {"
-        o += ind + "_fwd++;"
-        o += ind + "op = Abi.ak_fsm_begin_%s%s(_dctx, b, (nuint)len, &ev);" % (root, sfx)
-        if not sfx:
-            o += ind + "_fsmWarm = true;"
-        o += ind + "while (op > 0)"
-        o += ind + "{"
-        o += ind + "    if (op == (int)Abi.AK_BDR_APPLY)"
-        o += ind + "    {"
-        o += ind + "        // The root group: always the last event, the end."
-        o += ind + "        G.D_%s(ref *(ak_dfix_%s*)ev.data, t, b);" % (root, root)
-        o += ind + "        break;"
-        o += ind + "    }"
-        o += ind + "    FsmDispatch(t, b, (uint)op, &ev);"
-        o += ind + "    _fwd++;"
-        o += ind + "    op = Abi.ak_fsm_next_%s%s(_dctx, &ev);" % (root, sfx)
-        o += ind + "}"
-        o += "                    }"
+    o += "                    while (op > 0)"
+    o += "                    {"
+    o += "                        if (op == (int)Abi.AK_BDR_APPLY)"
+    o += "                        {"
+    o += "                            // The root group: always the last event, the end."
+    o += "                            G.D_%s(ref *(ak_dfix_%s*)ev.data, t, b);" % (root, root)
+    o += "                            break;"
+    o += "                        }"
+    o += "                        FsmDispatch(t, b, (uint)op, &ev);"
+    o += "                        _fwd++;"
+    o += "                        op = Abi.ak_fsm_next_%s(_dctx, &ev);" % root
+    o += "                    }"
     o += "                    rc = op < 0 ? op : 0;"
     o += "                }"
     o += "                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }"

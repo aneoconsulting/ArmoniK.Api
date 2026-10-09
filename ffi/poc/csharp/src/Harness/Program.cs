@@ -7,8 +7,6 @@ using System.Runtime.InteropServices;
 // The campaign runner (src/Rpc, assembly akrpc) calls the generated imports directly
 // (ak_noop for the crossing calibration), which the generator declares internal.
 [assembly: System.Runtime.CompilerServices.InternalsVisibleTo("akrpc")]
-// s12: BenchDotNet --sgtbench calls the FSM imports (plain and [SuppressGCTransition]) directly.
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("BenchDotNet")]
 
 namespace Armonik.Ffi.Harness;
 
