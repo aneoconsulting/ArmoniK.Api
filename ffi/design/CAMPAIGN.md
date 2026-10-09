@@ -95,7 +95,7 @@ and run on demand, never in the campaign by default.
   `U-wire-UploadResultDataMessage-upload-as-wt5`,
   `U-wire-ListMetricsResponse-batches-as-wt0`, `U-wire-DualResponse-left-as-wt5`.
   The other 85 `U-*` rows stay in every correctness gate, untimed.
-- Arms: `incumbent-prod`, `core-ffi` (push), `host-gen`.
+- Arms: `incumbent-prod`, `core-ffi` (FSM decode, D24; push in the slices not yet rewritten), `host-gen`.
 - Directions: encode, and decode followed by reading every field (`decode-read`).
 - Encode variant: end state (ii), the form the arm hands its transport; input (i),
   one hot graph.
@@ -129,7 +129,7 @@ and run on demand, never in the campaign by default.
 **Unchanged:** 3 launches and 5 rounds (req 23); warm-ups (req 24, including the
 20-calls-per-thread rule); the server, isolation, checks, logs and gates.
 
-**Labelled extras (on demand):** `incumbent-best`; pull decode; Rust's `core-native`
+**Labelled extras (on demand):** `incumbent-best`; push and pull decode (D24); Rust's `core-native`
 and `armonik`; bare decode; the other three encode variants; the `drop` mode; content
 sets on P1.2 and P2.4; the other 85 `U-*` rows timed; cells B, C, D, E, F, the
 non-framed reference rows and the extra delivery rows; direction `a`; k = 16; P5.3;
@@ -159,8 +159,9 @@ Each slice states its campaign-length estimate for this grid in its STATE.
      `SerializeToString`/`FromString` from the stub, tonic's codec for prost;
    - `incumbent-best`: the library's fastest entry point, as a labelled second
      row;
-   - `core-ffi`: the generated binding through the C ABI (push decode; pull as a
-     labelled extra arm where the slice has it);
+   - `core-ffi`: the generated binding through the C ABI (FSM decode, owner
+     2026-10-09, FIX-PLAN D24; push and pull as labelled extra arms where the slice
+     has them; a slice not yet rewritten decodes with push and says so);
    - `host-gen`: the codec generated into the host language by the same
      generator (the no-boundary control; option 2 of README section 13);
    - Rust only: `core-native` and `armonik` (`packages/rust`).
