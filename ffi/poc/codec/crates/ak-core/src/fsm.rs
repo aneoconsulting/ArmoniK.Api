@@ -112,6 +112,12 @@ pub struct FsmCx {
     pub sk: u64,
     pub arena: Vec<u64>,
     pub grp: Vec<u64>,
+    /// D23 fix C: what every call re-derived, computed once at begin: the group and arena
+    /// pointers and the unknown-field cursor of the root (the context's armed positions as
+    /// they are at begin).
+    pub gp: *mut u64,
+    pub ap: *mut u64,
+    pub u: FsmU,
 }
 
 impl FsmCx {
@@ -133,13 +139,17 @@ impl FsmCx {
             sk: 0,
             arena: vec![0u64; FSM_ARENA_BYTES / 8],
             grp: Vec::new(),
+            gp: core::ptr::null_mut(),
+            ap: core::ptr::null_mut(),
+            u: unsafe { FsmU::none() },
         }
     }
 
     /// Start a decode of `buf[..len]` whose groups need `grp_words` words.
     #[inline]
     pub fn start(&mut self, buf: *const u8, len: usize, grp_words: usize) {
-        self.buf = buf;
+        // An empty message may come with a NULL pointer: a dangling one keeps `input` branch-free.
+        self.buf = if len == 0 { core::ptr::NonNull::<u8>::dangling().as_ptr() } else { buf };
         self.len = len;
         self.pos = 0;
         self.state = ST_RUN;
@@ -153,6 +163,8 @@ impl FsmCx {
         if self.grp.len() < grp_words {
             self.grp.resize(grp_words, 0);
         }
+        self.gp = self.grp.as_mut_ptr();
+        self.ap = self.arena.as_mut_ptr();
     }
 
     /// Open a frame. Refused past the bound (unreachable for a root the generator accepted).
@@ -176,12 +188,22 @@ impl FsmCx {
     /// The input, as a slice (an empty message may come with a NULL pointer).
     #[inline(always)]
     pub unsafe fn input<'a>(&self) -> &'a [u8] {
-        if self.len == 0 {
-            &[]
-        } else {
-            core::slice::from_raw_parts(self.buf, self.len)
-        }
+        core::slice::from_raw_parts(self.buf, self.len)
     }
+}
+
+/// D23 fix C: the refusals of `ak_fsm_next_*`, off the hot path. Called when any of the
+/// merged entry checks failed; returns what the separate checks returned, in their order: a
+/// context bound to another root or a decode not running is AK_ERR_INVALID_STATE; a host
+/// `ak_fail` since the last event ends the decode with that code.
+#[cold]
+#[inline(never)]
+pub unsafe fn fsm_refuse(dcx: *mut DecCtxImpl, f: &mut FsmCx, root: u32) -> i32 {
+    if (*dcx).root != root || f.state != ST_RUN {
+        return AK_ERR_INVALID_STATE;
+    }
+    f.state = ST_FAILED;
+    (*dcx).hdr.err
 }
 
 /// The context's FSM state, created on first use and kept for every later decode.
@@ -385,6 +407,11 @@ impl FsmU {
         let pos = if !(*dcx).unk.is_empty() { (*dcx).unk.as_mut_ptr() } else { core::ptr::null_mut() };
         FsmU { dcx, pos }
     }
+    /// Drop mode, no context (a fresh state before its first begin).
+    #[inline(always)]
+    pub unsafe fn none() -> FsmU {
+        FsmU { dcx: core::ptr::null_mut(), pos: core::ptr::null_mut() }
+    }
     #[inline(always)]
     pub unsafe fn at(self, rel: usize) -> FsmU {
         if self.pos.is_null() {
@@ -404,6 +431,10 @@ pub struct FsmU;
 impl FsmU {
     #[inline(always)]
     pub unsafe fn root(_dcx: *mut DecCtxImpl) -> FsmU {
+        FsmU
+    }
+    #[inline(always)]
+    pub unsafe fn none() -> FsmU {
         FsmU
     }
     #[inline(always)]
