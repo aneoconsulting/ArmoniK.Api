@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-78); this file states what is true now.
+79); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -91,6 +91,76 @@ src/BenchDotNet/            the codec suite's engine: BenchmarkDotNet 0.15.8, In
 src/HarnessFloor/           net48, compile only (the binding; the host half is compiled out)
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
+
+## D23: the FSM consumer (2026-10-09; JOURNAL 79; container instrumentation, NOT gated)
+
+Core: c2b95f62 (D23 as amended: `ak_fsm_begin_<R>` / `ak_fsm_next_<R>` RETURN the event's op,
+AK_BDR_NEW/ADD/APPLY_ELEM/APPLY > 0, APPLY = the root group, always last, the end; < 0 an error;
+`ak_fsm_ev { u32 slot; u32 n; i64 token; void* data; u32 bytes }`, 32 B). Cores rebuilt at it
+(`s10/build-core-op.log`). Commits 7c5a2c0b (work in progress), f2797456 (the consumer on the
+amended contract and its checks), and this unit's last commit (table, STATE, JOURNAL).
+
+- **Binding** (`cs_binding.py`): `fsm_imports` renders the three entry points per root from
+  `plan.fsm_entry_points` (counting wrappers under AK_HOST_COUNT like every import); `_consts`
+  renders plan.FIXED's 32-bit constants (the AK_BDR_* ops). Abi.cs and the by-name probe
+  (`abi/src/main.rs`) regenerated: ak_fsm_ev slot, n, token, data, bytes.
+- **Consumer** (`cs_host.py`, `_emit_fsm`, per root): `TryFsm(src, len, retain, out R)`,
+  `Fsm` / `FsmU`. Shares NO code with the push callbacks or the pull Replay (owner's rule): its
+  own entry path (TryFsm), its own native D20 mask `FsmPvt` (every bit; copied by
+  `ak_fsm_set_pvt_<R>` once per context), its own dispatch (`FsmDispatch(t, b, op, ev)`: switch on
+  the returned op, then on `slot >> 16` for NEW / APPLY_ELEM and on the whole slot for ADD), its own
+  run appends (`_fsm_append`, a separate renderer, EnsureCapacity first as the others). Shared,
+  as push and pull already share them: the facade side (group readers `G.D_<Msg>`, `G.Str` strict,
+  `G.Bytes`, the unknown-bag hand-over `G.Take` / `G.Drop` and the arena), the context, and
+  decision 11's arming (EnsureDec, ArmFor, Disarm). Loop: `op = begin(..., &ev); while (op > 0)
+  { if (op == APPLY) { root group; break; } FsmDispatch; op = next(..., &ev); }`; ONE `fixed`
+  spans begin and every next; each payload consumed before the next call; `_fwd` += 1 per call;
+  DecoderFallbackException -> AK_ERR_TRANSCODE; on any error the partial object is dropped;
+  UNDELIVERED as pull.
+- **[SuppressGCTransition] on begin/next:** legal in drop only. In retain the core calls the
+  host's grow (`UnkHost`, UnmanagedCallersOnly) from inside begin/next: a reverse call, which the
+  attribute forbids. In drop the FSM makes no reverse call; a call runs for at most one 32 KB arena
+  of elements (on the large rows tens of microseconds), during which a GC would wait for the
+  thread. Not rendered and not measured.
+- **Harness:** RootOps `DecFfiFsm`, `DecFfiFsmGraph`, `DecFfiPullGraph`, `TryFsmRc` /
+  `TryPullRc` / `TryPushRc`, `FfiForward`, `ReEncHost` (managed re-encoding of a graph, the value
+  comparison that does not go through the core); arm `core-ffi-fsm` (Cases.Build);
+  `AK_BDN_S10=1` = the eight arms (S9's six + core-ffi-fsm retain / drop, decode rows only);
+  `BenchDotNet --verify-fsm`; corpus `AK_CORPUS_FSM=1` (arms ffi-fsm-drop / ffi-fsm-retain, each
+  also requiring push's and pull's code and re-encoding on the row); corpus registry `DecodeFam`;
+  `gen/s10_checks.sh`, `gen/s10_tables.py`.
+- **P7.1's decode input (defect found and fixed, D48):** until this unit every C# decode row of
+  P7.1 decoded the incumbent's CONTIGUOUS re-encoding of the graph, not the committed interleaved
+  vector (SHAPES.md: P7.1 is two repeated fields interleaved; same 98 bytes, a permutation of the
+  same triples). Found because the FSM's call count (3) differed from the Rust slice's events (7).
+  Now `Cases.DecodeWire`: P7.1's decode rows decode `schema/generated/payloads/P7_1.bin` (checked
+  to be a non-identical permutation of the incumbent's bytes); Cases.Verify checks every decode
+  arm's graph of it against the incumbent's bytes. gen/counts.txt / counts-nounk.txt re-committed:
+  only the six P7.1 core-ffi decode rows changed (push rev 3 -> 7). P7.1 decode figures before
+  this unit (s9 and earlier) are of the contiguous form.
+- **Checks** (`s10/checks/checks.log`, gen/s10_checks.sh at f2797456's tree): generators current;
+  layout by name both ways + section 10, both builds, shapes and corpus cores (the plant fails);
+  Cases.Verify both builds (4,525 pre-timing checks in the full build); `--verify-fsm` both builds:
+  114 inputs (16 shapes, 6 content-set rows, 92 U-* rows), push = pull = FSM graphs (managed
+  re-encoding, retained form, and the read pass) on 228 / 114 input x mode rows, FSM calls = the
+  Rust slice's events (`logs/rust/opt/d23-fsm/checks/events-counting.txt`) on all 342, reverse
+  calls FSM = pull; malformed variants (truncations and byte flips at 48 evenly spaced positions
+  per input, ASCII set and U-* rows): 20,676 / 10,338 decodes per family, 18,626 / 9,313 refused by
+  pull with the FSM's code equal on every one, 2,050 / 1,025 accepted by all with equal graphs,
+  push's code = pull's on all; corpus with the FSM arms: ffi-fsm-drop and ffi-fsm-retain pass 680,
+  fail 0, both builds (CORPUS PASSES on all 6 / 3 arms); default corpus and --unk-controls pass;
+  four plants in the generated consumer caught (token ignored, a run's last element lost, the root
+  group not applied, an error read as the end). The counts check failed on its first run (the
+  P7.1 change above); re-committed and re-run identical (`s10/checks/counts-recommit.log`).
+  `s10/checks-v0/`: verify-fsm on the first contract (0/1 return), superseded.
+- **Counts** (`s10/checks/counts-s10.txt`, counting build, the eight-arm grid; and
+  `events-full.txt` / `events-nounk.txt`): per decode, FSM fwd = 1 reset + its calls (= events):
+  P1.1 2, P1.2 8, P1.3 3, P2.2 3,501, P2.3 876, P2.4 561, P6.1 1,401, P7.1 7, P5.1 1; pull fwd =
+  reset + parse + ak_bdr_ptr; push fwd = reset + decode, its reverse calls = the events.
+- **Eight-arm decode-read table** (`s10/ab-s10/table.md`, times only; spreads, B/op, gen0 and
+  minflt in `reference.md`): campaign harness (BDN per-case children, core-grid settings, client
+  CPUs 0,1, warm-up 25 x 40 ms, 6 rounds x 40 ms), full build, 2 reps (384 s, 381 s), quiet before
+  each (load1 0.07 / 0.48). Allocation per op is identical across push, pull and FSM on every row.
 
 ## Optimisation pass (2026-10-04; JOURNAL 74; container instrumentation, NOT gated)
 
@@ -309,6 +379,7 @@ itself does not specify.
 | D42 | (closed, WP10) | the pre-campaign timing modes of `akrpc` (in-process server) are removed |
 | D47 | (closed, 2610f847) | BDN default-toolchain children of the no-unknown host built as the full build; the baselines' no-unknown columns are the full build in drop mode (JOURNAL 74) |
 | D46 | BenchDotNet JitTiers (grouped mode) | the JIT check counts only methods compiled inside a case's span and promoted later; code first compiled before the case (Cases.Verify runs every arm first) and never promoted is not seen: on one CPU, tier-0-speed rows passed `jit check: PASS` (JOURNAL 73, logs/csharp/opt/tier-check/1cpu-grouped.*). Not fixed. Under the default toolchain no tier readback exists (JOURNAL 64); the one-CPU guard and the warm-up length are what stand in for it there |
+| D48 | (closed, D23) | every C# decode row of P7.1 decoded the incumbent's contiguous re-encoding instead of the committed interleaved vector; now Cases.DecodeWire (JOURNAL 79) |
 | D45 | (closed, D18) | the per-unit `# build ...` header line said "Unix socket ... (req 17: UDS)" over TCP; rewritten with the transport line in ebbf1f6 |
 
 ## Campaign readiness (design/CAMPAIGN.md at 3210f28; section 10 checklist)
@@ -495,6 +566,10 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 ## What is not measured or not established
 
 - **No timing in this slice is a result.** Every figure is container instrumentation.
+- D23: the FSM with `[SuppressGCTransition]` in drop (legal there, not rendered); the FSM in the
+  RPC grid; the no-unknown build's FSM timings; a C# FSM on net6.0 (net8.0 only checked); the
+  cause of the FSM's higher figures on P6.1, P4.1 and U-wire-ListMetrics (not attributed); D23's
+  checks run through gen/s10_checks.sh, not through gate.sh.
 - Whether the RPC cells (cell A's Grpc.Net path in particular) are at tier 1 when measured: the
   tier check covered codec rows only (JOURNAL 73); the RPC warm-up is the campaign's 10 x 100 ms.
 - Anything on .NET Framework 4.8 (compiled only); no floor runs the RPC suite or BDN.
@@ -531,6 +606,8 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
+00. D23: the aggregating session reads `logs/csharp/opt/s10/` (checks, counts, the eight-arm
+   table); nothing further assigned in this slice.
 0. Optimisation pass: steps 1 to 7 (with 5b) are in; the aggregating session reads
    `logs/csharp/opt/s1-s4/` and the per-step logs (`s5/`, `s5b/`, `s6/`, `s7/`). The string path's
    default stays E0 until the owner decides; gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) is due before any campaign use. D46
@@ -548,6 +625,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 | `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
 | `opt/s5/`, `opt/s5b/` | D20 (utf8_skip all bits + strict host decode) and the static decode vtable: checks (`checks.log`, the lossy-decoder control) and decode-read A/B (`ab/`, before/after, retain/drop/no-unknown) |
 | `opt/s6/` | D21 string encode paths: `sweep/`, `sweep-fine/` (one-process length x content sweep), `strlen-census.txt`, `checks.log` (quick checks at 44f4f304), `corpus-strpaths.log` (corpus under E1/E2/ETH:16 and the planted controls), `ab/` (codec encode-core-hot E0/E1/E2/ETH:256, table.md, compact.md), `ab-rpc/` (Cf-retain b, k 1 and 8, E0/ETH:256/E1) |
+| `opt/s10/` | D23: build-core.log (cores at 8030b7f9, superseded), build-core-op.log (cores at c2b95f62); checks/ (gen/s10_checks.sh: checks.log, verify-fsm-*.log, events-*.txt, corpus-*.log, counts-s10.txt, counts-recommit.log); checks-v0/ (verify-fsm on the first contract, superseded); ab-s10/ (eight arms, decode-read: table.md times only, reference.md spreads / B/op / gen0 / minflt, jsonl, BDN logs, header) |
 | `opt/s9/` | step 9a: checks-9a.log, ab-9a/ (before/after, core push retain decode-read); step 9b: ab-9b/table.md (six arms, times only), reference.md (spreads, B/op, gen0, minflt), the jsonl and BDN logs |
 | `opt/s8/` | decode attribution: tables.md (arms, split, allocation / GC / faults), *.census.txt (graph census), counts-full.txt / counts-nounk.txt (crossings per arm), full-r*/nounk-r* tsv and logs; run1-superseded/ (the first run, without hskip and the GC pause) |
 | `opt/s7/` | D21 step 7: `checks*.log` (gen/s7_checks.sh; checks4 is the final), `quick-checks.log`, `verify-mt.log` (the concurrency defects before / after), `frames/` (E1R stack per frame), `bench/` (sweep over every path, kernel probe, CPU flags, vector-width and simdutf switches, pin microbench), `e0-overhead/` (default path vs 1818d178), `threshold/` (sweep, sweep2), `ab/` (E0pre E0 E1 E1C* E1R E3; *E1C defective), `ab-fixed/` (E0 E1C E1R E1R:128, corrected build), `ab-final/`, `ab-final2/` (E1R:128 before/after the inline test), `ab-rpc/` (Cf-retain b, E0 E1R:128 E1R); `ab-INTERRUPTED/`, `ab-rpc-FAILED-E1R/` kept, not used |

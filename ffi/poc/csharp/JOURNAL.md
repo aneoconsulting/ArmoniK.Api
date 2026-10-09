@@ -2782,3 +2782,39 @@ Container instrumentation; process CPU per op; quiet wait per process. Logs `ffi
   Latin-1 and wide, the 7 U-* rows, x 6 arms. Times-only table `s9/ab-9b/table.md`; spreads,
   allocation, gen0 and minflt `s9/ab-9b/reference.md` (P5.2 to P5.4 are bimodal across reps, as
   in every earlier run; P2.3 core push retain 1232-1642).
+
+## 79. D23: the FSM decode family's C# consumer, checks and the eight-arm decode table (2026-10-09)
+
+Container instrumentation; process CPU per op. Logs `ffi/logs/csharp/opt/s10/`.
+
+- **Built** against plan.py's FSM contract (core 8030b7f9), then rebuilt on the owner's
+  amendment (core c2b95f62: begin/next RETURN the op, `op` removed from ak_fsm_ev, which became
+  slot, n, token, data, bytes). cs_binding: `fsm_imports` from plan.fsm_entry_points, FIXED's
+  32-bit constants rendered (AK_BDR_*). cs_host: `_emit_fsm`, its own entry (TryFsm), mask
+  (FsmPvt via ak_fsm_set_pvt_<R>, once per context), dispatch (FsmDispatch on the returned op)
+  and run appends (`_fsm_append`, a renderer separate from push/pull's `_add_body`); the facade
+  side (G.D_*, G.Str, Take/Drop, the arena) and decision 11's arming are shared, as push and pull
+  share them. One `fixed` over begin and every next. SuppressGCTransition: illegal in retain
+  (grow is a reverse call from inside begin/next), legal in drop; not rendered.
+- **First contract, first run** (`s10/checks-v0/`): --verify-fsm passed both builds except
+  P7.1, where the FSM made 3 calls and the Rust slice counts 7 events for the same 98 bytes.
+  Cause: this slice's codec suite decoded the INCUMBENT's re-encoding of P7.1's graph, which is
+  contiguous, not the committed interleaved vector (SHAPES.md P7.1). Every C# decode figure of
+  P7.1 before this entry is of the contiguous form. Fixed (Cases.DecodeWire: P7.1's decode rows
+  decode schema/generated/payloads/P7_1.bin, checked to be a non-identical permutation;
+  Cases.Verify checks every decode arm's graph of it); 0 failures after.
+- **Amended contract**: regenerated (Abi.cs, the probe), cores rebuilt at c2b95f62,
+  gen/s10_checks.sh: everything passed except the committed-counts diff, which was exactly the
+  six P7.1 core-ffi decode rows (push rev 3 -> 7); counts re-committed and re-run identical. FSM
+  calls = the Rust slice's events on all 342 input x mode rows (both builds); graphs push = pull
+  = FSM on every input; 31,014 malformed decodes per family over both builds, the FSM's code =
+  pull's on every one (push's too); corpus FSM arms 680 pass / 0 fail per arm, both builds; four
+  plants caught.
+- **Timed** (`s10/ab-s10/`, at f2797456, 2 reps, 384 / 381 s, quiet before each): eight arms x
+  25 rows. Where the FSM's medians lie above push's and pull's in both modes: P6.1 (FSM 303-316
+  us median, ranges 297-565; push 246-252, pull 245-246), U-wire-ListMetricsResponse (3.02-3.20 us
+  vs 2.60-2.65), P7.1 (0.64-0.66 vs 0.52-0.62), and P4.1 drop (306, range 287-619, against 287 /
+  264). Elsewhere the FSM's medians fall inside the spread of push's and pull's (P1.x, P2.x, P3.1,
+  the small U-* rows), or the rows are bimodal across reps as in every earlier run (P5.2 to P5.4).
+  Allocation per op is identical across the three families on every row. Not attributed (no
+  profile run); the Rust slice reports the same pattern on the packed rows (its JOURNAL, D23).
