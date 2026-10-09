@@ -2873,3 +2873,31 @@ Correctness only; nothing timed (owner: the Rust agent works in parallel). Logs
 - **Gate:** the full gate at 1a5ccaea from a clean worktree PASSED on both h2 variants
   (`d24/gate-stock.log`, `d24/gate-h2-batch.log`): net8.0 and net6.0, net48 compiled, both builds,
   counts, step 10 (byte identity, the FSM differential, four FSM plants caught).
+
+## 82. s12: [SuppressGCTransition] on the FSM's begin / next (2026-10-09)
+
+Container instrumentation. Logs `ffi/logs/csharp/opt/s12-sgt/`.
+
+- Built as a second import set (`_sgt` twins of begin / next, NET5+) and a switch in the FSM
+  consumer (`TryFsmSgt`, `FsmRun` with two loops). Attributed calls: drop and the no-unknown build
+  only, never retain (grow is a reverse call), never a context's first FSM decode (it allocates
+  the FSM state). LibraryImport accepted the attribute (the build compiles and the attributed arm
+  measures differently from the plain one).
+- Checks: gen/s10_checks.sh plain and with AK_FSM_SGT=1 both passed; a plant in the attributed
+  loop only was caught under AK_FSM_SGT=1; counting builds: 49 % (full; retain and first decodes
+  plain) and 97 % (no-unknown) of the FSM calls of --verify-fsm went through the attributed imports.
+- Longest single call (plain import, per event the minimum over 30 decodes): P1.2 11.3 us (drop)
+  and 17.5-17.7 us (no-unknown; 5 calls per decode there), P3.1 6.0-6.1 us, P1.3 1.09-1.25 us;
+  all other rows 0.05-0.84 us.
+- Crossing microbench (raw loop, no dispatch, CPUs 0,1, 6 rounds x 40 ms, two processes per
+  build): P7.1 (7 calls) plain 154-156 ns / decode, attributed 142-144 ns (full build), 145-147 /
+  137-139 ns (no-unknown); empty element (begin + next) plain 31.3-32.5 ns, attributed
+  22.2-24.7 ns. Per call: 20.7-22.3 ns plain against 19.5-20.6 ns (P7.1), 15.7-16.3 against
+  11.1-12.3 ns (empty element).
+- Grid (2 reps): the attributed arm's per-rep medians lie below both of the plain arm's on P6.1
+  (drop 224-227 us against 243-250; no-unknown 221-224 against 235-245), P7.1 (0.54 against
+  0.62-0.65 us drop; 0.48-0.50 against 0.56 no-unknown), P5.1, P2.3, U-deep-u-repeated,
+  U-oneof-u-repeated, U-wire-DualResponse, U-wire-ListMetrics, U-wire-UploadResultData, and on
+  P2.2, P2.5 and P5.2 in drop only; above both on P1.1, P1.2, P2.2/wide and P5.3 in drop and P1.3,
+  P2.4 in no-unknown; the rest overlap. One process per arm and mode, two reps: a row's verdict
+  rests on two medians per arm.

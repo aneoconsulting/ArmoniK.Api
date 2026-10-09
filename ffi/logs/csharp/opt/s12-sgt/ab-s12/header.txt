@@ -1,0 +1,8 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit 3a90feca; 2026-10-09T18:36:41Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=decode-read AK_BDN_NO_UNKNOWN= AK_BDN_ARMS= AK_BDN_DROP=; builds full nounk; reps 2 (order alternated)
+# cores: target-core 7b8ed0b888940ab7, target-core-nounk 17dbc6ebe8b31736; reps 1..2 in this invocation
+# variant s12: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_BDN_S12=1 at 3a90feca
+# rep 1 s12 full: rc=0 177 s; quiet: load1 0.12, no process above 10 % (waited 390 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 s12 nounk: rc=0 136 s; quiet: load1 0.47, no process above 10 % (waited 65 s); # correctness:    3309 pre-timing checks passed (byte identi
+# rep 2 s12 full: rc=0 179 s; quiet: load1 0.49, no process above 10 % (waited 50 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 2 s12 nounk: rc=0 117 s; quiet: load1 0.48, no process above 10 % (waited 55 s); # correctness:    3309 pre-timing checks passed (byte identi

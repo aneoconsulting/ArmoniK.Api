@@ -1,0 +1,4 @@
+# rep 1 full: load1 0.48 before; 18:57:25
+# rep 1 nounk: load1 0.48 before; 18:57:35
+# rep 2 full: load1 0.47 before; 18:57:55
+# rep 2 nounk: load1 0.47 before; 18:58:06
