@@ -1,0 +1,78 @@
+# boundary-call counts, arm core-ffi-rust
+#   counting build: YES
+#   guard:          on
+
+payload class    direction  elements  forward  reverse  crossings  transc           prefix  grows
+P1.1    real     enc cold          4        2        1          3      24        1 (207 B)      0
+P1.1    real     enc warm          4        2        1          3      24                0      0
+                   per elem                                  0.750                                
+P1.1    real     decode            4        1        2          3       0                0      0
+                   per elem                                  0.750                                
+P1.2    real     enc cold       1000        8        1          9    6000        1 (207 B)      0
+P1.2    real     enc warm       1000        8        1          9    6000                0      0
+                   per elem                                  0.009                                
+P1.2    real     decode         1000        1        8          9       0                0      0
+                   per elem                                  0.009                                
+P1.3    real     enc cold        300        3        1          4       0                0      0
+P1.3    real     enc warm        300        3        1          4       0                0      0
+                   per elem                                  0.013                                
+P1.3    real     decode          300        1        3          4       0                0      0
+                   per elem                                  0.013                                
+P2.1    real     enc cold          1        7        6         13      35       2 (1209 B)      0
+P2.1    real     enc warm          1        7        6         13      35                0      0
+                   per elem                                 13.000                                
+P2.1    real     decode            1        1        8          9       0                0      0
+                   per elem                                  9.000                                
+P2.2    real     enc cold        500     2511     2501       5012   17167       2 (1209 B)      0
+P2.2    real     enc warm        500     2511     2501       5012   17167                0      0
+                   per elem                                 10.024                                
+P2.2    real     decode          500        1     3501       3502       0                0      0
+                   per elem                                  7.004                                
+P2.3    real     enc cold        125      629      626       1255   17792       2 (5313 B)      0
+P2.3    real     enc warm        125      629      626       1255   17792                0      0
+                   per elem                                 10.040                                
+P2.3    real     decode          125        1      876        877       0                0      0
+                   per elem                                  7.016                                
+P2.4    real     enc cold         80      403      401        804   26267    81 (979360 B)      0
+P2.4    real     enc warm         80      403      401        804   26267    80 (979181 B)      0
+                   per elem                                 10.050                                
+P2.4    real     decode           80        1      561        562       0                0      0
+                   per elem                                  7.025                                
+P2.5    real     enc cold         20      102      101        203     640       2 (1100 B)      0
+P2.5    real     enc warm         20      102      101        203     640                0      0
+                   per elem                                 10.150                                
+P2.5    real     decode           20        1      141        142       0                0      0
+                   per elem                                  7.100                                
+P3.1    real     enc cold        200        2        1          3     430                0      0
+P3.1    real     enc warm        200        2        1          3     430                0      0
+                   per elem                                  0.015                                
+P3.1    real     decode          200        1        2          3       0                0      0
+                   per elem                                  0.015                                
+
+# length-prefix misses by site, warm context (ABI v1 open decision 5)
+#   a site is one length-prefix call site in the generated codec. Its learned
+#   width is per context and starts at one byte.
+
+  P1.2   1000 elements: no misses in the warm pass
+  P2.2   500 elements: no misses in the warm pass
+  P2.4   80 elements, 80 misses in one warm pass:
+          80  1.00/el  loop/ListTasksDetailedResponse/tasks
+
+# regression: a warm context must not miss on a UNIFORM payload
+#   P1.2   warm misses = 0 ok
+#   P2.2   warm misses = 0 ok
+#   P2.3   warm misses = 0 ok
+#   P2.5   warm misses = 0 ok
+
+# `crossings` is forward + reverse: calls that leave one side's compilation unit.
+# `transc` counts transcoder invocations, which are indirect calls the core makes
+#   into ITSELF (ABI v1 section 4 puts every representation in the core), so they
+#   are not host crossings. Counting them together is what made the drafted
+#   interface look like 15,137 calls on a 1,000-row response.
+# `prefix` counts length-placeholder resizes: ABI v1 open decision 5. `enc cold`
+#   is a context whose learned widths have never been set, `enc warm` the steady
+#   state. P2.4 alternates element bodies across a varint length boundary by
+#   construction, so a per-site learned width is wrong on every element of it:
+#   that row is the one decision 5 turns on.
+# M1's element type is a LEAF, so its rows batch. M2's is not (ABI v1 7.2), so
+#   M2 costs two calls per element plus one run per repeated field it carries.

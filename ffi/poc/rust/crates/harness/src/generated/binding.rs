@@ -7805,3 +7805,1473 @@ pub fn parse_walk_opaque_with_dual_response(
     };
     if rc < 0 { Err(rc) } else { Ok(out) }
 }
+
+
+// ====================================================================================
+// FIX-PLAN D23: the FSM decode family, host side (rendered by gen/rust_fsm.py).
+// ====================================================================================
+
+/// What `fsm_diff_*` found: pull's log against the FSM's events, record for record.
+#[derive(Debug, Default, Clone)]
+pub struct FsmDiff {
+    pub pull_rc: i32,
+    pub fsm_rc: i32,
+    pub records: usize,
+    pub events: usize,
+    /// begin + next calls the FSM decode made (= events, or events + 1 on an error).
+    pub calls: usize,
+    /// Counting build: forward / reverse crossings of the pull parse and of the FSM decode.
+    pub pull_fwd: u64,
+    pub pull_rev: u64,
+    pub fsm_fwd: u64,
+    pub fsm_rev: u64,
+    /// The first difference, or None.
+    pub mismatch: Option<String>,
+}
+
+// Deterministic unknown-field buffers for the differential: a bump arena reset
+// before each family's decode, so the same grow sequence gives the same pointers
+// and capacities, and the arena's bytes after each decode can be compared.
+thread_local! {
+    static FSM_BUMP: ::core::cell::RefCell<(Vec<u64>, usize)> = ::core::cell::RefCell::new((Vec::new(), 0));
+}
+const FSM_BUMP_WORDS: usize = 8 << 20; // 64 MiB
+fn fsm_bump_reset() {
+    FSM_BUMP.with(|b| {
+        let mut b = b.borrow_mut();
+        if b.0.len() < FSM_BUMP_WORDS { b.0.resize(FSM_BUMP_WORDS, 0); }
+        let used = b.1;
+        b.0[..used].fill(0);
+        b.1 = 0;
+    });
+}
+fn fsm_bump_snapshot() -> Vec<u64> {
+    FSM_BUMP.with(|b| { let b = b.borrow(); b.0[..b.1].to_vec() })
+}
+/// `ak_grow_fn` over the bump arena (realloc semantics: the old bytes are copied).
+pub unsafe extern "C" fn fsm_bump_grow(_host: *mut c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
+    if want <= 0 { return AK_ERR_LIMIT; }
+    FSM_BUMP.with(|b| {
+        let mut b = b.borrow_mut();
+        let words = (want as usize).div_ceil(8);
+        if b.1 + words > b.0.len() { return AK_ERR_LIMIT; }
+        let at = b.1;
+        b.1 += words;
+        let p = b.0.as_mut_ptr().add(at) as *mut u8;
+        if !(*dst).is_null() && *cap > 0 { ::core::ptr::copy_nonoverlapping(*dst, p, *cap as usize); }
+        *dst = p;
+        *cap = want;
+        AK_OK
+    })
+}
+
+/// A pull record or an FSM event, as compared: (op, slot, token, n, payload).
+type FsmRow = (u32, u32, i64, u32, Vec<u8>);
+
+fn fsm_rows_cmp(pull: &[FsmRow], fsm: &[FsmRow]) -> Option<String> {
+    for (i, (a, b)) in pull.iter().zip(fsm.iter()).enumerate() {
+        if (a.0, a.1, a.2, a.3) != (b.0, b.1, b.2, b.3) {
+            return Some(format!("record {i}: pull (op {}, slot {:#x}, token {}, n {}) fsm (op {}, slot {:#x}, token {}, n {})", a.0, a.1, a.2, a.3, b.0, b.1, b.2, b.3));
+        }
+        // pull pads its payload to 8 with zeros; the FSM's `bytes` is exact.
+        let pad = (b.4.len() + 7) & !7;
+        if a.4.len() != pad || a.4[..b.4.len()] != b.4[..] || a.4[b.4.len()..].iter().any(|&x| x != 0) {
+            let at: Vec<usize> = (0..b.4.len().min(a.4.len())).filter(|&k| a.4[k] != b.4[k]).take(16).collect();
+            return Some(format!("record {i} (op {}, slot {:#x}): payload differs ({} B pull, {} B fsm; first differing byte offsets {:?})", a.0, a.1, a.4.len(), b.4.len(), at));
+        }
+    }
+    if pull.len() != fsm.len() {
+        return Some(format!("{} pull records, {} FSM events", pull.len(), fsm.len()));
+    }
+    None
+}
+
+unsafe fn fsm_counters(ctx: *mut ak_dec_ctx) -> (u64, u64) {
+    let mut c = AkCounters::default();
+    ak_dec_counters(ctx, &mut c);
+    (c.forward, c.reverse)
+}
+
+unsafe fn fsm_canon_dual_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_DualResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_DualResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_DualResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_DualResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_duration(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Duration, seconds)), d.add(::core::mem::offset_of!(ak_dfix_Duration, seconds)), ::core::mem::size_of::<i64>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Duration, nanos)), d.add(::core::mem::offset_of!(ak_dfix_Duration, nanos)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Duration, unknown)), d.add(::core::mem::offset_of!(ak_dfix_Duration, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Duration, presence)), d.add(::core::mem::offset_of!(ak_dfix_Duration, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_empty(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Empty, unknown)), d.add(::core::mem::offset_of!(ak_dfix_Empty, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Empty, presence)), d.add(::core::mem::offset_of!(ak_dfix_Empty, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_list_metrics_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListMetricsResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ListMetricsResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListMetricsResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_ListMetricsResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_list_probe_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListProbeResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ListProbeResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListProbeResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_ListProbeResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_list_results_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, page)), d.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, page)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, total)), d.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, total)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_ListResultsResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_list_task_summary_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTaskSummaryResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ListTaskSummaryResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTaskSummaryResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_ListTaskSummaryResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_list_tasks_detailed_response(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, page)), d.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, page)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, total)), d.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, total)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, presence)), d.add(::core::mem::offset_of!(ak_dfix_ListTasksDetailedResponse, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_metrics_batch(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, id)), d.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, unknown)), d.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, presence)), d.add(::core::mem::offset_of!(ak_dfix_MetricsBatch, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_pair(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Pair, key)), d.add(::core::mem::offset_of!(ak_dfix_Pair, key)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Pair, value)), d.add(::core::mem::offset_of!(ak_dfix_Pair, value)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Pair, unknown)), d.add(::core::mem::offset_of!(ak_dfix_Pair, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Pair, presence)), d.add(::core::mem::offset_of!(ak_dfix_Pair, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_probe(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, id)), d.add(::core::mem::offset_of!(ak_dfix_Probe, id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, opt_count)), d.add(::core::mem::offset_of!(ak_dfix_Probe, opt_count)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, opt_label)), d.add(::core::mem::offset_of!(ak_dfix_Probe, opt_label)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, opt_flag)), d.add(::core::mem::offset_of!(ak_dfix_Probe, opt_flag)), ::core::mem::size_of::<u8>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_case)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_case)), ::core::mem::size_of::<u32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_int)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_int)), ::core::mem::size_of::<i64>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_text)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_text)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_blob)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_blob)), ::core::mem::size_of::<ak_span>());
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_stamp)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_stamp)));
+    fsm_canon_empty(s.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_nothing)), d.add(::core::mem::offset_of!(ak_dfix_Probe, body_as_nothing)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, unknown)), d.add(::core::mem::offset_of!(ak_dfix_Probe, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Probe, presence)), d.add(::core::mem::offset_of!(ak_dfix_Probe, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_result_raw(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, session_id)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, session_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, name)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, name)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, owner_task_id)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, owner_task_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, status)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, status)), ::core::mem::size_of::<i32>());
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, created_at)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, created_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, completed_at)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, completed_at)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, result_id)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, result_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, size)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, size)), ::core::mem::size_of::<i64>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, created_by)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, created_by)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, opaque_id)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, opaque_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, manual_deletion)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, manual_deletion)), ::core::mem::size_of::<u8>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, unknown)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_ResultRaw, presence)), d.add(::core::mem::offset_of!(ak_dfix_ResultRaw, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_task_detailed(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, id)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, session_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, session_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, owner_pod_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, owner_pod_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, status)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, status)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, status_message)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, status_message)), ::core::mem::size_of::<ak_span>());
+    fsm_canon_task_options(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, options)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, options)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, created_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, created_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, submitted_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, submitted_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, started_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, started_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, ended_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, ended_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, pod_ttl)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, pod_ttl)));
+    fsm_canon_task_output(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, output)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, output)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, pod_hostname)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, pod_hostname)), ::core::mem::size_of::<ak_span>());
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, received_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, received_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, acquired_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, acquired_at)));
+    fsm_canon_duration(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, creation_to_end_duration)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, creation_to_end_duration)));
+    fsm_canon_duration(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, processing_to_end_duration)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, processing_to_end_duration)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, initial_task_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, initial_task_id)), ::core::mem::size_of::<ak_span>());
+    fsm_canon_duration(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, received_to_end_duration)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, received_to_end_duration)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, processed_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, processed_at)));
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, fetched_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, fetched_at)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, payload_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, payload_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, created_by)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, created_by)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, unknown)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, presence)), d.add(::core::mem::offset_of!(ak_dfix_TaskDetailed, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_task_options(s: *const u8, d: *mut u8) {
+    fsm_canon_duration(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, max_duration)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, max_duration)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, max_retries)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, max_retries)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, priority)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, priority)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, partition_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, partition_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_name)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_name)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_version)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_version)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_namespace)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_namespace)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_service)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, application_service)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, engine_type)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, engine_type)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, unknown)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptions, presence)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptions, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_task_options_options_entry(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, key)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, key)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, value)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, value)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, unknown)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, presence)), d.add(::core::mem::offset_of!(ak_dfix_TaskOptionsOptionsEntry, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_task_output(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOutput, success)), d.add(::core::mem::offset_of!(ak_dfix_TaskOutput, success)), ::core::mem::size_of::<u8>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOutput, error)), d.add(::core::mem::offset_of!(ak_dfix_TaskOutput, error)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOutput, unknown)), d.add(::core::mem::offset_of!(ak_dfix_TaskOutput, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskOutput, presence)), d.add(::core::mem::offset_of!(ak_dfix_TaskOutput, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_task_summary(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, id)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, session_id)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, session_id)), ::core::mem::size_of::<ak_span>());
+    fsm_canon_task_options(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, options)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, options)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, status)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, status)), ::core::mem::size_of::<i32>());
+    fsm_canon_timestamp(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, created_at)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, created_at)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, error)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, error)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, status_message)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, status_message)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, count_data_dependencies)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, count_data_dependencies)), ::core::mem::size_of::<i64>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, unknown)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_TaskSummary, presence)), d.add(::core::mem::offset_of!(ak_dfix_TaskSummary, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_timestamp(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Timestamp, seconds)), d.add(::core::mem::offset_of!(ak_dfix_Timestamp, seconds)), ::core::mem::size_of::<i64>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Timestamp, nanos)), d.add(::core::mem::offset_of!(ak_dfix_Timestamp, nanos)), ::core::mem::size_of::<i32>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Timestamp, unknown)), d.add(::core::mem::offset_of!(ak_dfix_Timestamp, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_Timestamp, presence)), d.add(::core::mem::offset_of!(ak_dfix_Timestamp, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_upload_result_data(s: *const u8, d: *mut u8) {
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultData, session_id)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultData, session_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultData, result_id)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultData, result_id)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultData, data_chunk)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultData, data_chunk)), ::core::mem::size_of::<ak_span>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultData, unknown)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultData, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultData, presence)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultData, presence)), ::core::mem::size_of::<u32>());
+}
+
+unsafe fn fsm_canon_upload_result_data_message(s: *const u8, d: *mut u8) {
+    fsm_canon_upload_result_data(s.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, upload)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, upload)));
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, unknown)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, unknown)), ::core::mem::size_of::<ak_unk_buf>());
+    ::core::ptr::copy_nonoverlapping(s.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, presence)), d.add(::core::mem::offset_of!(ak_dfix_UploadResultDataMessage, presence)), ::core::mem::size_of::<u32>());
+}
+
+/// `n` groups of `size` bytes at `body`, padding zeroed by `f`; the rest of `body` as is.
+fn fsm_canon_run(body: &[u8], n: usize, size: usize, f: unsafe fn(*const u8, *mut u8)) -> Vec<u8> {
+    let mut out = vec![0u8; body.len()];
+    let k = n * size;
+    if k <= body.len() {
+        for i in 0..n { unsafe { f(body.as_ptr().add(i * size), out.as_mut_ptr().add(i * size)); } }
+        out[k..].copy_from_slice(&body[k..]);
+        out
+    } else {
+        body.to_vec()
+    }
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_list_results_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_ListResultsResponse>(), fsm_canon_list_results_response),
+        (AK_BDR_ADD, 1) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_ResultRaw>(), fsm_canon_result_raw),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_list_results_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_list_results_response(ctx, sink, ev.data as *const ak_dfix_ListResultsResponse),
+        (AK_BDR_ADD, 1) => add_list_results_response_results(ctx, sink, ev.token, ev.data as *const ak_dfix_ResultRaw, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `ListResultsResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_list_results_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    let ctx = ctxs.list_results_response;
+    let mut out = ListResultsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkListResultsResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListResultsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_list_results_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_ListResultsResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_list_results_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    disarm_list_results_response(ctxs);
+    fsm_with_list_results_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_list_results_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListResultsResponse, i32> {
+    let rc = arm_list_results_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_list_results_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_list_results_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_list_results_response_unk(ctxs, b), fsm_with_list_results_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_list_results_response(ctxs, b), fsm_with_list_results_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_list_results_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.list_results_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_ListResultsResponse { utf8_skip: sk };
+        ak_dec_set_pvt_ListResultsResponse(ctx, &pvt);
+        ak_fsm_set_pvt_ListResultsResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_ListResultsResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.results.grow = Some(fsm_bump_grow);
+            opts.results_created_at.grow = Some(fsm_bump_grow);
+            opts.results_completed_at.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_ListResultsResponse(ctx, opts) } else { ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_list_results_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_ListResultsResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_list_results_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_list_results_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListResultsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_results_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_ListResultsResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_ListResultsResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).list_results_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_ListResultsResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_ListResultsResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_list_tasks_detailed_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>(), fsm_canon_list_tasks_detailed_response),
+        (AK_BDR_APPLY_ELEM, 65536) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_TaskDetailed>(), fsm_canon_task_detailed),
+        (AK_BDR_ADD, 65541) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(), fsm_canon_task_options_options_entry),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_list_tasks_detailed_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_list_tasks_detailed_response(ctx, sink, ev.data as *const ak_dfix_ListTasksDetailedResponse),
+        (AK_BDR_NEW, 65536) => toks.push(new_list_tasks_detailed_response_tasks(ctx, sink)),
+        (AK_BDR_APPLY_ELEM, 65536) => apply_list_tasks_detailed_response_tasks(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskDetailed),
+        (AK_BDR_ADD, 65537) => add_list_tasks_detailed_response_tasks_parent_task_ids(ctx, sink, toks[ev.token as usize], ev.data as *const ak_span, ev.n as i32),
+        (AK_BDR_ADD, 65538) => add_list_tasks_detailed_response_tasks_data_dependencies(ctx, sink, toks[ev.token as usize], ev.data as *const ak_span, ev.n as i32),
+        (AK_BDR_ADD, 65539) => add_list_tasks_detailed_response_tasks_expected_output_ids(ctx, sink, toks[ev.token as usize], ev.data as *const ak_span, ev.n as i32),
+        (AK_BDR_ADD, 65540) => add_list_tasks_detailed_response_tasks_retry_of_ids(ctx, sink, toks[ev.token as usize], ev.data as *const ak_span, ev.n as i32),
+        (AK_BDR_ADD, 65541) => add_list_tasks_detailed_response_tasks_options_options(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskOptionsOptionsEntry, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `ListTasksDetailedResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_list_tasks_detailed_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    let ctx = ctxs.list_tasks_detailed_response;
+    let mut out = ListTasksDetailedResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkListTasksDetailedResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_list_tasks_detailed_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    disarm_list_tasks_detailed_response(ctxs);
+    fsm_with_list_tasks_detailed_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_list_tasks_detailed_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTasksDetailedResponse, i32> {
+    let rc = arm_list_tasks_detailed_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_list_tasks_detailed_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_list_tasks_detailed_response_unk(ctxs, b), fsm_with_list_tasks_detailed_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_list_tasks_detailed_response(ctxs, b), fsm_with_list_tasks_detailed_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.list_tasks_detailed_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_ListTasksDetailedResponse { utf8_skip: sk };
+        ak_dec_set_pvt_ListTasksDetailedResponse(ctx, &pvt);
+        ak_fsm_set_pvt_ListTasksDetailedResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_ListTasksDetailedResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.tasks.grow = Some(fsm_bump_grow);
+            opts.tasks_options.grow = Some(fsm_bump_grow);
+            opts.tasks_options_options.grow = Some(fsm_bump_grow);
+            opts.tasks_options_max_duration.grow = Some(fsm_bump_grow);
+            opts.tasks_created_at.grow = Some(fsm_bump_grow);
+            opts.tasks_submitted_at.grow = Some(fsm_bump_grow);
+            opts.tasks_started_at.grow = Some(fsm_bump_grow);
+            opts.tasks_ended_at.grow = Some(fsm_bump_grow);
+            opts.tasks_pod_ttl.grow = Some(fsm_bump_grow);
+            opts.tasks_output.grow = Some(fsm_bump_grow);
+            opts.tasks_received_at.grow = Some(fsm_bump_grow);
+            opts.tasks_acquired_at.grow = Some(fsm_bump_grow);
+            opts.tasks_creation_to_end_duration.grow = Some(fsm_bump_grow);
+            opts.tasks_processing_to_end_duration.grow = Some(fsm_bump_grow);
+            opts.tasks_received_to_end_duration.grow = Some(fsm_bump_grow);
+            opts.tasks_processed_at.grow = Some(fsm_bump_grow);
+            opts.tasks_fetched_at.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_ListTasksDetailedResponse(ctx, opts) } else { ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_list_tasks_detailed_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_list_tasks_detailed_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_list_tasks_detailed_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTasksDetailedResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_tasks_detailed_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_ListTasksDetailedResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).list_tasks_detailed_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_ListTasksDetailedResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_ListTasksDetailedResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_list_probe_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_ListProbeResponse>(), fsm_canon_list_probe_response),
+        (AK_BDR_ADD, 1) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_Probe>(), fsm_canon_probe),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_list_probe_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_list_probe_response(ctx, sink, ev.data as *const ak_dfix_ListProbeResponse),
+        (AK_BDR_ADD, 1) => add_list_probe_response_probes(ctx, sink, ev.token, ev.data as *const ak_dfix_Probe, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `ListProbeResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_list_probe_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    let ctx = ctxs.list_probe_response;
+    let mut out = ListProbeResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkListProbeResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListProbeResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_list_probe_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_ListProbeResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_list_probe_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    disarm_list_probe_response(ctxs);
+    fsm_with_list_probe_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_list_probe_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListProbeResponse, i32> {
+    let rc = arm_list_probe_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_list_probe_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_list_probe_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_list_probe_response_unk(ctxs, b), fsm_with_list_probe_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_list_probe_response(ctxs, b), fsm_with_list_probe_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_list_probe_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.list_probe_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_ListProbeResponse { utf8_skip: sk };
+        ak_dec_set_pvt_ListProbeResponse(ctx, &pvt);
+        ak_fsm_set_pvt_ListProbeResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_ListProbeResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.probes.grow = Some(fsm_bump_grow);
+            opts.probes_body.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_ListProbeResponse(ctx, opts) } else { ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_list_probe_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_ListProbeResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_list_probe_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_list_probe_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListProbeResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_probe_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_ListProbeResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_ListProbeResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).list_probe_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_ListProbeResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_ListProbeResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_list_task_summary_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>(), fsm_canon_list_task_summary_response),
+        (AK_BDR_APPLY_ELEM, 65536) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_TaskSummary>(), fsm_canon_task_summary),
+        (AK_BDR_ADD, 65537) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>(), fsm_canon_task_options_options_entry),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_list_task_summary_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_list_task_summary_response(ctx, sink, ev.data as *const ak_dfix_ListTaskSummaryResponse),
+        (AK_BDR_NEW, 65536) => toks.push(new_list_task_summary_response_tasks(ctx, sink)),
+        (AK_BDR_APPLY_ELEM, 65536) => apply_list_task_summary_response_tasks(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskSummary),
+        (AK_BDR_ADD, 65537) => add_list_task_summary_response_tasks_options_options(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_TaskOptionsOptionsEntry, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `ListTaskSummaryResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_list_task_summary_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    let ctx = ctxs.list_task_summary_response;
+    let mut out = ListTaskSummaryResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkListTaskSummaryResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_list_task_summary_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_list_task_summary_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    disarm_list_task_summary_response(ctxs);
+    fsm_with_list_task_summary_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_list_task_summary_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListTaskSummaryResponse, i32> {
+    let rc = arm_list_task_summary_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_list_task_summary_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_list_task_summary_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_list_task_summary_response_unk(ctxs, b), fsm_with_list_task_summary_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_list_task_summary_response(ctxs, b), fsm_with_list_task_summary_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_list_task_summary_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.list_task_summary_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_ListTaskSummaryResponse { utf8_skip: sk };
+        ak_dec_set_pvt_ListTaskSummaryResponse(ctx, &pvt);
+        ak_fsm_set_pvt_ListTaskSummaryResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_ListTaskSummaryResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.tasks.grow = Some(fsm_bump_grow);
+            opts.tasks_options.grow = Some(fsm_bump_grow);
+            opts.tasks_options_options.grow = Some(fsm_bump_grow);
+            opts.tasks_options_max_duration.grow = Some(fsm_bump_grow);
+            opts.tasks_created_at.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_ListTaskSummaryResponse(ctx, opts) } else { ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_list_task_summary_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_list_task_summary_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_list_task_summary_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListTaskSummaryResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_task_summary_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_ListTaskSummaryResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).list_task_summary_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_ListTaskSummaryResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_ListTaskSummaryResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_upload_result_data_message(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>(), fsm_canon_upload_result_data_message),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_upload_result_data_message(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_upload_result_data_message(ctx, sink, ev.data as *const ak_dfix_UploadResultDataMessage),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `UploadResultDataMessage` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_upload_result_data_message_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    let ctx = ctxs.upload_result_data_message;
+    let mut out = UploadResultDataMessage::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkUploadResultDataMessage { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_UploadResultDataMessage(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_upload_result_data_message(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_upload_result_data_message(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    disarm_upload_result_data_message(ctxs);
+    fsm_with_upload_result_data_message_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_upload_result_data_message_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<UploadResultDataMessage, i32> {
+    let rc = arm_upload_result_data_message(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_upload_result_data_message_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_upload_result_data_message(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_upload_result_data_message_unk(ctxs, b), fsm_with_upload_result_data_message_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_upload_result_data_message(ctxs, b), fsm_with_upload_result_data_message(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_upload_result_data_message(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.upload_result_data_message;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_UploadResultDataMessage { utf8_skip: sk };
+        ak_dec_set_pvt_UploadResultDataMessage(ctx, &pvt);
+        ak_fsm_set_pvt_UploadResultDataMessage(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_UploadResultDataMessage_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.upload.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_UploadResultDataMessage(ctx, opts) } else { ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_upload_result_data_message(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_UploadResultDataMessage(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_upload_result_data_message(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_upload_result_data_message(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_UploadResultDataMessage(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_upload_result_data_message(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_UploadResultDataMessage(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).upload_result_data_message_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_UploadResultDataMessage(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_UploadResultDataMessage(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_list_metrics_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_ListMetricsResponse>(), fsm_canon_list_metrics_response),
+        (AK_BDR_APPLY_ELEM, 65536) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_MetricsBatch>(), fsm_canon_metrics_batch),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_list_metrics_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_list_metrics_response(ctx, sink, ev.data as *const ak_dfix_ListMetricsResponse),
+        (AK_BDR_NEW, 65536) => toks.push(new_list_metrics_response_batches(ctx, sink)),
+        (AK_BDR_APPLY_ELEM, 65536) => apply_list_metrics_response_batches(ctx, sink, toks[ev.token as usize], ev.data as *const ak_dfix_MetricsBatch),
+        (AK_BDR_ADD, 65537) => add_list_metrics_response_batches_ticks(ctx, sink, toks[ev.token as usize], ev.data as *const i64, ev.n as i32),
+        (AK_BDR_ADD, 65538) => add_list_metrics_response_batches_values(ctx, sink, toks[ev.token as usize], ev.data as *const f64, ev.n as i32),
+        (AK_BDR_ADD, 65539) => add_list_metrics_response_batches_codes(ctx, sink, toks[ev.token as usize], ev.data as *const i32, ev.n as i32),
+        (AK_BDR_ADD, 65540) => add_list_metrics_response_batches_flags(ctx, sink, toks[ev.token as usize], ev.data as *const u8, ev.n as i32),
+        (AK_BDR_ADD, 65541) => add_list_metrics_response_batches_statuses(ctx, sink, toks[ev.token as usize], ev.data as *const i32, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `ListMetricsResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_list_metrics_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    let ctx = ctxs.list_metrics_response;
+    let mut out = ListMetricsResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkListMetricsResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListMetricsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_list_metrics_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_ListMetricsResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_list_metrics_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    disarm_list_metrics_response(ctxs);
+    fsm_with_list_metrics_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_list_metrics_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<ListMetricsResponse, i32> {
+    let rc = arm_list_metrics_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_list_metrics_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_list_metrics_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_list_metrics_response_unk(ctxs, b), fsm_with_list_metrics_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_list_metrics_response(ctxs, b), fsm_with_list_metrics_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_list_metrics_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.list_metrics_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_ListMetricsResponse { utf8_skip: sk };
+        ak_dec_set_pvt_ListMetricsResponse(ctx, &pvt);
+        ak_fsm_set_pvt_ListMetricsResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_ListMetricsResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.batches.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_ListMetricsResponse(ctx, opts) } else { ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_list_metrics_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_ListMetricsResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_list_metrics_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_list_metrics_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_ListMetricsResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_list_metrics_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_ListMetricsResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_ListMetricsResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).list_metrics_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_ListMetricsResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_ListMetricsResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// D23 check: a record's or an event's payload with group padding zeroed.
+fn fsm_canon_rec_dual_response(op: u32, slot: u32, n: u32, body: &[u8]) -> Vec<u8> {
+    match (op, slot) {
+        (AK_BDR_APPLY, 0) => fsm_canon_run(body, 1, ::core::mem::size_of::<ak_dfix_DualResponse>(), fsm_canon_dual_response),
+        (AK_BDR_ADD, 1) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_Pair>(), fsm_canon_pair),
+        (AK_BDR_ADD, 2) => fsm_canon_run(body, n as usize, ::core::mem::size_of::<ak_dfix_Pair>(), fsm_canon_pair),
+        // spans and scalars have no padding
+        _ => body.to_vec(),
+    }
+}
+
+/// D23: one FSM event to the host functions the push vtable registers.
+#[inline(always)]
+unsafe fn fsm_feed_dual_response(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {
+    match (ev.op, ev.slot) {
+        (AK_BDR_APPLY, 0) => apply_dual_response(ctx, sink, ev.data as *const ak_dfix_DualResponse),
+        (AK_BDR_ADD, 1) => add_dual_response_left(ctx, sink, ev.token, ev.data as *const ak_dfix_Pair, ev.n as i32),
+        (AK_BDR_ADD, 2) => add_dual_response_right(ctx, sink, ev.token, ev.data as *const ak_dfix_Pair, ev.n as i32),
+        // An event for a slot this host does not know is a generator disagreement.
+        _ => ak_fail(ctx as *mut c_void, AK_ERR_ABI, ::core::ptr::null(), 0),
+    }
+}
+
+/// D23: decode `DualResponse` with the FSM family: begin (the first event), then next until the
+/// end event; each event is fed to the push vtable's host functions as it arrives.
+#[inline(always)]
+fn fsm_with_dual_response_armed(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    let ctx = ctxs.dual_response;
+    let mut out = DualResponse::default();
+    toks.clear();
+    let rc = unsafe {
+        let mut sink = SinkDualResponse { out: &mut out, base: b.as_ptr() };
+        let obj = &mut sink as *mut _ as *mut c_void;
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_DualResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        while rc >= 0 {
+            fsm_feed_dual_response(ctx, obj, &ev, toks);
+            if rc == AK_FSM_END { break; }
+            rc = ak_fsm_next_DualResponse(ctx, &mut ev);
+        }
+        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }
+    };
+    if rc < 0 { Err(rc) } else { Ok(out) }
+}
+
+/// D23: the FSM family, unknown fields dropped.
+pub fn fsm_with_dual_response(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    disarm_dual_response(ctxs);
+    fsm_with_dual_response_armed(ctxs, b, toks)
+}
+
+/// D23: the FSM family with every unknown-field position retained.
+pub fn fsm_with_dual_response_unk(ctxs: DecCtxs, b: &[u8], toks: &mut Vec<i64>) -> Result<DualResponse, i32> {
+    let rc = arm_dual_response(ctxs);
+    if rc != AK_OK { return Err(rc); }
+    let r = fsm_with_dual_response_armed(ctxs, b, toks);
+    unk_reclaim();
+    r
+}
+
+/// D23 check: the FSM consumer's graph against push's (same mode), or the same error.
+pub fn fsm_graph_dual_response(ctxs: DecCtxs, b: &[u8], retain: bool) -> Result<(), String> {
+    let mut toks = Vec::new();
+    let (a, c) = if retain {
+        (decode_with_dual_response_unk(ctxs, b), fsm_with_dual_response_unk(ctxs, b, &mut toks))
+    } else {
+        (decode_with_dual_response(ctxs, b), fsm_with_dual_response(ctxs, b, &mut toks))
+    };
+    match (&a, &c) {
+        (Ok(x), Ok(y)) if format!("{x:?}") == format!("{y:?}") => Ok(()),
+        (Err(x), Err(y)) if x == y => Ok(()),
+        _ => Err(format!("push {:?} / fsm {:?}", a.as_ref().map(|_| "ok"), c.as_ref().map(|_| "ok"))),
+    }
+}
+
+/// D23 check: decode `b` with pull and with the FSM on the same context and mode; compare
+/// pull's records with the FSM's events, record for record, the return codes, and (retain)
+/// the unknown-field buffers (a bump arena reset before each family: same grows, same bytes).
+/// `sk`: the D20 mask given to BOTH families (pull's `ak_dec_set_pvt_*`, the FSM's
+/// `ak_fsm_set_pvt_*`) for this comparison; both are reset to NULL after it.
+pub fn fsm_diff_dual_response(ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> FsmDiff {
+    let ctx = ctxs.dual_response;
+    let mut d = FsmDiff::default();
+    unsafe {
+        let pvt = ak_pvt_DualResponse { utf8_skip: sk };
+        ak_dec_set_pvt_DualResponse(ctx, &pvt);
+        ak_fsm_set_pvt_DualResponse(ctx, &pvt);
+        let arm = |opts: &mut ak_dec_DualResponse_opts| -> i32 {
+            opts.self_.grow = Some(fsm_bump_grow);
+            opts.left.grow = Some(fsm_bump_grow);
+            opts.right.grow = Some(fsm_bump_grow);
+            if retain { ak_dec_reset_DualResponse(ctx, opts) } else { ak_dec_reset_DualResponse(ctx, ::core::ptr::null_mut()) }
+        };
+        let mut o1 = unk_opts_dual_response(None);
+        let _ = arm(&mut o1);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        d.pull_rc = ak_parse_DualResponse(ctx, b.as_ptr(), b.len());
+        (d.pull_fwd, d.pull_rev) = fsm_counters(ctx);
+        let mut p: *const u8 = ::core::ptr::null();
+        let mut n: usize = 0;
+        let mut pull: Vec<FsmRow> = Vec::new();
+        if ak_bdr_ptr(ctx, &mut p, &mut n) == AK_OK && n > 0 {
+            let recs = ::core::slice::from_raw_parts(p as *const u64, n / 8);
+            for (h, body) in ak_rt::bdr::RecIter::new(recs) {
+                pull.push((h.op, h.slot, h.token, h.n, fsm_canon_rec_dual_response(h.op, h.slot, h.n, ::core::slice::from_raw_parts(body, h.bytes as usize))));
+            }
+        }
+        let snap = fsm_bump_snapshot();
+        let mut o2 = unk_opts_dual_response(None);
+        let _ = arm(&mut o2);
+        fsm_bump_reset();
+        ak_dec_counters_reset(ctx);
+        let mut fsm: Vec<FsmRow> = Vec::new();
+        let mut ev = ak_fsm_ev::default();
+        let mut rc = ak_fsm_begin_DualResponse(ctx, b.as_ptr(), b.len(), &mut ev);
+        d.calls = 1;
+        let mut bad: Option<String> = None;
+        while rc >= 0 {
+            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };
+            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_dual_response(ev.op, ev.slot, ev.n, &body)));
+            if rc == AK_FSM_END { break; }
+            if rc != AK_OK { bad = Some(format!("next returned {rc}")); break; }
+            if fsm.len() > 4 * b.len() + 16 { bad = Some("runaway: more events than the input allows".into()); break; }
+            rc = ak_fsm_next_DualResponse(ctx, &mut ev);
+            d.calls += 1;
+        }
+        d.fsm_rc = rc;
+        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);
+        // A call after the end or an error is refused.
+        let mut ev2 = ak_fsm_ev::default();
+        let after = ak_fsm_next_DualResponse(ctx, &mut ev2);
+        if bad.is_none() && after != AK_ERR_INVALID_STATE { bad = Some(format!("a call after the end returned {after}")); }
+        let snap2 = fsm_bump_snapshot();
+        ak_dec_reset_DualResponse(ctx, ::core::ptr::null_mut());
+        (*ctxs.unk).dual_response_armed.set(false);
+        if bad.is_none() && snap != snap2 { bad = Some(format!("unknown-field buffers differ ({} / {} words)", snap.len(), snap2.len())); }
+        ak_dec_set_pvt_DualResponse(ctx, ::core::ptr::null());
+        ak_fsm_set_pvt_DualResponse(ctx, ::core::ptr::null());
+        d.records = pull.len();
+        d.events = fsm.len();
+        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };
+        if bad.is_none() && d.fsm_rc != want { bad = Some(format!("pull returned {}, the FSM ended with {}", d.pull_rc, d.fsm_rc)); }
+        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }
+        d.mismatch = bad;
+    }
+    d
+}
+
+/// The FSM checks of one root by NAME (the corpus and the campaign iterate rows):
+/// the differential against pull, and the FSM consumer's graph against push's.
+/// `sk` is the D20 mask for the differential; the graph check (push's vtable mask is 0)
+/// runs only with `sk == 0` and after the differential agreed (a planted FSM defect is
+/// then reported by the differential rather than by the consumer indexing a bad token).
+pub fn fsm_check_root(root: &str, ctxs: DecCtxs, b: &[u8], retain: bool, sk: u64) -> Option<(FsmDiff, Result<(), String>)> {
+    match root {
+        "ListResultsResponse" => { let d = fsm_diff_list_results_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_list_results_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "ListTasksDetailedResponse" => { let d = fsm_diff_list_tasks_detailed_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_list_tasks_detailed_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "ListProbeResponse" => { let d = fsm_diff_list_probe_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_list_probe_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "ListTaskSummaryResponse" => { let d = fsm_diff_list_task_summary_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_list_task_summary_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "UploadResultDataMessage" => { let d = fsm_diff_upload_result_data_message(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_upload_result_data_message(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "ListMetricsResponse" => { let d = fsm_diff_list_metrics_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_list_metrics_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        "DualResponse" => { let d = fsm_diff_dual_response(ctxs, b, retain, sk); let g = if sk == 0 && d.mismatch.is_none() { fsm_graph_dual_response(ctxs, b, retain) } else { Ok(()) }; Some((d, g)) }
+        _ => None,
+    }
+}
+
+/// D23 API checks on fresh contexts, every root: a `next` before any `begin`, a `begin`
+/// and a setter on a context bound to another root, a NULL event, are all refused with
+/// AK_ERR_INVALID_STATE; an empty message is ONE call (begin returns the end event).
+/// Returns the failures.
+pub fn fsm_api_checks() -> (usize, Vec<String>) {
+    let mut bad = Vec::new();
+    let mut n = 0usize;
+    let mut chk = |ok: bool, what: String| { n += 1; if !ok { bad.push(what); } };
+    unsafe {
+        {
+            let c = ak_dec_ctx_new_ListResultsResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_ListTasksDetailedResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_ListResultsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListResultsResponse: next before begin".into());
+            chk(ak_fsm_begin_ListResultsResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "ListResultsResponse: begin on a ListTasksDetailedResponse context".into());
+            chk(ak_fsm_set_pvt_ListResultsResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListResultsResponse: setter on a ListTasksDetailedResponse context".into());
+            chk(ak_fsm_begin_ListResultsResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListResultsResponse: NULL event".into());
+            let rc = ak_fsm_begin_ListResultsResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListResultsResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_ListResultsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListResultsResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_ListTasksDetailedResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_ListProbeResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_ListTasksDetailedResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: next before begin".into());
+            chk(ak_fsm_begin_ListTasksDetailedResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: begin on a ListProbeResponse context".into());
+            chk(ak_fsm_set_pvt_ListTasksDetailedResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: setter on a ListProbeResponse context".into());
+            chk(ak_fsm_begin_ListTasksDetailedResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: NULL event".into());
+            let rc = ak_fsm_begin_ListTasksDetailedResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTasksDetailedResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_ListTasksDetailedResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTasksDetailedResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_ListProbeResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_ListTaskSummaryResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_ListProbeResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListProbeResponse: next before begin".into());
+            chk(ak_fsm_begin_ListProbeResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "ListProbeResponse: begin on a ListTaskSummaryResponse context".into());
+            chk(ak_fsm_set_pvt_ListProbeResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListProbeResponse: setter on a ListTaskSummaryResponse context".into());
+            chk(ak_fsm_begin_ListProbeResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListProbeResponse: NULL event".into());
+            let rc = ak_fsm_begin_ListProbeResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListProbeResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_ListProbeResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListProbeResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_ListTaskSummaryResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_UploadResultDataMessage(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_ListTaskSummaryResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: next before begin".into());
+            chk(ak_fsm_begin_ListTaskSummaryResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: begin on a UploadResultDataMessage context".into());
+            chk(ak_fsm_set_pvt_ListTaskSummaryResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: setter on a UploadResultDataMessage context".into());
+            chk(ak_fsm_begin_ListTaskSummaryResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: NULL event".into());
+            let rc = ak_fsm_begin_ListTaskSummaryResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListTaskSummaryResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_ListTaskSummaryResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListTaskSummaryResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_UploadResultDataMessage(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_ListMetricsResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_UploadResultDataMessage(c, &mut ev) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: next before begin".into());
+            chk(ak_fsm_begin_UploadResultDataMessage(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: begin on a ListMetricsResponse context".into());
+            chk(ak_fsm_set_pvt_UploadResultDataMessage(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: setter on a ListMetricsResponse context".into());
+            chk(ak_fsm_begin_UploadResultDataMessage(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: NULL event".into());
+            let rc = ak_fsm_begin_UploadResultDataMessage(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("UploadResultDataMessage: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_UploadResultDataMessage(c, &mut ev) == AK_ERR_INVALID_STATE, "UploadResultDataMessage: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_ListMetricsResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_DualResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_ListMetricsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListMetricsResponse: next before begin".into());
+            chk(ak_fsm_begin_ListMetricsResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "ListMetricsResponse: begin on a DualResponse context".into());
+            chk(ak_fsm_set_pvt_ListMetricsResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "ListMetricsResponse: setter on a DualResponse context".into());
+            chk(ak_fsm_begin_ListMetricsResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "ListMetricsResponse: NULL event".into());
+            let rc = ak_fsm_begin_ListMetricsResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("ListMetricsResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_ListMetricsResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "ListMetricsResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+        {
+            let c = ak_dec_ctx_new_DualResponse(::core::ptr::null_mut());
+            let w = ak_dec_ctx_new_ListResultsResponse(::core::ptr::null_mut());
+            let mut ev = ak_fsm_ev::default();
+            chk(ak_fsm_next_DualResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "DualResponse: next before begin".into());
+            chk(ak_fsm_begin_DualResponse(w, [0u8; 0].as_ptr(), 0, &mut ev) == AK_ERR_INVALID_STATE, "DualResponse: begin on a ListResultsResponse context".into());
+            chk(ak_fsm_set_pvt_DualResponse(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, "DualResponse: setter on a ListResultsResponse context".into());
+            chk(ak_fsm_begin_DualResponse(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, "DualResponse: NULL event".into());
+            let rc = ak_fsm_begin_DualResponse(c, [0u8; 0].as_ptr(), 0, &mut ev);
+            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!("DualResponse: empty message is one end event (rc {rc}, op {})", ev.op));
+            chk(ak_fsm_next_DualResponse(c, &mut ev) == AK_ERR_INVALID_STATE, "DualResponse: next after the end".into());
+            ak_dec_ctx_free(c);
+            ak_dec_ctx_free(w);
+        }
+    }
+    (n, bad)
+}

@@ -427,7 +427,7 @@ fn main() {
     let mut row: Option<String> = None;
     let mut timeout = Duration::from_millis(10_000);
     let mut only: Vec<String> = Vec::new();
-    let (mut unkc, mut plant) = (false, false);
+    let (mut unkc, mut plant, mut fsm) = (false, false, false);
     let mut i = 1;
     while i < a.len() {
         match a[i].as_str() {
@@ -437,11 +437,15 @@ fn main() {
             "--timeout-ms" => { timeout = Duration::from_millis(a[i + 1].parse().unwrap()); i += 1; }
             "--unk-controls" => { unkc = true; }
             "--plant" => { plant = true; }
+            "--fsm-diff" => { fsm = true; }
             x => panic!("unknown argument {x}"),
         }
         i += 1;
     }
     let manifest = manifest.canonicalize().expect("manifest path");
+    if fsm {
+        std::process::exit(fsm_diff(&manifest, &only));
+    }
     if unkc {
         #[cfg(feature = "unknown-fields")]
         std::process::exit(unkctl::unk_controls(&manifest, &only, plant));
@@ -463,3 +467,77 @@ fn main() {
 // with `unknown-fields` (WP5 step 10's no-unknown variant has nothing to control).
 #[cfg(feature = "unknown-fields")]
 mod unkctl;
+
+// ------------------------------------------------------------------------ FIX-PLAN D23
+
+/// `corpus --fsm-diff [--only ID,...]`: the FSM decode family against the pull family on
+/// EVERY corpus row whose root the ABI carries, accept and reject rows alike, in every
+/// unknown-field mode of this build: events == pull's records (op, slot, token, n, payload),
+/// the same return code, a call after the end refused, the unknown-field buffers identical
+/// (retain); the FSM consumer's graph == push's (or the same error). Accept rows also run
+/// with the D20 mask all-ones (both families). In-process (gen/d23_checks.sh runs it under
+/// `timeout`). Exit 0 when everything agrees.
+fn fsm_diff(manifest: &Path, only: &[String]) -> i32 {
+    let m = load(manifest);
+    let dir = manifest.parent().unwrap();
+    let rc = binding::ak_init_once();
+    assert!(rc >= 0, "ak_init: {rc}");
+    let dec = binding::DecCtxs::new();
+    let (n_api, api_bad) = binding::fsm_api_checks();
+    println!("# FIX-PLAN D23 FSM differential (corpus core), build {}", if cfg!(feature = "unknown-fields") { "full (drop, retain)" } else { "no-unknown" });
+    println!("# API checks: {n_api} checks, {} failures", api_bad.len());
+    for b in &api_bad {
+        println!("API FAIL {b}");
+    }
+    #[cfg(feature = "unknown-fields")]
+    let modes: &[(&str, bool)] = &[("drop", false), ("retain", true)];
+    #[cfg(not(feature = "unknown-fields"))]
+    let modes: &[(&str, bool)] = &[("no-unknown", false)];
+    let (mut rows, mut checks, mut fails, mut not_abi, mut refused) = (0usize, n_api, api_bad.len(), 0usize, 0usize);
+    let (mut recs, mut evs) = (0usize, 0usize);
+    let mut by_class: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+    let vecs = m["vectors"].as_object().expect("vectors");
+    for (id, row) in vecs {
+        if !only.is_empty() && !only.iter().any(|o| id.starts_with(o.as_str())) {
+            continue;
+        }
+        let root = row["root"].as_str().unwrap();
+        let bytes = std::fs::read(dir.join(row["file"].as_str().unwrap())).expect("vector file");
+        let accept = row["expect"].as_str() == Some("accept");
+        let class = row["class"].as_str().unwrap_or("?").to_string();
+        let mut any = false;
+        for &(mname, retain) in modes {
+            for sk in if accept { vec![0u64, u64::MAX] } else { vec![0u64] } {
+                let Some((d, g)) = binding::fsm_check_root(root, dec, &bytes, retain, sk) else { break };
+                any = true;
+                checks += 1;
+                recs += d.records;
+                evs += d.events;
+                if d.pull_rc < 0 {
+                    refused += 1;
+                }
+                let e = by_class.entry(class.clone()).or_default();
+                e.0 += 1;
+                if d.mismatch.is_some() || g.is_err() {
+                    fails += 1;
+                    e.1 += 1;
+                    println!("FAIL {id} [{root}] {mname} sk={sk:#x}: {:?} {:?} rc pull {} fsm {}", d.mismatch, g, d.pull_rc, d.fsm_rc);
+                }
+            }
+        }
+        if any { rows += 1; } else { not_abi += 1; }
+    }
+    println!("# rows compared {rows}, rows whose root the ABI does not carry {not_abi}");
+    println!("# (row, mode, mask) comparisons {}, of which pull refused {refused}; pull records {recs}, FSM events {evs}", checks - n_api);
+    for (c, (n, f)) in &by_class {
+        println!("  class {c:<24} {n:>6} comparisons {f:>4} failures");
+    }
+    println!("# {checks} checks, {fails} failures");
+    if fails == 0 {
+        println!("FSM CORPUS DIFFERENTIAL PASSED");
+        0
+    } else {
+        println!("FSM CORPUS DIFFERENTIAL FAILED");
+        1
+    }
+}

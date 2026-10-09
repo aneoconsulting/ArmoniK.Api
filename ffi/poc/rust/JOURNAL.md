@@ -4475,3 +4475,34 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
 ## 2026-10-04: decode vtables in static storage (owner)
 
 - e0586a85 (poc/codec): cpp_binding renders one `static const struct ak_dvt_<Root> k_dvt_<Root>` per root (positional aggregate, plan.dec_vtable order, utf8_skip = 0 first; C++11-valid) and rust_binding a `static VT` inside each decode entry; every other slice's generated output byte-identical. gen/sv_vtmap.py: all 86 C++ vtables assign each member the function the per-call code did. Checks pass both slices (logs/rust/opt/static-vtables/checks/); crossings unchanged. The first cpp-check.log plant control printed "caught" while its plant script had failed (no file; the compile failed for that reason): fixed (sv_cpp.sh now requires the missing-initializer error), re-run in cpp-plant.log, caught. Owner stopped the timing before any timed run (impact trivial): no figure taken; ASan not run. rdrepro / stickyerr hand-written vtables left as per-call literals (untimed gate drivers; m2_vt takes the callbacks under test as arguments; a Rust literal names every member).
+
+## 2026-10-09: D23, the FSM decode family (owner), in the shared core and generator
+
+- Built: plan.py (contract "THE FSM DECODE FAMILY", `fsm_entry_points`, FIXED `ak_fsm_ev` 32 B and
+  `AK_FSM_END = 1`); `gen/rust_fsm.py` (its own emitter: leaf decoders, frame walker, step
+  function, entry points, init-guard pass, the Rust host consumer and the check helpers);
+  `crates/ak-core/src/fsm.rs` (its own runtime: `FsmCx`, frame stack, 32 KB arena, wire reader
+  `FRd`, UTF-8 check, decision-11 placement `fsm_unk_put`); `generated*/fsm.rs` (four plans);
+  `DecCtxImpl.fsm` (one field, allocated on the first begin). c_abi.py / rust_abi.py declare the
+  entries additively; rust_binding.py appends rust_fsm's host side. Push and pull generated code
+  byte-identical (codec.rs, four plans); every binding's old text a prefix of the new.
+- Owner precision mid-task: `begin` returns the FIRST event; a decode is begin + (events - 1)
+  next. Implemented that way from the start: the root group (AK_BDR_APPLY) is the end event,
+  returned with AK_FSM_END; an empty message is one call.
+- Resumability chosen: one cursor and a frame stack (root, inlined child, non-leaf element,
+  packed body); a flush RETURNS the run event and leaves the cursor at the tag that caused it,
+  which the next call re-reads with the run closed. Found while planting: the explicit
+  `f.pos = s0` is redundant (the cursor is written back only after an arm), so the "no rewind"
+  plant was a no-op and was NOT caught; replaced by "rewind one byte late", which is.
+- Found (pull's behaviour, reproduced): a non-leaf element whose LENGTH is truncated still gets
+  NEW and an empty APPLY_ELEM in pull's log before the error (the element decoder runs on an
+  empty sub-reader). The FSM's first version failed at once (2 records vs 1 event on 7,392
+  malformed rows); now it owes the error (`pend`) until the element's frame closes. Same in push
+  (new + apply called).
+- Found: pull's record of a group carries the group local's PADDING bytes as they were on the
+  stack (no-unknown TaskDetailed, bytes 348-351, 432 B group): the first no-unknown differential
+  failed on payload bytes there only. The differential now zeroes padding member by member
+  (generated per group from plan.group_fields) on both sides before comparing. A host reads
+  members, so nothing observable; recorded, not fixed (pull is not this unit's to change).
+- Checks: see STATE "D23". Floor 1.88.0: ak-core and fsm_diff build and the differential passes
+  (`checks/floor-1.88.log`).

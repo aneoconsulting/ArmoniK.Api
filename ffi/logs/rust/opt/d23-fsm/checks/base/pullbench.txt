@@ -1,0 +1,92 @@
+# ABI v1 section 7.1: the PUSH family and the PULL family, one process
+#   guard:          on
+#   counting build: YES -- section 4's timings are NOT usable
+#   rounds: 15, interleaved; per-round target 25 ms
+
+#   arms
+#     prost                today's floor, the baseline every ratio is against
+#     core-native          the same traversal with no boundary (R3's control)
+#     core-ffi-push        ak_decode_*: the codec calls the host per field group
+#     core-ffi-pull        ak_parse_* + ak_bdr_drain into host memory + replay
+#     core-ffi-pull-walk   ak_parse_* + ak_bdr_ptr + replay in place, no copy
+#     core-ffi-pull-opaque the same walk with the replay's calls made OPAQUE, so
+#                          rustc can neither inline nor devirtualise them. R5's
+#                          second half: a replay is host code calling host code
+#                          and CAN be fused into the loop, where a push callback
+#                          reached through a vtable across the .so never can.
+#     core-ffi-parse-only  ak_parse_* alone. NOT A DECODE: no object graph is
+#                          built. It is the materialisation term on its own.
+
+## 1. correctness: four decoders, one value
+
+payload root          wire B    elems    armonik pull-drain  pull-walk
+P1.1    M1               858        4         ok         ok         ok
+P1.2    M1            218121     1000         ok         ok         ok
+P1.3    M1               605      300         ok         ok         ok
+P2.1    M2              1037        1         ok         ok         ok
+P2.2    M2            540422      500         ok         ok         ok
+P2.3    M2            647024      125         ok         ok         ok
+P2.4    M2            979465       80         ok         ok         ok
+P2.5    M2             19632       20         ok         ok         ok
+P3.1    M3             12097      200         ok         ok         ok
+P4.1    M4             65321      200         ok         ok         ok
+P5.1    M5               116        1         ok         ok         ok
+P5.2    M5             65620        1         ok         ok         ok
+P5.3    M5           1048660        1         ok         ok         ok
+P5.4    M5           4194390        1         ok         ok         ok
+P6.1    M6            123354      200         ok         ok         ok
+P7.1    M7                98        0         ok         ok         ok
+
+## 2. crossings, and the structural control
+
+payload root     elems  records  push fw  push rev  rev/elem  pull fw 1chunk fw  pull rev   agree
+P1.1    M1           4        2        1         2     0.500        3         3         0      ok
+P1.2    M1        1000        8        1         8     0.008        9         3         0      ok
+P1.3    M1         300        3        1         3     0.010        4         3         0      ok
+P2.1    M2           1        8        1         8     8.000        3         3         0      ok
+P2.2    M2         500     3501        1      3501     7.002       23         3         0      ok
+P2.3    M2         125      876        1       876     7.008       12         3         0      ok
+P2.4    M2          80      561        1       561     7.013       14         3         0      ok
+P2.5    M2          20      141        1       141     7.050        3         3         0      ok
+P3.1    M3         200        2        1         2     0.010        3         3         0      ok
+P4.1    M4         200      601        1       601     3.005        6         3         0      ok
+P5.4    M5           1        1        1         1     1.000        3         3         0      ok
+P6.1    M6         200     1401        1      1401     7.005        8         3         0      ok
+P7.1    M7           0        7        1         7         -        3         3         0      ok
+
+# THE STRUCTURAL CONTROL. A record is written exactly where the push family
+# makes a reverse call, by construction, so `records` must equal `push rev` on
+# every shape -- and it does, to the digit, on all thirteen. That is the evidence
+# that ONE traversal produced both families (ABI v1 open decision 2's second
+# half); a disagreement would mean they had drifted apart on some shape, which
+# is what "one traversal emitter, not two" exists to prevent. `pull rev` is 0
+# everywhere, which is the family's defining claim, measured rather than assumed.
+
+# AND THE INTERFACE ARGUMENT, which is a property of the descriptor and not of
+# this machine (R13): push's reverse column is PER ELEMENT and pull's forward
+# column is PER MESSAGE. On P2.2 that is 3,501 reverse calls against 16 forward
+# ones. At this host's 1.8 ns it buys nothing; at the java slice's ~80 ns
+# reverse call it is 280 us per response.
+
+## 3. what the intermediate costs in bytes
+
+payload root           wire B    records B     x wire
+P1.1    M1                858          880      1.026
+P1.2    M1             218121       200224      0.918
+P1.3    M1                605        60104     99.345
+P2.1    M2               1037         1376      1.327
+P2.2    M2             540422       660056      1.221
+P2.3    M2             647024       325056      0.502
+P2.4    M2             979465       387256      0.395
+P2.5    M2              19632        26456      1.348
+P3.1    M3              12097        32072      2.651
+P4.1    M4              65321       107248      1.642
+P5.4    M5            4194390          112      0.000
+P6.1    M6             123354       192048      1.557
+
+# A record is 24 bytes of header plus one group per element, and a group is
+# wider than the wire form of a sparse element -- so the ratio is a property of
+# the SHAPE, not of the payload size, and the absent-path rows are the high ones.
+
+
+# Section 4 skipped: this is a counting build.

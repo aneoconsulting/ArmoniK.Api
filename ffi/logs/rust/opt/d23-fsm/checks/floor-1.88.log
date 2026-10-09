@@ -1,0 +1,5 @@
+# rustc rustc 1.88.0 (6b00bc388 2025-06-23)
+build rc 0
+U-wire-UploadResultDataMessage-upload-as-wt5         UploadResultDataMessage         101 retain            1        1        1         0         0        0        0  ok
+# 270 checks, 0 failures
+FSM DIFFERENTIAL PASSED

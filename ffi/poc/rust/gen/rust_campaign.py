@@ -178,6 +178,13 @@ def emit(p):
         o.append("        let _ = retain;")
         o.append("        binding::parse_walk_with_%s(c.dec, b, toks)" % s)
         o.append("    }")
+        # FIX-PLAN D23: the FSM family's Rust consumer (begin, then next to the end event).
+        o.append("    fn f_fsm(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32> {")
+        o.append("        #[cfg(feature = \"unknown-fields\")]")
+        o.append("        if retain { return binding::fsm_with_%s_unk(c.dec, b, toks); }" % s)
+        o.append("        let _ = retain;")
+        o.append("        binding::fsm_with_%s(c.dec, b, toks)" % s)
+        o.append("    }")
         o.append("    fn dec_ctx(c: &Ctx) -> *mut ak_abi::ak_dec_ctx { c.dec.%s }" % s)
         o.append("    fn touch_f(v: &Self::F) -> u64 { touch_f_%s(v, 0) }" % s)
         o.append("    fn touch_p(v: &Self::P) -> u64 { touch_p_%s(v, 0) }" % s)

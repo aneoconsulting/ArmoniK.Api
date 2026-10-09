@@ -361,6 +361,8 @@ pub trait Ops {
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32>;
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32>;
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
+    /// FIX-PLAN D23: the FSM decode family (`core-ffi-fsm`, a labelled extra arm, AK_FSM=1).
+    fn f_fsm(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
     /// Optimisation Z1 (labelled extra arm `core-ffi-zc`): `bytes` fields share `b`.
     fn f_decode_zc(c: &Ctx, b: &bytes::Bytes, retain: bool) -> Result<Self::F, i32>;
     /// Decision 11 rule 6: this root's (bound) decode context.
@@ -414,8 +416,21 @@ pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-f
 /// launch number, so a launch's order is reproducible and is written into its header.
 pub fn arm_order(launch: usize) -> Vec<&'static str> {
     let mut v = ARMS.to_vec();
+    // FIX-PLAN D23: the FSM arm joins the randomised blocks only when it is asked for
+    // (AK_FSM=1); without it the order is exactly what it was.
+    if fsm_arm_on() {
+        v.push(FSM_ARM);
+    }
     shuffle(&mut v, launch as u64);
     v
+}
+
+/// FIX-PLAN D23: the FSM decode family's arm, a labelled extra decode arm (drop and retain,
+/// or no-unknown), run and pre-checked only with `AK_FSM=1` so the default grids, their
+/// order and their pre-check counts are unchanged.
+pub const FSM_ARM: &str = "core-ffi-fsm";
+pub fn fsm_arm_on() -> bool {
+    std::env::var("AK_FSM").map(|v| v == "1").unwrap_or(false)
 }
 
 /// A deterministic Fisher-Yates shuffle (splitmix64 from `seed`): the same seed gives the
@@ -799,6 +814,13 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                 let v = R::f_pull(ctx, wire, retain, &mut toks).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
+            if fsm_arm_on() {
+                let mut toks = Vec::new();
+                push(FSM_ARM, dir, mname, Box::new(move || {
+                    let v = R::f_fsm(ctx, wire, retain, &mut toks).unwrap();
+                    if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
+                }));
+            }
             if zc {
                 // Optimisation Z1, a labelled extra arm (AK_ZC): `bytes` fields share the
                 // input buffer instead of copying it (not decision 13's default).
@@ -846,6 +868,15 @@ pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<Stri
         let fv = R::f_decode(ctx, wire, retain);
         let pl = R::f_pull(ctx, wire, retain, &mut toks);
         chk(nv.is_ok() && fv.is_ok() && pl.is_ok(), format!("native/ffi/pull decode (retain={retain})"));
+        if fsm_arm_on() {
+            // D23: the FSM consumer's value is push's (graph), and its event stream is pull's
+            // log record for record (the differential, every mode of this build).
+            let sv = R::f_fsm(ctx, wire, retain, &mut toks);
+            chk(matches!((&fv, &sv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),
+                format!("core-ffi-fsm == core-ffi (retain={retain})"));
+            let (d, g) = harness::generated::binding::fsm_check_root(R::ROOT, ctx.dec, wire, retain, 0).expect("fsm root");
+            chk(d.mismatch.is_none() && g.is_ok(), format!("fsm events == pull records (retain={retain}): {:?} {:?}", d.mismatch, g));
+        }
         // Optimisation Z1: the zero-copy decode gives the same value.
         let zv = R::f_decode_zc(ctx, &bytes::Bytes::copy_from_slice(wire), retain);
         chk(matches!((&fv, &zv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),

@@ -45,6 +45,7 @@ import rust_facade           # noqa: E402
 import rust_build            # noqa: E402
 import rust_native           # noqa: E402  core-native, from the plan
 import rust_abi              # noqa: E402  the core and its ABI, from the plan
+import rust_fsm              # noqa: E402  D23: the FSM family, its own emitter
 import rust_binding          # noqa: E402  the host binding, from the plan
 import rust_project          # noqa: E402  corpus glue: the projection of a facade value
 import rust_corpus           # noqa: E402  corpus glue: the per-root dispatch table
@@ -87,6 +88,7 @@ def targets(ir):
         # this slice's `--check` gates the core it measures.
         "../codec/crates/ak-abi/src/generated/abi.rs": rust_abi.emit_abi(ir),
         "../codec/crates/ak-core/src/generated/codec.rs": codec,
+        "../codec/crates/ak-core/src/generated/fsm.rs": rust_fsm.emit_fsm(ir),
         "crates/harness/src/generated/binding.rs": rust_binding.emit_binding(ir),
         # WP5 step 10: the no-unknown variant's binding (harness feature `unknown-fields` off).
         "crates/harness/src/generated/binding_nounk.rs":
@@ -124,6 +126,7 @@ def corpus_targets():
         # The core for the corpus schema, written here too so this slice's --check gates it.
         "../codec/crates/ak-abi/src/generated_corpus/abi.rs": rust_abi.emit_abi(abi),
         "../codec/crates/ak-core/src/generated_corpus/codec.rs": ccodec,
+        "../codec/crates/ak-core/src/generated_corpus/fsm.rs": rust_fsm.emit_fsm(abi),
     }
 
 

@@ -193,7 +193,7 @@ fn main() {
 
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
-    for h in header("codec", &[
+    let mut hx = vec![
         ("grid", format!("AK_CAMPAIGN_GRID={grid_sel} (CAMPAIGN section 4.0, D18; core | full). core: the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 U-* rows {}; arms incumbent-prod (full build only, once), core-ffi (push) and host-gen, which in Rust is core-native (the codec the shared generator writes into Rust, no C ABI boundary); encode at end state (ii) (incumbent-prod transport-ready-tonic, cell A's form; core-ffi and core-native transport-ready-core, cells Cf and Ef) on the hot input, and decode-read; retain in the full build, no-unknown in the no-unknown build. Every row is labelled row = core | extra", campaign::CORE_U_ROWS.join(", "))),
         ("extras left out", if grid_sel == "core" { campaign::CODEC_EXTRAS.to_string() } else { "none (full grid: extras run, labelled row = extra)".to_string() }),
         ("alloc", alloc_header(alloc, alloc_read)),
@@ -219,7 +219,12 @@ fn main() {
         ("cases", cases.len().to_string()),
         ("narrowed", if narrowed { format!("arms [{}] dirs [{}] end states [{}] inputs [{}] (AK_CASE_*; not a campaign run)", f_arm.join(","), f_dir.join(","), f_end.join(","), f_inp.join(",")) } else { "no".to_string() }),
         ("refusals", format!("{} (row, arm) pairs the incumbent's prost refuses and that are therefore not timed; listed below", refused.len())),
-    ]) {
+    ];
+    if campaign::fsm_arm_on() {
+        hx.insert(0, ("core-ffi-fsm",
+        "labelled extra arm (AK_FSM=1, FIX-PLAN D23): the FSM decode family, ak_fsm_begin_<Root> then ak_fsm_next_<Root> to the end event, each event fed to the push vtable's host functions as it arrives (binding fsm_with_<root>, _unk in retain); in the arm blocks; pre-checked against core-ffi's value and pull's log".to_string()));
+    }
+    for h in header("codec", &hx) {
         writeln!(f, "{h}").unwrap();
     }
     for r in &refused {
