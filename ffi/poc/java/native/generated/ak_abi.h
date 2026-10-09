@@ -125,14 +125,13 @@ struct ak_bdr_rec {
   uint32_t bytes;
 };
 typedef struct ak_bdr_rec ak_bdr_rec;
-/* FIX-PLAN D23: one FSM event, a pull record's header (same members and offsets) plus a pointer to its payload; `bytes` exact, not padded. */
+/* FIX-PLAN D23: one FSM event; its op is the return value of ak_fsm_begin_* / ak_fsm_next_*. `bytes` exact, not padded; `data` NULL for AK_BDR_NEW. */
 struct ak_fsm_ev {
-  uint32_t op;
   uint32_t slot;
-  int64_t token;
   uint32_t n;
-  uint32_t bytes;
+  int64_t token;
   const void *data;
+  uint32_t bytes;
 };
 typedef struct ak_fsm_ev ak_fsm_ev;
 #define AK_STR_DIRECT ((const void *)(uintptr_t)1)  /* ABI v1 section 8: ak_str.data meaning 'a direct argument of the call'. */
@@ -142,7 +141,6 @@ typedef struct ak_fsm_ev ak_fsm_ev;
 #define AK_BDR_NEW 3u  /* pull record: a non-leaf element begins (minted token) */
 #define AK_BDR_APPLY_ELEM 4u  /* pull record: a non-leaf element's group */
 #define AK_BDR_MIN_CHUNK 32792u  /* the smallest drain chunk that holds any record */
-#define AK_FSM_END 1  /* FSM (D23): the event written is the root group, the last one */
 
 /* ---- section 3: the lifecycle (plan.lifecycle, R-G7) ----------------------------
  * Every binding rendered from this plan calls `ak_init` before its first codec or RPC
@@ -1564,7 +1562,7 @@ AK_SASSERT(sizeof(struct AkCounters) == 48, "sizeof AkCounters");
 AK_SASSERT(sizeof(struct ak_bdr_rec) == 24, "sizeof ak_bdr_rec");
 AK_SASSERT(sizeof(struct ak_fsm_ev) == 32, "sizeof ak_fsm_ev");
 AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, "ak_bdr_rec.token");
-AK_SASSERT(offsetof(struct ak_fsm_ev, token) == 8 && offsetof(struct ak_fsm_ev, n) == 16 && offsetof(struct ak_fsm_ev, bytes) == 20 && offsetof(struct ak_fsm_ev, data) == 24, "ak_fsm_ev");
+AK_SASSERT(offsetof(struct ak_fsm_ev, slot) == 0 && offsetof(struct ak_fsm_ev, n) == 4 && offsetof(struct ak_fsm_ev, token) == 8 && offsetof(struct ak_fsm_ev, data) == 16 && offsetof(struct ak_fsm_ev, bytes) == 24, "ak_fsm_ev");
 AK_SASSERT(sizeof(struct ak_dec_ListResultsResponse_opts) == 8 + 4 * 24, "sizeof ak_dec_ListResultsResponse_opts");
 AK_SASSERT(sizeof(struct ak_dec_ListTasksDetailedResponse_opts) == 8 + 18 * 24, "sizeof ak_dec_ListTasksDetailedResponse_opts");
 AK_SASSERT(sizeof(struct ak_dec_ListProbeResponse_opts) == 8 + 3 * 24, "sizeof ak_dec_ListProbeResponse_opts");

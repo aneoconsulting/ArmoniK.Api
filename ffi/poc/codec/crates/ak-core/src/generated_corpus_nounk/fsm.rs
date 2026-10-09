@@ -447,7 +447,7 @@ unsafe fn fsm_step_timestamp(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -455,7 +455,7 @@ unsafe fn fsm_step_timestamp(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -463,7 +463,7 @@ unsafe fn fsm_step_timestamp(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -474,11 +474,11 @@ unsafe fn fsm_step_timestamp(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Timestamp>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Timestamp>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -518,7 +518,7 @@ unsafe fn fsm_step_timestamp(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Timestamp(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -545,7 +545,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Timestamp(ctx: *mut ak_dec_ctx, buf: *cons
     fsm_step_timestamp(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Timestamp(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -615,7 +615,7 @@ unsafe fn fsm_step_duration(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -623,7 +623,7 @@ unsafe fn fsm_step_duration(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -631,7 +631,7 @@ unsafe fn fsm_step_duration(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -642,11 +642,11 @@ unsafe fn fsm_step_duration(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Duration>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Duration>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -686,7 +686,7 @@ unsafe fn fsm_step_duration(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Duration(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -713,7 +713,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Duration(ctx: *mut ak_dec_ctx, buf: *const
     fsm_step_duration(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Duration(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -783,7 +783,7 @@ unsafe fn fsm_step_result_raw(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -791,7 +791,7 @@ unsafe fn fsm_step_result_raw(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -799,7 +799,7 @@ unsafe fn fsm_step_result_raw(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -810,11 +810,11 @@ unsafe fn fsm_step_result_raw(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ResultRaw>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ResultRaw>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -955,7 +955,7 @@ unsafe fn fsm_step_result_raw(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ResultRaw(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -982,7 +982,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ResultRaw(ctx: *mut ak_dec_ctx, buf: *cons
     fsm_step_result_raw(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ResultRaw(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -1045,7 +1045,7 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -1054,7 +1054,7 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -1062,7 +1062,7 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -1070,7 +1070,7 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -1081,11 +1081,11 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskOptions>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskOptions>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -1205,7 +1205,7 @@ unsafe fn fsm_step_task_options(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_TaskOptions(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -1232,7 +1232,7 @@ pub unsafe extern "C" fn ak_fsm_begin_TaskOptions(ctx: *mut ak_dec_ctx, buf: *co
     fsm_step_task_options(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_TaskOptions(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -1302,7 +1302,7 @@ unsafe fn fsm_step_task_output(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -1310,7 +1310,7 @@ unsafe fn fsm_step_task_output(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -1318,7 +1318,7 @@ unsafe fn fsm_step_task_output(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -1329,11 +1329,11 @@ unsafe fn fsm_step_task_output(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskOutput>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskOutput>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -1374,7 +1374,7 @@ unsafe fn fsm_step_task_output(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_TaskOutput(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -1401,7 +1401,7 @@ pub unsafe extern "C" fn ak_fsm_begin_TaskOutput(ctx: *mut ak_dec_ctx, buf: *con
     fsm_step_task_output(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_TaskOutput(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -1468,11 +1468,11 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 3, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 4, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                5 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 5, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 3, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 4, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                5 => ev.write(ak_fsm_ev { slot: 5, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -1481,7 +1481,7 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -1489,7 +1489,7 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -1497,7 +1497,7 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -1508,11 +1508,11 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskDetailed>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskDetailed>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -2093,7 +2093,7 @@ unsafe fn fsm_step_task_detailed(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_TaskDetailed(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2120,7 +2120,7 @@ pub unsafe extern "C" fn ak_fsm_begin_TaskDetailed(ctx: *mut ak_dec_ctx, buf: *c
     fsm_step_task_detailed(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_TaskDetailed(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2183,7 +2183,7 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -2192,7 +2192,7 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -2200,7 +2200,7 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -2208,7 +2208,7 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -2219,11 +2219,11 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskSummary>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskSummary>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -2425,7 +2425,7 @@ unsafe fn fsm_step_task_summary(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_TaskSummary(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2452,7 +2452,7 @@ pub unsafe extern "C" fn ak_fsm_begin_TaskSummary(ctx: *mut ak_dec_ctx, buf: *co
     fsm_step_task_summary(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_TaskSummary(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2522,7 +2522,7 @@ unsafe fn fsm_step_probe(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -2530,7 +2530,7 @@ unsafe fn fsm_step_probe(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -2538,7 +2538,7 @@ unsafe fn fsm_step_probe(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -2549,11 +2549,11 @@ unsafe fn fsm_step_probe(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Probe>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Probe>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -2652,7 +2652,7 @@ unsafe fn fsm_step_probe(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Probe(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2679,7 +2679,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Probe(ctx: *mut ak_dec_ctx, buf: *const u8
     fsm_step_probe(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Probe(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2749,7 +2749,7 @@ unsafe fn fsm_step_empty(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -2757,7 +2757,7 @@ unsafe fn fsm_step_empty(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -2765,7 +2765,7 @@ unsafe fn fsm_step_empty(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -2776,11 +2776,11 @@ unsafe fn fsm_step_empty(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Empty>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Empty>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -2808,7 +2808,7 @@ unsafe fn fsm_step_empty(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Empty(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2835,7 +2835,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Empty(ctx: *mut ak_dec_ctx, buf: *const u8
     fsm_step_empty(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Empty(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -2905,7 +2905,7 @@ unsafe fn fsm_step_upload_result_data(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -2913,7 +2913,7 @@ unsafe fn fsm_step_upload_result_data(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -2921,7 +2921,7 @@ unsafe fn fsm_step_upload_result_data(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -2932,11 +2932,11 @@ unsafe fn fsm_step_upload_result_data(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_UploadResultData>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_UploadResultData>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -2984,7 +2984,7 @@ unsafe fn fsm_step_upload_result_data(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_UploadResultData(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3011,7 +3011,7 @@ pub unsafe extern "C" fn ak_fsm_begin_UploadResultData(ctx: *mut ak_dec_ctx, buf
     fsm_step_upload_result_data(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_UploadResultData(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3078,11 +3078,11 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<f64>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 3, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 4, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<u8>()) as u32, data: ar as *const c_void }),
-                5 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 5, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<f64>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 3, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 4, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<u8>()) as u32 }),
+                5 => ev.write(ak_fsm_ev { slot: 5, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -3091,7 +3091,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -3099,7 +3099,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -3107,7 +3107,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -3118,11 +3118,11 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_MetricsBatch>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_MetricsBatch>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -3135,7 +3135,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
         // the next call resumes at the next value.
         match top.kind {
             1 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_TICKS { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_METRICSBATCH_ROOT_TICKS { ev_run_root!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -3144,7 +3144,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                 continue;
             }
             2 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_VALUES { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_METRICSBATCH_ROOT_VALUES { ev_run_root!(); return FSM_ADD; }
                 let v = r.f64();
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut f64).add(f.n).write(v);
@@ -3153,7 +3153,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                 continue;
             }
             3 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_CODES { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_METRICSBATCH_ROOT_CODES { ev_run_root!(); return FSM_ADD; }
                 let v = r.varint() as i32;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i32).add(f.n).write(v);
@@ -3162,7 +3162,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                 continue;
             }
             4 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_FLAGS { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_METRICSBATCH_ROOT_FLAGS { ev_run_root!(); return FSM_ADD; }
                 let v = (r.varint() != 0) as u8;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut u8).add(f.n).write(v);
@@ -3171,7 +3171,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
                 continue;
             }
             5 => {
-                if f.n == FSM_N_METRICSBATCH_ROOT_STATUSES { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_METRICSBATCH_ROOT_STATUSES { ev_run_root!(); return FSM_ADD; }
                 let v = r.varint() as i32;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i32).add(f.n).write(v);
@@ -3282,7 +3282,7 @@ unsafe fn fsm_step_metrics_batch(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_MetricsBatch(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3309,7 +3309,7 @@ pub unsafe extern "C" fn ak_fsm_begin_MetricsBatch(ctx: *mut ak_dec_ctx, buf: *c
     fsm_step_metrics_batch(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_MetricsBatch(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3379,7 +3379,7 @@ unsafe fn fsm_step_pair(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev)
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -3387,7 +3387,7 @@ unsafe fn fsm_step_pair(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev)
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -3395,7 +3395,7 @@ unsafe fn fsm_step_pair(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev)
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -3406,11 +3406,11 @@ unsafe fn fsm_step_pair(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev)
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Pair>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Pair>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -3451,7 +3451,7 @@ unsafe fn fsm_step_pair(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm_ev)
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Pair(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3478,7 +3478,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Pair(ctx: *mut ak_dec_ctx, buf: *const u8,
     fsm_step_pair(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Pair(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3541,7 +3541,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ResultRaw>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ResultRaw>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -3550,7 +3550,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -3558,7 +3558,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -3566,7 +3566,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -3577,11 +3577,11 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ListResultsResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ListResultsResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -3632,7 +3632,7 @@ unsafe fn fsm_step_list_results_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ListResultsResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3659,7 +3659,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ListResultsResponse(ctx: *mut ak_dec_ctx, 
     fsm_step_list_results_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ListResultsResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -3735,7 +3735,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -3743,7 +3743,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -3751,17 +3751,17 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     macro_rules! ev_run_e0 {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65537, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65538, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65539, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65540, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                5 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65541, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 65537, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 65538, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 65539, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 65540, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                5 => ev.write(ak_fsm_ev { slot: 65541, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -3770,7 +3770,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_other_e0 {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -3778,7 +3778,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_slot_nocap_e0 {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -3786,7 +3786,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     macro_rules! pre_slot_e0 {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_e0!($s0, $sid);
-            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -3797,19 +3797,19 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ListTasksDetailedResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 1 => {
-                    if f.n > 0 { ev_run_e0!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: 65536, token: f.tok, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskDetailed>() as u32, data: ge_0 as *const c_void });
+                    if f.n > 0 { ev_run_e0!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 65536, n: 1, token: f.tok, data: ge_0 as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskDetailed>() as u32 });
                     f.depth -= 1;
                     f.cur = 0;
-                    return AK_OK;
+                    return FSM_APPLY_ELEM;
                 }
                 _ => {
                     f.depth -= 1;
@@ -3837,8 +3837,8 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
                     ge_0.write(ak_dfix_TaskDetailed::ZERO);
                     if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
                     f.pos = off;
-                    ev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: 65536, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });
-                    return AK_OK;
+                    ev.write(ak_fsm_ev { slot: 65536, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });
+                    return FSM_NEW;
                 }
                 2 if wire == 0 => {
                     pre_other_root!(s0);
@@ -4424,7 +4424,7 @@ unsafe fn fsm_step_list_tasks_detailed_response(dcx: *mut DecCtxImpl, f: &mut Fs
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -4451,7 +4451,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTasksDetailedResponse(ctx: *mut ak_dec
     fsm_step_list_tasks_detailed_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -4523,7 +4523,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -4531,7 +4531,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -4539,13 +4539,13 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     macro_rules! ev_run_e0 {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65537, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 65537, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_TaskOptionsOptionsEntry>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -4554,7 +4554,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_other_e0 {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -4562,7 +4562,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_nocap_e0 {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -4570,7 +4570,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_e0 {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_e0!($s0, $sid);
-            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -4581,19 +4581,19 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ListTaskSummaryResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 1 => {
-                    if f.n > 0 { ev_run_e0!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: 65536, token: f.tok, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_TaskSummary>() as u32, data: ge_0 as *const c_void });
+                    if f.n > 0 { ev_run_e0!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 65536, n: 1, token: f.tok, data: ge_0 as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_TaskSummary>() as u32 });
                     f.depth -= 1;
                     f.cur = 0;
-                    return AK_OK;
+                    return FSM_APPLY_ELEM;
                 }
                 _ => {
                     f.depth -= 1;
@@ -4621,8 +4621,8 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
                     ge_0.write(ak_dfix_TaskSummary::ZERO);
                     if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
                     f.pos = off;
-                    ev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: 65536, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });
-                    return AK_OK;
+                    ev.write(ak_fsm_ev { slot: 65536, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });
+                    return FSM_NEW;
                 }
                 _ => {
                     pre_other_root!(s0);
@@ -4817,7 +4817,7 @@ unsafe fn fsm_step_list_task_summary_response(dcx: *mut DecCtxImpl, f: &mut FsmC
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -4844,7 +4844,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTaskSummaryResponse(ctx: *mut ak_dec_c
     fsm_step_list_task_summary_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -4907,7 +4907,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Probe>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Probe>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -4916,7 +4916,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -4924,7 +4924,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -4932,7 +4932,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -4943,11 +4943,11 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ListProbeResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ListProbeResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -4986,7 +4986,7 @@ unsafe fn fsm_step_list_probe_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: 
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ListProbeResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5013,7 +5013,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ListProbeResponse(ctx: *mut ak_dec_ctx, bu
     fsm_step_list_probe_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ListProbeResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5089,7 +5089,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5097,7 +5097,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -5105,17 +5105,17 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     macro_rules! ev_run_e0 {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65537, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65538, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<f64>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65539, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65540, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<u8>()) as u32, data: ar as *const c_void }),
-                5 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65541, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 65537, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 65538, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<f64>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 65539, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 65540, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<u8>()) as u32 }),
+                5 => ev.write(ak_fsm_ev { slot: 65541, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i32>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -5124,7 +5124,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_other_e0 {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5132,7 +5132,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_nocap_e0 {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -5140,7 +5140,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_e0 {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_e0!($s0, $sid);
-            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -5151,19 +5151,19 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ListMetricsResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ListMetricsResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 1 => {
-                    if f.n > 0 { ev_run_e0!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: 65536, token: f.tok, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_MetricsBatch>() as u32, data: ge_0 as *const c_void });
+                    if f.n > 0 { ev_run_e0!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 65536, n: 1, token: f.tok, data: ge_0 as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_MetricsBatch>() as u32 });
                     f.depth -= 1;
                     f.cur = 0;
-                    return AK_OK;
+                    return FSM_APPLY_ELEM;
                 }
                 _ => {
                     f.depth -= 1;
@@ -5176,7 +5176,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
         // the next call resumes at the next value.
         match top.kind {
             2 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_TICKS { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_TICKS { ev_run_e0!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -5185,7 +5185,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 continue;
             }
             3 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_VALUES { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_VALUES { ev_run_e0!(); return FSM_ADD; }
                 let v = r.f64();
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut f64).add(f.n).write(v);
@@ -5194,7 +5194,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 continue;
             }
             4 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_CODES { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_CODES { ev_run_e0!(); return FSM_ADD; }
                 let v = r.varint() as i32;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i32).add(f.n).write(v);
@@ -5203,7 +5203,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 continue;
             }
             5 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_FLAGS { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_FLAGS { ev_run_e0!(); return FSM_ADD; }
                 let v = (r.varint() != 0) as u8;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut u8).add(f.n).write(v);
@@ -5212,7 +5212,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                 continue;
             }
             6 => {
-                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_STATUSES { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_LISTMETRICSRESPONSE_E0_STATUSES { ev_run_e0!(); return FSM_ADD; }
                 let v = r.varint() as i32;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i32).add(f.n).write(v);
@@ -5241,8 +5241,8 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     ge_0.write(ak_dfix_MetricsBatch::ZERO);
                     if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
                     f.pos = off;
-                    ev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: 65536, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });
-                    return AK_OK;
+                    ev.write(ak_fsm_ev { slot: 65536, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });
+                    return FSM_NEW;
                 }
                 _ => {
                     pre_other_root!(s0);
@@ -5345,7 +5345,7 @@ unsafe fn fsm_step_list_metrics_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ListMetricsResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5372,7 +5372,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ListMetricsResponse(ctx: *mut ak_dec_ctx, 
     fsm_step_list_metrics_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ListMetricsResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5442,7 +5442,7 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5450,7 +5450,7 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -5458,7 +5458,7 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -5469,11 +5469,11 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_UploadResultDataMessage>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -5536,7 +5536,7 @@ unsafe fn fsm_step_upload_result_data_message(dcx: *mut DecCtxImpl, f: &mut FsmC
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_UploadResultDataMessage(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5563,7 +5563,7 @@ pub unsafe extern "C" fn ak_fsm_begin_UploadResultDataMessage(ctx: *mut ak_dec_c
     fsm_step_upload_result_data_message(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_UploadResultDataMessage(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5627,8 +5627,8 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Pair>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Pair>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Pair>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_Pair>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -5637,7 +5637,7 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5645,7 +5645,7 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -5653,7 +5653,7 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -5664,11 +5664,11 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_DualResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_DualResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -5718,7 +5718,7 @@ unsafe fn fsm_step_dual_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_DualResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5745,7 +5745,7 @@ pub unsafe extern "C" fn ak_fsm_begin_DualResponse(ctx: *mut ak_dec_ctx, buf: *c
     fsm_step_dual_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_DualResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5815,7 +5815,7 @@ unsafe fn fsm_step_chunk_leaf(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5823,7 +5823,7 @@ unsafe fn fsm_step_chunk_leaf(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -5831,7 +5831,7 @@ unsafe fn fsm_step_chunk_leaf(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -5842,11 +5842,11 @@ unsafe fn fsm_step_chunk_leaf(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkLeaf>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkLeaf>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -5887,7 +5887,7 @@ unsafe fn fsm_step_chunk_leaf(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_f
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ChunkLeaf(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5914,7 +5914,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ChunkLeaf(ctx: *mut ak_dec_ctx, buf: *cons
     fsm_step_chunk_leaf(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ChunkLeaf(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -5978,8 +5978,8 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -5988,7 +5988,7 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -5996,7 +5996,7 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6004,7 +6004,7 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -6015,11 +6015,11 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkInner>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkInner>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -6032,7 +6032,7 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
         // the next call resumes at the next value.
         match top.kind {
             1 => {
-                if f.n == FSM_N_CHUNKINNER_ROOT_MARKS { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_CHUNKINNER_ROOT_MARKS { ev_run_root!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -6087,7 +6087,7 @@ unsafe fn fsm_step_chunk_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ChunkInner(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6114,7 +6114,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ChunkInner(ctx: *mut ak_dec_ctx, buf: *con
     fsm_step_chunk_inner(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ChunkInner(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6180,10 +6180,10 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 3, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 4, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 3, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 4, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -6192,7 +6192,7 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -6200,7 +6200,7 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6208,7 +6208,7 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -6219,11 +6219,11 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -6236,7 +6236,7 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
         // the next call resumes at the next value.
         match top.kind {
             2 => {
-                if f.n == FSM_N_CHUNKELEMENT_ROOT_INNER_MARKS { ev_run_root!(); return AK_OK; }
+                if f.n == FSM_N_CHUNKELEMENT_ROOT_INNER_MARKS { ev_run_root!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -6332,7 +6332,7 @@ unsafe fn fsm_step_chunk_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ChunkElement(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6359,7 +6359,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ChunkElement(ctx: *mut ak_dec_ctx, buf: *c
     fsm_step_chunk_element(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ChunkElement(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6434,7 +6434,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -6442,7 +6442,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6450,16 +6450,16 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     macro_rules! ev_run_e0 {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65537, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65538, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65539, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65540, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 65537, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 65538, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 65539, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 65540, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -6468,7 +6468,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_other_e0 {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -6476,7 +6476,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_slot_nocap_e0 {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6484,7 +6484,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     macro_rules! pre_slot_e0 {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_e0!($s0, $sid);
-            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -6495,19 +6495,19 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkedResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkedResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 1 => {
-                    if f.n > 0 { ev_run_e0!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: 65536, token: f.tok, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32, data: ge_0 as *const c_void });
+                    if f.n > 0 { ev_run_e0!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 65536, n: 1, token: f.tok, data: ge_0 as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32 });
                     f.depth -= 1;
                     f.cur = 0;
-                    return AK_OK;
+                    return FSM_APPLY_ELEM;
                 }
                 _ => {
                     f.depth -= 1;
@@ -6520,7 +6520,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
         // the next call resumes at the next value.
         match top.kind {
             3 => {
-                if f.n == FSM_N_CHUNKEDRESPONSE_E0_INNER_MARKS { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_CHUNKEDRESPONSE_E0_INNER_MARKS { ev_run_e0!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -6549,8 +6549,8 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
                     ge_0.write(ak_dfix_ChunkElement::ZERO);
                     if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
                     f.pos = off;
-                    ev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: 65536, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });
-                    return AK_OK;
+                    ev.write(ak_fsm_ev { slot: 65536, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });
+                    return FSM_NEW;
                 }
                 8 if wire == 0 => {
                     pre_other_root!(s0);
@@ -6644,7 +6644,7 @@ unsafe fn fsm_step_chunked_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mu
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ChunkedResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6671,7 +6671,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ChunkedResponse(ctx: *mut ak_dec_ctx, buf:
     fsm_step_chunked_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ChunkedResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6746,7 +6746,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -6754,7 +6754,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6762,16 +6762,16 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     macro_rules! ev_run_e0 {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65537, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65538, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32, data: ar as *const c_void }),
-                3 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65539, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32, data: ar as *const c_void }),
-                4 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 65540, token: f.tok, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 65537, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 65538, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkElementAttrsEntry>()) as u32 }),
+                3 => ev.write(ak_fsm_ev { slot: 65539, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<i64>()) as u32 }),
+                4 => ev.write(ak_fsm_ev { slot: 65540, n: f.n as u32, token: f.tok, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_ChunkLeaf>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -6780,7 +6780,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_other_e0 {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -6788,7 +6788,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_nocap_e0 {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_e0!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -6796,7 +6796,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     macro_rules! pre_slot_e0 {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_e0!($s0, $sid);
-            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_e0!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -6807,19 +6807,19 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkedResponseWide>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkedResponseWide>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 1 => {
-                    if f.n > 0 { ev_run_e0!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: 65536, token: f.tok, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32, data: ge_0 as *const c_void });
+                    if f.n > 0 { ev_run_e0!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 65536, n: 1, token: f.tok, data: ge_0 as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_ChunkElement>() as u32 });
                     f.depth -= 1;
                     f.cur = 0;
-                    return AK_OK;
+                    return FSM_APPLY_ELEM;
                 }
                 _ => {
                     f.depth -= 1;
@@ -6832,7 +6832,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
         // the next call resumes at the next value.
         match top.kind {
             3 => {
-                if f.n == FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_MARKS { ev_run_e0!(); return AK_OK; }
+                if f.n == FSM_N_CHUNKEDRESPONSEWIDE_E0_INNER_MARKS { ev_run_e0!(); return FSM_ADD; }
                 let v = r.varint() as i64;
                 if r.err != 0 { fail!(r.err); }
                 (ar as *mut i64).add(f.n).write(v);
@@ -6861,8 +6861,8 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
                     ge_0.write(ak_dfix_ChunkElement::ZERO);
                     if !f.push(1, off + n) { fail!(AK_ERR_DEPTH); }
                     f.pos = off;
-                    ev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: 65536, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });
-                    return AK_OK;
+                    ev.write(ak_fsm_ev { slot: 65536, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });
+                    return FSM_NEW;
                 }
                 _ => {
                     pre_other_root!(s0);
@@ -6950,7 +6950,7 @@ unsafe fn fsm_step_chunked_response_wide(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_ChunkedResponseWide(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -6977,7 +6977,7 @@ pub unsafe extern "C" fn ak_fsm_begin_ChunkedResponseWide(ctx: *mut ak_dec_ctx, 
     fsm_step_chunked_response_wide(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_ChunkedResponseWide(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7047,7 +7047,7 @@ unsafe fn fsm_step_leaf_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -7055,7 +7055,7 @@ unsafe fn fsm_step_leaf_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -7063,7 +7063,7 @@ unsafe fn fsm_step_leaf_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -7074,11 +7074,11 @@ unsafe fn fsm_step_leaf_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_LeafElement>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_LeafElement>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -7146,7 +7146,7 @@ unsafe fn fsm_step_leaf_element(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_LeafElement(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7173,7 +7173,7 @@ pub unsafe extern "C" fn ak_fsm_begin_LeafElement(ctx: *mut ak_dec_ctx, buf: *co
     fsm_step_leaf_element(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_LeafElement(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7236,7 +7236,7 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_LeafElement>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_LeafElement>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -7245,7 +7245,7 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -7253,7 +7253,7 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -7261,7 +7261,7 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -7272,11 +7272,11 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_LeafResponse>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_LeafResponse>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -7315,7 +7315,7 @@ unsafe fn fsm_step_leaf_response(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut a
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_LeafResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7342,7 +7342,7 @@ pub unsafe extern "C" fn ak_fsm_begin_LeafResponse(ctx: *mut ak_dec_ctx, buf: *c
     fsm_step_leaf_response(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_LeafResponse(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7406,8 +7406,8 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! ev_run_root {
         () => {{
             match f.cur {
-                1 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 1, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>()) as u32, data: ar as *const c_void }),
-                2 => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: 2, token: AK_TOKEN_ROOT, n: f.n as u32, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32, data: ar as *const c_void }),
+                1 => ev.write(ak_fsm_ev { slot: 1, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_dfix_SurrogateAttrsEntry>()) as u32 }),
+                2 => ev.write(ak_fsm_ev { slot: 2, n: f.n as u32, token: AK_TOKEN_ROOT, data: ar as *const c_void, bytes: (f.n * ::core::mem::size_of::<ak_span>()) as u32 }),
                 _ => fail!(AK_ERR_ABI),
             }
             f.n = 0;
@@ -7416,7 +7416,7 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -7424,7 +7424,7 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -7432,7 +7432,7 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -7443,11 +7443,11 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_Surrogate>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_Surrogate>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -7529,7 +7529,7 @@ unsafe fn fsm_step_surrogate(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fs
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_Surrogate(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7556,7 +7556,7 @@ pub unsafe extern "C" fn ak_fsm_begin_Surrogate(ctx: *mut ak_dec_ctx, buf: *cons
     fsm_step_surrogate(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_Surrogate(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7626,7 +7626,7 @@ unsafe fn fsm_step_surrogate_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -7634,7 +7634,7 @@ unsafe fn fsm_step_surrogate_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -7642,7 +7642,7 @@ unsafe fn fsm_step_surrogate_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -7653,11 +7653,11 @@ unsafe fn fsm_step_surrogate_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_SurrogateInner>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_SurrogateInner>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -7692,7 +7692,7 @@ unsafe fn fsm_step_surrogate_inner(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_SurrogateInner(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7719,7 +7719,7 @@ pub unsafe extern "C" fn ak_fsm_begin_SurrogateInner(ctx: *mut ak_dec_ctx, buf: 
     fsm_step_surrogate_inner(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_SurrogateInner(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7789,7 +7789,7 @@ unsafe fn fsm_step_wire_zoo(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_other_root {
         ($s0:ident) => {
             if f.cur != 0 {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = 0;
             }
         };
@@ -7797,7 +7797,7 @@ unsafe fn fsm_step_wire_zoo(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_slot_nocap_root {
         ($s0:ident, $sid:expr) => {
             if f.cur != $sid {
-                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return AK_OK; }
+                if f.n > 0 { ev_run_root!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }
                 f.cur = $sid;
             }
         };
@@ -7805,7 +7805,7 @@ unsafe fn fsm_step_wire_zoo(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     macro_rules! pre_slot_root {
         ($s0:ident, $sid:expr, $cap:expr) => {
             pre_slot_nocap_root!($s0, $sid);
-            if f.n == $cap { ev_run_root!(); f.pos = $s0; return AK_OK; }
+            if f.n == $cap { ev_run_root!(); f.pos = $s0; return FSM_ADD; }
         };
     }
     // An error owed since a truncated non-leaf element falls due once its frame closed.
@@ -7816,11 +7816,11 @@ unsafe fn fsm_step_wire_zoo(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
             // The open message ends here.
             match top.kind {
                 0 => {
-                    if f.n > 0 { ev_run_root!(); return AK_OK; }
-                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,
-                        bytes: ::core::mem::size_of::<ak_dfix_WireZoo>() as u32, data: gr as *const c_void });
+                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }
+                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,
+                        bytes: ::core::mem::size_of::<ak_dfix_WireZoo>() as u32 });
                     f.state = ST_DONE;
-                    return AK_FSM_END;
+                    return FSM_APPLY;
                 }
                 _ => {
                     f.depth -= 1;
@@ -7930,7 +7930,7 @@ unsafe fn fsm_step_wire_zoo(dcx: *mut DecCtxImpl, f: &mut FsmCx, ev: *mut ak_fsm
     }
 }
 
-/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+/// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_begin_WireZoo(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.
@@ -7957,7 +7957,7 @@ pub unsafe extern "C" fn ak_fsm_begin_WireZoo(ctx: *mut ak_dec_ctx, buf: *const 
     fsm_step_wire_zoo(dcx, f, ev)
 }
 
-/// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+/// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
 #[no_mangle]
 pub unsafe extern "C" fn ak_fsm_next_WireZoo(ctx: *mut ak_dec_ctx, ev: *mut ak_fsm_ev) -> i32 {
     // ABI v1 section 3: every entry point requires `ak_init`.

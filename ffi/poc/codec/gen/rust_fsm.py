@@ -2,7 +2,7 @@
 
 A third decode family beside push and pull: a resumable state machine per root. The host
 calls `ak_fsm_begin_<Root>` (which returns the FIRST event) and then `ak_fsm_next_<Root>`
-until the end event; each call returns ONE event, the equivalent of one record of the pull
+until the end event; each call returns ONE event (its op is the return value; the root group, AK_BDR_APPLY, is the last), the equivalent of one record of the pull
 family's log (plan.pull_records), in pull's order and with pull's tokens. The contract is
 plan.py's THE FSM DECODE FAMILY.
 
@@ -328,9 +328,9 @@ def _frame_walk(R, scope, o, name, fx, prefix, rel, sb, depth, ind):
             o.append("%sge_%d.write(ak_dfix_%s::ZERO);" % (i2, j, et))
             o.append("%sif !f.push(%d, off + n) { fail!(AK_ERR_DEPTH); }" % (i2, ef["id"]))
             o.append("%sf.pos = off;" % i2)
-            o.append("%sev.write(ak_fsm_ev { op: AK_BDR_NEW, slot: %d, token: tok, n: 0, bytes: 0, data: ::core::ptr::null() });"
+            o.append("%sev.write(ak_fsm_ev { slot: %d, n: 0, token: tok, data: ::core::ptr::null(), bytes: 0 });"
                      % (i2, pull_slot(j, -1)))
-            o.append("%sreturn AK_OK;" % i2)
+            o.append("%sreturn FSM_NEW;" % i2)
             ef["arms"] = []
             _frame_walk(R, es, ef["arms"], et, es["g"], (), erel, esb, depth + 1, "                ")
         elif op in ("append_message", "map_entry"):
@@ -431,8 +431,8 @@ def _flush_macros(R, scope, o):
     o.append("        () => {{")
     o.append("            match f.cur {")
     for sn, (sid, rec, dty) in sorted(scope["slots"].items(), key=lambda x: x[1][0]):
-        o.append("                %d => ev.write(ak_fsm_ev { op: AK_BDR_ADD, slot: %d, token: %s, n: f.n as u32,"
-                 " bytes: (f.n * ::core::mem::size_of::<%s>()) as u32, data: ar as *const c_void }),"
+        o.append("                %d => ev.write(ak_fsm_ev { slot: %d, n: f.n as u32, token: %s, data: ar as *const c_void,"
+                 " bytes: (f.n * ::core::mem::size_of::<%s>()) as u32 }),"
                  % (sid, rec, scope["tok"], dty))
     o.append("                _ => fail!(AK_ERR_ABI),")
     o.append("            }")
@@ -442,7 +442,7 @@ def _flush_macros(R, scope, o):
     o.append("    macro_rules! pre_other_%s {" % k)
     o.append("        ($s0:ident) => {")
     o.append("            if f.cur != 0 {")
-    o.append("                if f.n > 0 { ev_run_%s!(); f.cur = 0; f.pos = $s0; return AK_OK; }" % k)
+    o.append("                if f.n > 0 { ev_run_%s!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }" % k)
     o.append("                f.cur = 0;")
     o.append("            }")
     o.append("        };")
@@ -450,7 +450,7 @@ def _flush_macros(R, scope, o):
     o.append("    macro_rules! pre_slot_nocap_%s {" % k)
     o.append("        ($s0:ident, $sid:expr) => {")
     o.append("            if f.cur != $sid {")
-    o.append("                if f.n > 0 { ev_run_%s!(); f.cur = 0; f.pos = $s0; return AK_OK; }" % k)
+    o.append("                if f.n > 0 { ev_run_%s!(); f.cur = 0; f.pos = $s0; return FSM_ADD; }" % k)
     o.append("                f.cur = $sid;")
     o.append("            }")
     o.append("        };")
@@ -458,7 +458,7 @@ def _flush_macros(R, scope, o):
     o.append("    macro_rules! pre_slot_%s {" % k)
     o.append("        ($s0:ident, $sid:expr, $cap:expr) => {")
     o.append("            pre_slot_nocap_%s!($s0, $sid);" % k)
-    o.append("            if f.n == $cap { ev_run_%s!(); f.pos = $s0; return AK_OK; }" % k)
+    o.append("            if f.n == $cap { ev_run_%s!(); f.pos = $s0; return FSM_ADD; }" % k)
     o.append("        };")
     o.append("    }")
 
@@ -516,21 +516,21 @@ def _emit_root(p, root):
     o.append("            // The open message ends here.")
     o.append("            match top.kind {")
     o.append("                0 => {")
-    o.append("                    if f.n > 0 { ev_run_root!(); return AK_OK; }")
-    o.append("                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY, slot: 0, token: AK_TOKEN_ROOT, n: 1,")
-    o.append("                        bytes: ::core::mem::size_of::<ak_dfix_%s>() as u32, data: gr as *const c_void });" % root)
+    o.append("                    if f.n > 0 { ev_run_root!(); return FSM_ADD; }")
+    o.append("                    ev.write(ak_fsm_ev { slot: 0, n: 1, token: AK_TOKEN_ROOT, data: gr as *const c_void,")
+    o.append("                        bytes: ::core::mem::size_of::<ak_dfix_%s>() as u32 });" % root)
     o.append("                    f.state = ST_DONE;")
-    o.append("                    return AK_FSM_END;")
+    o.append("                    return FSM_APPLY;")
     o.append("                }")
     for es in R.elem_scopes:
         j = es["j"]
         o.append("                %d => {" % es["frame"]["id"])
-        o.append("                    if f.n > 0 { ev_run_%s!(); return AK_OK; }" % es["key"])
-        o.append("                    ev.write(ak_fsm_ev { op: AK_BDR_APPLY_ELEM, slot: %d, token: f.tok, n: 1," % pull_slot(j, -1))
-        o.append("                        bytes: ::core::mem::size_of::<ak_dfix_%s>() as u32, data: ge_%d as *const c_void });" % (es["et"], j))
+        o.append("                    if f.n > 0 { ev_run_%s!(); return FSM_ADD; }" % es["key"])
+        o.append("                    ev.write(ak_fsm_ev { slot: %d, n: 1, token: f.tok, data: ge_%d as *const c_void," % (pull_slot(j, -1), j))
+        o.append("                        bytes: ::core::mem::size_of::<ak_dfix_%s>() as u32 });" % es["et"])
         o.append("                    f.depth -= 1;")
         o.append("                    f.cur = 0;")
-        o.append("                    return AK_OK;")
+        o.append("                    return FSM_APPLY_ELEM;")
         o.append("                }")
     o.append("                _ => {")
     o.append("                    f.depth -= 1;")
@@ -547,7 +547,7 @@ def _emit_root(p, root):
         for fr in packed:
             k = fr["scope"]["key"]
             o.append("            %d => {" % fr["id"])
-            o.append("                if f.n == %s { ev_run_%s!(); return AK_OK; }" % (fr["ncap"], k))
+            o.append("                if f.n == %s { ev_run_%s!(); return FSM_ADD; }" % (fr["ncap"], k))
             o.append("                let v = %s;" % fr["one"])
             o.append("                if r.err != 0 { fail!(r.err); }")
             o.append("                (ar as *mut %s).add(f.n).write(v);" % fr["dty"])
@@ -821,7 +821,7 @@ def emit_binding_fsm(p):
             o.append("            chk(ak_fsm_set_pvt_%s(w, ::core::ptr::null()) == AK_ERR_INVALID_STATE, \"%s: setter on a %s context\".into());" % (root, root, other))
         o.append("            chk(ak_fsm_begin_%s(c, [0u8; 0].as_ptr(), 0, ::core::ptr::null_mut()) == AK_ERR_INVALID_STATE, \"%s: NULL event\".into());" % (root, root))
         o.append("            let rc = ak_fsm_begin_%s(c, [0u8; 0].as_ptr(), 0, &mut ev);" % root)
-        o.append("            chk(rc == AK_FSM_END && ev.op == AK_BDR_APPLY && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!(\"%s: empty message is one end event (rc {rc}, op {})\", ev.op));" % root)
+        o.append("            chk(rc == AK_BDR_APPLY as i32 && ev.slot == 0 && ev.token == AK_TOKEN_ROOT && ev.n == 1, format!(\"%s: empty message is one root-group event (rc {rc}, slot {})\", ev.slot));" % root)
         o.append("            chk(ak_fsm_next_%s(c, &mut ev) == AK_ERR_INVALID_STATE, \"%s: next after the end\".into());" % (root, root))
         o.append("            ak_dec_ctx_free(c);")
         o.append("            ak_dec_ctx_free(w);")
@@ -919,8 +919,8 @@ def _binding_root(p, root):
     # ---- the dispatch of one event to the push vtable's host functions
     o.append("/// D23: one FSM event to the host functions the push vtable registers.")
     o.append("#[inline(always)]")
-    o.append("unsafe fn fsm_feed_%s(ctx: *mut ak_dec_ctx, sink: *mut c_void, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {" % rs)
-    o.append("    match (ev.op, ev.slot) {")
+    o.append("unsafe fn fsm_feed_%s(ctx: *mut ak_dec_ctx, sink: *mut c_void, op: u32, ev: &ak_fsm_ev, toks: &mut Vec<i64>) {" % rs)
+    o.append("    match (op, ev.slot) {")
     o.append("        (AK_BDR_APPLY, 0) => apply_%s(ctx, sink, ev.data as *const ak_dfix_%s)," % (rs, root))
     for i, (path, f) in enumerate(rslots):
         sn = slot_name(path)
@@ -955,9 +955,11 @@ def _binding_root(p, root):
     o.append("        let obj = &mut sink as *mut _ as *mut c_void;")
     o.append("        let mut ev = ak_fsm_ev::default();")
     o.append("        let mut rc = ak_fsm_begin_%s(ctx, b.as_ptr(), b.len(), &mut ev);" % root)
-    o.append("        while rc >= 0 {")
-    o.append("            fsm_feed_%s(ctx, obj, &ev, toks);" % rs)
-    o.append("            if rc == AK_FSM_END { break; }")
+    o.append("        // The return value is the event's op; the root group (APPLY) is the last.")
+    o.append("        loop {")
+    o.append("            if rc <= 0 { if rc == 0 { rc = AK_ERR_ABI; } break; }")
+    o.append("            fsm_feed_%s(ctx, obj, rc as u32, &ev, toks);" % rs)
+    o.append("            if rc == AK_BDR_APPLY as i32 { rc = AK_OK; break; }")
     o.append("            rc = ak_fsm_next_%s(ctx, &mut ev);" % root)
     o.append("        }")
     o.append("        if rc < 0 { rc } else { host_call(); ak_dec_err(ctx) }")
@@ -1049,15 +1051,16 @@ def _binding_root(p, root):
     o.append("        let mut rc = ak_fsm_begin_%s(ctx, b.as_ptr(), b.len(), &mut ev);" % root)
     o.append("        d.calls = 1;")
     o.append("        let mut bad: Option<String> = None;")
-    o.append("        while rc >= 0 {")
+    o.append("        while rc > 0 {")
     o.append("            let body = if ev.bytes == 0 { Vec::new() } else { ::core::slice::from_raw_parts(ev.data as *const u8, ev.bytes as usize).to_vec() };")
-    o.append("            fsm.push((ev.op, ev.slot, ev.token, ev.n, fsm_canon_rec_%s(ev.op, ev.slot, ev.n, &body)));" % rs)
-    o.append("            if rc == AK_FSM_END { break; }")
-    o.append("            if rc != AK_OK { bad = Some(format!(\"next returned {rc}\")); break; }")
+    o.append("            // The op is the return value (D23 as amended 2026-10-09).")
+    o.append("            fsm.push((rc as u32, ev.slot, ev.token, ev.n, fsm_canon_rec_%s(rc as u32, ev.slot, ev.n, &body)));" % rs)
+    o.append("            if rc == AK_BDR_APPLY as i32 { break; }")
     o.append("            if fsm.len() > 4 * b.len() + 16 { bad = Some(\"runaway: more events than the input allows\".into()); break; }")
     o.append("            rc = ak_fsm_next_%s(ctx, &mut ev);" % root)
     o.append("            d.calls += 1;")
     o.append("        }")
+    o.append("        if rc == 0 { bad = Some(\"begin/next returned 0 (neither an op nor an error)\".into()); }")
     o.append("        d.fsm_rc = rc;")
     o.append("        (d.fsm_fwd, d.fsm_rev) = fsm_counters(ctx);")
     o.append("        // A call after the end or an error is refused.")
@@ -1073,7 +1076,7 @@ def _binding_root(p, root):
     o.append("        ak_fsm_set_pvt_%s(ctx, ::core::ptr::null());" % root)
     o.append("        d.records = pull.len();")
     o.append("        d.events = fsm.len();")
-    o.append("        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_FSM_END };")
+    o.append("        let want = if d.pull_rc < 0 { d.pull_rc } else { AK_BDR_APPLY as i32 };")
     o.append("        if bad.is_none() && d.fsm_rc != want { bad = Some(format!(\"pull returned {}, the FSM ended with {}\", d.pull_rc, d.fsm_rc)); }")
     o.append("        if bad.is_none() { bad = fsm_rows_cmp(&pull, &fsm); }")
     o.append("        d.mismatch = bad;")

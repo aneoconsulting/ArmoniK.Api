@@ -43,13 +43,22 @@ pub const FSM_MAX_FRAMES: usize = 16;
 /// equality is asserted below.
 pub const FSM_ARENA_BYTES: usize = 32 * 1024;
 const _: () = assert!(FSM_ARENA_BYTES == ak_rt::ARENA_BYTES);
-/// D23's event is a pull record header plus a payload pointer.
+/// D23's event (owner, 2026-10-09: the op is the return value, not a member).
 const _: () = assert!(core::mem::size_of::<ak_fsm_ev>() == 32);
 const _: () = assert!(core::mem::align_of::<ak_fsm_ev>() == 8);
+const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, slot) == 0);
+const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, n) == 4);
 const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, token) == 8);
-const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, n) == 16);
-const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, bytes) == 20);
-const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, data) == 24);
+const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, data) == 16);
+const _: () = assert!(core::mem::offset_of!(ak_fsm_ev, bytes) == 24);
+
+/// What begin / next return with an event: its op (AK_BDR_*), positive; the root group
+/// (APPLY) is always the last event and so is the end.
+pub const FSM_NEW: i32 = AK_BDR_NEW as i32;
+pub const FSM_ADD: i32 = AK_BDR_ADD as i32;
+pub const FSM_APPLY_ELEM: i32 = AK_BDR_APPLY_ELEM as i32;
+pub const FSM_APPLY: i32 = AK_BDR_APPLY as i32;
+const _: () = assert!(FSM_NEW > 0 && FSM_ADD > 0 && FSM_APPLY_ELEM > 0 && FSM_APPLY > 0);
 
 /// Elements of `size` bytes a run holds before it is flushed: the byte budget divided by
 /// the element size, at least one.

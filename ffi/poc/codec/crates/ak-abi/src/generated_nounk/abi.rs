@@ -1481,9 +1481,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_ListResultsResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_ListResultsResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_ListResultsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListResultsResponse) -> i32;
@@ -1512,9 +1512,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_ListTasksDetailedResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTasksDetailedResponse) -> i32;
@@ -1543,9 +1543,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_ListProbeResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_ListProbeResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_ListProbeResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListProbeResponse) -> i32;
@@ -1574,9 +1574,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_ListTaskSummaryResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListTaskSummaryResponse) -> i32;
@@ -1608,9 +1608,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_UploadResultDataMessage(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_UploadResultDataMessage(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_UploadResultDataMessage(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_UploadResultDataMessage) -> i32;
@@ -1639,9 +1639,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_ListMetricsResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_ListMetricsResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_ListMetricsResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_ListMetricsResponse) -> i32;
@@ -1670,9 +1670,9 @@ unsafe extern "C" {
         buf: *const u8,
         len: usize,
     ) -> i32;
-    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. AK_OK = more follow, AK_FSM_END = this was the root group, < 0 = error.
+    /// D23: start an FSM decode of `buf` (valid and unmoved until the end event or an error) and write its FIRST event. Returns the event's op (AK_BDR_*; AK_BDR_APPLY, the root group, is the last), or < 0 = error.
     pub fn ak_fsm_begin_DualResponse(ctx: *mut ak_dec_ctx, buf: *const u8, len: usize, ev: *mut super::super::ak_fsm_ev) -> i32;
-    /// D23: write the next event; same returns. AK_ERR_INVALID_STATE after the end or an error.
+    /// D23: write the next event; returns its op or < 0. AK_ERR_INVALID_STATE after the root group or an error.
     pub fn ak_fsm_next_DualResponse(ctx: *mut ak_dec_ctx, ev: *mut super::super::ak_fsm_ev) -> i32;
     /// D23: COPY the D20 mask for every later FSM decode on this context (NULL = all zero); separate from the pull family's. AK_ERR_INVALID_STATE for a context bound to another root.
     pub fn ak_fsm_set_pvt_DualResponse(ctx: *mut ak_dec_ctx, pvt: *const ak_pvt_DualResponse) -> i32;

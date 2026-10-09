@@ -232,26 +232,24 @@ pub struct ak_bdr_rec {
     pub bytes: u32,
 }
 
-/// FIX-PLAN D23: one FSM event, a pull record's header (same members and offsets) plus a pointer to its payload; `bytes` exact, not padded.
+/// FIX-PLAN D23: one FSM event; its op is the return value of ak_fsm_begin_* / ak_fsm_next_*. `bytes` exact, not padded; `data` NULL for AK_BDR_NEW.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ak_fsm_ev {
-    pub op: u32,
     pub slot: u32,
-    pub token: i64,
     pub n: u32,
-    pub bytes: u32,
+    pub token: i64,
     pub data: *const c_void,
+    pub bytes: u32,
 }
 impl Default for ak_fsm_ev {
     fn default() -> Self {
         ak_fsm_ev {
-            op: 0,
             slot: 0,
-            token: 0,
             n: 0,
-            bytes: 0,
+            token: 0,
             data: ::core::ptr::null(),
+            bytes: 0,
         }
     }
 }
@@ -270,8 +268,6 @@ pub const AK_BDR_NEW: u32 = 3;
 pub const AK_BDR_APPLY_ELEM: u32 = 4;
 /// the smallest drain chunk that holds any record
 pub const AK_BDR_MIN_CHUNK: usize = 32792;
-/// FSM (D23): the event written is the root group, the last one
-pub const AK_FSM_END: i32 = 1;
 
 unsafe extern "C" {
     /// Once per process, before anything else (plan.lifecycle).

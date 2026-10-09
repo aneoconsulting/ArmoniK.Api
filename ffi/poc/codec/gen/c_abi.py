@@ -224,10 +224,10 @@ def _asserts(p, nounk=False):
     for name, size in FIXED.sizes.items():
         o.append("AK_SASSERT(sizeof(struct %s) == %d, \"sizeof %s\");" % (name, size, name))
     o.append("AK_SASSERT(offsetof(struct ak_bdr_rec, token) == 8, \"ak_bdr_rec.token\");")
-    # D23: an FSM event is a pull record header (same offsets) plus the payload pointer.
-    o.append("AK_SASSERT(offsetof(struct ak_fsm_ev, token) == 8 && offsetof(struct ak_fsm_ev, n) == 16"
-             " && offsetof(struct ak_fsm_ev, bytes) == 20 && offsetof(struct ak_fsm_ev, data) == 24,"
-             " \"ak_fsm_ev\");")
+    # D23: the FSM event (its op is the entry points' return value, not a member).
+    o.append("AK_SASSERT(offsetof(struct ak_fsm_ev, slot) == 0 && offsetof(struct ak_fsm_ev, n) == 4"
+             " && offsetof(struct ak_fsm_ev, token) == 8 && offsetof(struct ak_fsm_ev, data) == 16"
+             " && offsetof(struct ak_fsm_ev, bytes) == 24, \"ak_fsm_ev\");")
     # Decision 11: the core reads an options struct as `host` then an array of entries.
     for root in ([] if nounk else p.roots):
         on = unk_opts_name(root)
