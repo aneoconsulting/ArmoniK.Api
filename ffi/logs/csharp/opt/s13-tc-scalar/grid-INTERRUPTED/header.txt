@@ -1,0 +1,16 @@
+# opt_ab.sh (narrowed A/B), CONTAINER INSTRUMENTATION, not gated (Cases.Verify on); commit abfcf1ba; 2026-10-09T22:55:01Z
+# client CPUs 0,1; BDN default toolchain, warm-up 25 x 40 ms, 6 rounds x 40 ms, MemoryDiagnoser on; core grid; AK_BDN_ONLY= AK_BDN_DIRS=encode-core-hot AK_BDN_NO_UNKNOWN= AK_BDN_ARMS=core-ffi AK_BDN_DROP=1; builds full; reps 2 (order alternated)
+# cores: target-core 7b8ed0b888940ab7, target-core-nounk 17dbc6ebe8b31736; reps 1..2 in this invocation
+# variant e0-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core at abfcf1ba
+# variant e1r-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core at abfcf1ba
+# variant e1r128-simd: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core at abfcf1ba
+# variant e0-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core-tcnaive at abfcf1ba
+# variant e1r-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core-tcnaive at abfcf1ba
+# variant e1r128-naive: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core-tcnaive at abfcf1ba
+# variant e0-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E0,AK_AB_CORE=target-core-tcword at abfcf1ba
+# variant e1r-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R,AK_AB_CORE=target-core-tcword at abfcf1ba
+# variant e1r128-word: /home/user/ArmoniK.Api/ffi/poc/csharp env AK_STR_ENC=E1R:128,AK_AB_CORE=target-core-tcword at abfcf1ba
+# rep 1 e0-simd full: rc=0 141 s; core 7b8ed0b888940ab7; quiet: load1 0.14, no process above 10 % (waited 160 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r-simd full: rc=0 129 s; core 7b8ed0b888940ab7; quiet: load1 0.48, no process above 10 % (waited 50 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e1r128-simd full: rc=0 138 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 55 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 e0-naive full: rc=0 138 s; core f1c93866089f7343; quiet: load1 0.46, no process above 10 % (waited 70 s); # correctness:    4525 pre-timing checks passed (byte identi
