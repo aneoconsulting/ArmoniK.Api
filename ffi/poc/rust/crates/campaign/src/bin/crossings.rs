@@ -4,8 +4,9 @@
 //! stop on any difference.
 //!
 //! Codec rows: every core-ffi case the codec suite times -- every input (the 16 payloads,
-//! the content sets, the `U-*` rows), encode and push and pull decode, per unknown-field
-//! mode. RPC rows: one call of cells B, C, D and E per direction and mode, over an
+//! the content sets, the `U-*` rows), encode, the target's decode (`decode`, `decode-read`:
+//! the FSM family since FIX-PLAN D24) and the labelled extras' decodes (`decode-push`,
+//! `decode-pull`), per unknown-field mode. RPC rows: one call of cells B, C, D and E per direction and mode, over an
 //! in-process server on a Unix socket.
 //!
 //! forward = every exported entry point the loop calls: the ones the core counts in its
@@ -61,19 +62,27 @@ impl Visit for Count<'_> {
                 R::f_encode(c, &v, retain).expect("encode");
                 self.out.push(row(&self.inp.id, "encode", m, enc(c), host_calls_take()));
             }
-            R::f_decode(c, w, retain).expect("decode");
+            // D24: core-ffi's decode is the FSM family (begin + next per event, no reverse call).
+            let mut toks = Vec::new();
+            R::f_fsm(c, w, retain, &mut toks).expect("decode (fsm)");
             unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
             host_calls_take();
-            R::f_decode(c, w, retain).expect("decode");
+            R::f_fsm(c, w, retain, &mut toks).expect("decode (fsm)");
             self.out.push(row(&self.inp.id, "decode", m, dec(R::dec_ctx(c)), host_calls_take()));
             // decode-read (the core grid's decode direction, CAMPAIGN 4.0): the same decode, then
             // every field read on the host's value, counted over both.
             unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
             host_calls_take();
-            let v = R::f_decode(c, w, retain).expect("decode");
+            let v = R::f_fsm(c, w, retain, &mut toks).expect("decode (fsm)");
             std::hint::black_box(R::touch_f(&v));
             self.out.push(row(&self.inp.id, "decode-read", m, dec(R::dec_ctx(c)), host_calls_take()));
-            let mut toks = Vec::new();
+            // core-ffi-push (labelled extra, D24): the push family; its decode-read reads the
+            // host's value only, so it crosses exactly as its decode.
+            R::f_decode(c, w, retain).expect("decode (push)");
+            unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
+            host_calls_take();
+            R::f_decode(c, w, retain).expect("decode (push)");
+            self.out.push(row(&self.inp.id, "decode-push", m, dec(R::dec_ctx(c)), host_calls_take()));
             R::f_pull(c, w, retain, &mut toks).expect("pull");
             unsafe { ak_dec_counters_reset(R::dec_ctx(c)) };
             host_calls_take();
@@ -167,10 +176,14 @@ fn main() {
     println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each");
     println!("# encode + one ak_dec_reset_<Root> before each retain decode or pull (the context stays armed, U1). Retain: no pre-placed buffer,");
     println!("# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).");
+    println!("# decode, decode-read: core-ffi's decode, the FSM family since FIX-PLAN D24 (ak_fsm_begin_<Root> + one ak_fsm_next_<Root> per further");
+    println!("# event, ak_dec_err after the last; no reverse call); decode-push: the push family (core-ffi-push, labelled extra; ak_decode_<Root> +");
+    println!("# vtable reverse calls; its decode-read crosses as its decode); decode-pull: the pull family (core-ffi-pull, labelled extra).");
     println!("# decode-read: the decode, then every field of the host's value read (the core grid's decode direction, CAMPAIGN 4.0).");
     println!("# encode: the core-ffi encode, which is ALSO the op of end states reused-buffer and transport-ready-core (cell C's form: the context's");
     println!("# buffer is moved inside ak_call_unary_enc, counted in the rpc:C rows); core-native and incumbent-prod call no ak_* entry point.");
     println!("# rpc:<cell> rows: one call of cell B, C, D or E (P2.2; a = Fetch + decode, a+read = a + every field read, b = encode + Push), core RPC counters included;");
+    println!("# C and D (and their framed and callback twins) decode the response with the FSM family (D24); B decodes with prost, E with core-native.");
     println!("# Bf, Cf, Df, Ef: the same cells on the framed send path (T1 option 3; ak_client_set_framed is called once at open, not per call).");
     println!("# c/P5.3, c/P5.4: U1-unary, one upload of M5 (encode + Upload; the response is empty and decoded by nobody).");
     println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");

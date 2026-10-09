@@ -1,0 +1,67 @@
+# ffi/poc/rust/gen/crossings.txt before D24 (crossings-before.txt, as at 28a8dba3) vs after: python3 crdiff.py crossings-before.txt gen/crossings.txt (run from ffi/poc/rust)
+old rows 1078, new rows 1306
+old rows changed, by class: {'codec decode': 228, 'codec decode-read': 228, 'rpc:C a': 8, 'rpc:C a+read': 8, 'rpc:D a': 4, 'rpc:D a+read': 4}
+missing old rows: [] 0
+added rows: 228, directions Counter({'decode-push': 228})
+decode-push rows != old (push) decode rows: 0 []
+FSM decode rows with reverse 0: 280 of 456
+(new fwd - old push reverse - new resets, old push fwd - old resets, resets delta): count {(1, 1, 0): 280, (-1, 1, 0): 36, (0, 1, 0): 138, (-5, 1, 0): 2}
+  e.g. (('P1.1', 'decode', 'drop'), (1, 2, 0), (3, 0, 0))
+  e.g. (('P1.1', 'decode-read', 'drop'), (1, 2, 0), (3, 0, 0))
+  e.g. (('P1.1', 'decode', 'retain'), (2, 2, 1), (4, 0, 1))
+  e.g. (('P1.1', 'decode-read', 'retain'), (2, 2, 1), (4, 0, 1))
+  rpc changed ('rpc:C', 'a', 'retain') (4, 3501, 1) -> (3505, 0, 1)
+  rpc changed ('rpc:C', 'a+read', 'retain') (4, 3501, 1) -> (3505, 0, 1)
+  rpc changed ('rpc:C', 'a', 'drop') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:C', 'a+read', 'drop') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:D', 'a', 'retain') (2, 3501, 1) -> (3503, 0, 1)
+  rpc changed ('rpc:D', 'a+read', 'retain') (2, 3501, 1) -> (3503, 0, 1)
+  rpc changed ('rpc:D', 'a', 'drop') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:D', 'a+read', 'drop') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:Cf', 'a', 'retain') (4, 3501, 1) -> (3505, 0, 1)
+  rpc changed ('rpc:Cf', 'a+read', 'retain') (4, 3501, 1) -> (3505, 0, 1)
+  rpc changed ('rpc:Cf', 'a', 'drop') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:Cf', 'a+read', 'drop') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:Df', 'a', 'retain') (2, 3501, 1) -> (3503, 0, 1)
+  rpc changed ('rpc:Df', 'a+read', 'retain') (2, 3501, 1) -> (3503, 0, 1)
+  rpc changed ('rpc:Df', 'a', 'drop') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:Df', 'a+read', 'drop') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:C-cb', 'a', 'retain') (5, 3502, 1) -> (3506, 1, 1)
+  rpc changed ('rpc:C-cb', 'a+read', 'retain') (5, 3502, 1) -> (3506, 1, 1)
+  rpc changed ('rpc:C-cb', 'a', 'drop') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:C-cb', 'a+read', 'drop') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:Cf-cb', 'a', 'retain') (5, 3502, 1) -> (3506, 1, 1)
+  rpc changed ('rpc:Cf-cb', 'a+read', 'retain') (5, 3502, 1) -> (3506, 1, 1)
+  rpc changed ('rpc:Cf-cb', 'a', 'drop') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:Cf-cb', 'a+read', 'drop') (4, 3502, 0) -> (3505, 1, 0)
+
+# invariant on the new file: python3 crinv.py gen/crossings.txt
+FSM row == push row (forward: begin + next per further event + ak_dec_err + resets; reverse: unknown-field grows only; push reverse = events + grows): 456 hold, 0 do not
+FSM rows with reverse > 0 (grows), by mode: {'retain': 176}
+
+# no-unknown build
+old rows 553, new rows 667
+old rows changed, by class: {'codec decode': 114, 'codec decode-read': 114, 'rpc:C a': 4, 'rpc:C a+read': 4, 'rpc:D a': 2, 'rpc:D a+read': 2}
+missing old rows: [] 0
+added rows: 114, directions Counter({'decode-push': 114})
+decode-push rows != old (push) decode rows: 0 []
+FSM decode rows with reverse 0: 228 of 228
+(new fwd - old push reverse - new resets, old push fwd - old resets, resets delta): count {(1, 1, 0): 228}
+  e.g. (('P1.1', 'decode', 'no-unknown'), (1, 2, 0), (3, 0, 0))
+  e.g. (('P1.1', 'decode-read', 'no-unknown'), (1, 2, 0), (3, 0, 0))
+  e.g. (('P1.2', 'decode', 'no-unknown'), (1, 5, 0), (6, 0, 0))
+  e.g. (('P1.2', 'decode-read', 'no-unknown'), (1, 5, 0), (6, 0, 0))
+  rpc changed ('rpc:C', 'a', 'nounk') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:C', 'a+read', 'nounk') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:D', 'a', 'nounk') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:D', 'a+read', 'nounk') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:Cf', 'a', 'nounk') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:Cf', 'a+read', 'nounk') (3, 3501, 0) -> (3504, 0, 0)
+  rpc changed ('rpc:Df', 'a', 'nounk') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:Df', 'a+read', 'nounk') (1, 3501, 0) -> (3502, 0, 0)
+  rpc changed ('rpc:C-cb', 'a', 'nounk') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:C-cb', 'a+read', 'nounk') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:Cf-cb', 'a', 'nounk') (4, 3502, 0) -> (3505, 1, 0)
+  rpc changed ('rpc:Cf-cb', 'a+read', 'nounk') (4, 3502, 0) -> (3505, 1, 0)
+FSM row == push row (forward: begin + next per further event + ak_dec_err + resets; reverse: unknown-field grows only; push reverse = events + grows): 228 hold, 0 do not
+FSM rows with reverse > 0 (grows), by mode: {}

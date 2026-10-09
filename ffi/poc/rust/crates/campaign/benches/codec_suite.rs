@@ -54,6 +54,8 @@ impl Visit for Collect<'_> {
 }
 
 fn main() {
+    // D24: the D23 FSM switch is retired (core-ffi is the FSM); refuse it rather than ignore it.
+    campaign::refuse_ak_fsm();
     // CAMPAIGN req 25 (D9): the allocator mode, checked before anything is timed.
     let (alloc, alloc_read) = alloc_check();
     let launch: usize = env("AK_LAUNCH", 1);
@@ -194,16 +196,16 @@ fn main() {
     // Section 7: one JSON line per raw criterion sample.
     let mut f = std::fs::File::create(&out_path).unwrap();
     let mut hx = vec![
-        ("grid", format!("AK_CAMPAIGN_GRID={grid_sel} (CAMPAIGN section 4.0, D18; core | full). core: the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 U-* rows {}; arms incumbent-prod (full build only, once), core-ffi (push) and host-gen, which in Rust is core-native (the codec the shared generator writes into Rust, no C ABI boundary); encode at end state (ii) (incumbent-prod transport-ready-tonic, cell A's form; core-ffi and core-native transport-ready-core, cells Cf and Ef) on the hot input, and decode-read; retain in the full build, no-unknown in the no-unknown build. Every row is labelled row = core | extra", campaign::CORE_U_ROWS.join(", "))),
+        ("grid", format!("AK_CAMPAIGN_GRID={grid_sel} (CAMPAIGN section 4.0, D18; core | full). core: the 16 shapes (P7.1 decode only), Latin-1 and wide on P2.2 only, the 7 U-* rows {}; arms incumbent-prod (full build only, once), core-ffi (FSM decode, D24) and host-gen, which in Rust is core-native (the codec the shared generator writes into Rust, no C ABI boundary); encode at end state (ii) (incumbent-prod transport-ready-tonic, cell A's form; core-ffi and core-native transport-ready-core, cells Cf and Ef) on the hot input, and decode-read; retain in the full build, no-unknown in the no-unknown build. Every row is labelled row = core | extra", campaign::CORE_U_ROWS.join(", "))),
         ("extras left out", if grid_sel == "core" { campaign::CODEC_EXTRAS.to_string() } else { "none (full grid: extras run, labelled row = extra)".to_string() }),
         ("alloc", alloc_header(alloc, alloc_read)),
         ("engine", "criterion 0.5, measurement = PROCESS CPU (CLOCK_PROCESS_CPUTIME_ID, requirement 21 as amended), SamplingMode::Flat, raw samples exported, none dropped".into()),
         ("threads", "1 measuring thread (criterion, in-process); no runtime, no worker pool in the codec suite".into()),
         ("encode variants", format!("every encode arm x mode in 4 rows, core-native and core-ffi in 6 (requirement 11): end_state reused-buffer | transport-ready-tonic | transport-ready-core (core arms only) ({}) x input hot (one graph) | pool (distinct graphs cloned until the heap they hold, measured with glibc mallinfo2, reaches AK_POOL_BYTES; at least 2, at most 2^20; built before the case's warm-up and freed after; each pool row records pool_graphs and pool_heap_bytes; AK_POOL_BYTES = {}, AK_LLC_BYTES = {})", TRANSPORT_FORMS, pool_bytes(), llc_bytes())),
         ("build", if cfg!(feature = "unknown-fields") {
-            "unknown-fields: core-ffi / core-native / core-ffi-pull in modes drop and retain".to_string()
+            "unknown-fields: core-ffi / core-native / core-ffi-push / core-ffi-pull in modes drop and retain".to_string()
         } else {
-            "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
+            "NO-UNKNOWN (unknown-field support compiled out, CAMPAIGN.md req 10): core-ffi / core-native / core-ffi-push / core-ffi-pull in mode no-unknown; incumbent-prod and armonik as in-process controls".to_string()
         }),
         ("launch", launch.to_string()),
         ("arm order", format!("{} (arm blocks and the cases inside each block in a seeded random order, seed = launch; criterion runs them in this registration order)", order.join(","))),
@@ -213,17 +215,15 @@ fn main() {
         ("core-ffi-zc", if zc.is_empty() { "none".to_string() } else { format!("labelled extra arm on inputs {}*: the core-ffi decode with every bytes field a slice of the input Bytes (optimisation Z1; not ABI v1 decision 13's copy semantics, which core-ffi keeps); run after the arm blocks", zc.join("*,")) }),
         ("warm-up", format!("criterion's own warm-up, {warm_ms} ms per case (AK_WARMUP_MS; FIX-PLAN WP9: no hand-written warm-up loop beside it); measurement {meas_ms} ms")),
         ("wall", "not recorded for the codec suite (criterion measures one quantity; process CPU is requirement 21's)".into()),
-        ("unknown modes", format!("core-native, core-ffi, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
+        ("unknown modes", format!("core-native, core-ffi, core-ffi-push, core-ffi-pull: {} (retain = every position armed); incumbent-prod and armonik: default (prost drops unknown fields). core-native's drop rendering has no unknown-field code in either build", MODES.iter().map(|m| m.0).collect::<Vec<_>>().join(", "))),
         ("precheck", format!("{checks} checks passed")),
         ("inputs", inputs.len().to_string()),
         ("cases", cases.len().to_string()),
         ("narrowed", if narrowed { format!("arms [{}] dirs [{}] end states [{}] inputs [{}] (AK_CASE_*; not a campaign run)", f_arm.join(","), f_dir.join(","), f_end.join(","), f_inp.join(",")) } else { "no".to_string() }),
         ("refusals", format!("{} (row, arm) pairs the incumbent's prost refuses and that are therefore not timed; listed below", refused.len())),
     ];
-    if campaign::fsm_arm_on() {
-        hx.insert(0, ("core-ffi-fsm",
-        "labelled extra arm (AK_FSM=1, FIX-PLAN D23): the FSM decode family, ak_fsm_begin_<Root> then ak_fsm_next_<Root> to the end event, each event fed to the push vtable's host functions as it arrives (binding fsm_with_<root>, _unk in retain); in the arm blocks; pre-checked against core-ffi's value and pull's log".to_string()));
-    }
+    hx.insert(0, ("decode families",
+        "FIX-PLAN D24: core-ffi decodes with the FSM family (ak_fsm_begin_<Root> returns the first event's op, ak_fsm_next_<Root> each next one, the root's APPLY last; each event fed to the binding's host functions as it arrives: binding fsm_with_<root>, _unk in retain). core-ffi-push (ak_decode_<Root> + vtable reverse calls, binding decode_with_<root>) and core-ffi-pull (ak_parse_<Root> + walk of the record log) are labelled extra decode arms in the same randomised blocks; the pre-check holds push's and pull's values equal to core-ffi's and the FSM's events equal to pull's records".to_string()));
     for h in header("codec", &hx) {
         writeln!(f, "{h}").unwrap();
     }

@@ -5,6 +5,8 @@
 //!   B  prost                                    the core's transport, BLOCKING (`ak_call_unary`)
 //!   C  core-ffi (the generated binding, C ABI)  the core's transport, blocking
 //!   D  core-ffi                                 tonic, async (raw-bytes codec)
+//! C and D decode the response with the FSM family (FIX-PLAN D24; `Slot::f_decode_resp`);
+//! E and F decode in the host (host-gen), not in the core.
 //!   E  core-native (host-gen)                   the core's transport, blocking
 //!   F  core-native (host-gen)                   tonic, async (raw-bytes codec)
 //! C, D, E and F carry the unknown-field mode as a suffix (`-retain`, `-drop` in the full
@@ -593,11 +595,23 @@ pub fn retain_of(cell: &str) -> bool {
     cell.ends_with("-retain")
 }
 
-/// The codec state of one in-flight slot: the binding's contexts (core-ffi) and a
+/// The codec state of one in-flight slot: the binding's contexts (core-ffi), the FSM
+/// consumer's token scratch (D24: cells C and D decode the response with the FSM) and a
 /// core-native encoder. Used by one thread or one task at a time.
 pub struct Slot {
     pub ctx: harness::arms::core_ffi_arm::Ctx,
+    pub toks: std::cell::UnsafeCell<Vec<i64>>,
     pub enc: std::cell::UnsafeCell<ak_rt::Enc>,
+}
+impl Slot {
+    /// D24: the core-ffi response decode of cells C and D (framed and callback twins
+    /// included): the FSM family (binding fsm_with_<root>). There is no push twin of these
+    /// cells (the runner has no decode-family switch); push is timed in the codec suite only.
+    pub fn f_decode_resp(&self, resp: &[u8], retain: bool) -> Result<<M2 as Ops>::F, i32> {
+        // SAFETY: a slot is used by one thread or one task at a time, and no await
+        // separates the borrow from its end.
+        M2::f_fsm(&self.ctx, resp, retain, unsafe { &mut *self.toks.get() })
+    }
 }
 unsafe impl Send for Slot {}
 unsafe impl Sync for Slot {}
@@ -605,6 +619,7 @@ unsafe impl Sync for Slot {}
 pub fn slots(k: usize) -> &'static [Slot] {
     Box::leak((0..k).map(|_| Slot {
         ctx: harness::arms::core_ffi_arm::Ctx::new(),
+        toks: std::cell::UnsafeCell::new(Vec::new()),
         enc: std::cell::UnsafeCell::new(ak_rt::Enc::new(facade::generated::core_native::SITES)),
     }).collect::<Vec<_>>().into_boxed_slice())
 }
@@ -664,11 +679,12 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
         ('C', Conn::Core(cc)) => {
             let cc = cc.clone();
             Call::Blocking(Arc::new(move |i| {
-                let ctx = &sl[i].ctx;
+                let slot = &sl[i];
+                let ctx = &slot.ctx;
                 let on_resp = |resp: &[u8]| {
                     check(resp.len())?;
                     if fetch {
-                        let v = M2::f_decode(ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
+                        let v = slot.f_decode_resp(resp, retain).map_err(|e| format!("core-ffi decode (fsm) {e}"))?;
                         if read { std::hint::black_box(M2::touch_f(&v)); } else { std::hint::black_box(&v); }
                     }
                     Ok(())
@@ -741,7 +757,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                     check(resp.len())?;
                     if fetch {
                         let v = if ffi {
-                            M2::f_decode(&slot.ctx, &resp, retain).map_err(|e| format!("core-ffi decode {e}"))?
+                            slot.f_decode_resp(&resp, retain).map_err(|e| format!("core-ffi decode (fsm) {e}"))?
                         } else {
                             M2::n_decode(&resp, retain).map_err(|e| format!("core-native decode {e}"))?
                         };
@@ -787,7 +803,7 @@ pub fn call_of(cell: &str, conn: &Conn, dir: &'static str, sl: &'static [Slot], 
                     let resp = r.bytes();
                     check(resp.len())?;
                     if fetch {
-                        let v = M2::f_decode(&slot.ctx, resp, retain).map_err(|e| format!("core-ffi decode {e}"))?;
+                        let v = slot.f_decode_resp(resp, retain).map_err(|e| format!("core-ffi decode (fsm) {e}"))?;
                         if read { std::hint::black_box(M2::touch_f(&v)); } else { std::hint::black_box(&v); }
                     }
                     Ok(())

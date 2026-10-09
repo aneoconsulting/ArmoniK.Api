@@ -15,8 +15,12 @@
 //!                   entry point (`Message::encode`/`decode`, R14), so it is not a second row.
 //!   armonik         the facade types with their generated `prost::Message` impls
 //!   core-native     the codec generated into the host (Rust's `host-gen`), drop and retain
-//!   core-ffi        the generated binding through the C ABI, push decode, drop and retain
-//!   core-ffi-pull   the pull family (walk in place), decode only, drop and retain
+//!   core-ffi        the generated binding through the C ABI, drop and retain; decode with the
+//!                   FSM family (FIX-PLAN D24: ak_fsm_begin_<R> + ak_fsm_next_<R>, each event
+//!                   fed to the binding's host functions as it arrives, binding fsm_with_<root>)
+//!   core-ffi-push   labelled extra (D24): the push family (ak_decode_<R> + vtable reverse
+//!                   calls, binding decode_with_<root>), decode only, drop and retain
+//!   core-ffi-pull   labelled extra: the pull family (walk in place), decode only, drop and retain
 
 pub mod generated {
     pub mod roots;
@@ -178,7 +182,7 @@ pub fn core_codec_input(id: &str) -> bool {
     !id.contains('/') || id == "P2.2/latin1" || id == "P2.2/wide"
 }
 
-/// A codec case of the core grid. Arms: incumbent-prod (full build only), core-ffi (push)
+/// A codec case of the core grid. Arms: incumbent-prod (full build only), core-ffi (FSM decode, D24)
 /// and host-gen, which in Rust is `core-native` (the codec the shared generator writes into
 /// Rust, no C ABI boundary). Encode: end state (ii), the form the arm's RPC path of the
 /// core grid hands its transport (incumbent: tonic's `Bytes`, cell A; core-ffi and
@@ -196,7 +200,7 @@ pub fn core_codec_case(arm: &str, dir: &str, mode: &str, end_state: &str, input:
 }
 
 /// The codec extras the core grid leaves out (header).
-pub const CODEC_EXTRAS: &str = "incumbent-best (none in Rust); core-ffi-pull (pull decode); armonik; bare decode; the other encode variants (reused-buffer hot and pool, transport-ready pool, core-ffi's transport-ready-tonic and core-native's transport-ready-tonic); the drop mode; incumbent-prod and armonik in the no-unknown build; Latin-1 and wide on P1.2 and P2.4; the other U-* rows timed (all stay in the gate and in this process's pre-check of the timed inputs)";
+pub const CODEC_EXTRAS: &str = "incumbent-best (none in Rust); core-ffi-push (push decode, D24); core-ffi-pull (pull decode); armonik; bare decode; the other encode variants (reused-buffer hot and pool, transport-ready pool, core-ffi's transport-ready-tonic and core-native's transport-ready-tonic); the drop mode; incumbent-prod and armonik in the no-unknown build; Latin-1 and wide on P1.2 and P2.4; the other U-* rows timed (all stay in the gate and in this process's pre-check of the timed inputs)";
 
 /// An RPC benchmark of the core grid. The core cells are the framed ones with Rust's
 /// idiomatic delivery, the callback bridged to async (req 16 as amended): Bf-cb, Cf-cb, Ef-cb.
@@ -358,10 +362,12 @@ pub trait Ops {
     fn build(pid: &str) -> Option<Self::F>;
     fn n_decode(b: &[u8], retain: bool) -> Result<Self::F, i32>;
     fn n_encode(v: &Self::F, e: &mut ak_rt::Enc, retain: bool);
+    /// The push family (`core-ffi-push` since D24; the RPC cells' push twins do not exist).
     fn f_decode(c: &Ctx, b: &[u8], retain: bool) -> Result<Self::F, i32>;
     fn f_encode(c: &Ctx, v: &Self::F, retain: bool) -> Result<usize, i32>;
     fn f_pull(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
-    /// FIX-PLAN D23: the FSM decode family (`core-ffi-fsm`, a labelled extra arm, AK_FSM=1).
+    /// FIX-PLAN D23/D24: the FSM decode family, the target's decode (`core-ffi`, and the
+    /// core-codec RPC cells' response decode).
     fn f_fsm(c: &Ctx, b: &[u8], retain: bool, toks: &mut Vec<i64>) -> Result<Self::F, i32>;
     /// D23 attribution probe (drop mode): the FSM's events collected into a pull-format
     /// buffer, then the pull family's replay. Not a campaign arm.
@@ -410,7 +416,9 @@ pub const VARIANTS_CORE: &[(&str, &str)] = &[
 ];
 /// What each transport-ready row is, for every header.
 pub const TRANSPORT_FORMS: &str = "transport-ready-tonic = the Bytes the arm hands tonic: incumbent-prod and armonik a frozen Bytes split from a reused BytesMut (cell A); core-ffi ak_enc_take_owned's buffer wrapped by Bytes::from_owner, no copy, released with ak_bytes_free when dropped (cell D; optimisation T1); core-native Enc::take, its buffer moved into a Bytes (from_owner) and recycled when dropped, O(1) (cell F; optimisation T1). transport-ready-core = the form the arm hands the core's transport: core-ffi's is the encode context itself (cell C: ak_call_unary_enc MOVES the core's buffer into the request inside the call, no host copy), core-native's its reused Enc buffer (cell E: ak_call_unary copies it inside the call); either way the host does nothing after the encode, so the op is the reused-buffer op, timed as its own row (an in-process repeat of reused-buffer), and the move or copy is inside the RPC call's time";
-pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-pull"];
+/// D24: core-ffi decodes with the FSM; core-ffi-push and core-ffi-pull are labelled extra
+/// decode arms in the same randomised blocks.
+pub const ARMS: [&str; 6] = ["incumbent-prod", "armonik", "core-native", "core-ffi", "core-ffi-push", "core-ffi-pull"];
 
 /// Requirement 22 as amended 2026-09-26 (FIX-PLAN R-H23): the order is RANDOMISED per
 /// launch, as far as the engine allows. Criterion runs benchmarks in the order they are
@@ -419,21 +427,18 @@ pub const ARMS: [&str; 5] = ["incumbent-prod", "armonik", "core-native", "core-f
 /// launch number, so a launch's order is reproducible and is written into its header.
 pub fn arm_order(launch: usize) -> Vec<&'static str> {
     let mut v = ARMS.to_vec();
-    // FIX-PLAN D23: the FSM arm joins the randomised blocks only when it is asked for
-    // (AK_FSM=1); without it the order is exactly what it was.
-    if fsm_arm_on() {
-        v.push(FSM_ARM);
-    }
     shuffle(&mut v, launch as u64);
     v
 }
 
-/// FIX-PLAN D23: the FSM decode family's arm, a labelled extra decode arm (drop and retain,
-/// or no-unknown), run and pre-checked only with `AK_FSM=1` so the default grids, their
-/// order and their pre-check counts are unchanged.
-pub const FSM_ARM: &str = "core-ffi-fsm";
-pub fn fsm_arm_on() -> bool {
-    std::env::var("AK_FSM").map(|v| v == "1").unwrap_or(false)
+/// FIX-PLAN D24 (owner, 2026-10-09): the FSM is the target decode family, so the D23 extra
+/// arm `core-ffi-fsm` (AK_FSM=1) is gone: `core-ffi` IS the FSM, and push is the labelled
+/// extra `core-ffi-push`. AK_FSM is refused rather than silently ignored, so a D23 script run
+/// against this harness fails instead of timing arms other than the ones it names.
+pub fn refuse_ak_fsm() {
+    if std::env::var_os("AK_FSM").is_some() {
+        panic!("AK_FSM is retired by D24: core-ffi decodes with the FSM, core-ffi-push is push (unset AK_FSM)");
+    }
 }
 
 /// A deterministic Fisher-Yates shuffle (splitmix64 from `seed`): the same seed gives the
@@ -808,7 +813,13 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                 let v = R::n_decode(wire, retain).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
+            // D24: core-ffi decodes with the FSM family; push is the labelled extra.
+            let mut toks = Vec::new();
             push("core-ffi", dir, mname, Box::new(move || {
+                let v = R::f_fsm(ctx, wire, retain, &mut toks).unwrap();
+                if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
+            }));
+            push("core-ffi-push", dir, mname, Box::new(move || {
                 let v = R::f_decode(ctx, wire, retain).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
@@ -817,13 +828,6 @@ pub fn cases_for<R: Ops>(ctx: &'static Ctx, inp: &Input, zc: bool) -> Vec<Case> 
                 let v = R::f_pull(ctx, wire, retain, &mut toks).unwrap();
                 if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
             }));
-            if fsm_arm_on() {
-                let mut toks = Vec::new();
-                push(FSM_ARM, dir, mname, Box::new(move || {
-                    let v = R::f_fsm(ctx, wire, retain, &mut toks).unwrap();
-                    if read { R::touch_f(&v) } else { std::hint::black_box(&v); 0 }
-                }));
-            }
             if zc {
                 // Optimisation Z1, a labelled extra arm (AK_ZC): `bytes` fields share the
                 // input buffer instead of copying it (not decision 13's default).
@@ -868,18 +872,18 @@ pub fn precheck<R: Ops>(ctx: &Ctx, inp: &Input) -> (usize, Vec<String>, Vec<Stri
     let mut toks = Vec::new();
     for &(_, retain) in MODES {
         let nv = R::n_decode(wire, retain);
-        let fv = R::f_decode(ctx, wire, retain);
+        // D24: core-ffi's decode is the FSM family; core-ffi-push and core-ffi-pull are
+        // labelled extras, each checked against it.
+        let fv = R::f_fsm(ctx, wire, retain, &mut toks);
+        let hv = R::f_decode(ctx, wire, retain);
         let pl = R::f_pull(ctx, wire, retain, &mut toks);
-        chk(nv.is_ok() && fv.is_ok() && pl.is_ok(), format!("native/ffi/pull decode (retain={retain})"));
-        if fsm_arm_on() {
-            // D23: the FSM consumer's value is push's (graph), and its event stream is pull's
-            // log record for record (the differential, every mode of this build).
-            let sv = R::f_fsm(ctx, wire, retain, &mut toks);
-            chk(matches!((&fv, &sv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),
-                format!("core-ffi-fsm == core-ffi (retain={retain})"));
-            let (d, g) = harness::generated::binding::fsm_check_root(R::ROOT, ctx.dec, wire, retain, 0).expect("fsm root");
-            chk(d.mismatch.is_none() && g.is_ok(), format!("fsm events == pull records (retain={retain}): {:?} {:?}", d.mismatch, g));
-        }
+        chk(nv.is_ok() && fv.is_ok() && hv.is_ok() && pl.is_ok(), format!("native/ffi(fsm)/push/pull decode (retain={retain})"));
+        chk(matches!((&fv, &hv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),
+            format!("core-ffi-push == core-ffi (retain={retain})"));
+        // D23: the FSM's event stream is pull's log record for record and the consumer's graph
+        // is push's (the differential, every mode of this build).
+        let (d, g) = harness::generated::binding::fsm_check_root(R::ROOT, ctx.dec, wire, retain, 0).expect("fsm root");
+        chk(d.mismatch.is_none() && g.is_ok(), format!("fsm events == pull records (retain={retain}): {:?} {:?}", d.mismatch, g));
         // Optimisation Z1: the zero-copy decode gives the same value.
         let zv = R::f_decode_zc(ctx, &bytes::Bytes::copy_from_slice(wire), retain);
         chk(matches!((&fv, &zv), (Ok(a), Ok(b)) if format!("{a:?}") == format!("{b:?}")),

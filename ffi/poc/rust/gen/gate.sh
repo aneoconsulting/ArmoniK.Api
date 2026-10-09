@@ -7,14 +7,20 @@
 #   2  the core's unit tests (ak-rt reader, ak-core transcoders)
 #   3  byte identity: every arm against ffi/schema's validated manifest, 16 payloads
 #   4  explicit presence, the oneof, the unknown-field vectors
-#   5  crossing COUNTS (counting build), push and pull, and the record==reverse control
+#   5  crossing COUNTS (counting build): core-ffi's decode (the FSM family, D24) and push's
+#      (core-ffi-push), and pull's record==reverse control against push
 #   6  the content sets on every payload (correctness section only)
 #   7  obligation 12.5's concurrency suite: four builds, two must pass, two must fail
 #   8  ABI v1 section 3: the lifecycle, init-guard off and on
 #   9  R-D1: the length-wrap reproductions, each under `timeout`
 #  10  R-D6: the sticky error slot after every upcall
-#  11  the conformance corpus through the C ABI and core-native, BOTH unknown-field modes
-#      (gen/corpus.sh), when it exists
+#  11  the conformance corpus through the C ABI (FSM and push decode) and core-native, BOTH
+#      unknown-field modes (gen/corpus.sh), when it exists
+# 11b  the campaign harness's pre-check; 11c crossing counts vs gen/crossings.txt; 11d-11f the
+#      RPC checks; 11g the FSM decode family's checks (D23; the target's decode since D24):
+#      differential full / no-unknown / counting, corpus differential, planted defects in a
+#      shadow tree, the C header and a C host (gen/fsm_checks.sh)
+#  12  the no-unknown build; 12b the core grid's TCP transport and the h2-batch core
 #
 # Own target dirs, all under poc/rust. `--tsan` also runs gen/tsan.sh (nightly).
 set -euo pipefail
@@ -111,6 +117,9 @@ echo "  cases passed: $(grep -c "^PASS" "$T" || true)"
 grep "^FAIL" "$T" | sed 's/^/  /' || true
 rm -f "$T"
 [ "$rc" = 0 ] && echo "  RPC SEMANTICS PASSED" || { echo "  RPC SEMANTICS FAILED (run target/release/rpc_semantics)"; exit 1; }
+
+step "11g. the FSM decode family (FIX-PLAN D23; core-ffi's decode and cells C/D's response decode since D24): differential, corpus differential, plants, C header"
+gen/fsm_checks.sh
 
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
 # Its own build and target directory (a shared target would overwrite libak_core.so).

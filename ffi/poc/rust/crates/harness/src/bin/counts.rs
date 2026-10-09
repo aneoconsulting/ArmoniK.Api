@@ -16,6 +16,7 @@ use harness::arms::*;
 
 fn main() {
     println!("# boundary-call counts, arm core-ffi-rust");
+    println!("#   decode:         the FSM family (D24: ak_fsm_begin + ak_fsm_next, no reverse call); `dec push` is core-ffi-push");
     println!("#   counting build: {}", if cfg!(feature = "count") { "YES" } else { "no (figures below are meaningless)" });
     println!("#   guard:          {}", if cfg!(feature = "guard") { "on" } else { "OFF" });
     println!();
@@ -46,6 +47,11 @@ fn main() {
             ak_dec_counters_reset(c.dec.list_results_response);
             core_ffi_arm::decode(&c, &b);
             row(pid, "real", "decode", n, &take_dec(c.dec.list_results_response));
+            // D24: push, the labelled extra arm core-ffi-push, on the same context.
+            core_ffi_arm::decode_push(&c, &b);
+            ak_dec_counters_reset(c.dec.list_results_response);
+            core_ffi_arm::decode_push(&c, &b);
+            row(pid, "real", "dec push", n, &take_dec(c.dec.list_results_response));
         }
     }
 
@@ -68,6 +74,11 @@ fn main() {
             ak_dec_counters_reset(c.dec.list_tasks_detailed_response);
             arms_m2::core_ffi_arm::decode(&c, &b);
             row(pid, "real", "decode", n, &take_dec(c.dec.list_tasks_detailed_response));
+            // D24: push, the labelled extra arm core-ffi-push, on the same context.
+            arms_m2::core_ffi_arm::decode_push(&c, &b);
+            ak_dec_counters_reset(c.dec.list_tasks_detailed_response);
+            arms_m2::core_ffi_arm::decode_push(&c, &b);
+            row(pid, "real", "dec push", n, &take_dec(c.dec.list_tasks_detailed_response));
         }
     }
 
@@ -90,6 +101,11 @@ fn main() {
             ak_dec_counters_reset(c.dec.list_probe_response);
             m3::core_ffi_arm::decode(&c, &b);
             row("P3.1", "real", "decode", n, &take_dec(c.dec.list_probe_response));
+            // D24: push, the labelled extra arm core-ffi-push, on the same context.
+            m3::core_ffi_arm::decode_push(&c, &b);
+            ak_dec_counters_reset(c.dec.list_probe_response);
+            m3::core_ffi_arm::decode_push(&c, &b);
+            row("P3.1", "real", "dec push", n, &take_dec(c.dec.list_probe_response));
         }
     }
 

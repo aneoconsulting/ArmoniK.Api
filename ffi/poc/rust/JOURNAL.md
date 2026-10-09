@@ -4561,3 +4561,41 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   mixed against A+B (and the packed probes swing with code layout across variants that do not touch
   the packed loop). Per the owner's rule the FSM is A+B: 75f819f8 reverted. Singles were conclusive
   (each regressed), so no pairs were built.
+
+## 2026-10-09: D24 (owner): the FSM becomes the target decode family in the Rust slice
+
+- Switched, in this slice only (core unchanged at A+B, 081de788; no poc/codec change): the
+  codec suite's `core-ffi` decode and decode-read (`R::f_fsm`, every mode and both builds); the
+  pre-check (core-ffi's value is the FSM's; push == core-ffi, pull == native == core-ffi; the FSM
+  differential `fsm_check_root` on every input and mode, always on); cells C and D (blocking,
+  callback, framed twins) decode the response with the FSM (`grid::Slot::f_decode_resp`, a
+  token scratch per slot); the harness arms (`core_ffi_arm::decode`, `core_ffi_unk::decode`,
+  `arms_rest::ffi::dec_m4..m7` are the FSM; `decode_push` / `dec_mN_push` are push); conformance
+  and shapes check a `core-ffi-push` row beside core-ffi; counts prints `decode` (FSM) and
+  `dec push`; pullbench (push against pull by design) calls the push functions; the corpus's
+  ffi-* arms decode with the FSM (`ffi_fsm`, generated dispatch from gen/rust_corpus.py) and
+  ffi-push-* arms were added.
+- Push is `core-ffi-push`, a labelled extra in ARMS (so in the randomised blocks), CODEC_EXTRAS
+  and the headers. D23's `core-ffi-fsm` arm and AK_FSM are retired; the codec suite panics when
+  AK_FSM is set (checked: exit with the message), so a D23 script cannot silently time other
+  arms. No push twin of the RPC cells: rpc_suite has no decode-family switch.
+- Not switched, on purpose: unkctl's decision-11 controls (they compare pull with push and
+  per-position discard); rdrepro, d20_toggle, decpolicy (push-specific reproductions);
+  fsm_attrib (labels its push arm). The legacy harness timing bins (bench, rpcgrid, content,
+  unknown, inlining) reach the decode through `core_ffi_arm::decode`, so they now time the FSM
+  under their old core-ffi labels; none is a campaign suite and none was run.
+- Crossing references regenerated with the crossings bin in the two counting builds:
+  crossings.txt 1,078 -> 1,306 rows, crossings-nounk.txt 553 -> 667. The new `decode-push`
+  rows (228 / 114) equal the old `decode` rows exactly; every other row outside decode,
+  decode-read and the C/D a, a+read cells is unchanged. FSM rows: forward = begin + next per
+  further event + ak_dec_err + resets, reverse = unknown-field grows only (0 on every drop and
+  no-unknown row, > 0 on 176 retain rows); events + grows == push's reverse on all 456 / 228
+  rows (script in the log dir).
+- Gate: step 11g = gen/fsm_checks.sh (D23's F1-F6; plants now in a shadow copy of
+  poc/codec and poc/rust so nothing is ever planted in the shared tree, with an unplanted
+  shadow pass first).
+- Full gate on stable (working tree of the commit): GATE PASSED, `logs/rust/opt/d24-fsm-target/
+  gate-stable.log`. The six plants were all caught in the shadow tree (first failures in the log).
+  Disk at 90 % after it (the plant shadow, h2-batch and concur builds, and the other agent's
+  work), so the floor runs in this tree with this slice's target directories removed first, not in
+  a fresh worktree (a worktree's builds would not fit).

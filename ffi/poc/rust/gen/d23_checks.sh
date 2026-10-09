@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# HISTORICAL (D23, before D24): it uses AK_FSM=1 and the arm core-ffi-fsm, both retired by D24
+# (core-ffi IS the FSM, core-ffi-push is push; the codec suite refuses AK_FSM). Kept to
+# reproduce the D23 logs at their commits; the FSM checks now run in gen/gate.sh step 11g.
 # FIX-PLAN D23 (owner, 2026-10-09): the FSM decode family's checks. NOT the full gate: the
 # gate's own steps that prove push and pull unchanged, plus the FSM's differential, its
 # planted defects and its C-header smoke. Nothing here is timed. Stops at the first failure.

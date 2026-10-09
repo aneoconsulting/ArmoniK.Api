@@ -17,6 +17,12 @@ pub mod generated {
 pub fn abi_version() -> u32 {
     unsafe { ak_abi::ak_abi_version() }
 }
+/// D24: the FSM consumer's token scratch (`fsm_with_<root>`'s `toks`), one per thread, for
+/// the arms whose decode signature carries none. Reused, so a decode allocates no new one.
+pub fn with_toks<R>(f: impl FnOnce(&mut Vec<i64>) -> R) -> R {
+    thread_local! { static T: std::cell::RefCell<Vec<i64>> = const { std::cell::RefCell::new(Vec::new()) }; }
+    T.with(|t| f(&mut t.borrow_mut()))
+}
 /// D19: the simdutf UTF-16 transcoder and the UTF exports (bins tc16_diff, tc16_bench).
 pub mod d19;
 pub mod manifest;

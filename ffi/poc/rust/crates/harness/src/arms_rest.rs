@@ -161,32 +161,37 @@ pub mod ffi {
     use crate::arms::core_ffi_arm::Ctx;
     use crate::generated::binding as b;
 
+    // D24 (owner, 2026-10-09): `$dec` is the target decode family, the FSM (`$f`, unknown
+    // fields dropped); `$decp` is push (`$d`), the labelled extra arm `core-ffi-push`.
     macro_rules! pair {
-        ($enc:ident, $dec:ident, $ty:ty, $e:ident, $d:ident) => {
+        ($enc:ident, $dec:ident, $decp:ident, $ty:ty, $e:ident, $d:ident, $f:ident) => {
             pub fn $enc<'a>(c: &'a Ctx, v: &$ty) -> &'a [u8] {
                 b::$e(c.enc, v, &c.tcs).expect("core-ffi encode");
                 unsafe { b::encoded(c.enc) }
             }
             pub fn $dec(c: &Ctx, x: &[u8]) -> $ty {
-                b::$d(c.dec, x).expect("core-ffi decode")
+                crate::with_toks(|t| b::$f(c.dec, x, t)).expect("core-ffi decode (fsm)")
+            }
+            pub fn $decp(c: &Ctx, x: &[u8]) -> $ty {
+                b::$d(c.dec, x).expect("core-ffi-push decode")
             }
         };
     }
 
     pair!(
-        enc_m4, dec_m4, facade::ListTaskSummaryResponse,
-        encode_into_list_task_summary_response, decode_with_list_task_summary_response
+        enc_m4, dec_m4, dec_m4_push, facade::ListTaskSummaryResponse,
+        encode_into_list_task_summary_response, decode_with_list_task_summary_response, fsm_with_list_task_summary_response
     );
     pair!(
-        enc_m5, dec_m5, facade::UploadResultDataMessage,
-        encode_into_upload_result_data_message, decode_with_upload_result_data_message
+        enc_m5, dec_m5, dec_m5_push, facade::UploadResultDataMessage,
+        encode_into_upload_result_data_message, decode_with_upload_result_data_message, fsm_with_upload_result_data_message
     );
     pair!(
-        enc_m6, dec_m6, facade::ListMetricsResponse,
-        encode_into_list_metrics_response, decode_with_list_metrics_response
+        enc_m6, dec_m6, dec_m6_push, facade::ListMetricsResponse,
+        encode_into_list_metrics_response, decode_with_list_metrics_response, fsm_with_list_metrics_response
     );
     pair!(
-        enc_m7, dec_m7, facade::DualResponse,
-        encode_into_dual_response, decode_with_dual_response
+        enc_m7, dec_m7, dec_m7_push, facade::DualResponse,
+        encode_into_dual_response, decode_with_dual_response, fsm_with_dual_response
     );
 }

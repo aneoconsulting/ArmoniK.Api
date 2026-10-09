@@ -103,8 +103,14 @@ pub mod core_ffi_arm {
         encode_into(c, v).to_vec()
     }
 
+    /// D24 (owner, 2026-10-09): the target decode family is the FSM (`ak_fsm_begin_<R>` then
+    /// `ak_fsm_next_<R>` to the root's APPLY), unknown fields dropped.
     pub fn decode(c: &Ctx, b: &[u8]) -> Facade {
-        binding::decode_with_list_tasks_detailed_response(c.dec, b).expect("core-ffi decode M2")
+        crate::with_toks(|t| binding::fsm_with_list_tasks_detailed_response(c.dec, b, t)).expect("core-ffi decode M2 (fsm)")
+    }
+    /// D24: the push family (`ak_decode_<R>` + vtable), the labelled extra arm `core-ffi-push`.
+    pub fn decode_push(c: &Ctx, b: &[u8]) -> Facade {
+        binding::decode_with_list_tasks_detailed_response(c.dec, b).expect("core-ffi-push decode M2")
     }
 }
 
@@ -194,7 +200,13 @@ pub mod core_ffi_unk {
         binding::encode_into_list_tasks_detailed_response_unk_zeroed(c.enc, v, &c.tcs).expect("unk/zeroed encode");
         unsafe { binding::encoded(c.enc) }
     }
+    /// D24 (owner, 2026-10-09): the target decode family is the FSM (`ak_fsm_begin_<R>` then
+    /// `ak_fsm_next_<R>` to the root's APPLY), every unknown-field position retained.
     pub fn decode(c: &Ctx, b: &[u8]) -> Facade {
-        binding::decode_with_list_tasks_detailed_response_unk(c.dec, b).expect("unk decode")
+        crate::with_toks(|t| binding::fsm_with_list_tasks_detailed_response_unk(c.dec, b, t)).expect("unk decode (fsm)")
+    }
+    /// D24: the push family (`ak_decode_<R>` + vtable), the labelled extra arm `core-ffi-push`.
+    pub fn decode_push(c: &Ctx, b: &[u8]) -> Facade {
+        binding::decode_with_list_tasks_detailed_response_unk(c.dec, b).expect("unk push decode")
     }
 }

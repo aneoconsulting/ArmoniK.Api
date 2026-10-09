@@ -1,9 +1,12 @@
 //! FIX-PLAN WP5 item 6.1: the conformance corpus (`ffi/corpus/CONTRACT.md`) through the C
-//! ABI and core-native, with unknown fields DROPPED and RETAINED -- four arms, every row.
+//! ABI and core-native, with unknown fields DROPPED and RETAINED -- six arms, every row.
 //!
 //!   ffi-drop       the core generated for the corpus's reader schema, behind the C ABI,
-//!                  `decode_with_*` / `encode_into_*` (no unknown-field capture)
-//!   ffi-retain     the same core and binding, `decode_with_*_unk` / `encode_into_*_unk`
+//!                  decoded with the FSM family (FIX-PLAN D24: `fsm_with_*`), re-encoded
+//!                  with `encode_into_*` (no unknown-field capture)
+//!   ffi-retain     the same core and binding, `fsm_with_*_unk` / `encode_into_*_unk`
+//!   ffi-push-drop  labelled extra (D24): the push family, `decode_with_*` / `encode_into_*`
+//!   ffi-push-retain  the push family, `decode_with_*_unk` / `encode_into_*_unk`
 //!   native-drop    core-native rendered from the SAME plans, drop mode
 //!   native-retain  core-native, retain mode
 //!
@@ -41,15 +44,21 @@ use generated::binding;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arm {
+    /// FIX-PLAN D24: the C ABI arms decode with the FSM family (the target's decode) ...
     FfiDrop,
     FfiRetain,
+    /// ... and the push family is the labelled extra (ffi-push-*), on the same rows.
+    FfiPushDrop,
+    FfiPushRetain,
     NativeDrop,
     NativeRetain,
 }
 #[cfg(feature = "unknown-fields")]
-const ARMS: [(Arm, &str); 4] = [
+const ARMS: [(Arm, &str); 6] = [
     (Arm::FfiDrop, "ffi-drop"),
     (Arm::FfiRetain, "ffi-retain"),
+    (Arm::FfiPushDrop, "ffi-push-drop"),
+    (Arm::FfiPushRetain, "ffi-push-retain"),
     (Arm::NativeDrop, "native-drop"),
     (Arm::NativeRetain, "native-retain"),
 ];
@@ -58,8 +67,9 @@ const ARMS: [(Arm, &str); 4] = [
 /// R-H22), both writing every unknown row in the dropped form. There is no retain
 /// rendering in this build (`core_native_retain` is compiled out with the member).
 #[cfg(not(feature = "unknown-fields"))]
-const ARMS: [(Arm, &str); 2] = [
+const ARMS: [(Arm, &str); 3] = [
     (Arm::FfiDrop, "ffi-nounk"),
+    (Arm::FfiPushDrop, "ffi-push-nounk"),
     (Arm::NativeDrop, "native-nounk"),
 ];
 
@@ -85,6 +95,29 @@ pub fn ffi<T>(
     proj: fn(&T) -> Value,
 ) -> Outcome {
     match dec(cx.dec, b) {
+        Err(e) => Outcome::Err(e),
+        Ok(v) => {
+            let p = proj(&v);
+            let r = match enc(cx.enc, &v, &cx.tcs) {
+                Ok(_) => Ok(unsafe { binding::encoded(cx.enc) }.to_vec()),
+                Err(e) => Err(e),
+            };
+            Outcome::Ok(p, r)
+        }
+    }
+}
+
+/// FIX-PLAN D24: the C ABI arm through the FSM family (`fsm_with_<root>`, its token scratch
+/// fresh per row), re-encoded as `ffi` does.
+pub fn ffi_fsm<T>(
+    b: &[u8],
+    cx: &Cx,
+    dec: fn(binding::DecCtxs, &[u8], &mut Vec<i64>) -> Result<T, i32>,
+    enc: fn(*mut ak_enc_ctx, &T, &binding::Tcs) -> Result<usize, i32>,
+    proj: fn(&T) -> Value,
+) -> Outcome {
+    let mut toks = Vec::new();
+    match dec(cx.dec, b, &mut toks) {
         Err(e) => Outcome::Err(e),
         Ok(v) => {
             let p = proj(&v);

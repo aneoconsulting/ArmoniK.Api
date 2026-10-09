@@ -1,10 +1,12 @@
 """Corpus harness glue: the per-root dispatch table of `poc/rust/corpus/` (WP5 item 6.1).
 
-For every root the corpus uses, four arms: the C ABI with unknown fields dropped and
-retained (the binding's `decode_with_*` / `encode_into_*` and their `_unk` family, over the
-core generated for the corpus's reader schema), and core-native in both renderings
+For every root the corpus uses, six arms: the C ABI with unknown fields dropped and
+retained, decoded with the FSM family (FIX-PLAN D24: the binding's `fsm_with_*` and its
+`_unk`, the target's decode) and with the push family (`decode_with_*` and its `_unk`, the
+labelled extra arms ffi-push-*), each re-encoded with `encode_into_*` (`_unk`), over the
+core generated for the corpus's reader schema; and core-native in both renderings
 (`core_native`, `core_native_retain`). A root the ABI cannot carry (plan.check_expressible:
-the recursive `Nest`) has its two C ABI arms reported as NOT IN THE ABI, by name.
+the recursive `Nest`) has its C ABI arms reported as NOT IN THE ABI, by name.
 No wire rule here: a table of calls.
 """
 
@@ -29,7 +31,7 @@ def lit(x):
 def emit_dispatch(full, abi_roots, refused):
     o = [HEAD,
          "#![allow(clippy::all)]",
-         "use crate::{ffi, native, Arm, Cx, Outcome};",
+         "use crate::{ffi, ffi_fsm, native, Arm, Cx, Outcome};",
          "use crate::generated::binding;",
          "use facade::generated::{core_native, project};",
          "#[cfg(feature = \"unknown-fields\")]",
@@ -54,13 +56,16 @@ def emit_dispatch(full, abi_roots, refused):
         s = snake(name)
         o.append("        %s => match arm {" % lit(name))
         if name in abi_roots:
-            o.append("            Arm::FfiDrop => ffi(b, cx, binding::decode_with_%s, binding::encode_into_%s, project::project_%s)," % (s, s, s))
+            o.append("            Arm::FfiDrop => ffi_fsm(b, cx, binding::fsm_with_%s, binding::encode_into_%s, project::project_%s)," % (s, s, s))
+            o.append("            Arm::FfiPushDrop => ffi(b, cx, binding::decode_with_%s, binding::encode_into_%s, project::project_%s)," % (s, s, s))
             o.append("            #[cfg(feature = \"unknown-fields\")]")
-            o.append("            Arm::FfiRetain => ffi(b, cx, binding::decode_with_%s_unk, binding::encode_into_%s_unk, project::project_%s)," % (s, s, s))
+            o.append("            Arm::FfiRetain => ffi_fsm(b, cx, binding::fsm_with_%s_unk, binding::encode_into_%s_unk, project::project_%s)," % (s, s, s))
+            o.append("            #[cfg(feature = \"unknown-fields\")]")
+            o.append("            Arm::FfiPushRetain => ffi(b, cx, binding::decode_with_%s_unk, binding::encode_into_%s_unk, project::project_%s)," % (s, s, s))
             o.append("            #[cfg(not(feature = \"unknown-fields\"))]")
-            o.append("            Arm::FfiRetain => Outcome::NotInAbi,")
+            o.append("            Arm::FfiRetain | Arm::FfiPushRetain => Outcome::NotInAbi,")
         else:
-            o.append("            Arm::FfiDrop | Arm::FfiRetain => Outcome::NotInAbi,")
+            o.append("            Arm::FfiDrop | Arm::FfiRetain | Arm::FfiPushDrop | Arm::FfiPushRetain => Outcome::NotInAbi,")
         o.append("            Arm::NativeDrop => native(b, core_native::decode_%s, core_native::encode_%s, project::project_%s)," % (s, s, s))
         o.append("            Arm::NativeRetain => native(b, core_native_retain::decode_%s, core_native_retain::encode_%s, project::project_%s)," % (s, s, s))
         o.append("        },")

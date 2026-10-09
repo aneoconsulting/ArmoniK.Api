@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # FIX-PLAN WP5 item 6.1: the conformance corpus through the C ABI and core-native, unknown
-# fields dropped AND retained (four arms), every row in its own process under a timeout.
+# fields dropped AND retained (six arms: the C ABI decoded with the FSM family, D24, and with
+# the push family, labelled ffi-push-*; core-native), every row in its own process under a timeout.
 #
 #   1  generators current (the corpus core, facade, native, binding, dispatch)
 #   2  build poc/rust/corpus/ (its own workspace: ak-core --features corpus,init-guard)
-#   3  the whole corpus, four arms: must PASS
+#   3  the whole corpus, six arms: must PASS
 #   4  controls, each of which MUST FAIL, so a pass above means something:
 #        proj    a planted key in every projection        -> C2 must fail
 #        reenc   a byte appended to every re-encoding     -> C3 must fail
@@ -28,7 +29,7 @@ BIN="$CARGO_TARGET_DIR/release/corpus"
 echo "# $(ldd "$BIN" | grep -o 'libak_core.so => [^ ]*')"
 echo "# the loaded core is the corpus-schema build: $(nm -D --defined-only "$(ldd "$BIN" | grep -o '/[^ ]*libak_core.so')" | grep -c ' T ak_decode_WireZoo') ak_decode_WireZoo export(s)"
 
-echo "===== 3. the corpus, four arms ====="
+echo "===== 3. the corpus, six arms (ffi-* = FSM decode, ffi-push-* = push decode, native-*) ====="
 "$BIN"
 
 echo "===== 4. controls (each MUST FAIL) ====="
@@ -69,7 +70,7 @@ NL=$(ldd "$NB" | grep -o '/[^ ]*libak_core.so')
 echo "# $NL: ak_uencode_* $(nm -D --defined-only "$NL" | grep -c ' T ak_uencode_'), ak_dec_reset_* $(nm -D --defined-only "$NL" | grep -c ' T ak_dec_reset_'), ak_decode_WireZoo $(nm -D --defined-only "$NL" | grep -c ' T ak_decode_WireZoo')"
 if "$NB" > /tmp/corpus-nounk.$$ 2>&1; then
   grep -E '^## |^   pass|DROPPED|retain|CORPUS' /tmp/corpus-nounk.$$ | grep -v "^     "
-  echo "  ffi-nounk and native-nounk forms on unknown rows: $(grep -ciE '^ +[0-9]+ +unknown-retained' /tmp/corpus-nounk.$$) retained-form lines (must be 0)"
+  echo "  ffi-nounk, ffi-push-nounk and native-nounk forms on unknown rows: $(grep -ciE '^ +[0-9]+ +unknown-retained' /tmp/corpus-nounk.$$) retained-form lines (must be 0)"
   grep -qiE '^ +[0-9]+ +unknown-retained' /tmp/corpus-nounk.$$ && { echo "  the no-unknown build wrote a retained form"; bad=$((bad+1)); }
 else
   cat /tmp/corpus-nounk.$$; echo "  NO-UNKNOWN CORPUS FAILED"; bad=$((bad+1))

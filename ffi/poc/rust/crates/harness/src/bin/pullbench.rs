@@ -109,7 +109,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let b = arms::prost_arm::encode(&arms::prost_arm::value(pid));
         bad += one(pid, "M1", &b, v.results.len(),
                    arms::armonik_arm::decode(&b),
-                   arms::core_ffi_arm::decode(c, &b),
+                   arms::core_ffi_arm::decode_push(c, &b),
                    pull::drain_m1(c, st, &b),
                    pull::walk_m1(c, st, &b));
     }
@@ -118,7 +118,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let n = arms_m2::armonik_arm::value(pid).tasks.len();
         bad += one(pid, "M2", &b, n,
                    arms_m2::armonik_arm::decode(&b),
-                   arms_m2::core_ffi_arm::decode(c, &b),
+                   arms_m2::core_ffi_arm::decode_push(c, &b),
                    pull::drain_m2(c, st, &b),
                    pull::walk_m2(c, st, &b));
     }
@@ -127,7 +127,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let n = arms_m3::armonik_arm::value(pid).probes.len();
         bad += one(pid, "M3", &b, n,
                    arms_m3::armonik_arm::decode(&b),
-                   arms_m3::core_ffi_arm::decode(c, &b),
+                   arms_m3::core_ffi_arm::decode_push(c, &b),
                    pull::drain_m3(c, st, &b),
                    pull::walk_m3(c, st, &b));
     }
@@ -137,7 +137,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let n = arms_rest::m4::facade_value(pid).tasks.len();
         bad += one(pid, "M4", &b, n,
                    arms_rest::m4::armonik_decode(&b),
-                   arms_rest::ffi::dec_m4(c, &b),
+                   arms_rest::ffi::dec_m4_push(c, &b),
                    pull::drain_m4(c, st, &b),
                    pull::walk_m4(c, st, &b));
     }
@@ -145,7 +145,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let b = arms_rest::m5::prost_encode(&arms_rest::m5::prost_value(pid));
         bad += one(pid, "M5", &b, 1,
                    arms_rest::m5::armonik_decode(&b),
-                   arms_rest::ffi::dec_m5(c, &b),
+                   arms_rest::ffi::dec_m5_push(c, &b),
                    pull::drain_m5(c, st, &b),
                    pull::walk_m5(c, st, &b));
     }
@@ -155,7 +155,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let n = arms_rest::m6::facade_value(pid).batches.len();
         bad += one(pid, "M6", &b, n,
                    arms_rest::m6::armonik_decode(&b),
-                   arms_rest::ffi::dec_m6(c, &b),
+                   arms_rest::ffi::dec_m6_push(c, &b),
                    pull::drain_m6(c, st, &b),
                    pull::walk_m6(c, st, &b));
     }
@@ -167,7 +167,7 @@ fn correctness(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
         let b = dual_vector();
         bad += one(arms_rest::P7_1, "M7", &b, 0,
                    arms_rest::m7::armonik_decode(&b),
-                   arms_rest::ffi::dec_m7(c, &b),
+                   arms_rest::ffi::dec_m7_push(c, &b),
                    pull::drain_m7(c, st, &b),
                    pull::walk_m7(c, st, &b));
     }
@@ -268,37 +268,37 @@ fn records_vs_calls(c: &core_ffi_arm::Ctx, st: &mut PullState) -> usize {
     for pid in [P1_1, P1_2, P1_3] {
         row!(pid, "M1", arms::armonik_arm::value(pid).results.len(),
              arms::prost_arm::encode(&arms::prost_arm::value(pid)),
-             |b: &[u8]| { arms::core_ffi_arm::decode(c, b); },
+             |b: &[u8]| { arms::core_ffi_arm::decode_push(c, b); },
              |b: &[u8], s: &mut PullState| { pull::drain_m1(c, s, b); });
     }
     for pid in arms_m2::ALL {
         row!(pid, "M2", arms_m2::armonik_arm::value(pid).tasks.len(),
              arms_m2::prost_arm::encode(&arms_m2::prost_arm::value(pid)),
-             |b: &[u8]| { arms_m2::core_ffi_arm::decode(c, b); },
+             |b: &[u8]| { arms_m2::core_ffi_arm::decode_push(c, b); },
              |b: &[u8], s: &mut PullState| { pull::drain_m2(c, s, b); });
     }
     for pid in arms_m3::ALL {
         row!(pid, "M3", arms_m3::armonik_arm::value(pid).probes.len(),
              arms_m3::prost_arm::encode(&arms_m3::prost_arm::value(pid)),
-             |b: &[u8]| { arms_m3::core_ffi_arm::decode(c, b); },
+             |b: &[u8]| { arms_m3::core_ffi_arm::decode_push(c, b); },
              |b: &[u8], s: &mut PullState| { pull::drain_m3(c, s, b); });
     }
     row!(arms_rest::P4_1, "M4",
          arms_rest::m4::facade_value(arms_rest::P4_1).tasks.len(),
          arms_rest::m4::prost_encode(&arms_rest::m4::prost_value(arms_rest::P4_1)),
-         |b: &[u8]| { arms_rest::ffi::dec_m4(c, b); },
+         |b: &[u8]| { arms_rest::ffi::dec_m4_push(c, b); },
          |b: &[u8], s: &mut PullState| { pull::drain_m4(c, s, b); });
     row!(arms_rest::P5_4, "M5", 1,
          arms_rest::m5::prost_encode(&arms_rest::m5::prost_value(arms_rest::P5_4)),
-         |b: &[u8]| { arms_rest::ffi::dec_m5(c, b); },
+         |b: &[u8]| { arms_rest::ffi::dec_m5_push(c, b); },
          |b: &[u8], s: &mut PullState| { pull::drain_m5(c, s, b); });
     row!(arms_rest::P6_1, "M6",
          arms_rest::m6::facade_value(arms_rest::P6_1).batches.len(),
          arms_rest::m6::prost_encode(&arms_rest::m6::prost_value(arms_rest::P6_1)),
-         |b: &[u8]| { arms_rest::ffi::dec_m6(c, b); },
+         |b: &[u8]| { arms_rest::ffi::dec_m6_push(c, b); },
          |b: &[u8], s: &mut PullState| { pull::drain_m6(c, s, b); });
     row!(arms_rest::P7_1, "M7", 0, dual_vector(),
-         |b: &[u8]| { arms_rest::ffi::dec_m7(c, b); },
+         |b: &[u8]| { arms_rest::ffi::dec_m7_push(c, b); },
          |b: &[u8], s: &mut PullState| { pull::drain_m7(c, s, b); });
 
     println!();
@@ -437,33 +437,33 @@ fn timings() -> Vec<Case> {
     for pid in [P1_1, P1_2, P1_3] {
         five!(pid, arms::prost_arm::encode(&arms::prost_arm::value(pid)),
               arms::prost_arm::decode, arms::core_native_arm::decode,
-              arms::core_ffi_arm::decode, pull::drain_m1, pull::walk_m1, pull::opaque_m1,
+              arms::core_ffi_arm::decode_push, pull::drain_m1, pull::walk_m1, pull::opaque_m1,
               ak_parse_ListResultsResponse);
     }
     for pid in arms_m2::ALL {
         five!(pid, arms_m2::prost_arm::encode(&arms_m2::prost_arm::value(pid)),
               arms_m2::prost_arm::decode, arms_m2::core_native_arm::decode,
-              arms_m2::core_ffi_arm::decode, pull::drain_m2, pull::walk_m2, pull::opaque_m2,
+              arms_m2::core_ffi_arm::decode_push, pull::drain_m2, pull::walk_m2, pull::opaque_m2,
               ak_parse_ListTasksDetailedResponse);
     }
     for pid in arms_m3::ALL {
         five!(pid, arms_m3::prost_arm::encode(&arms_m3::prost_arm::value(pid)),
               arms_m3::prost_arm::decode, arms_m3::core_native_arm::decode,
-              arms_m3::core_ffi_arm::decode, pull::drain_m3, pull::walk_m3, pull::opaque_m3,
+              arms_m3::core_ffi_arm::decode_push, pull::drain_m3, pull::walk_m3, pull::opaque_m3,
               ak_parse_ListProbeResponse);
     }
     {
         let pid = arms_rest::P4_1;
         five!(pid, arms_rest::m4::prost_encode(&arms_rest::m4::prost_value(pid)),
               arms_rest::m4::prost_decode, arms_rest::m4::native_decode,
-              arms_rest::ffi::dec_m4, pull::drain_m4, pull::walk_m4, pull::opaque_m4,
+              arms_rest::ffi::dec_m4_push, pull::drain_m4, pull::walk_m4, pull::opaque_m4,
               ak_parse_ListTaskSummaryResponse);
     }
     {
         let pid = arms_rest::P6_1;
         five!(pid, arms_rest::m6::prost_encode(&arms_rest::m6::prost_value(pid)),
               arms_rest::m6::prost_decode, arms_rest::m6::native_decode,
-              arms_rest::ffi::dec_m6, pull::drain_m6, pull::walk_m6, pull::opaque_m6,
+              arms_rest::ffi::dec_m6_push, pull::drain_m6, pull::walk_m6, pull::opaque_m6,
               ak_parse_ListMetricsResponse);
     }
     {
@@ -473,7 +473,7 @@ fn timings() -> Vec<Case> {
         let pid = arms_rest::P5_4;
         five!(pid, arms_rest::m5::prost_encode(&arms_rest::m5::prost_value(pid)),
               arms_rest::m5::prost_decode, arms_rest::m5::native_decode,
-              arms_rest::ffi::dec_m5, pull::drain_m5, pull::walk_m5, pull::opaque_m5,
+              arms_rest::ffi::dec_m5_push, pull::drain_m5, pull::walk_m5, pull::opaque_m5,
               ak_parse_UploadResultDataMessage);
     }
 

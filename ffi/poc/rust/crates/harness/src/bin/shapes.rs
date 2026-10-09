@@ -31,10 +31,12 @@ fn main() {
              "field", "arm", "absent", "present+zero", "present+nonzero", "total");
     let pv = m3::prost_arm::value(m3::P3_1);
     let bytes = m3::prost_arm::encode(&pv);
-    let decoded: [(&str, ListProbeResponse); 3] = [
+    // D24: core-ffi-rust decodes with the FSM family; core-ffi-push is the labelled extra.
+    let decoded: [(&str, ListProbeResponse); 4] = [
         ("armonik", m3::armonik_arm::decode(&bytes)),
         ("core-native", m3::core_native_arm::decode(&bytes)),
         ("core-ffi-rust", m3::core_ffi_arm::decode(&ctx, &bytes)),
+        ("core-ffi-push", m3::core_ffi_arm::decode_push(&ctx, &bytes)),
     ];
     let mut per_field: Vec<Vec<m3::PresenceCensus>> = vec![Vec::new(); 3];
     for (arm, v) in &decoded {
@@ -379,7 +381,9 @@ fn check_probe(ctx: &m1::core_ffi_arm::Ctx, name: &str, wire: &[u8], note: &str)
     let a = m3::armonik_arm::decode(wire);
     let c = m3::core_native_arm::decode(wire);
     let f = m3::core_ffi_arm::decode(ctx, wire);
-    let agree = a == c && a == f;
+    // D24: the push family (core-ffi-push) must agree too.
+    let fp = m3::core_ffi_arm::decode_push(ctx, wire);
+    let agree = a == c && a == f && a == fp;
     let (ra, rc, rf, rp) = (
         m3::armonik_arm::encode(&a),
         m3::core_native_arm::encode(&c),
@@ -408,7 +412,9 @@ fn check_result(ctx: &m1::core_ffi_arm::Ctx, name: &str, wire: &[u8]) -> usize {
     let a: ListResultsResponse = m1::armonik_arm::decode(wire);
     let c = m1::core_native_arm::decode(wire);
     let f = m1::core_ffi_arm::decode(ctx, wire);
-    let agree = a == c && a == f;
+    // D24: the push family (core-ffi-push) must agree too.
+    let fp = m1::core_ffi_arm::decode_push(ctx, wire);
+    let agree = a == c && a == f && a == fp;
     let re = m1::armonik_arm::encode(&a);
     let same = re == m1::core_native_arm::encode(&c)
         && re == m1::core_ffi_arm::encode(ctx, &f)

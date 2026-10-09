@@ -36,6 +36,10 @@ fn main() {
         let fb = core_ffi_arm::encode(&ffi_ctx, &fv);
         bad += report(pid, "core-ffi-rust", row.bytes, &row.sha256, &fb,
                       core_ffi_arm::decode(&ffi_ctx, &fb) == fv);
+        // D24: core-ffi-rust decodes with the FSM family; push is the labelled extra arm
+        // core-ffi-push (the same encode, so the same bytes; its own decode).
+        bad += report(pid, "core-ffi-push", row.bytes, &row.sha256, &fb,
+                      core_ffi_arm::decode_push(&ffi_ctx, &fb) == fv);
 
         if let Some(v) = &row.vector {
             if v != &pb || v != &ab || v != &cb || v != &fb {
@@ -65,6 +69,8 @@ fn main() {
         let fb = core_ffi_arm::encode(&ffi_ctx, &av);
         bad += report(pid, "core-ffi-rust", row.bytes, &row.sha256, &fb,
                       core_ffi_arm::decode(&ffi_ctx, &fb) == av);
+        bad += report(pid, "core-ffi-push", row.bytes, &row.sha256, &fb,
+                      core_ffi_arm::decode_push(&ffi_ctx, &fb) == av);
 
         // Cross-arm value identity, which byte identity alone does not give: three arms
         // decode the same bytes through three different decoders and must land on the same
@@ -72,8 +78,9 @@ fn main() {
         let d_a = armonik_arm::decode(&pb);
         let d_c = core_native_arm::decode(&pb);
         let d_f = core_ffi_arm::decode(&ffi_ctx, &pb);
-        if d_a != d_c || d_a != d_f {
-            println!("{pid:<7} {:<16} three decoders disagree on the same bytes", "VALUES");
+        let d_p = core_ffi_arm::decode_push(&ffi_ctx, &pb);
+        if d_a != d_c || d_a != d_f || d_a != d_p {
+            println!("{pid:<7} {:<16} four decoders disagree on the same bytes", "VALUES");
             bad += 1;
         }
 
@@ -101,10 +108,13 @@ fn main() {
         let fb = core_ffi_arm::encode(&ffi_ctx, &av);
         bad += report(pid, "core-ffi-rust", row.bytes, &row.sha256, &fb,
                       core_ffi_arm::decode(&ffi_ctx, &fb) == av);
+        bad += report(pid, "core-ffi-push", row.bytes, &row.sha256, &fb,
+                      core_ffi_arm::decode_push(&ffi_ctx, &fb) == av);
         let (d_a, d_c, d_f) = (armonik_arm::decode(&pb), core_native_arm::decode(&pb),
                                core_ffi_arm::decode(&ffi_ctx, &pb));
-        if d_a != d_c || d_a != d_f {
-            println!("{pid:<7} {:<16} three decoders disagree on the same bytes", "VALUES");
+        let d_p = core_ffi_arm::decode_push(&ffi_ctx, &pb);
+        if d_a != d_c || d_a != d_f || d_a != d_p {
+            println!("{pid:<7} {:<16} four decoders disagree on the same bytes", "VALUES");
             bad += 1;
         }
         if let Some(v) = &row.vector {
@@ -181,7 +191,8 @@ fn main() {
         let cb = core_native_arm::encode(&av);
         let fb = ffi::encode(&ffi_ctx, &av);
         let ok = ab == pb && cb == pb && fb == pb;
-        let rt = core_native_arm::decode(&pb) == av && ffi::decode(&ffi_ctx, &pb) == av;
+        let rt = core_native_arm::decode(&pb) == av && ffi::decode(&ffi_ctx, &pb) == av
+            && ffi::decode_push(&ffi_ctx, &pb) == av;
         println!(
             "{:<7} {:<16} {:>9} {:>9}  {:<8} {:<8} {}",
             pid, "added (4 arms)", pb.len(), pb.len(),
@@ -199,7 +210,7 @@ fn main() {
     {
         use harness::arms_rest::*;
         macro_rules! four {
-            ($pid:expr, $class:expr, $m:ident, $encf:ident, $decf:ident) => {{
+            ($pid:expr, $class:expr, $m:ident, $encf:ident, $decf:ident, $decp:ident) => {{
                 let pid = $pid;
                 let row = man.row(pid);
                 let pv = $m::prost_value(pid);
@@ -216,6 +227,8 @@ fn main() {
                 let fb = ffi::$encf(&ffi_ctx, &av).to_vec();
                 bad += report4(pid, $class, "core-ffi-rust", row.bytes, &row.sha256, &fb,
                                ffi::$decf(&ffi_ctx, &fb) == av);
+                bad += report4(pid, $class, "core-ffi-push", row.bytes, &row.sha256, &fb,
+                               ffi::$decp(&ffi_ctx, &fb) == av);
                 if let Some(v) = &row.vector {
                     if v != &pb || v != &ab || v != &cb || v != &fb {
                         println!("{pid:<7} {:<9} {:<16} committed vector disagrees", "", "VECTOR");
@@ -224,11 +237,11 @@ fn main() {
                 }
             }};
         }
-        four!(P4_1, "real", m4, enc_m4, dec_m4);
+        four!(P4_1, "real", m4, enc_m4, dec_m4, dec_m4_push);
         for pid in [P5_1, P5_2, P5_3, P5_4] {
-            four!(pid, "real", m5, enc_m5, dec_m5);
+            four!(pid, "real", m5, enc_m5, dec_m5, dec_m5_push);
         }
-        four!(P6_1, "mixed", m6, enc_m6, dec_m6);
+        four!(P6_1, "mixed", m6, enc_m6, dec_m6, dec_m6_push);
         println!("{:<7} {:<9} {}", "", "", "^ M6 is MIXED: ticks/values/codes/flags are CONTROL");
         println!("{:<7} {:<9} {}", "", "", "  (the schema has no packed scalar); statuses is REAL");
         println!("{:<7} {:<9} {}", "", "", "  (all 3 packed fields in the schema are enums).");
@@ -243,7 +256,8 @@ fn main() {
         let ad = m7::armonik_decode(&wire);
         let cd = m7::native_decode(&wire);
         let fd = ffi::dec_m7(&ffi_ctx, &wire);
-        let agree = ad == cd && ad == fd
+        let fdp = ffi::dec_m7_push(&ffi_ctx, &wire);
+        let agree = ad == cd && ad == fd && ad == fdp
             && pd.left.len() == ad.left.len() && pd.right.len() == ad.right.len();
         let re_a = m7::armonik_encode(&ad);
         let re_c = m7::native_encode(&cd);
@@ -252,7 +266,7 @@ fn main() {
         let contiguous = re_a == re_c && re_a == re_f && re_a == re_p;
         let permutation = re_a != wire && triples(&re_a) == triples(&wire);
         println!("{:<7} {:<9} {:<16} {:>9} {:>9}  {:<8} {:<8} {}",
-                 P7_1, "CONTROL", "4 arms, decode", wire.len(), re_a.len(),
+                 P7_1, "CONTROL", "5 arms, decode", wire.len(), re_a.len(),
                  if agree { "ok" } else { "DIFFER" },
                  if contiguous { "ok" } else { "DIFFER" },
                  if permutation { "re-encode is a permutation of the same triples" }

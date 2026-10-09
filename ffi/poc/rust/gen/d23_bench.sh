@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# HISTORICAL (D23, before D24): it uses AK_FSM=1 and the arm core-ffi-fsm, both retired by D24
+# (core-ffi IS the FSM, core-ffi-push is push; the codec suite refuses AK_FSM). Kept to
+# reproduce the D23 logs at their commits; the FSM checks now run in gen/gate.sh step 11g.
 # FIX-PLAN D23: decode-read through the three decode families of the shared core, side by side
 # in ONE process per launch: core-ffi (push), core-ffi-pull (pull, walk in place) and
 # core-ffi-fsm (the FSM family, begin + next to the end event), unknown fields dropped and
