@@ -1661,6 +1661,7 @@ def _emit_root(o, p, root, facade_ns):
     o += ""
     _emit_decode(o, p, root, slots)
     _emit_pull(o, p, root, slots)
+    _emit_fsm(o, p, root, slots)
     # ---------------- tail
     o += "    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);"
     o += "    public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }"
@@ -2131,6 +2132,159 @@ def _emit_pull(o, p, root, slots):
                 o += "                }"
     o += "                default: break;"
     o += "            }"
+    o += "        }"
+    o += "    }"
+    o += ""
+
+
+# ---------------------------------------------------------------- D23: the FSM consumer
+#
+# FIX-PLAN D23 (owner, 2026-10-09): the third decode family, one event per call. Owner's rule:
+# the FSM consumer shares no code with the push callbacks or the pull Replay -- its own entry
+# path (TryFsm), its own native D20 mask (FsmPvt, ak_fsm_set_pvt_<Root>, once per context), its
+# own dispatch (FsmDispatch) and its own run appends (_fsm_append below, a separate renderer, so
+# a change to pull's or push's append text does not move the FSM). What it does share, as push
+# and pull already share it, is the FACADE side: the group readers G.D_<Msg> (a group into a
+# facade object), G.Str / G.Bytes, the unknown-bag hand-over (G.Take / G.Drop, the arena), the
+# context and decision 11's arming (EnsureDec, ArmFor, Disarm). Those fill the object, they do
+# not move data across the boundary, and a family that did them differently would compare
+# facades, not families.
+
+def _fsm_append(o, s, lst, xs, n, ind, var):
+    """The FSM's own rendering of a run append into facade list `lst` (same semantics as the
+    other families: the run's count is known, so the list is grown once first)."""
+    o += "%s%s.EnsureCapacity(%s.Count + %s);" % (ind, lst, lst, n)
+    if s.kind == "blob":
+        fn = "G.Str" if s.f.kind == "string" else "G.Bytes"
+        o += "%sfor (int %s = 0; %s < %s; %s++) %s.Add(%s(b, %s[%s]));" % (ind, var, var, n, var, lst, fn, xs, var)
+    elif s.kind == "packed":
+        o += "%sfor (int %s = 0; %s < %s; %s++) %s.Add(%s);" % (ind, var, var, n, var, lst, _dec(s.f, "%s[%s]" % (xs, var)))
+    elif s.kind == "map":
+        # plan: a duplicate key replaces the earlier value.
+        if _NO:
+            o += "%sfor (int %s = 0; %s < %s; %s++) %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value);" % (
+                ind, var, var, n, var, lst, xs, var, xs, var)
+        else:
+            # The facade map has no bag: an entry's unknown-field buffer is freed (U-map-entry).
+            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
+                ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
+    else:
+        o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b); %s.Add(x); }" % (
+            ind, var, var, n, var, s.et, s.et, xs, var, lst)
+
+
+def _emit_fsm(o, p, root, slots):
+    o.doc("FIX-PLAN D23: the FSM decode family. ak_fsm_begin_%s returns the first event, "
+          "ak_fsm_next_%s each next one, each RETURNING the event's op (> 0; the root APPLY is the last, the end) or an error (< 0); every event is consumed (FsmDispatch) before the next "
+          "call, which may overwrite its payload. One `fixed` spans begin and every next (the "
+          "core holds spans into the input until the end event). Arming, Disarm, retain "
+          "ownership and the failure path are pull's; a failed decode's partial object is "
+          "discarded." % (root, root), "    ")
+    o += "    public %s Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($\"core FSM decode failed: {rc}\"); return t; }" % root
+    if not _NO:
+        o += "    public %s FsmU(byte[] src, int len) { int rc = TryFsm(src, len, true, out var t); if (rc < 0) throw new InvalidOperationException($\"core FSM decode failed: {rc}\"); return t; }" % root
+    o += "    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter."
+    o += "    private static readonly ak_pvt_%s* FsmPvt = MakeFsmPvt();" % root
+    o += "    private static ak_pvt_%s* MakeFsmPvt() { var v = (ak_pvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_%s)); v->utf8_skip = AkUtf8Skip.%s_ALL; return v; }" % (root, root, root, root)
+    o += "    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into"
+    o += ""
+    o += "    public int TryFsm(byte[] src, int len, bool retain, out %s result)" % root
+    o += "    {"
+    o += "        result = null;"
+    o += "        EnsureDec();"
+    o += "        if (_fsmPvtFor != _dctx)"
+    o += "        {"
+    o += "            int sp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
+    o += "            if (sp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + sp);" % root
+    o += "            _fsmPvtFor = _dctx;"
+    o += "        }"
+    o += "        int ar = ArmFor(retain ? -1 : -2);"
+    o += "        if (ar != 0) { Disarm(ar); return ar; }"
+    o += "        var t = new %s();" % root
+    o += "        int rc = Abi.AK_ERR_HOST;"
+    o += "        try"
+    o += "        {"
+    o += "            fixed (byte* b0 = src)"
+    o += "            fixed (byte* one = One)"
+    o += "            {"
+    o += "                byte* b = len == 0 ? one : b0;"
+    o += "                ak_fsm_ev ev;"
+    o += "                _fwd++;"
+    o += "                int op = Abi.ak_fsm_begin_%s(_dctx, b, (nuint)len, &ev);" % root
+    o += "                try"
+    o += "                {"
+    o += "                    while (op > 0)"
+    o += "                    {"
+    o += "                        if (op == (int)Abi.AK_BDR_APPLY)"
+    o += "                        {"
+    o += "                            // The root group: always the last event, the end."
+    o += "                            G.D_%s(ref *(ak_dfix_%s*)ev.data, t, b);" % (root, root)
+    o += "                            break;"
+    o += "                        }"
+    o += "                        FsmDispatch(t, b, (uint)op, &ev);"
+    o += "                        _fwd++;"
+    o += "                        op = Abi.ak_fsm_next_%s(_dctx, &ev);" % root
+    o += "                    }"
+    o += "                    rc = op < 0 ? op : 0;"
+    o += "                }"
+    o += "                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }"
+    o += "            }"
+    o += "        }"
+    o += "        finally { rc = Disarm(rc); }"
+    o += "        if (rc < 0) return rc;   // the partial object is dropped"
+    o += "        result = t;"
+    o += "        return 0;"
+    o += "    }"
+    o += ""
+    o += "    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,"
+    o += "    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run"
+    o += "    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner)."
+    o += "    private static void FsmDispatch(%s t, byte* b, uint op, ak_fsm_ev* ev)" % root
+    o += "    {"
+    o += "        byte* d = (byte*)ev->data;"
+    o += "        switch (op)"
+    o += "        {"
+    nonleaf = [(si, s) for si, s in enumerate(slots, 1) if not s.leaf]
+    adds = [(si, s) for si, s in enumerate(slots, 1) if s.leaf] + [(si, s) for si, s in nonleaf if s.inner]
+    if nonleaf:
+        o += "            case Abi.AK_BDR_NEW:"
+        o += "                switch (ev->slot >> 16)"
+        o += "                {"
+        for si, s in nonleaf:
+            o += "                    case %d: %s.Add(new %s()); return;" % (si, _make("t", p, root, s.path), s.et)
+        o += "                }"
+        o += "                return;"
+        o += "            case Abi.AK_BDR_APPLY_ELEM:"
+        o += "                switch (ev->slot >> 16)"
+        o += "                {"
+        for si, s in nonleaf:
+            o += "                    case %d: G.D_%s(ref *(ak_dfix_%s*)d, %s[(int)ev->token], b); return;" % (
+                si, s.et, s.et, _make("t", p, root, s.path))
+        o += "                }"
+        o += "                return;"
+    if adds:
+        o += "            case Abi.AK_BDR_ADD:"
+        o += "                switch (ev->slot)"
+        o += "                {"
+        for si, s in enumerate(slots, 1):
+            if s.leaf:
+                o += "                    case %du:   // a root-level run" % si
+                o += "                    {"
+                o += "                        var xs = (%s*)d; var lst = %s; int n = (int)ev->n;" % (s.cs_d, _make("t", p, root, s.path))
+                _fsm_append(o, s, "lst", "xs", "n", "                        ", "i")
+                o += "                        return;"
+                o += "                    }"
+            else:
+                for ii, i in enumerate(s.inner, 1):
+                    o += "                    case %du:   // slot %d's element, inner run %d" % ((si << 16) | ii, si, ii)
+                    o += "                    {"
+                    o += "                        var xs = (%s*)d; var e = %s[(int)ev->token]; var il = %s; int n = (int)ev->n;" % (
+                        i.cs_d, _make("t", p, root, s.path), _make("e", p, s.et, i.path))
+                    _fsm_append(o, i, "il", "xs", "n", "                        ", "k")
+                    o += "                        return;"
+                    o += "                    }"
+        o += "                }"
+        o += "                return;"
     o += "        }"
     o += "    }"
     o += ""

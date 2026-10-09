@@ -67,6 +67,8 @@ public static class Program
             Environment.SetEnvironmentVariable("AK_CORPUS_DIR", Cases.CorpusDir());
             return DecAttr.Run(Opt(a, "--decattr", "decattr.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture), Opt(a, "--only", null));
         }
+        if (a.Contains("--verify-fsm"))
+            return VerifyFsm.Run(Opt(a, "--events", null), Opt(a, "--rust-events", null), int.Parse(Opt(a, "--variants", "48"), CultureInfo.InvariantCulture));
         if (a.Contains("--verify-mt"))
             return VerifyMt.Run(int.Parse(Opt(a, "--threads", "8"), CultureInfo.InvariantCulture), int.Parse(Opt(a, "--rounds", "20"), CultureInfo.InvariantCulture));
         if (a.Contains("--pinbench"))

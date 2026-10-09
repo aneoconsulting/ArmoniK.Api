@@ -25,10 +25,13 @@ public static class Cases
     /// Step 9b (owner, 2026-10-09), AK_BDN_S9=1 (full build, decode rows): the owner's six arms:
     /// the incumbent retaining (its default parser) and discarding unknown fields
     /// (WithDiscardUnknownFields), core push retain / drop, core pull retain / drop; nothing else.
-    public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1";
+    /// D23 (owner, 2026-10-09), AK_BDN_S10=1: the same eight-arm set plus the FSM family
+    /// (core-ffi-fsm retain / drop); implies S9's restrictions (decode rows, these arms only).
+    public static readonly bool S10 = Environment.GetEnvironmentVariable("AK_BDN_S10") == "1";
+    public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1" || S10;
 
     /// The arms in their launch-1 order; launch n rotates it by n - 1 (requirement 22).
-    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-pull" };
+    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-pull", "core-ffi-fsm" };
 
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the core, the
@@ -40,7 +43,9 @@ public static class Cases
     private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
 #else
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
-    private static readonly string[] S9Arms = { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
+    private static readonly string[] S9Arms = S10
+        ? new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop", "core-ffi-fsm:retain", "core-ffi-fsm:drop" }
+        : new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi:retain", "core-ffi:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
     private static readonly string[] DecArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain", "core-ffi-pull:drop" };
     private static readonly string[] UnkArms = S9 ? S9Arms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
 #endif
@@ -385,6 +390,23 @@ public static class Cases
             }
         }
         finally { Armonik.Ffi.Harness.Stage.Mode = mode0; Armonik.Ffi.Harness.Stage.Threshold = th0; Armonik.Ffi.Harness.Stage.NonAsciiOnly = na0; Armonik.Ffi.Harness.Stage.PinK = k0; }
+        {
+            // P7.1's decode rows decode the committed (interleaved) vector: every decode arm of
+            // this build gives the graph the incumbent's bytes encode (managed re-encoding).
+            var ops = OpsTable.ForPayload("P7.1");
+            var v = DecodeWire("P7.1", ops);
+            var want = ops.IncumbentBytes();
+            Same(ops.RtIncBytes(v), want, "P7.1 committed vector, incumbent");
+            foreach (var retain in Modes)
+            {
+                Same(ops.RtHost(v, v.Length, retain), want, "P7.1 committed vector, host-gen " + retain);
+                Same(ops.ReEncHost(ops.DecFfiGraph(v, v.Length, retain), retain), want, "P7.1 committed vector, core push " + retain);
+                Same(ops.ReEncHost(ops.DecFfiPullGraph(v, v.Length, retain), retain), want, "P7.1 committed vector, core pull " + retain);
+                Same(ops.ReEncHost(ops.DecFfiFsmGraph(v, v.Length, retain), retain), want, "P7.1 committed vector, core FSM " + retain);
+                n += 4;
+            }
+            n++;
+        }
         foreach (var id in UnknownRows())
         {
             var (ops, b) = Row(id);
@@ -430,6 +452,28 @@ public static class Cases
         }
         return n;
     }
+
+    /// The bytes a payload's DECODE rows decode. P7.1 (SHAPES.md: two repeated fields
+    /// INTERLEAVED, which no canonical writer produces) decodes its committed vector
+    /// (schema/generated/payloads/P7_1.bin); until D23 every arm here decoded the incumbent's
+    /// contiguous re-encoding of the graph instead (a permutation of the same triples: 3 FSM
+    /// events where the committed vector gives 7, found by comparing the FSM's events with the
+    /// Rust slice's). Every other payload: the incumbent's bytes (byte-identical to the vector).
+    public static byte[] DecodeWire(string pid, RootOps ops)
+    {
+        var w = ops.IncumbentBytes();
+        if (pid != "P7.1") return w;
+        var v = File.ReadAllBytes(Path.Combine(CorpusDir(), "..", "..", "schema", "generated", "payloads", "P7_1.bin"));
+        if (v.AsSpan().SequenceEqual(w) || !Armonik.Ffi.Harness.Triples.Same(v, w))
+            throw new InvalidOperationException("P7.1: the committed vector is not an interleaved permutation of the incumbent's bytes");
+        return v;
+    }
+
+#if AK_NO_UNKNOWN_FIELDS
+    private static readonly bool[] Modes = { false };
+#else
+    private static readonly bool[] Modes = { false, true };
+#endif
 
     internal static (RootOps, byte[]) Row(string id)
     {
@@ -480,7 +524,7 @@ public static class Cases
                 if (IsPool(c.Dir)) BuildPool(c, ops);
             }
             finally { Values.ContentSet = Values.Ascii; }
-            wire = ops.IncumbentBytes();
+            wire = IsEnc(c.Dir) ? ops.IncumbentBytes() : DecodeWire(c.Payload, ops);
         }
         int len = wire.Length;
         var seq = new ReadOnlySequence<byte>(wire);
@@ -512,6 +556,7 @@ public static class Cases
             case "core-ffi-pull:decode": case "core-ffi-pull:decode-read":
                 if (c.Mode == "retain") return () => ops.DecFfiPullR(wire, len, true, read);
                 return () => ops.DecFfiPull(wire, len, read);
+            case "core-ffi-fsm:decode": case "core-ffi-fsm:decode-read": return () => ops.DecFfiFsm(wire, len, retain, read);
             case "incumbent-prod:decode-reencode": return () => ops.RtIncProd(seq, w);
             case "host-gen:decode-reencode": return () => ops.RtHost(wire, len, retain).Length;
             case "core-ffi:decode-reencode": return () => ops.RtFfi(wire, len, retain).Length;

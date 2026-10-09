@@ -33,7 +33,8 @@ from plan import (FIXED, as_plan, abi_order_topo, direct_fields, element_types, 
                   group_fields, loop_slots, presence_bits, slot_elem, slot_name,
                   ugroup_fields, unk_entry_points, unk_opts_layout, unk_opts_name,
                   unknown_compiled_out, vtable_messages, dec_vtable, UTF8_MEMBER,
-                  utf8_bit_names, utf8_width, pull_vtable, pvt_name, pvt_entry_points)
+                  utf8_bit_names, utf8_width, pull_vtable, pvt_name, pvt_entry_points,
+                  fsm_entry_points)
 import cs_names as N
 
 LOOP_FN = "delegate* unmanaged[Cdecl]<IntPtr, void*, long, int>"
@@ -110,6 +111,10 @@ def _consts():
     out = [("uint", "AK_ABI_VERSION", "%du" % FIXED.abi_version)]
     out += [("int", n, str(v)) for n, v, _d in FIXED.codes]
     out += [("uint", n, "%du" % v) for n, v in LIFECYCLE_FLAGS()]
+    # plan.FIXED.constants of a 32-bit integer type (the AK_BDR_* record ops and D23's
+    # AK_FSM_END); the pointer value and the i64 token are spelled by hand below.
+    out += [({"i32": "int", "u32": "uint"}[t], n, str(v) + ("u" if t == "u32" else ""))
+            for n, t, v, _d in FIXED.constants if t in ("i32", "u32")]
     return out
 
 
@@ -285,6 +290,18 @@ def pvt_imports(p):
     return out
 
 
+def fsm_imports(p):
+    """[(ret, name, args)]: D23's FSM family per root (plan.fsm_entry_points): begin (writes
+    the first event), next, and its own D20 mask setter."""
+    out = []
+    for root in p.roots:
+        for name, params, ret, _doc in fsm_entry_points(p, root):
+            out.append((cs_param(ret), name, ", ".join(
+                ("%s* %s" % (pvt_name(root), _pname(pn))) if t == "*const %s" % pvt_name(root)
+                else "%s %s" % (cs_param(t), _pname(pn)) for pn, t in params)))
+    return out
+
+
 def unk_imports(p):
     """[(ret, name, args)]: plan.unk_entry_points per root, `ak_dec_ctx_new_<Root>` and
     `ak_dec_reset_<Root>` (rule 6: root-bound contexts; the untyped ak_dec_ctx_new is gone)."""
@@ -400,7 +417,7 @@ def emit_abi(x, ns, lib="ak_core"):
     o += ""
     del _COUNTED[:]
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
-    for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p) + pvt_imports(p):
+    for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p) + pvt_imports(p) + fsm_imports(p):
         emit_import(o, ret, name, args)
     _emit_counting(o)
     o += "}"

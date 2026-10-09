@@ -50,12 +50,19 @@ namespace Armonik.Ffi.Corpus;
 
 public static class Program
 {
+    /// D23 (owner, 2026-10-09), AK_CORPUS_FSM=1: the FSM family's arms beside the others
+    /// (ffi-fsm-drop, and ffi-fsm-retain in the full build). Each also decodes the row through
+    /// push and pull and fails unless the three return the same code and, on acceptance, the
+    /// same re-encoding (ak_uencode_* in retain, so every bag is compared).
+    private static readonly bool FsmArms = Environment.GetEnvironmentVariable("AK_CORPUS_FSM") == "1";
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the managed codec,
     // the binding and the core): the retain arms do not exist in it.
-    private static readonly string[] Arms = { "managed-drop", "ffi-drop" };
+    private static readonly string[] Arms = FsmArms ? new[] { "managed-drop", "ffi-drop", "ffi-fsm-drop" } : new[] { "managed-drop", "ffi-drop" };
 #else
-    private static readonly string[] Arms = { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain" };
+    private static readonly string[] Arms = FsmArms
+        ? new[] { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain", "ffi-fsm-drop", "ffi-fsm-retain" }
+        : new[] { "managed-drop", "managed-retain", "ffi-drop", "ffi-retain" };
 #endif
 
     /// `--manifest PATH`: a manifest in the corpus's format elsewhere (e.g. the oracle probe
@@ -218,9 +225,24 @@ public static class Program
             // AK_CORPUS_PLANT=unkdrop: ffi-retain decodes in DROP mode (the 307-row regression of
             // the transitional port): AK_CORPUS_RETAIN_STRICT must fail.
             bool dretain = retain && !(plant == "unkdrop" && arm == "ffi-retain");
-            try { rc = Ffi.Decode(root, bytes, dretain, out msg); }
+            bool fsm = arm.StartsWith("ffi-fsm", StringComparison.Ordinal);
+            try { rc = fsm ? Ffi.DecodeFam(root, bytes, dretain, 2, out msg) : Ffi.Decode(root, bytes, dretain, out msg); }
             catch (Exception ex) { rc = int.MinValue; err = "THREW " + ex.GetType().Name + ": " + ex.Message; }
             if (err == null && rc < 0) { err = "core " + rc + CoreName(rc); code = rc; }
+            if (fsm && rc != int.MinValue)
+            {
+                // D23: the FSM's code and graph against push's and pull's on this row.
+                int rp = Ffi.DecodeFam(root, bytes, dretain, 0, out var mp);
+                int rl = Ffi.DecodeFam(root, bytes, dretain, 1, out var ml);
+                if (rp != rc || rl != rc) { r.Detail = "D23: FSM returned " + rc + ", push " + rp + ", pull " + rl; return r; }
+                if (rc >= 0)
+                {
+                    int e0 = Ffi.Encode(root, msg, dretain, out var bf), e1 = Ffi.Encode(root, mp, dretain, out var bp), e2 = Ffi.Encode(root, ml, dretain, out var bl);
+                    if (e0 != 0 || e1 != 0 || e2 != 0) { r.Detail = "D23: re-encode failed " + e0 + "/" + e1 + "/" + e2; return r; }
+                    if (!bf.AsSpan().SequenceEqual(bp)) { r.Detail = "D23: FSM graph != push graph (re-encoded, " + (dretain ? "retained" : "dropped") + " form)"; return r; }
+                    if (!bf.AsSpan().SequenceEqual(bl)) { r.Detail = "D23: FSM graph != pull graph (re-encoded, " + (dretain ? "retained" : "dropped") + " form)"; return r; }
+                }
+            }
         }
         else
         {

@@ -97,6 +97,45 @@ public static unsafe class Ffi
         }
     }
 
+    /// D23: the same decode through family `fam` (0 push, 1 pull, 2 FSM), for the FSM arms.
+    public static int DecodeFam(string root, byte[] b, bool retain, int fam, out object msg)
+    {
+        msg = null;
+        switch (root)
+        {
+            case "Timestamp": { var c = _Timestamp ??= new CoreFfi_Timestamp(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "Duration": { var c = _Duration ??= new CoreFfi_Duration(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ResultRaw": { var c = _ResultRaw ??= new CoreFfi_ResultRaw(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "TaskOptions": { var c = _TaskOptions ??= new CoreFfi_TaskOptions(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "TaskOutput": { var c = _TaskOutput ??= new CoreFfi_TaskOutput(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "TaskDetailed": { var c = _TaskDetailed ??= new CoreFfi_TaskDetailed(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "TaskSummary": { var c = _TaskSummary ??= new CoreFfi_TaskSummary(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "Probe": { var c = _Probe ??= new CoreFfi_Probe(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "Empty": { var c = _Empty ??= new CoreFfi_Empty(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "UploadResultData": { var c = _UploadResultData ??= new CoreFfi_UploadResultData(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "MetricsBatch": { var c = _MetricsBatch ??= new CoreFfi_MetricsBatch(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "Pair": { var c = _Pair ??= new CoreFfi_Pair(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ListResultsResponse": { var c = _ListResultsResponse ??= new CoreFfi_ListResultsResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ListTasksDetailedResponse": { var c = _ListTasksDetailedResponse ??= new CoreFfi_ListTasksDetailedResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ListTaskSummaryResponse": { var c = _ListTaskSummaryResponse ??= new CoreFfi_ListTaskSummaryResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ListProbeResponse": { var c = _ListProbeResponse ??= new CoreFfi_ListProbeResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ListMetricsResponse": { var c = _ListMetricsResponse ??= new CoreFfi_ListMetricsResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "UploadResultDataMessage": { var c = _UploadResultDataMessage ??= new CoreFfi_UploadResultDataMessage(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "DualResponse": { var c = _DualResponse ??= new CoreFfi_DualResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ChunkLeaf": { var c = _ChunkLeaf ??= new CoreFfi_ChunkLeaf(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ChunkInner": { var c = _ChunkInner ??= new CoreFfi_ChunkInner(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ChunkElement": { var c = _ChunkElement ??= new CoreFfi_ChunkElement(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ChunkedResponse": { var c = _ChunkedResponse ??= new CoreFfi_ChunkedResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "ChunkedResponseWide": { var c = _ChunkedResponseWide ??= new CoreFfi_ChunkedResponseWide(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "LeafElement": { var c = _LeafElement ??= new CoreFfi_LeafElement(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "LeafResponse": { var c = _LeafResponse ??= new CoreFfi_LeafResponse(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "Surrogate": { var c = _Surrogate ??= new CoreFfi_Surrogate(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "SurrogateInner": { var c = _SurrogateInner ??= new CoreFfi_SurrogateInner(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            case "WireZoo": { var c = _WireZoo ??= new CoreFfi_WireZoo(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }
+            default: return 1;
+        }
+    }
+
     /// Decision 11's controls on one accept row (WP5 step 9). Retained push decode as the
     /// reference; (1) each position zeroed in turn must equal the reference with that
     /// position's facade bags cleared (`plant`: not cleared, so rows with unknowns MUST

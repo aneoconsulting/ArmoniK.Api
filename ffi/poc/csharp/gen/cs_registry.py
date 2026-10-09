@@ -139,6 +139,18 @@ def emit_corpus_dispatch(abi, refused):
     o += "        }"
     o += "    }"
     o += ""
+    o += "    /// D23: the same decode through family `fam` (0 push, 1 pull, 2 FSM), for the FSM arms."
+    o += "    public static int DecodeFam(string root, byte[] b, bool retain, int fam, out object msg)"
+    o += "    {"
+    o += "        msg = null;"
+    o += "        switch (root)"
+    o += "        {"
+    for r in abi.roots:
+        o += "            case \"%s\": { var c = _%s ??= new CoreFfi_%s(); int rc = fam == 2 ? c.TryFsm(b, b.Length, retain, out var t) : fam == 1 ? c.TryPull(b, b.Length, retain, out t) : c.TryDecode(b, b.Length, retain, out t); msg = t; return rc; }" % (r, r, r)
+    o += "            default: return 1;"
+    o += "        }"
+    o += "    }"
+    o += ""
     o += "    /// Decision 11's controls on one accept row (WP5 step 9). Retained push decode as the"
     o += "    /// reference; (1) each position zeroed in turn must equal the reference with that"
     o += "    /// position's facade bags cleared (`plant`: not cleared, so rows with unknowns MUST"

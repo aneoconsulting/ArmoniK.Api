@@ -1321,6 +1321,77 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Timestamp returns the first
+    /// event, ak_fsm_next_Timestamp each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public Timestamp Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Timestamp* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Timestamp* MakeFsmPvt() { var v = (ak_pvt_Timestamp*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Timestamp)); v->utf8_skip = AkUtf8Skip.Timestamp_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Timestamp result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Timestamp(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Timestamp: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Timestamp();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Timestamp(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Timestamp(ref *(ak_dfix_Timestamp*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Timestamp(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Timestamp t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -1637,6 +1708,77 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 case OP_APPLY: G.D_Duration(ref *(ak_dfix_Duration*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Duration returns the first
+    /// event, ak_fsm_next_Duration each next one; every event is consumed (FsmDispatch)
+    /// before the next call, which may overwrite its payload. One `fixed` spans begin
+    /// and every next (the core holds spans into the input until the end event).
+    /// Arming, Disarm, retain ownership and the failure path are pull's; a failed
+    /// decode's partial object is discarded.
+    public Duration Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Duration* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Duration* MakeFsmPvt() { var v = (ak_pvt_Duration*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Duration)); v->utf8_skip = AkUtf8Skip.Duration_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Duration result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Duration(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Duration: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Duration();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Duration(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Duration(ref *(ak_dfix_Duration*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Duration(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Duration t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -1986,6 +2128,77 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 case OP_APPLY: G.D_ResultRaw(ref *(ak_dfix_ResultRaw*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ResultRaw returns the first
+    /// event, ak_fsm_next_ResultRaw each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public ResultRaw Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ResultRaw* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ResultRaw* MakeFsmPvt() { var v = (ak_pvt_ResultRaw*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ResultRaw)); v->utf8_skip = AkUtf8Skip.ResultRaw_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ResultRaw result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ResultRaw(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ResultRaw: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ResultRaw();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ResultRaw(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ResultRaw(ref *(ak_dfix_ResultRaw*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ResultRaw(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ResultRaw t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -2391,6 +2604,89 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_TaskOptions returns the first
+    /// event, ak_fsm_next_TaskOptions each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public TaskOptions Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_TaskOptions* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_TaskOptions* MakeFsmPvt() { var v = (ak_pvt_TaskOptions*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_TaskOptions)); v->utf8_skip = AkUtf8Skip.TaskOptions_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out TaskOptions result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_TaskOptions(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_TaskOptions: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new TaskOptions();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_TaskOptions(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_TaskOptions(ref *(ak_dfix_TaskOptions*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_TaskOptions(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(TaskOptions t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var lst = t.Options; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -2730,6 +3026,77 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 case OP_APPLY: G.D_TaskOutput(ref *(ak_dfix_TaskOutput*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_TaskOutput returns the first
+    /// event, ak_fsm_next_TaskOutput each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public TaskOutput Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_TaskOutput* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_TaskOutput* MakeFsmPvt() { var v = (ak_pvt_TaskOutput*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_TaskOutput)); v->utf8_skip = AkUtf8Skip.TaskOutput_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out TaskOutput result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_TaskOutput(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_TaskOutput: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new TaskOutput();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_TaskOutput(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_TaskOutput(ref *(ak_dfix_TaskOutput*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_TaskOutput(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(TaskOutput t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -3525,6 +3892,117 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_TaskDetailed returns the first
+    /// event, ak_fsm_next_TaskDetailed each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public TaskDetailed Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_TaskDetailed* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_TaskDetailed* MakeFsmPvt() { var v = (ak_pvt_TaskDetailed*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_TaskDetailed)); v->utf8_skip = AkUtf8Skip.TaskDetailed_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out TaskDetailed result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_TaskDetailed(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_TaskDetailed: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new TaskDetailed();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_TaskDetailed(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_TaskDetailed(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(TaskDetailed t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.ParentTaskIds; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.DataDependencies; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                    case 3u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.ExpectedOutputIds; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                    case 4u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.RetryOfIds; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                    case 5u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var lst = (t.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -3942,6 +4420,89 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_TaskSummary returns the first
+    /// event, ak_fsm_next_TaskSummary each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public TaskSummary Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_TaskSummary* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_TaskSummary* MakeFsmPvt() { var v = (ak_pvt_TaskSummary*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_TaskSummary)); v->utf8_skip = AkUtf8Skip.TaskSummary_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out TaskSummary result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_TaskSummary(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_TaskSummary: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new TaskSummary();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_TaskSummary(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_TaskSummary(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(TaskSummary t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var lst = (t.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -4288,6 +4849,77 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Probe returns the first event,
+    /// ak_fsm_next_Probe each next one; every event is consumed (FsmDispatch) before
+    /// the next call, which may overwrite its payload. One `fixed` spans begin and
+    /// every next (the core holds spans into the input until the end event). Arming,
+    /// Disarm, retain ownership and the failure path are pull's; a failed decode's
+    /// partial object is discarded.
+    public Probe Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Probe* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Probe* MakeFsmPvt() { var v = (ak_pvt_Probe*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Probe)); v->utf8_skip = AkUtf8Skip.Probe_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Probe result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Probe(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Probe: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Probe();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Probe(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Probe(ref *(ak_dfix_Probe*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Probe(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Probe t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -4604,6 +5236,77 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 case OP_APPLY: G.D_Empty(ref *(ak_dfix_Empty*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Empty returns the first event,
+    /// ak_fsm_next_Empty each next one; every event is consumed (FsmDispatch) before
+    /// the next call, which may overwrite its payload. One `fixed` spans begin and
+    /// every next (the core holds spans into the input until the end event). Arming,
+    /// Disarm, retain ownership and the failure path are pull's; a failed decode's
+    /// partial object is discarded.
+    public Empty Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Empty* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Empty* MakeFsmPvt() { var v = (ak_pvt_Empty*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Empty)); v->utf8_skip = AkUtf8Skip.Empty_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Empty result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Empty(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Empty: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Empty();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Empty(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Empty(ref *(ak_dfix_Empty*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Empty(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Empty t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -4949,6 +5652,77 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 case OP_APPLY: G.D_UploadResultData(ref *(ak_dfix_UploadResultData*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_UploadResultData returns the
+    /// first event, ak_fsm_next_UploadResultData each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public UploadResultData Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_UploadResultData* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_UploadResultData* MakeFsmPvt() { var v = (ak_pvt_UploadResultData*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultData)); v->utf8_skip = AkUtf8Skip.UploadResultData_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out UploadResultData result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_UploadResultData(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultData: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new UploadResultData();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_UploadResultData(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_UploadResultData(ref *(ak_dfix_UploadResultData*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_UploadResultData(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(UploadResultData t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -5552,6 +6326,117 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_MetricsBatch returns the first
+    /// event, ak_fsm_next_MetricsBatch each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public MetricsBatch Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_MetricsBatch* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_MetricsBatch* MakeFsmPvt() { var v = (ak_pvt_MetricsBatch*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_MetricsBatch)); v->utf8_skip = AkUtf8Skip.MetricsBatch_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out MetricsBatch result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_MetricsBatch(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_MetricsBatch: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new MetricsBatch();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_MetricsBatch(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_MetricsBatch(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(MetricsBatch t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (long*)d; var lst = t.Ticks; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(xs[i]);
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (double*)d; var lst = t.Values; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(xs[i]);
+                        return;
+                    }
+                    case 3u:   // a root-level run
+                    {
+                        var xs = (int*)d; var lst = t.Codes; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(xs[i]);
+                        return;
+                    }
+                    case 4u:   // a root-level run
+                    {
+                        var xs = (byte*)d; var lst = t.Flags; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add((xs[i] != 0));
+                        return;
+                    }
+                    case 5u:   // a root-level run
+                    {
+                        var xs = (int*)d; var lst = t.Statuses; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add((TaskStatus)xs[i]);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -5895,6 +6780,77 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 case OP_APPLY: G.D_Pair(ref *(ak_dfix_Pair*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Pair returns the first event,
+    /// ak_fsm_next_Pair each next one; every event is consumed (FsmDispatch) before the
+    /// next call, which may overwrite its payload. One `fixed` spans begin and every
+    /// next (the core holds spans into the input until the end event). Arming, Disarm,
+    /// retain ownership and the failure path are pull's; a failed decode's partial
+    /// object is discarded.
+    public Pair Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Pair* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Pair* MakeFsmPvt() { var v = (ak_pvt_Pair*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Pair)); v->utf8_skip = AkUtf8Skip.Pair_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Pair result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Pair(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Pair: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Pair();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Pair(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Pair(ref *(ak_dfix_Pair*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Pair(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Pair t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -6332,6 +7288,89 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListResultsResponse returns
+    /// the first event, ak_fsm_next_ListResultsResponse each next one; every event is
+    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
+    /// One `fixed` spans begin and every next (the core holds spans into the input
+    /// until the end event). Arming, Disarm, retain ownership and the failure path are
+    /// pull's; a failed decode's partial object is discarded.
+    public ListResultsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ListResultsResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ListResultsResponse* MakeFsmPvt() { var v = (ak_pvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListResultsResponse)); v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ListResultsResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ListResultsResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListResultsResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ListResultsResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ListResultsResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_ResultRaw*)d; var lst = t.Results; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -7310,6 +8349,129 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListTasksDetailedResponse
+    /// returns the first event, ak_fsm_next_ListTasksDetailedResponse each next one;
+    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
+    /// its payload. One `fixed` spans begin and every next (the core holds spans into
+    /// the input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
+    public ListTasksDetailedResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ListTasksDetailedResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ListTasksDetailedResponse* MakeFsmPvt() { var v = (ak_pvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTasksDetailedResponse)); v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ListTasksDetailedResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ListTasksDetailedResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTasksDetailedResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ListTasksDetailedResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ListTasksDetailedResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_NEW:
+                switch (ev->slot >> 16)
+                {
+                    case 1: t.Tasks.Add(new TaskDetailed()); return;
+                }
+                return;
+            case Abi.AK_BDR_APPLY_ELEM:
+                switch (ev->slot >> 16)
+                {
+                    case 1: G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)d, t.Tasks[(int)ev->token], b); return;
+                }
+                return;
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 65537u:   // slot 1's element, inner run 1
+                    {
+                        var xs = (ak_span*)d; var e = t.Tasks[(int)ev->token]; var il = e.ParentTaskIds; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65538u:   // slot 1's element, inner run 2
+                    {
+                        var xs = (ak_span*)d; var e = t.Tasks[(int)ev->token]; var il = e.DataDependencies; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65539u:   // slot 1's element, inner run 3
+                    {
+                        var xs = (ak_span*)d; var e = t.Tasks[(int)ev->token]; var il = e.ExpectedOutputIds; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65540u:   // slot 1's element, inner run 4
+                    {
+                        var xs = (ak_span*)d; var e = t.Tasks[(int)ev->token]; var il = e.RetryOfIds; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65541u:   // slot 1's element, inner run 5
+                    {
+                        var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var e = t.Tasks[(int)ev->token]; var il = (e.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -7875,6 +9037,101 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListTaskSummaryResponse
+    /// returns the first event, ak_fsm_next_ListTaskSummaryResponse each next one;
+    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
+    /// its payload. One `fixed` spans begin and every next (the core holds spans into
+    /// the input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
+    public ListTaskSummaryResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ListTaskSummaryResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ListTaskSummaryResponse* MakeFsmPvt() { var v = (ak_pvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTaskSummaryResponse)); v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ListTaskSummaryResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ListTaskSummaryResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTaskSummaryResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ListTaskSummaryResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ListTaskSummaryResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_NEW:
+                switch (ev->slot >> 16)
+                {
+                    case 1: t.Tasks.Add(new TaskSummary()); return;
+                }
+                return;
+            case Abi.AK_BDR_APPLY_ELEM:
+                switch (ev->slot >> 16)
+                {
+                    case 1: G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)d, t.Tasks[(int)ev->token], b); return;
+                }
+                return;
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 65537u:   // slot 1's element, inner run 1
+                    {
+                        var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var e = t.Tasks[(int)ev->token]; var il = (e.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -8308,6 +9565,89 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListProbeResponse returns the
+    /// first event, ak_fsm_next_ListProbeResponse each next one; every event is
+    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
+    /// One `fixed` spans begin and every next (the core holds spans into the input
+    /// until the end event). Arming, Disarm, retain ownership and the failure path are
+    /// pull's; a failed decode's partial object is discarded.
+    public ListProbeResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ListProbeResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ListProbeResponse* MakeFsmPvt() { var v = (ak_pvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListProbeResponse)); v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ListProbeResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ListProbeResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListProbeResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ListProbeResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ListProbeResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_Probe*)d; var lst = t.Probes; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -9047,6 +10387,129 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListMetricsResponse returns
+    /// the first event, ak_fsm_next_ListMetricsResponse each next one; every event is
+    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
+    /// One `fixed` spans begin and every next (the core holds spans into the input
+    /// until the end event). Arming, Disarm, retain ownership and the failure path are
+    /// pull's; a failed decode's partial object is discarded.
+    public ListMetricsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ListMetricsResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ListMetricsResponse* MakeFsmPvt() { var v = (ak_pvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListMetricsResponse)); v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ListMetricsResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ListMetricsResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListMetricsResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ListMetricsResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ListMetricsResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_NEW:
+                switch (ev->slot >> 16)
+                {
+                    case 1: t.Batches.Add(new MetricsBatch()); return;
+                }
+                return;
+            case Abi.AK_BDR_APPLY_ELEM:
+                switch (ev->slot >> 16)
+                {
+                    case 1: G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)d, t.Batches[(int)ev->token], b); return;
+                }
+                return;
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 65537u:   // slot 1's element, inner run 1
+                    {
+                        var xs = (long*)d; var e = t.Batches[(int)ev->token]; var il = e.Ticks; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(xs[k]);
+                        return;
+                    }
+                    case 65538u:   // slot 1's element, inner run 2
+                    {
+                        var xs = (double*)d; var e = t.Batches[(int)ev->token]; var il = e.Values; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(xs[k]);
+                        return;
+                    }
+                    case 65539u:   // slot 1's element, inner run 3
+                    {
+                        var xs = (int*)d; var e = t.Batches[(int)ev->token]; var il = e.Codes; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(xs[k]);
+                        return;
+                    }
+                    case 65540u:   // slot 1's element, inner run 4
+                    {
+                        var xs = (byte*)d; var e = t.Batches[(int)ev->token]; var il = e.Flags; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add((xs[k] != 0));
+                        return;
+                    }
+                    case 65541u:   // slot 1's element, inner run 5
+                    {
+                        var xs = (int*)d; var e = t.Batches[(int)ev->token]; var il = e.Statuses; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add((TaskStatus)xs[k]);
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -9399,6 +10862,77 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 case OP_APPLY: G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_UploadResultDataMessage
+    /// returns the first event, ak_fsm_next_UploadResultDataMessage each next one;
+    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
+    /// its payload. One `fixed` spans begin and every next (the core holds spans into
+    /// the input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
+    public UploadResultDataMessage Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_UploadResultDataMessage* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_UploadResultDataMessage* MakeFsmPvt() { var v = (ak_pvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultDataMessage)); v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out UploadResultDataMessage result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_UploadResultDataMessage(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultDataMessage: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new UploadResultDataMessage();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(UploadResultDataMessage t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -9942,6 +11476,96 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_DualResponse returns the first
+    /// event, ak_fsm_next_DualResponse each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public DualResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_DualResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_DualResponse* MakeFsmPvt() { var v = (ak_pvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_DualResponse)); v->utf8_skip = AkUtf8Skip.DualResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out DualResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_DualResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_DualResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new DualResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(DualResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_Pair*)d; var lst = t.Left; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_Pair*)d; var lst = t.Right; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -10282,6 +11906,77 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 case OP_APPLY: G.D_ChunkLeaf(ref *(ak_dfix_ChunkLeaf*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ChunkLeaf returns the first
+    /// event, ak_fsm_next_ChunkLeaf each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public ChunkLeaf Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ChunkLeaf* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ChunkLeaf* MakeFsmPvt() { var v = (ak_pvt_ChunkLeaf*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ChunkLeaf)); v->utf8_skip = AkUtf8Skip.ChunkLeaf_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ChunkLeaf result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ChunkLeaf(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ChunkLeaf: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ChunkLeaf();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ChunkLeaf(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ChunkLeaf(ref *(ak_dfix_ChunkLeaf*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ChunkLeaf(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ChunkLeaf t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -10763,6 +12458,96 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ChunkInner returns the first
+    /// event, ak_fsm_next_ChunkInner each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public ChunkInner Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ChunkInner* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ChunkInner* MakeFsmPvt() { var v = (ak_pvt_ChunkInner*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ChunkInner)); v->utf8_skip = AkUtf8Skip.ChunkInner_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ChunkInner result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ChunkInner(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ChunkInner: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ChunkInner();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ChunkInner(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ChunkInner(ref *(ak_dfix_ChunkInner*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ChunkInner(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ChunkInner t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (long*)d; var lst = t.Marks; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(xs[i]);
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_ChunkLeaf*)d; var lst = t.Leaves; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -11412,6 +13197,110 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ChunkElement returns the first
+    /// event, ak_fsm_next_ChunkElement each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public ChunkElement Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ChunkElement* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ChunkElement* MakeFsmPvt() { var v = (ak_pvt_ChunkElement*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ChunkElement)); v->utf8_skip = AkUtf8Skip.ChunkElement_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ChunkElement result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ChunkElement(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ChunkElement: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ChunkElement();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ChunkElement(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ChunkElement(ref *(ak_dfix_ChunkElement*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ChunkElement(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ChunkElement t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.Labels; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_ChunkElementAttrsEntry*)d; var lst = t.Attrs; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                        return;
+                    }
+                    case 3u:   // a root-level run
+                    {
+                        var xs = (long*)d; var lst = (t.Inner ??= new ChunkInner()).Marks; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(xs[i]);
+                        return;
+                    }
+                    case 4u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_ChunkLeaf*)d; var lst = (t.Inner ??= new ChunkInner()).Leaves; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -12221,6 +14110,122 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ChunkedResponse returns the
+    /// first event, ak_fsm_next_ChunkedResponse each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public ChunkedResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ChunkedResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ChunkedResponse* MakeFsmPvt() { var v = (ak_pvt_ChunkedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ChunkedResponse)); v->utf8_skip = AkUtf8Skip.ChunkedResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ChunkedResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ChunkedResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ChunkedResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ChunkedResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ChunkedResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ChunkedResponse(ref *(ak_dfix_ChunkedResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ChunkedResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ChunkedResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_NEW:
+                switch (ev->slot >> 16)
+                {
+                    case 1: t.Items.Add(new ChunkElement()); return;
+                }
+                return;
+            case Abi.AK_BDR_APPLY_ELEM:
+                switch (ev->slot >> 16)
+                {
+                    case 1: G.D_ChunkElement(ref *(ak_dfix_ChunkElement*)d, t.Items[(int)ev->token], b); return;
+                }
+                return;
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 65537u:   // slot 1's element, inner run 1
+                    {
+                        var xs = (ak_span*)d; var e = t.Items[(int)ev->token]; var il = e.Labels; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65538u:   // slot 1's element, inner run 2
+                    {
+                        var xs = (ak_dfix_ChunkElementAttrsEntry*)d; var e = t.Items[(int)ev->token]; var il = e.Attrs; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                        return;
+                    }
+                    case 65539u:   // slot 1's element, inner run 3
+                    {
+                        var xs = (long*)d; var e = t.Items[(int)ev->token]; var il = (e.Inner ??= new ChunkInner()).Marks; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(xs[k]);
+                        return;
+                    }
+                    case 65540u:   // slot 1's element, inner run 4
+                    {
+                        var xs = (ak_dfix_ChunkLeaf*)d; var e = t.Items[(int)ev->token]; var il = (e.Inner ??= new ChunkInner()).Leaves; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -13035,6 +15040,122 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ChunkedResponseWide returns
+    /// the first event, ak_fsm_next_ChunkedResponseWide each next one; every event is
+    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
+    /// One `fixed` spans begin and every next (the core holds spans into the input
+    /// until the end event). Arming, Disarm, retain ownership and the failure path are
+    /// pull's; a failed decode's partial object is discarded.
+    public ChunkedResponseWide Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_ChunkedResponseWide* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_ChunkedResponseWide* MakeFsmPvt() { var v = (ak_pvt_ChunkedResponseWide*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ChunkedResponseWide)); v->utf8_skip = AkUtf8Skip.ChunkedResponseWide_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out ChunkedResponseWide result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_ChunkedResponseWide(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ChunkedResponseWide: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new ChunkedResponseWide();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_ChunkedResponseWide(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_ChunkedResponseWide(ref *(ak_dfix_ChunkedResponseWide*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_ChunkedResponseWide(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(ChunkedResponseWide t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_NEW:
+                switch (ev->slot >> 16)
+                {
+                    case 1: t.Items.Add(new ChunkElement()); return;
+                }
+                return;
+            case Abi.AK_BDR_APPLY_ELEM:
+                switch (ev->slot >> 16)
+                {
+                    case 1: G.D_ChunkElement(ref *(ak_dfix_ChunkElement*)d, t.Items[(int)ev->token], b); return;
+                }
+                return;
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 65537u:   // slot 1's element, inner run 1
+                    {
+                        var xs = (ak_span*)d; var e = t.Items[(int)ev->token]; var il = e.Labels; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
+                        return;
+                    }
+                    case 65538u:   // slot 1's element, inner run 2
+                    {
+                        var xs = (ak_dfix_ChunkElementAttrsEntry*)d; var e = t.Items[(int)ev->token]; var il = e.Attrs; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
+                        return;
+                    }
+                    case 65539u:   // slot 1's element, inner run 3
+                    {
+                        var xs = (long*)d; var e = t.Items[(int)ev->token]; var il = (e.Inner ??= new ChunkInner()).Marks; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) il.Add(xs[k]);
+                        return;
+                    }
+                    case 65540u:   // slot 1's element, inner run 4
+                    {
+                        var xs = (ak_dfix_ChunkLeaf*)d; var e = t.Items[(int)ev->token]; var il = (e.Inner ??= new ChunkInner()).Leaves; int n = (int)ev->n;
+                        il.EnsureCapacity(il.Count + n);
+                        for (int k = 0; k < n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -13379,6 +15500,77 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 case OP_APPLY: G.D_LeafElement(ref *(ak_dfix_LeafElement*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_LeafElement returns the first
+    /// event, ak_fsm_next_LeafElement each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public LeafElement Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_LeafElement* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_LeafElement* MakeFsmPvt() { var v = (ak_pvt_LeafElement*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_LeafElement)); v->utf8_skip = AkUtf8Skip.LeafElement_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out LeafElement result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_LeafElement(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_LeafElement: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new LeafElement();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_LeafElement(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_LeafElement(ref *(ak_dfix_LeafElement*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_LeafElement(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(LeafElement t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 
@@ -13808,6 +16000,89 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 }
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_LeafResponse returns the first
+    /// event, ak_fsm_next_LeafResponse each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public LeafResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_LeafResponse* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_LeafResponse* MakeFsmPvt() { var v = (ak_pvt_LeafResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_LeafResponse)); v->utf8_skip = AkUtf8Skip.LeafResponse_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out LeafResponse result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_LeafResponse(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_LeafResponse: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new LeafResponse();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_LeafResponse(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_LeafResponse(ref *(ak_dfix_LeafResponse*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_LeafResponse(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(LeafResponse t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_LeafElement*)d; var lst = t.Items; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) { var x = new LeafElement(); G.D_LeafElement(ref xs[i], x, b); lst.Add(x); }
+                        return;
+                    }
+                }
+                return;
         }
     }
 
@@ -14300,6 +16575,96 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_Surrogate returns the first
+    /// event, ak_fsm_next_Surrogate each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public Surrogate Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_Surrogate* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_Surrogate* MakeFsmPvt() { var v = (ak_pvt_Surrogate*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_Surrogate)); v->utf8_skip = AkUtf8Skip.Surrogate_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out Surrogate result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_Surrogate(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_Surrogate: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new Surrogate();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_Surrogate(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_Surrogate(ref *(ak_dfix_Surrogate*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_Surrogate(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(Surrogate t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+            case Abi.AK_BDR_ADD:
+                switch (ev->slot)
+                {
+                    case 1u:   // a root-level run
+                    {
+                        var xs = (ak_dfix_SurrogateAttrsEntry*)d; var lst = t.Attrs; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
+                        return;
+                    }
+                    case 2u:   // a root-level run
+                    {
+                        var xs = (ak_span*)d; var lst = t.Texts; int n = (int)ev->n;
+                        lst.EnsureCapacity(lst.Count + n);
+                        for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
+                        return;
+                    }
+                }
+                return;
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -14643,6 +17008,77 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         }
     }
 
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_SurrogateInner returns the
+    /// first event, ak_fsm_next_SurrogateInner each next one; every event is consumed
+    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
+    /// spans begin and every next (the core holds spans into the input until the end
+    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
+    /// failed decode's partial object is discarded.
+    public SurrogateInner Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_SurrogateInner* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_SurrogateInner* MakeFsmPvt() { var v = (ak_pvt_SurrogateInner*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_SurrogateInner)); v->utf8_skip = AkUtf8Skip.SurrogateInner_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out SurrogateInner result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_SurrogateInner(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_SurrogateInner: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new SurrogateInner();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_SurrogateInner(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_SurrogateInner(ref *(ak_dfix_SurrogateInner*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_SurrogateInner(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(SurrogateInner t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
+        }
+    }
+
     public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
@@ -14981,6 +17417,77 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 case OP_APPLY: G.D_WireZoo(ref *(ak_dfix_WireZoo*)body, t, b); break;
                 default: break;
             }
+        }
+    }
+
+    /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_WireZoo returns the first
+    /// event, ak_fsm_next_WireZoo each next one; every event is consumed (FsmDispatch)
+    /// before the next call, which may overwrite its payload. One `fixed` spans begin
+    /// and every next (the core holds spans into the input until the end event).
+    /// Arming, Disarm, retain ownership and the failure path are pull's; a failed
+    /// decode's partial object is discarded.
+    public WireZoo Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
+    /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
+    private static readonly ak_pvt_WireZoo* FsmPvt = MakeFsmPvt();
+    private static ak_pvt_WireZoo* MakeFsmPvt() { var v = (ak_pvt_WireZoo*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_WireZoo)); v->utf8_skip = AkUtf8Skip.WireZoo_ALL; return v; }
+    private IntPtr _fsmPvtFor;   // the context FsmPvt was copied into
+
+    public int TryFsm(byte[] src, int len, bool retain, out WireZoo result)
+    {
+        result = null;
+        EnsureDec();
+        if (_fsmPvtFor != _dctx)
+        {
+            int sp = Abi.ak_fsm_set_pvt_WireZoo(_dctx, FsmPvt);
+            if (sp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_WireZoo: " + sp);
+            _fsmPvtFor = _dctx;
+        }
+        int ar = ArmFor(retain ? -1 : -2);
+        if (ar != 0) { Disarm(ar); return ar; }
+        var t = new WireZoo();
+        int rc = Abi.AK_ERR_HOST;
+        try
+        {
+            fixed (byte* b0 = src)
+            fixed (byte* one = One)
+            {
+                byte* b = len == 0 ? one : b0;
+                ak_fsm_ev ev;
+                _fwd++;
+                rc = Abi.ak_fsm_begin_WireZoo(_dctx, b, (nuint)len, &ev);
+                try
+                {
+                    while (rc >= 0)
+                    {
+                        if (rc == Abi.AK_FSM_END)
+                        {
+                            // The end event is the root group, always the last.
+                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            G.D_WireZoo(ref *(ak_dfix_WireZoo*)ev.data, t, b);
+                            break;
+                        }
+                        FsmDispatch(t, b, &ev);
+                        _fwd++;
+                        rc = Abi.ak_fsm_next_WireZoo(_dctx, &ev);
+                    }
+                }
+                catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
+            }
+        }
+        finally { rc = Disarm(rc); }
+        if (rc < 0) return rc;   // the partial object is dropped
+        result = t;
+        return 0;
+    }
+
+    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
+    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
+    private static void FsmDispatch(WireZoo t, byte* b, ak_fsm_ev* ev)
+    {
+        byte* d = (byte*)ev->data;
+        switch (ev->op)
+        {
         }
     }
 

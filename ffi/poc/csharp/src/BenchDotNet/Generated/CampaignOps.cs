@@ -472,6 +472,17 @@ public abstract unsafe class RootOps
     // and the pull family retained.
     public abstract long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read);
     public abstract long DecFfiPullR(byte[] b, int len, bool retain, bool read);
+    // D23 (owner, 2026-10-09): the FSM decode family (ak_fsm_begin_/next_), drop or retain.
+    public abstract long DecFfiFsm(byte[] b, int len, bool retain, bool read);
+    public abstract object DecFfiFsmGraph(byte[] b, int len, bool retain);
+    public abstract object DecFfiPullGraph(byte[] b, int len, bool retain);
+    public abstract int TryFsmRc(byte[] b, int len, bool retain);
+    public abstract int TryPullRc(byte[] b, int len, bool retain);
+    public abstract int TryPushRc(byte[] b, int len, bool retain);
+    public abstract long FfiForward();
+    /// The managed (host-gen) encode of a facade graph, retained form where it has bags: a
+    /// value comparison of two graphs that does not go through the core.
+    public abstract byte[] ReEncHost(object m, bool retain);
     // D21 s8 attribution (harness only): the core-ffi push decode through the parse (0), noop (1)
     // or parse-validate (2) vtable; the pull family's parse alone; the graphs, for the census
     // and the strings-alone arm; the read pass alone.
@@ -652,6 +663,14 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     private static readonly MessageParser<Gp.ListResultsResponse> DiscardParser = Gp.ListResultsResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListResultsResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListResultsResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_ListResultsResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteListResultsResponse(ref e, (ListResultsResponse)m); else Codec.WriteListResultsResponse(ref e, (ListResultsResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListResultsResponse.VtParse : kind == 1 ? CoreFfi_ListResultsResponse.VtNoop : CoreFfi_ListResultsResponse.VtParseValidate);
@@ -796,6 +815,14 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     private static readonly MessageParser<Gp.ListTasksDetailedResponse> DiscardParser = Gp.ListTasksDetailedResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListTasksDetailedResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListTasksDetailedResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_ListTasksDetailedResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); else Codec.WriteListTasksDetailedResponse(ref e, (ListTasksDetailedResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTasksDetailedResponse.VtParse : kind == 1 ? CoreFfi_ListTasksDetailedResponse.VtNoop : CoreFfi_ListTasksDetailedResponse.VtParseValidate);
@@ -940,6 +967,14 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     private static readonly MessageParser<Gp.ListProbeResponse> DiscardParser = Gp.ListProbeResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListProbeResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListProbeResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_ListProbeResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteListProbeResponse(ref e, (ListProbeResponse)m); else Codec.WriteListProbeResponse(ref e, (ListProbeResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListProbeResponse.VtParse : kind == 1 ? CoreFfi_ListProbeResponse.VtNoop : CoreFfi_ListProbeResponse.VtParseValidate);
@@ -1084,6 +1119,14 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     private static readonly MessageParser<Gp.ListTaskSummaryResponse> DiscardParser = Gp.ListTaskSummaryResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListTaskSummaryResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListTaskSummaryResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_ListTaskSummaryResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); else Codec.WriteListTaskSummaryResponse(ref e, (ListTaskSummaryResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListTaskSummaryResponse.VtParse : kind == 1 ? CoreFfi_ListTaskSummaryResponse.VtNoop : CoreFfi_ListTaskSummaryResponse.VtParseValidate);
@@ -1228,6 +1271,14 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     private static readonly MessageParser<Gp.UploadResultDataMessage> DiscardParser = Gp.UploadResultDataMessage.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_UploadResultDataMessage(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_UploadResultDataMessage(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_UploadResultDataMessage(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteUploadResultDataMessage(ref e, (UploadResultDataMessage)m); else Codec.WriteUploadResultDataMessage(ref e, (UploadResultDataMessage)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_UploadResultDataMessage.VtParse : kind == 1 ? CoreFfi_UploadResultDataMessage.VtNoop : CoreFfi_UploadResultDataMessage.VtParseValidate);
@@ -1372,6 +1423,14 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     private static readonly MessageParser<Gp.ListMetricsResponse> DiscardParser = Gp.ListMetricsResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_ListMetricsResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_ListMetricsResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_ListMetricsResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteListMetricsResponse(ref e, (ListMetricsResponse)m); else Codec.WriteListMetricsResponse(ref e, (ListMetricsResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_ListMetricsResponse.VtParse : kind == 1 ? CoreFfi_ListMetricsResponse.VtNoop : CoreFfi_ListMetricsResponse.VtParseValidate);
@@ -1516,6 +1575,14 @@ public sealed unsafe class Ops_DualResponse : RootOps
     private static readonly MessageParser<Gp.DualResponse> DiscardParser = Gp.DualResponse.Parser.WithDiscardUnknownFields(true);
     public override long DecIncProdDiscard(ReadOnlySequence<byte> seq, bool read) { var m = DiscardParser.ParseFrom(seq); return read ? Touch.G_DualResponse(m) : 1; }
     public override long DecFfiPullR(byte[] b, int len, bool retain, bool read) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return read ? Touch.F_DualResponse(m) : 1; }
+    public override long DecFfiFsm(byte[] b, int len, bool retain, bool read) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return read ? Touch.F_DualResponse(m) : 1; }
+    public override object DecFfiFsmGraph(byte[] b, int len, bool retain) { int rc = _c.TryFsm(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core fsm " + rc); return m; }
+    public override object DecFfiPullGraph(byte[] b, int len, bool retain) { int rc = _c.TryPull(b, len, retain, out var m); if (rc < 0) throw new InvalidOperationException("core pull " + rc); return m; }
+    public override int TryFsmRc(byte[] b, int len, bool retain) => _c.TryFsm(b, len, retain, out _);
+    public override int TryPullRc(byte[] b, int len, bool retain) => _c.TryPull(b, len, retain, out _);
+    public override int TryPushRc(byte[] b, int len, bool retain) => _c.TryDecode(b, len, retain, out _);
+    public override long FfiForward() => _c.ForwardCalls;
+    public override byte[] ReEncHost(object m, bool retain) { var e = Enc.New(Codec.Sites, 1 << 16); if (retain) HostR.WriteDualResponse(ref e, (DualResponse)m); else Codec.WriteDualResponse(ref e, (DualResponse)m); if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err); return e.ToArray(); }
     public override long DecFfiVt(byte[] b, int len, bool retain, int kind)
     {
         int rc = _c.DecodeVt(b, len, retain, kind == 0 ? CoreFfi_DualResponse.VtParse : kind == 1 ? CoreFfi_DualResponse.VtNoop : CoreFfi_DualResponse.VtParseValidate);
