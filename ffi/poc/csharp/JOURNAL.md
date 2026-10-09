@@ -2818,3 +2818,21 @@ Container instrumentation; process CPU per op. Logs `ffi/logs/csharp/opt/s10/`.
   the small U-* rows), or the rows are bimodal across reps as in every earlier run (P5.2 to P5.4).
   Allocation per op is identical across the three families on every row. Not attributed (no
   profile run); the Rust slice reports the same pattern on the packed rows (its JOURNAL, D23).
+
+## 80. s11: the D23 eight-arm table rerun with the FSM's fixes A and B (2026-10-09)
+
+Container instrumentation. Logs `ffi/logs/csharp/opt/s11/`.
+
+- Core 081de788 (fix A 55c2771c: packed bodies in a tight loop; fix B 01c73821: the FSM's reader
+  bounded to the open message; fix C 75f819f8 withdrawn by 081de788). The event contract, arena
+  and imports are unchanged: generate.py rewrote nothing. Cores rebuilt; gen/s10_checks.sh
+  PASSED, with the counting grid and the per-input event files byte-identical to s10's.
+- Timed at 37697a69, same protocol as s10 (2 reps, 381 / 380 s, quiet). Against s10, the rows
+  where the FSM lay above both push and pull on every rep (lowest FSM rep median above the
+  highest of each) were P6.1 (both modes, 1.13 to 1.16 x), U-wire-ListMetricsResponse (1.10 to
+  1.15 x), P7.1, P2.5 drop and three rows at 1.00 to 1.02 x; in s11 P6.1 (FSM 239-241 us
+  medians against push 245-256, pull 240-251) and U-wire-ListMetrics (2.66-2.71 against
+  2.60-2.74) are no longer in the list. Still in it, each at 1.01 to 1.05 x: P2.2 drop (FSM
+  reps 1944 / 2555 us, the widest spread of the run), P2.2/wide retain, P2.5 drop, P3.1 drop,
+  P7.1 both modes, U-deep-u-repeated retain. Two reps only: a row enters or leaves the list on
+  one rep's median (s10's and s11's lists differ also on rows the fixes do not touch).

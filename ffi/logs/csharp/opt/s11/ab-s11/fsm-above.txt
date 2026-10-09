@@ -1,0 +1,15 @@
+# s11: rows where the FSM lies above BOTH push and pull beyond the rep spread (same mode):
+# criterion: the FSM's lowest per-rep median > the highest per-rep median of push AND of pull (process CPU per op, us).
+
+P2.2                                          drop   FSM 1944 2555 | push 1775 1873 | pull 1702 1813  (FSM low / max(push, pull high) = 1.04)
+P2.2/wide                                     retain FSM 3132 3170 | push 2978 2993 | pull 2915 2917  (FSM low / max(push, pull high) = 1.05)
+P2.5                                          drop   FSM 55.55 57.9 | push 53.32 54.73 | pull 50.09 50.18  (FSM low / max(push, pull high) = 1.02)
+P3.1                                          drop   FSM 30.92 31.35 | push 29.29 30.74 | pull 28.72 28.95  (FSM low / max(push, pull high) = 1.01)
+P7.1                                          retain FSM 0.6506 0.6647 | push 0.6063 0.6462 | pull 0.5057 0.5271  (FSM low / max(push, pull high) = 1.01)
+P7.1                                          drop   FSM 0.619 0.6568 | push 0.5937 0.5975 | pull 0.4771 0.535  (FSM low / max(push, pull high) = 1.04)
+U-deep-u-repeated                             retain FSM 2.984 3.05 | push 2.85 2.944 | pull 2.796 2.952  (FSM low / max(push, pull high) = 1.01)
+
+# the same criterion on s10/ab-s10 (FSM before fixes A and B; ratio = FSM low / max(push, pull high)):
+P2.1 drop 1.01; P2.2/latin1 retain 1.00; P2.2/latin1 drop 1.02; P2.5 drop 1.06; P6.1 retain 1.16; P6.1 drop 1.13;
+P7.1 retain 1.01; P7.1 drop 1.08; U-wire-ListMetricsResponse-batches-as-wt0 retain 1.15, drop 1.10
+# two reps only: a row enters or leaves this list on one rep's median.
