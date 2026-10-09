@@ -1,0 +1,1022 @@
+
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+commit 75f819f8; base dfa9eb04
+4
+model name	: Intel(R) Xeon(R) Processor @ 2.80GHz
+ 11:30:37 up 15 min,  0 user,  load average: 2.74, 2.42, 1.55
+
+===== 1. generators current (every slice), one core =====
+  guard 28 backend modules import plans only; a planted IR import is caught
+        c_abi.py cpp_binding.py cpp_facade.py cpp_layout.py cpp_names.py cpp_native.py cs_binding.py cs_host.py cs_layout_probe.py cs_managed.py cs_names.py cs_types.py java_backend.py java_binding.py java_facade.py java_jni.py java_layout.py java_names.py java_pull.py java_rcodec.py py_capi.py py_pure.py rust_abi.py rust_binding.py rust_facade.py rust_fsm.py rust_native.py rustnames.py
+  guard 108 slice gen/ modules: no front-end import, no wire emitter outside a listed renderer, no renamed copy; 3 planted violations caught
+  slice rust    --check: exit 0
+  slice cpp     --check: exit 0
+  slice java    --check: exit 0
+     checked 530 generated files, 0 problem(s)
+  slice csharp  --check: exit 0
+  slice python  --check: exit 0
+
+one_core: 0 failure(s)
+
+===== S. separation: push and pull's generated code unchanged, everything else additive =====
+  ffi/poc/codec/crates/ak-core/src/generated/codec.rs: identical to dfa9eb04 (ba1dcb2c38a6fbf5)
+  ffi/poc/codec/crates/ak-core/src/generated_nounk/codec.rs: identical to dfa9eb04 (6c092637414b2f8b)
+  ffi/poc/codec/crates/ak-core/src/generated_corpus/codec.rs: identical to dfa9eb04 (ba2d66784df98faf)
+  ffi/poc/codec/crates/ak-core/src/generated_corpus_nounk/codec.rs: identical to dfa9eb04 (0b3e7c30ff5c50ee)
+  ffi/poc/rust/crates/harness/src/generated/binding.rs: pre-D23 text (7807 lines) is a PREFIX of the new (9515 lines)
+  ffi/poc/rust/crates/harness/src/generated/binding_nounk.rs: pre-D23 text (4827 lines) is a PREFIX of the new (6252 lines)
+  ffi/poc/rust/corpus/crates/harness/src/generated/binding.rs: pre-D23 text (21123 lines) is a PREFIX of the new (27231 lines)
+  ffi/poc/rust/corpus/crates/harness/src/generated/binding_nounk.rs: pre-D23 text (13505 lines) is a PREFIX of the new (18659 lines)
+  generated or hand-written files with deleted or changed lines since dfa9eb04 (py sources, docs, logs excluded):
+    2	2	ffi/poc/csharp/gen/counts-nounk.txt
+    4	4	ffi/poc/csharp/gen/counts.txt
+    49	4	ffi/poc/csharp/src/BenchDotNet/Cases.cs
+    25	3	ffi/poc/csharp/src/Corpus/CorpusMain.cs
+    1578	247	ffi/poc/csharp/src/Corpus/Generated/Abi.cs
+    2609	43	ffi/poc/csharp/src/Corpus/Generated/CoreFfi.cs
+    1578	247	ffi/poc/csharp/src/Corpus/GeneratedNounk/Abi.cs
+    2594	57	ffi/poc/csharp/src/Corpus/GeneratedNounk/CoreFfi.cs
+    79	1	ffi/poc/rust/corpus/crates/harness/src/main.rs
+    7	2	ffi/poc/rust/crates/campaign/benches/codec_suite.rs
+  generated files changed by additions only: 44
+
+===== 2. core unit tests (debug build) =====
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+===== F1. FSM differential, shapes core, full build (drop, retain) =====
+# FIX-PLAN D23 FSM differential (shapes core), build full (drop, retain), counting false
+# API checks: 42 checks, 0 failures
+# valid re-orderings (unknown field spliced between top-level records; records reversed): 456 compared
+# malformed variants: 43568 (input, mode, mask) rows, 28558 of them refused by pull; every one compared
+# 44302 checks, 0 failures
+FSM DIFFERENTIAL PASSED
+
+===== F2. FSM differential, shapes core, no-unknown build =====
+# FIX-PLAN D23 FSM differential (shapes core), build no-unknown, counting false
+# API checks: 42 checks, 0 failures
+# valid re-orderings (unknown field spliced between top-level records; records reversed): 228 compared
+# malformed variants: 21784 (input, mode, mask) rows, 14279 of them refused by pull; every one compared
+# 22172 checks, 0 failures
+FSM DIFFERENTIAL PASSED
+
+===== F3. FSM differential in the counting build: events, calls, crossings per payload (no malformed variants) =====
+# FIX-PLAN D23 FSM differential (shapes core), build full (drop, retain), counting true
+# API checks: 42 checks, 0 failures
+input                                                root                          bytes mode        records   events    calls  pull fwd   fsm fwd pull rev  fsm rev  verdict
+P1.1                                                 ListResultsResponse             858 drop              2        2        2         1         2        0        0  ok
+P1.1                                                 ListResultsResponse             858 retain            2        2        2         1         2        0        0  ok
+P1.2                                                 ListResultsResponse          218121 drop              8        8        8         1         8        0        0  ok
+P1.2                                                 ListResultsResponse          218121 retain            8        8        8         1         8        0        0  ok
+P1.2/latin1                                          ListResultsResponse          370110 drop              8        8        8         1         8        0        0  ok
+P1.2/latin1                                          ListResultsResponse          370110 retain            8        8        8         1         8        0        0  ok
+P1.2/wide                                            ListResultsResponse          522099 drop              8        8        8         1         8        0        0  ok
+P1.2/wide                                            ListResultsResponse          522099 retain            8        8        8         1         8        0        0  ok
+P1.3                                                 ListResultsResponse             605 drop              3        3        3         1         3        0        0  ok
+P1.3                                                 ListResultsResponse             605 retain            3        3        3         1         3        0        0  ok
+P2.1                                                 ListTasksDetailedResponse       1037 drop              8        8        8         1         8        0        0  ok
+P2.1                                                 ListTasksDetailedResponse       1037 retain            8        8        8         1         8        0        0  ok
+P2.2                                                 ListTasksDetailedResponse     540422 drop           3501     3501     3501         1      3501        0        0  ok
+P2.2                                                 ListTasksDetailedResponse     540422 retain         3501     3501     3501         1      3501        0        0  ok
+P2.2/latin1                                          ListTasksDetailedResponse     944454 drop           3501     3501     3501         1      3501        0        0  ok
+P2.2/latin1                                          ListTasksDetailedResponse     944454 retain         3501     3501     3501         1      3501        0        0  ok
+P2.2/wide                                            ListTasksDetailedResponse    1348486 drop           3501     3501     3501         1      3501        0        0  ok
+P2.2/wide                                            ListTasksDetailedResponse    1348486 retain         3501     3501     3501         1      3501        0        0  ok
+P2.3                                                 ListTasksDetailedResponse     647024 drop            876      876      876         1       876        0        0  ok
+P2.3                                                 ListTasksDetailedResponse     647024 retain          876      876      876         1       876        0        0  ok
+P2.4                                                 ListTasksDetailedResponse     979465 drop            561      561      561         1       561        0        0  ok
+P2.4                                                 ListTasksDetailedResponse     979465 retain          561      561      561         1       561        0        0  ok
+P2.4/latin1                                          ListTasksDetailedResponse    1890741 drop            561      561      561         1       561        0        0  ok
+P2.4/latin1                                          ListTasksDetailedResponse    1890741 retain          561      561      561         1       561        0        0  ok
+P2.4/wide                                            ListTasksDetailedResponse    2802017 drop            561      561      561         1       561        0        0  ok
+P2.4/wide                                            ListTasksDetailedResponse    2802017 retain          561      561      561         1       561        0        0  ok
+P2.5                                                 ListTasksDetailedResponse      19632 drop            141      141      141         1       141        0        0  ok
+P2.5                                                 ListTasksDetailedResponse      19632 retain          141      141      141         1       141        0        0  ok
+P3.1                                                 ListProbeResponse             12097 drop              2        2        2         1         2        0        0  ok
+P3.1                                                 ListProbeResponse             12097 retain            2        2        2         1         2        0        0  ok
+P4.1                                                 ListTaskSummaryResponse       65321 drop            601      601      601         1       601        0        0  ok
+P4.1                                                 ListTaskSummaryResponse       65321 retain          601      601      601         1       601        0        0  ok
+P5.1                                                 UploadResultDataMessage         116 drop              1        1        1         1         1        0        0  ok
+P5.1                                                 UploadResultDataMessage         116 retain            1        1        1         1         1        0        0  ok
+P5.2                                                 UploadResultDataMessage       65620 drop              1        1        1         1         1        0        0  ok
+P5.2                                                 UploadResultDataMessage       65620 retain            1        1        1         1         1        0        0  ok
+P5.3                                                 UploadResultDataMessage     1048660 drop              1        1        1         1         1        0        0  ok
+P5.3                                                 UploadResultDataMessage     1048660 retain            1        1        1         1         1        0        0  ok
+P5.4                                                 UploadResultDataMessage     4194390 drop              1        1        1         1         1        0        0  ok
+P5.4                                                 UploadResultDataMessage     4194390 retain            1        1        1         1         1        0        0  ok
+P6.1                                                 ListMetricsResponse          123354 drop           1401     1401     1401         1      1401        0        0  ok
+P6.1                                                 ListMetricsResponse          123354 retain         1401     1401     1401         1      1401        0        0  ok
+P7.1                                                 DualResponse                     98 drop              7        7        7         1         7        0        0  ok
+P7.1                                                 DualResponse                     98 retain            7        7        7         1         7        0        0  ok
+U-deep-all                                           ListTasksDetailedResponse        944 drop              8        8        8         1         8        0        0  ok
+U-deep-all                                           ListTasksDetailedResponse        944 retain            8        8        8         1         8        8        8  ok
+U-deep-u-fixed32                                     ListTasksDetailedResponse        853 drop              8        8        8         1         8        0        0  ok
+U-deep-u-fixed32                                     ListTasksDetailedResponse        853 retain            8        8        8         1         8        1        1  ok
+U-deep-u-fixed64                                     ListTasksDetailedResponse        857 drop              8        8        8         1         8        0        0  ok
+U-deep-u-fixed64                                     ListTasksDetailedResponse        857 retain            8        8        8         1         8        1        1  ok
+U-deep-u-len                                         ListTasksDetailedResponse        858 drop              8        8        8         1         8        0        0  ok
+U-deep-u-len                                         ListTasksDetailedResponse        858 retain            8        8        8         1         8        1        1  ok
+U-deep-u-msg                                         ListTasksDetailedResponse        856 drop              8        8        8         1         8        0        0  ok
+U-deep-u-msg                                         ListTasksDetailedResponse        856 retain            8        8        8         1         8        1        1  ok
+U-deep-u-packed                                      ListTasksDetailedResponse        874 drop              8        8        8         1         8        0        0  ok
+U-deep-u-packed                                      ListTasksDetailedResponse        874 retain            8        8        8         1         8        1        1  ok
+U-deep-u-repeated                                    ListTasksDetailedResponse        873 drop              8        8        8         1         8        0        0  ok
+U-deep-u-repeated                                    ListTasksDetailedResponse        873 retain            8        8        8         1         8        2        2  ok
+U-deep-u-varint                                      ListTasksDetailedResponse        855 drop              8        8        8         1         8        0        0  ok
+U-deep-u-varint                                      ListTasksDetailedResponse        855 retain            8        8        8         1         8        1        1  ok
+U-element-all                                        ListTasksDetailedResponse        944 drop              8        8        8         1         8        0        0  ok
+U-element-all                                        ListTasksDetailedResponse        944 retain            8        8        8         1         8        8        8  ok
+U-element-u-fixed32                                  ListTasksDetailedResponse        853 drop              8        8        8         1         8        0        0  ok
+U-element-u-fixed32                                  ListTasksDetailedResponse        853 retain            8        8        8         1         8        1        1  ok
+U-element-u-fixed64                                  ListTasksDetailedResponse        857 drop              8        8        8         1         8        0        0  ok
+U-element-u-fixed64                                  ListTasksDetailedResponse        857 retain            8        8        8         1         8        1        1  ok
+U-element-u-len                                      ListTasksDetailedResponse        858 drop              8        8        8         1         8        0        0  ok
+U-element-u-len                                      ListTasksDetailedResponse        858 retain            8        8        8         1         8        1        1  ok
+U-element-u-msg                                      ListTasksDetailedResponse        856 drop              8        8        8         1         8        0        0  ok
+U-element-u-msg                                      ListTasksDetailedResponse        856 retain            8        8        8         1         8        1        1  ok
+U-element-u-packed                                   ListTasksDetailedResponse        874 drop              8        8        8         1         8        0        0  ok
+U-element-u-packed                                   ListTasksDetailedResponse        874 retain            8        8        8         1         8        1        1  ok
+U-element-u-repeated                                 ListTasksDetailedResponse        873 drop              8        8        8         1         8        0        0  ok
+U-element-u-repeated                                 ListTasksDetailedResponse        873 retain            8        8        8         1         8        2        2  ok
+U-element-u-varint                                   ListTasksDetailedResponse        855 drop              8        8        8         1         8        0        0  ok
+U-element-u-varint                                   ListTasksDetailedResponse        855 retain            8        8        8         1         8        1        1  ok
+U-enum-value-127                                     ListResultsResponse              16 drop              2        2        2         1         2        0        0  ok
+U-enum-value-127                                     ListResultsResponse              16 retain            2        2        2         1         2        0        0  ok
+U-enum-value-2147483647                              ListResultsResponse              20 drop              2        2        2         1         2        0        0  ok
+U-enum-value-2147483647                              ListResultsResponse              20 retain            2        2        2         1         2        0        0  ok
+U-enum-value-999                                     ListResultsResponse              17 drop              2        2        2         1         2        0        0  ok
+U-enum-value-999                                     ListResultsResponse              17 retain            2        2        2         1         2        0        0  ok
+U-enum-value-packed                                  ListMetricsResponse              16 drop              4        4        4         1         4        0        0  ok
+U-enum-value-packed                                  ListMetricsResponse              16 retain            4        4        4         1         4        0        0  ok
+U-leaf-all                                           ListResultsResponse            1317 drop              2        2        2         1         2        0        0  ok
+U-leaf-all                                           ListResultsResponse            1317 retain            2        2        2         1         2       16       16  ok
+U-leaf-u-fixed32                                     ListResultsResponse             222 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-fixed32                                     ListResultsResponse             222 retain            2        2        2         1         2        2        2  ok
+U-leaf-u-fixed64                                     ListResultsResponse             230 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-fixed64                                     ListResultsResponse             230 retain            2        2        2         1         2        2        2  ok
+U-leaf-u-len                                         ListResultsResponse             233 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-len                                         ListResultsResponse             233 retain            2        2        2         1         2        2        2  ok
+U-leaf-u-msg                                         ListResultsResponse             300 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-msg                                         ListResultsResponse             300 retain            2        2        2         1         2        2        2  ok
+U-leaf-u-packed                                      ListResultsResponse             264 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-packed                                      ListResultsResponse             264 retain            2        2        2         1         2        2        2  ok
+U-leaf-u-repeated                                    ListResultsResponse             254 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-repeated                                    ListResultsResponse             254 retain            2        2        2         1         2        4        4  ok
+U-leaf-u-varint                                      ListResultsResponse             226 drop              2        2        2         1         2        0        0  ok
+U-leaf-u-varint                                      ListResultsResponse             226 retain            2        2        2         1         2        2        2  ok
+U-nested-all                                         ListResultsResponse             303 drop              2        2        2         1         2        0        0  ok
+U-nested-all                                         ListResultsResponse             303 retain            2        2        2         1         2        8        8  ok
+U-nested-before                                      ListResultsResponse             303 drop              2        2        2         1         2        0        0  ok
+U-nested-before                                      ListResultsResponse             303 retain            2        2        2         1         2        8        8  ok
+U-nested-group                                       ListResultsResponse             244 drop              2        2        2         1         2        0        0  ok
+U-nested-group                                       ListResultsResponse             244 retain            2        2        2         1         2        1        1  ok
+U-nested-interleaved                                 ListResultsResponse             303 drop              2        2        2         1         2        0        0  ok
+U-nested-interleaved                                 ListResultsResponse             303 retain            2        2        2         1         2        8        8  ok
+U-nested-u-fixed32                                   ListResultsResponse             216 drop              2        2        2         1         2        0        0  ok
+U-nested-u-fixed32                                   ListResultsResponse             216 retain            2        2        2         1         2        1        1  ok
+U-nested-u-fixed64                                   ListResultsResponse             220 drop              2        2        2         1         2        0        0  ok
+U-nested-u-fixed64                                   ListResultsResponse             220 retain            2        2        2         1         2        1        1  ok
+U-nested-u-len                                       ListResultsResponse             221 drop              2        2        2         1         2        0        0  ok
+U-nested-u-len                                       ListResultsResponse             221 retain            2        2        2         1         2        1        1  ok
+U-nested-u-msg                                       ListResultsResponse             219 drop              2        2        2         1         2        0        0  ok
+U-nested-u-msg                                       ListResultsResponse             219 retain            2        2        2         1         2        1        1  ok
+U-nested-u-packed                                    ListResultsResponse             237 drop              2        2        2         1         2        0        0  ok
+U-nested-u-packed                                    ListResultsResponse             237 retain            2        2        2         1         2        1        1  ok
+U-nested-u-repeated                                  ListResultsResponse             232 drop              2        2        2         1         2        0        0  ok
+U-nested-u-repeated                                  ListResultsResponse             232 retain            2        2        2         1         2        2        2  ok
+U-nested-u-varint                                    ListResultsResponse             218 drop              2        2        2         1         2        0        0  ok
+U-nested-u-varint                                    ListResultsResponse             218 retain            2        2        2         1         2        1        1  ok
+U-oneof-all                                          ListProbeResponse               153 drop              2        2        2         1         2        0        0  ok
+U-oneof-all                                          ListProbeResponse               153 retain            2        2        2         1         2        8        8  ok
+U-oneof-before                                       ListProbeResponse               153 drop              2        2        2         1         2        0        0  ok
+U-oneof-before                                       ListProbeResponse               153 retain            2        2        2         1         2        8        8  ok
+U-oneof-group                                        ListProbeResponse                95 drop              2        2        2         1         2        0        0  ok
+U-oneof-group                                        ListProbeResponse                95 retain            2        2        2         1         2        1        1  ok
+U-oneof-interleaved                                  ListProbeResponse               153 drop              2        2        2         1         2        0        0  ok
+U-oneof-interleaved                                  ListProbeResponse               153 retain            2        2        2         1         2        8        8  ok
+U-oneof-member-after-known                           ListProbeResponse                70 drop              2        2        2         1         2        0        0  ok
+U-oneof-member-after-known                           ListProbeResponse                70 retain            2        2        2         1         2        1        1  ok
+U-oneof-member-alone                                 ListProbeResponse                63 drop              2        2        2         1         2        0        0  ok
+U-oneof-member-alone                                 ListProbeResponse                63 retain            2        2        2         1         2        1        1  ok
+U-oneof-member-before-known                          ListProbeResponse                70 drop              2        2        2         1         2        0        0  ok
+U-oneof-member-before-known                          ListProbeResponse                70 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-fixed32                                    ListProbeResponse                67 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-fixed32                                    ListProbeResponse                67 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-fixed64                                    ListProbeResponse                71 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-fixed64                                    ListProbeResponse                71 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-len                                        ListProbeResponse                71 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-len                                        ListProbeResponse                71 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-msg                                        ListProbeResponse                70 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-msg                                        ListProbeResponse                70 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-packed                                     ListProbeResponse                87 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-packed                                     ListProbeResponse                87 retain            2        2        2         1         2        1        1  ok
+U-oneof-u-repeated                                   ListProbeResponse                83 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-repeated                                   ListProbeResponse                83 retain            2        2        2         1         2        2        2  ok
+U-oneof-u-varint                                     ListProbeResponse                69 drop              2        2        2         1         2        0        0  ok
+U-oneof-u-varint                                     ListProbeResponse                69 retain            2        2        2         1         2        1        1  ok
+U-root-all                                           ListResultsResponse             523 drop              2        2        2         1         2        0        0  ok
+U-root-all                                           ListResultsResponse             523 retain            2        2        2         1         2        8        8  ok
+U-root-before                                        ListResultsResponse             523 drop              2        2        2         1         2        0        0  ok
+U-root-before                                        ListResultsResponse             523 retain            2        2        2         1         2        8        8  ok
+U-root-group                                         ListResultsResponse             461 drop              2        2        2         1         2        0        0  ok
+U-root-group                                         ListResultsResponse             461 retain            2        2        2         1         2        1        1  ok
+U-root-interleaved                                   ListResultsResponse             523 drop              2        2        2         1         2        0        0  ok
+U-root-interleaved                                   ListResultsResponse             523 retain            2        2        2         1         2        8        8  ok
+U-root-max-tag                                       ListResultsResponse             433 drop              2        2        2         1         2        0        0  ok
+U-root-max-tag                                       ListResultsResponse             433 retain            2        2        2         1         2        1        1  ok
+U-root-u-fixed32                                     ListResultsResponse             433 drop              2        2        2         1         2        0        0  ok
+U-root-u-fixed32                                     ListResultsResponse             433 retain            2        2        2         1         2        1        1  ok
+U-root-u-fixed64                                     ListResultsResponse             437 drop              2        2        2         1         2        0        0  ok
+U-root-u-fixed64                                     ListResultsResponse             437 retain            2        2        2         1         2        1        1  ok
+U-root-u-len                                         ListResultsResponse             440 drop              2        2        2         1         2        0        0  ok
+U-root-u-len                                         ListResultsResponse             440 retain            2        2        2         1         2        1        1  ok
+U-root-u-msg                                         ListResultsResponse             436 drop              2        2        2         1         2        0        0  ok
+U-root-u-msg                                         ListResultsResponse             436 retain            2        2        2         1         2        1        1  ok
+U-root-u-packed                                      ListResultsResponse             454 drop              2        2        2         1         2        0        0  ok
+U-root-u-packed                                      ListResultsResponse             454 retain            2        2        2         1         2        1        1  ok
+U-root-u-repeated                                    ListResultsResponse             450 drop              2        2        2         1         2        0        0  ok
+U-root-u-repeated                                    ListResultsResponse             450 retain            2        2        2         1         2        2        2  ok
+U-root-u-varint                                      ListResultsResponse             435 drop              2        2        2         1         2        0        0  ok
+U-root-u-varint                                      ListResultsResponse             435 retain            2        2        2         1         2        1        1  ok
+U-wire-DualResponse-left-as-wt0                      DualResponse                     67 drop              3        3        3         1         3        0        0  ok
+U-wire-DualResponse-left-as-wt0                      DualResponse                     67 retain            3        3        3         1         3        1        1  ok
+U-wire-DualResponse-left-as-wt1                      DualResponse                     73 drop              3        3        3         1         3        0        0  ok
+U-wire-DualResponse-left-as-wt1                      DualResponse                     73 retain            3        3        3         1         3        1        1  ok
+U-wire-DualResponse-left-as-wt5                      DualResponse                     69 drop              3        3        3         1         3        0        0  ok
+U-wire-DualResponse-left-as-wt5                      DualResponse                     69 retain            3        3        3         1         3        1        1  ok
+U-wire-ListMetricsResponse-batches-as-wt0            ListMetricsResponse            1243 drop             15       15       15         1        15        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt0            ListMetricsResponse            1243 retain           15       15       15         1        15        1        1  ok
+U-wire-ListMetricsResponse-batches-as-wt1            ListMetricsResponse            1249 drop             15       15       15         1        15        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt1            ListMetricsResponse            1249 retain           15       15       15         1        15        1        1  ok
+U-wire-ListMetricsResponse-batches-as-wt5            ListMetricsResponse            1245 drop             15       15       15         1        15        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt5            ListMetricsResponse            1245 retain           15       15       15         1        15        1        1  ok
+U-wire-ListProbeResponse-probes-as-wt0               ListProbeResponse               134 drop              2        2        2         1         2        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt0               ListProbeResponse               134 retain            2        2        2         1         2        1        1  ok
+U-wire-ListProbeResponse-probes-as-wt1               ListProbeResponse               140 drop              2        2        2         1         2        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt1               ListProbeResponse               140 retain            2        2        2         1         2        1        1  ok
+U-wire-ListProbeResponse-probes-as-wt5               ListProbeResponse               136 drop              2        2        2         1         2        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt5               ListProbeResponse               136 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-page-as-wt1               ListResultsResponse             436 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt1               ListResultsResponse             436 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-page-as-wt2               ListResultsResponse             432 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt2               ListResultsResponse             432 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-page-as-wt5               ListResultsResponse             432 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt5               ListResultsResponse             432 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-results-as-wt0            ListResultsResponse             430 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt0            ListResultsResponse             430 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-results-as-wt1            ListResultsResponse             436 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt1            ListResultsResponse             436 retain            2        2        2         1         2        1        1  ok
+U-wire-ListResultsResponse-results-as-wt5            ListResultsResponse             432 drop              2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt5            ListResultsResponse             432 retain            2        2        2         1         2        1        1  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt0          ListTaskSummaryResponse         613 drop              7        7        7         1         7        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt0          ListTaskSummaryResponse         613 retain            7        7        7         1         7        1        1  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt1          ListTaskSummaryResponse         619 drop              7        7        7         1         7        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt1          ListTaskSummaryResponse         619 retain            7        7        7         1         7        1        1  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt5          ListTaskSummaryResponse         615 drop              7        7        7         1         7        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt5          ListTaskSummaryResponse         615 retain            7        7        7         1         7        1        1  ok
+U-wire-ListTasksDetailedResponse-page-as-wt1         ListTasksDetailedResponse       1752 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt1         ListTasksDetailedResponse       1752 retain           15       15       15         1        15        1        1  ok
+U-wire-ListTasksDetailedResponse-page-as-wt2         ListTasksDetailedResponse       1748 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt2         ListTasksDetailedResponse       1748 retain           15       15       15         1        15        1        1  ok
+U-wire-ListTasksDetailedResponse-page-as-wt5         ListTasksDetailedResponse       1748 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt5         ListTasksDetailedResponse       1748 retain           15       15       15         1        15        1        1  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt0        ListTasksDetailedResponse       1746 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt0        ListTasksDetailedResponse       1746 retain           15       15       15         1        15        1        1  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt1        ListTasksDetailedResponse       1752 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt1        ListTasksDetailedResponse       1752 retain           15       15       15         1        15        1        1  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt5        ListTasksDetailedResponse       1748 drop             15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt5        ListTasksDetailedResponse       1748 retain           15       15       15         1        15        1        1  ok
+U-wire-UploadResultDataMessage-upload-as-wt0         UploadResultDataMessage          99 drop              1        1        1         1         1        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt0         UploadResultDataMessage          99 retain            1        1        1         1         1        1        1  ok
+U-wire-UploadResultDataMessage-upload-as-wt1         UploadResultDataMessage         105 drop              1        1        1         1         1        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt1         UploadResultDataMessage         105 retain            1        1        1         1         1        1        1  ok
+U-wire-UploadResultDataMessage-upload-as-wt5         UploadResultDataMessage         101 drop              1        1        1         1         1        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt5         UploadResultDataMessage         101 retain            1        1        1         1         1        1        1  ok
+# valid re-orderings (unknown field spliced between top-level records; records reversed): 456 compared
+SYN-packed-5000-4097-40000                           ListMetricsResponse          124920 drop             17       17       17         1        17        0        0  ok
+SYN-packed-5000-4097-40000                           ListMetricsResponse          124920 retain           17       17       17         1        17        0        0  ok
+SYN-packed-4096-4096-32768                           ListMetricsResponse          114374 drop             13       13       13         1        13        0        0  ok
+SYN-packed-4096-4096-32768                           ListMetricsResponse          114374 retain           13       13       13         1        13        0        0  ok
+SYN-packed-70000-9000-70000                          ListMetricsResponse          470403 drop             56       56       56         1        56        0        0  ok
+SYN-packed-70000-9000-70000                          ListMetricsResponse          470403 retain           56       56       56         1        56        0        0  ok
+SYN-strings-5000                                     ListTasksDetailedResponse     103104 drop             10       10       10         1        10        0        0  ok
+SYN-strings-5000                                     ListTasksDetailedResponse     103104 retain           10       10       10         1        10        0        0  ok
+# 734 checks, 0 failures
+FSM DIFFERENTIAL PASSED
+# FIX-PLAN D23 FSM differential (shapes core), build no-unknown, counting true
+# API checks: 42 checks, 0 failures
+input                                                root                          bytes mode        records   events    calls  pull fwd   fsm fwd pull rev  fsm rev  verdict
+P1.1                                                 ListResultsResponse             858 no-unknown        2        2        2         1         2        0        0  ok
+P1.2                                                 ListResultsResponse          218121 no-unknown        5        5        5         1         5        0        0  ok
+P1.2/latin1                                          ListResultsResponse          370110 no-unknown        5        5        5         1         5        0        0  ok
+P1.2/wide                                            ListResultsResponse          522099 no-unknown        5        5        5         1         5        0        0  ok
+P1.3                                                 ListResultsResponse             605 no-unknown        3        3        3         1         3        0        0  ok
+P2.1                                                 ListTasksDetailedResponse       1037 no-unknown        8        8        8         1         8        0        0  ok
+P2.2                                                 ListTasksDetailedResponse     540422 no-unknown     3501     3501     3501         1      3501        0        0  ok
+P2.2/latin1                                          ListTasksDetailedResponse     944454 no-unknown     3501     3501     3501         1      3501        0        0  ok
+P2.2/wide                                            ListTasksDetailedResponse    1348486 no-unknown     3501     3501     3501         1      3501        0        0  ok
+P2.3                                                 ListTasksDetailedResponse     647024 no-unknown      876      876      876         1       876        0        0  ok
+P2.4                                                 ListTasksDetailedResponse     979465 no-unknown      561      561      561         1       561        0        0  ok
+P2.4/latin1                                          ListTasksDetailedResponse    1890741 no-unknown      561      561      561         1       561        0        0  ok
+P2.4/wide                                            ListTasksDetailedResponse    2802017 no-unknown      561      561      561         1       561        0        0  ok
+P2.5                                                 ListTasksDetailedResponse      19632 no-unknown      141      141      141         1       141        0        0  ok
+P3.1                                                 ListProbeResponse             12097 no-unknown        2        2        2         1         2        0        0  ok
+P4.1                                                 ListTaskSummaryResponse       65321 no-unknown      601      601      601         1       601        0        0  ok
+P5.1                                                 UploadResultDataMessage         116 no-unknown        1        1        1         1         1        0        0  ok
+P5.2                                                 UploadResultDataMessage       65620 no-unknown        1        1        1         1         1        0        0  ok
+P5.3                                                 UploadResultDataMessage     1048660 no-unknown        1        1        1         1         1        0        0  ok
+P5.4                                                 UploadResultDataMessage     4194390 no-unknown        1        1        1         1         1        0        0  ok
+P6.1                                                 ListMetricsResponse          123354 no-unknown     1401     1401     1401         1      1401        0        0  ok
+P7.1                                                 DualResponse                     98 no-unknown        7        7        7         1         7        0        0  ok
+U-deep-all                                           ListTasksDetailedResponse        944 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-fixed32                                     ListTasksDetailedResponse        853 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-fixed64                                     ListTasksDetailedResponse        857 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-len                                         ListTasksDetailedResponse        858 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-msg                                         ListTasksDetailedResponse        856 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-packed                                      ListTasksDetailedResponse        874 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-repeated                                    ListTasksDetailedResponse        873 no-unknown        8        8        8         1         8        0        0  ok
+U-deep-u-varint                                      ListTasksDetailedResponse        855 no-unknown        8        8        8         1         8        0        0  ok
+U-element-all                                        ListTasksDetailedResponse        944 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-fixed32                                  ListTasksDetailedResponse        853 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-fixed64                                  ListTasksDetailedResponse        857 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-len                                      ListTasksDetailedResponse        858 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-msg                                      ListTasksDetailedResponse        856 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-packed                                   ListTasksDetailedResponse        874 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-repeated                                 ListTasksDetailedResponse        873 no-unknown        8        8        8         1         8        0        0  ok
+U-element-u-varint                                   ListTasksDetailedResponse        855 no-unknown        8        8        8         1         8        0        0  ok
+U-enum-value-127                                     ListResultsResponse              16 no-unknown        2        2        2         1         2        0        0  ok
+U-enum-value-2147483647                              ListResultsResponse              20 no-unknown        2        2        2         1         2        0        0  ok
+U-enum-value-999                                     ListResultsResponse              17 no-unknown        2        2        2         1         2        0        0  ok
+U-enum-value-packed                                  ListMetricsResponse              16 no-unknown        4        4        4         1         4        0        0  ok
+U-leaf-all                                           ListResultsResponse            1317 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-fixed32                                     ListResultsResponse             222 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-fixed64                                     ListResultsResponse             230 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-len                                         ListResultsResponse             233 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-msg                                         ListResultsResponse             300 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-packed                                      ListResultsResponse             264 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-repeated                                    ListResultsResponse             254 no-unknown        2        2        2         1         2        0        0  ok
+U-leaf-u-varint                                      ListResultsResponse             226 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-all                                         ListResultsResponse             303 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-before                                      ListResultsResponse             303 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-group                                       ListResultsResponse             244 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-interleaved                                 ListResultsResponse             303 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-fixed32                                   ListResultsResponse             216 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-fixed64                                   ListResultsResponse             220 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-len                                       ListResultsResponse             221 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-msg                                       ListResultsResponse             219 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-packed                                    ListResultsResponse             237 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-repeated                                  ListResultsResponse             232 no-unknown        2        2        2         1         2        0        0  ok
+U-nested-u-varint                                    ListResultsResponse             218 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-all                                          ListProbeResponse               153 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-before                                       ListProbeResponse               153 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-group                                        ListProbeResponse                95 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-interleaved                                  ListProbeResponse               153 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-member-after-known                           ListProbeResponse                70 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-member-alone                                 ListProbeResponse                63 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-member-before-known                          ListProbeResponse                70 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-fixed32                                    ListProbeResponse                67 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-fixed64                                    ListProbeResponse                71 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-len                                        ListProbeResponse                71 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-msg                                        ListProbeResponse                70 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-packed                                     ListProbeResponse                87 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-repeated                                   ListProbeResponse                83 no-unknown        2        2        2         1         2        0        0  ok
+U-oneof-u-varint                                     ListProbeResponse                69 no-unknown        2        2        2         1         2        0        0  ok
+U-root-all                                           ListResultsResponse             523 no-unknown        2        2        2         1         2        0        0  ok
+U-root-before                                        ListResultsResponse             523 no-unknown        2        2        2         1         2        0        0  ok
+U-root-group                                         ListResultsResponse             461 no-unknown        2        2        2         1         2        0        0  ok
+U-root-interleaved                                   ListResultsResponse             523 no-unknown        2        2        2         1         2        0        0  ok
+U-root-max-tag                                       ListResultsResponse             433 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-fixed32                                     ListResultsResponse             433 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-fixed64                                     ListResultsResponse             437 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-len                                         ListResultsResponse             440 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-msg                                         ListResultsResponse             436 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-packed                                      ListResultsResponse             454 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-repeated                                    ListResultsResponse             450 no-unknown        2        2        2         1         2        0        0  ok
+U-root-u-varint                                      ListResultsResponse             435 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-DualResponse-left-as-wt0                      DualResponse                     67 no-unknown        3        3        3         1         3        0        0  ok
+U-wire-DualResponse-left-as-wt1                      DualResponse                     73 no-unknown        3        3        3         1         3        0        0  ok
+U-wire-DualResponse-left-as-wt5                      DualResponse                     69 no-unknown        3        3        3         1         3        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt0            ListMetricsResponse            1243 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt1            ListMetricsResponse            1249 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListMetricsResponse-batches-as-wt5            ListMetricsResponse            1245 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt0               ListProbeResponse               134 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt1               ListProbeResponse               140 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListProbeResponse-probes-as-wt5               ListProbeResponse               136 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt1               ListResultsResponse             436 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt2               ListResultsResponse             432 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-page-as-wt5               ListResultsResponse             432 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt0            ListResultsResponse             430 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt1            ListResultsResponse             436 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListResultsResponse-results-as-wt5            ListResultsResponse             432 no-unknown        2        2        2         1         2        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt0          ListTaskSummaryResponse         613 no-unknown        7        7        7         1         7        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt1          ListTaskSummaryResponse         619 no-unknown        7        7        7         1         7        0        0  ok
+U-wire-ListTaskSummaryResponse-tasks-as-wt5          ListTaskSummaryResponse         615 no-unknown        7        7        7         1         7        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt1         ListTasksDetailedResponse       1752 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt2         ListTasksDetailedResponse       1748 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-page-as-wt5         ListTasksDetailedResponse       1748 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt0        ListTasksDetailedResponse       1746 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt1        ListTasksDetailedResponse       1752 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-ListTasksDetailedResponse-tasks-as-wt5        ListTasksDetailedResponse       1748 no-unknown       15       15       15         1        15        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt0         UploadResultDataMessage          99 no-unknown        1        1        1         1         1        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt1         UploadResultDataMessage         105 no-unknown        1        1        1         1         1        0        0  ok
+U-wire-UploadResultDataMessage-upload-as-wt5         UploadResultDataMessage         101 no-unknown        1        1        1         1         1        0        0  ok
+# valid re-orderings (unknown field spliced between top-level records; records reversed): 228 compared
+SYN-packed-5000-4097-40000                           ListMetricsResponse          124920 no-unknown       17       17       17         1        17        0        0  ok
+SYN-packed-4096-4096-32768                           ListMetricsResponse          114374 no-unknown       13       13       13         1        13        0        0  ok
+SYN-packed-70000-9000-70000                          ListMetricsResponse          470403 no-unknown       56       56       56         1        56        0        0  ok
+SYN-strings-5000                                     ListTasksDetailedResponse     103104 no-unknown       10       10       10         1        10        0        0  ok
+# 388 checks, 0 failures
+FSM DIFFERENTIAL PASSED
+
+===== F4. FSM differential, corpus core (every row the ABI carries), full and no-unknown builds =====
+# FIX-PLAN D23 FSM differential (corpus core), build full (drop, retain)
+# API checks: 174 checks, 0 failures
+# rows compared 686, rows whose root the ABI does not carry 16
+# (row, mode, mask) comparisons 2458, of which pull refused 286; pull records 27360, FSM events 27360
+  class baseline                     32 comparisons    0 failures
+  class chunking                     32 comparisons    0 failures
+  class empty                       120 comparisons    0 failures
+  class malformed                   224 comparisons    0 failures
+  class shape                       652 comparisons    0 failures
+  class transcode                   150 comparisons    0 failures
+  class unknown                    1248 comparisons    0 failures
+# 2632 checks, 0 failures
+FSM CORPUS DIFFERENTIAL PASSED
+# FIX-PLAN D23 FSM differential (corpus core), build no-unknown
+# API checks: 174 checks, 0 failures
+# rows compared 686, rows whose root the ABI does not carry 16
+# (row, mode, mask) comparisons 1229, of which pull refused 143; pull records 13676, FSM events 13676
+  class baseline                     16 comparisons    0 failures
+  class chunking                     16 comparisons    0 failures
+  class empty                        60 comparisons    0 failures
+  class malformed                   112 comparisons    0 failures
+  class shape                       326 comparisons    0 failures
+  class transcode                    75 comparisons    0 failures
+  class unknown                     624 comparisons    0 failures
+# 1403 checks, 0 failures
+FSM CORPUS DIFFERENTIAL PASSED
+
+===== F5. planted defects in the generated FSM (each must FAIL the differential) =====
+  planting in /home/user/ArmoniK.Api/ffi/poc
+  planted a minted token off by one: caught (# 44302 checks, 12036 failures; first: P2.1                                                 ListTasksDetailedResponse       1037 drop              8        8        8         0         0        0        0  FAI)
+  planted a lost run (the root's last run never flushed: ListResultsResponse): caught (# 44302 checks, 2970 failures; first: REORDER FAIL P1.1 reversed drop: Some("record 0: pull (op 2, slot 0x1, token -1, n 4) fsm (op 1, slot 0x0, token -1, n 1)") Ok(()) rc pull 0 fsm 1)
+  planted a run split one element early (ListResultsResponse.results arena - 1): caught (# 44302 checks, 1252 failures; first: P1.2                                                 ListResultsResponse          218121 drop              8        8        8         0         0        0        0  FAIL)
+  planted the rewind after a flush lands one byte late (element scope): caught (# 44302 checks, 10520 failures; first: P2.1                                                 ListTasksDetailedResponse       1037 drop              8        2        3         0         0        0        0  FAI)
+  planted the owed error of a truncated element dropped: caught (# 44302 checks, 7715 failures; first: MALFORMED FAIL P2.1 drop sk=0x0 len 23: Some("2 pull records, 4 FSM events") Ok(()) rc pull -3 fsm -3)
+  planted the FSM ignores its D20 mask: caught (# 44302 checks, 3442 failures; first: MALFORMED FAIL P1.1 drop sk=0xffffffffffffffff len 858: Some("pull returned 0, the FSM ended with -6") Ok(()) rc pull 0 fsm -6)
+  generated core restored, files ok: 19
+
+===== F6. the C header: C11 / C++17, full and no-unknown; a C host through ak_fsm_* against the core =====
+  ../cpp/include: C11 ok
+  ../cpp/include: C++17 ok
+  ../cpp/include: 22 FSM declarations
+  ../cpp/nounk/include: C11 ok
+  ../cpp/nounk/include: C++17 ok
+  ../cpp/nounk/include: 22 FSM declarations
+  C host: event 1 op 2 slot 1 token -1 n 2 bytes 400
+  C host: event 2 op 1 slot 0 token -1 n 1 bytes 32
+  C HOST OK
+
+===== F7. the codec suite's pre-check WITH the FSM arm (AK_FSM=1), full and no-unknown builds =====
+# precheck: 6196 checks, 0 failures, 114 inputs, 5572 cases
+PRECHECK PASSED: 6196 checks, 114 inputs, 5572 cases; incumbent refusals on U-* rows (not timed): 54
+# precheck: 3485 checks, 0 failures, 114 inputs, 3304 cases
+PRECHECK PASSED: 3485 checks, 114 inputs, 3304 cases; incumbent refusals on U-* rows (not timed): 54
+
+===== 3. byte identity against the validated manifest =====
+P5.1    real      core-ffi-rust          116       116  ok       ok       ok
+P5.2    real      prost                65620     65620  ok       ok       ok
+P5.2    real      armonik              65620     65620  ok       ok       ok
+P5.2    real      core-native          65620     65620  ok       ok       ok
+P5.2    real      core-ffi-rust        65620     65620  ok       ok       ok
+P5.3    real      prost              1048660   1048660  ok       ok       ok
+P5.3    real      armonik            1048660   1048660  ok       ok       ok
+P5.3    real      core-native        1048660   1048660  ok       ok       ok
+P5.3    real      core-ffi-rust      1048660   1048660  ok       ok       ok
+P5.4    real      prost              4194390   4194390  ok       ok       ok
+P5.4    real      armonik            4194390   4194390  ok       ok       ok
+P5.4    real      core-native        4194390   4194390  ok       ok       ok
+P5.4    real      core-ffi-rust      4194390   4194390  ok       ok       ok
+P6.1    mixed     prost               123354    123354  ok       ok       ok
+P6.1    mixed     armonik             123354    123354  ok       ok       ok
+P6.1    mixed     core-native         123354    123354  ok       ok       ok
+P6.1    mixed     core-ffi-rust       123354    123354  ok       ok       ok
+                  ^ M6 is MIXED: ticks/values/codes/flags are CONTROL
+                    (the schema has no packed scalar); statuses is REAL
+                    (all 3 packed fields in the schema are enums).
+P7.1    CONTROL   4 arms, decode          98        98  ok       ok       re-encode is a permutation of the same triples
+                  ^ CONTROL, and DECODE ONLY: no canonical writer can
+                    produce these bytes, so no arm is asked to.
+
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+
+===== 4. presence, oneof, unknown-field vectors =====
+#   P2.x contains `success=true, error=<sentence>` -- a state no adapter over
+#   {Ok, Error(d)} can represent at all. Counted over 200 elements the only
+#   combinations present are (true, non-empty) and (false, non-empty); the
+#   success state (true, empty) never occurs.
+
+# M4: are the adapter's three states reachable from the payload set now?
+#   Counted off DECODED values, not from the builder, and the state is read the
+#   way an adapter would read it rather than from the fields directly.
+
+  nested site (TaskDetailed.output, P2.2, 500 elements)
+      Ok       (success, no error) 167
+      Error    (error, no success) 167
+      Invalid  (no child at all)   166
+      IMPOSSIBLE (success AND error, which the message's own comment forbids) 0
+
+  plain site (TaskSummary.error, P4.1, 200 elements)
+      Error        (non-empty string)              67
+      Ok OR Invalid (empty string -- INDISTINGUISHABLE) 133
+
+#   The plain site's second row IS the finding: 133 elements carry a state the
+#   wire form cannot tell apart, so an adapter must return one of two answers for
+#   all of them and be wrong on the other. Before this the row was 0 and the
+#   defect was unreachable.
+
+VERDICT: every shape above is exercised and every arm agrees.
+
+===== 5. crossing counts (counting build), push and pull, compared with BASE =====
+# boundary-call counts, arm core-ffi-rust
+#   counting build: YES
+#   guard:          on
+
+payload class    direction  elements  forward  reverse  crossings  transc           prefix  grows
+P1.1    real     enc cold          4        2        1          3      24        1 (207 B)      0
+P1.1    real     enc warm          4        2        1          3      24                0      0
+                   per elem                                  0.750                                
+P1.1    real     decode            4        1        2          3       0                0      0
+                   per elem                                  0.750                                
+P1.2    real     enc cold       1000        8        1          9    6000        1 (207 B)      0
+P1.2    real     enc warm       1000        8        1          9    6000                0      0
+                   per elem                                  0.009                                
+P1.2    real     decode         1000        1        8          9       0                0      0
+                   per elem                                  0.009                                
+P1.3    real     enc cold        300        3        1          4       0                0      0
+P1.3    real     enc warm        300        3        1          4       0                0      0
+                   per elem                                  0.013                                
+P1.3    real     decode          300        1        3          4       0                0      0
+                   per elem                                  0.013                                
+P2.1    real     enc cold          1        7        6         13      35       2 (1209 B)      0
+P2.1    real     enc warm          1        7        6         13      35                0      0
+                   per elem                                 13.000                                
+P2.1    real     decode            1        1        8          9       0                0      0
+                   per elem                                  9.000                                
+P2.2    real     enc cold        500     2511     2501       5012   17167       2 (1209 B)      0
+P2.2    real     enc warm        500     2511     2501       5012   17167                0      0
+                   per elem                                 10.024                                
+P2.2    real     decode          500        1     3501       3502       0                0      0
+                   per elem                                  7.004                                
+P2.3    real     enc cold        125      629      626       1255   17792       2 (5313 B)      0
+P2.3    real     enc warm        125      629      626       1255   17792                0      0
+                   per elem                                 10.040                                
+P2.3    real     decode          125        1      876        877       0                0      0
+                   per elem                                  7.016                                
+P2.4    real     enc cold         80      403      401        804   26267    81 (979360 B)      0
+P2.4    real     enc warm         80      403      401        804   26267    80 (979181 B)      0
+                   per elem                                 10.050                                
+P2.4    real     decode           80        1      561        562       0                0      0
+                   per elem                                  7.025                                
+P2.5    real     enc cold         20      102      101        203     640       2 (1100 B)      0
+P2.5    real     enc warm         20      102      101        203     640                0      0
+                   per elem                                 10.150                                
+P2.5    real     decode           20        1      141        142       0                0      0
+                   per elem                                  7.100                                
+P3.1    real     enc cold        200        2        1          3     430                0      0
+P3.1    real     enc warm        200        2        1          3     430                0      0
+                   per elem                                  0.015                                
+P3.1    real     decode          200        1        2          3       0                0      0
+                   per elem                                  0.015                                
+
+# length-prefix misses by site, warm context (ABI v1 open decision 5)
+#   a site is one length-prefix call site in the generated codec. Its learned
+#   width is per context and starts at one byte.
+
+  P1.2   1000 elements: no misses in the warm pass
+  P2.2   500 elements: no misses in the warm pass
+  P2.4   80 elements, 80 misses in one warm pass:
+          80  1.00/el  loop/ListTasksDetailedResponse/tasks
+
+# regression: a warm context must not miss on a UNIFORM payload
+#   P1.2   warm misses = 0 ok
+#   P2.2   warm misses = 0 ok
+#   P2.3   warm misses = 0 ok
+#   P2.5   warm misses = 0 ok
+
+# `crossings` is forward + reverse: calls that leave one side's compilation unit.
+# `transc` counts transcoder invocations, which are indirect calls the core makes
+#   into ITSELF (ABI v1 section 4 puts every representation in the core), so they
+#   are not host crossings. Counting them together is what made the drafted
+#   interface look like 15,137 calls on a 1,000-row response.
+# `prefix` counts length-placeholder resizes: ABI v1 open decision 5. `enc cold`
+#   is a context whose learned widths have never been set, `enc warm` the steady
+#   state. P2.4 alternates element bodies across a varint length boundary by
+#   construction, so a per-site learned width is wrong on every element of it:
+#   that row is the one decision 5 turns on.
+# M1's element type is a LEAF, so its rows batch. M2's is not (ABI v1 7.2), so
+#   M2 costs two calls per element plus one run per repeated field it carries.
+# ABI v1 section 7.1: the PUSH family and the PULL family, one process
+#   guard:          on
+#   counting build: YES -- section 4's timings are NOT usable
+#   rounds: 15, interleaved; per-round target 25 ms
+
+#   arms
+#     prost                today's floor, the baseline every ratio is against
+#     core-native          the same traversal with no boundary (R3's control)
+#     core-ffi-push        ak_decode_*: the codec calls the host per field group
+#     core-ffi-pull        ak_parse_* + ak_bdr_drain into host memory + replay
+#     core-ffi-pull-walk   ak_parse_* + ak_bdr_ptr + replay in place, no copy
+#     core-ffi-pull-opaque the same walk with the replay's calls made OPAQUE, so
+#                          rustc can neither inline nor devirtualise them. R5's
+#                          second half: a replay is host code calling host code
+#                          and CAN be fused into the loop, where a push callback
+#                          reached through a vtable across the .so never can.
+#     core-ffi-parse-only  ak_parse_* alone. NOT A DECODE: no object graph is
+#                          built. It is the materialisation term on its own.
+
+## 1. correctness: four decoders, one value
+
+payload root          wire B    elems    armonik pull-drain  pull-walk
+P1.1    M1               858        4         ok         ok         ok
+P1.2    M1            218121     1000         ok         ok         ok
+P1.3    M1               605      300         ok         ok         ok
+P2.1    M2              1037        1         ok         ok         ok
+P2.2    M2            540422      500         ok         ok         ok
+P2.3    M2            647024      125         ok         ok         ok
+P2.4    M2            979465       80         ok         ok         ok
+P2.5    M2             19632       20         ok         ok         ok
+P3.1    M3             12097      200         ok         ok         ok
+P4.1    M4             65321      200         ok         ok         ok
+P5.1    M5               116        1         ok         ok         ok
+P5.2    M5             65620        1         ok         ok         ok
+P5.3    M5           1048660        1         ok         ok         ok
+P5.4    M5           4194390        1         ok         ok         ok
+P6.1    M6            123354      200         ok         ok         ok
+P7.1    M7                98        0         ok         ok         ok
+
+## 2. crossings, and the structural control
+
+payload root     elems  records  push fw  push rev  rev/elem  pull fw 1chunk fw  pull rev   agree
+P1.1    M1           4        2        1         2     0.500        3         3         0      ok
+P1.2    M1        1000        8        1         8     0.008        9         3         0      ok
+P1.3    M1         300        3        1         3     0.010        4         3         0      ok
+P2.1    M2           1        8        1         8     8.000        3         3         0      ok
+P2.2    M2         500     3501        1      3501     7.002       23         3         0      ok
+P2.3    M2         125      876        1       876     7.008       12         3         0      ok
+P2.4    M2          80      561        1       561     7.013       14         3         0      ok
+P2.5    M2          20      141        1       141     7.050        3         3         0      ok
+P3.1    M3         200        2        1         2     0.010        3         3         0      ok
+P4.1    M4         200      601        1       601     3.005        6         3         0      ok
+P5.4    M5           1        1        1         1     1.000        3         3         0      ok
+P6.1    M6         200     1401        1      1401     7.005        8         3         0      ok
+P7.1    M7           0        7        1         7         -        3         3         0      ok
+
+# THE STRUCTURAL CONTROL. A record is written exactly where the push family
+# makes a reverse call, by construction, so `records` must equal `push rev` on
+# every shape -- and it does, to the digit, on all thirteen. That is the evidence
+# that ONE traversal produced both families (ABI v1 open decision 2's second
+# half); a disagreement would mean they had drifted apart on some shape, which
+# is what "one traversal emitter, not two" exists to prevent. `pull rev` is 0
+# everywhere, which is the family's defining claim, measured rather than assumed.
+
+# AND THE INTERFACE ARGUMENT, which is a property of the descriptor and not of
+# this machine (R13): push's reverse column is PER ELEMENT and pull's forward
+# column is PER MESSAGE. On P2.2 that is 3,501 reverse calls against 16 forward
+# ones. At this host's 1.8 ns it buys nothing; at the java slice's ~80 ns
+# reverse call it is 280 us per response.
+
+## 3. what the intermediate costs in bytes
+
+payload root           wire B    records B     x wire
+P1.1    M1                858          880      1.026
+P1.2    M1             218121       200224      0.918
+P1.3    M1                605        60104     99.345
+P2.1    M2               1037         1376      1.327
+P2.2    M2             540422       660056      1.221
+P2.3    M2             647024       325056      0.502
+P2.4    M2             979465       387256      0.395
+P2.5    M2              19632        26456      1.348
+P3.1    M3              12097        32072      2.651
+P4.1    M4              65321       107248      1.642
+P5.4    M5            4194390          112      0.000
+P6.1    M6             123354       192048      1.557
+
+# A record is 24 bytes of header plus one group per element, and a group is
+# wider than the wire form of a sparse element -- so the ratio is a property of
+# the SHAPE, not of the payload size, and the absent-path rows are the high ones.
+
+
+# Section 4 skipped: this is a counting build.
+  counts: identical to BASE's (78 lines)
+  pullbench: identical to BASE's (92 lines)
+
+===== 9. R-D1 length-wrap reproductions =====
+# R-D1 length-varint-wrap reproduction -- gate
+#   rustc 1.94.1, release (overflow-checks off), cdylib boundary
+#   each case: timeout 5 ./rdrepro <case>
+#   exit 124 = hang, 134 = SIGABRT (panic across extern "C"), 101 = rust panic, 139 = SIGSEGV
+#   input for (a) is the finding's literal 11 bytes: 7A F5 FF FF FF FF FF FF FF FF 01
+
+## case a-ffi
+    [a] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case a-native
+    [a] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-err-ffi
+    [b-err] ffi   rc=-3 elems=1 apply_called=false session_id.off=4 session_id.len=2 (0x00000002)
+    -> exit=0 (returned)
+
+## case b-err-native
+    [b-err] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case b-span-ffi
+    [b-span] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case b-span-native
+    [b-span] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case c-ffi
+    [c] ffi   rc=-3 elems=0 apply_called=false session_id.off=0 session_id.len=0 (0x00000000)
+    -> exit=0 (returned)
+
+## case c-native
+    [c] native rc=-3 (Err)
+    -> exit=0 (returned)
+
+## case u32-ffi
+    [u32] ffi rc=-5 (AK_ERR_LIMIT is -5; a clean reject means the guard is present)
+    -> exit=0 (returned)
+
+## case nested2-ffi
+    [nested2] ffi   Err(-3) (must be Err)
+    -> exit=0 (returned)
+
+## case nested2-native
+    [nested2] native Err(-3) (must be Err)
+    -> exit=0 (returned)
+
+# cases that did not return promptly: 0
+
+===== 10. R-D6 sticky error slot =====
+# FIX-PLAN WP4 item 7 / R-D6: the sticky error slot, ABI v1 section 5
+# rule: rc < 0, and zero upcalls after the host's ak_fail (apply included)
+E1 encode M1, loop fails, returns AK_OK      rc=-1   upcalls=1 after_fail=0 apply_called=false ak_enc_err=-1  PASS
+E2 encode M2, inner element loop fails       rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D1 decode M1, add fails                      rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2 decode M2, new_tasks fails                rc=-1   upcalls=1 after_fail=0 apply_called=false   PASS
+D2b decode M2, inner add (parent_task_ids) fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D3 decode M1, root unknown-field grow upcall fails rc=-1   upcalls=2 after_fail=0 apply_called=false   PASS
+D4 decode M2, new_tasks returns token -1     rc=-1   upcalls=1 after_fail=0 apply_called=false (token -1, no ak_fail)  PASS
+ALL PASS
+fresh context, no reset: rc 4, 4 B [10, 07, 18, 03]; prost 4 B [10, 07, 18, 03]; after a reset: rc 4, 4 B  PASS
+
+===== 11. the conformance corpus, C ABI and core-native, drop and retain =====
+# commit 75f819f8; rustc 1.94.1
+===== 1. generators current =====
+ok    corpus/crates/facade/src/generated/types.rs
+ok    corpus/crates/facade/src/generated/types_nounk.rs
+ok    corpus/crates/facade/src/generated/core_native.rs
+ok    corpus/crates/facade/src/generated/core_native_retain.rs
+ok    corpus/crates/facade/src/generated/project.rs
+ok    corpus/crates/harness/src/generated/binding.rs
+ok    corpus/crates/harness/src/generated/binding_nounk.rs
+ok    corpus/crates/harness/src/generated/dispatch.rs
+ok    ../codec/crates/ak-abi/src/generated_corpus/abi.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/codec.rs
+ok    ../codec/crates/ak-core/src/generated_corpus/fsm.rs
+===== 2. build =====
+# libak_core.so => /home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus/release/deps/libak_core.so
+# the loaded core is the corpus-schema build: 1 ak_decode_WireZoo export(s)
+===== 3. the corpus, four arms =====
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows)
+#   core       ak-core --features corpus,init-guard: the core generated for the corpus's
+#              READER schema by poc/codec/gen (plan.py + rust_abi.py); CONTRACT rule 0
+#   native     core_native / core_native_retain, rendered from the same plans
+#   decode utf8 policy: reject; recursion limit 100
+#   each row in a child process, timeout 10000 ms
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [ffi-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-drop]: refused (-2)
+   disputed: X-field-over-max [ffi-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-drop]: refused (-2)
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [ffi-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [ffi-retain]: refused (-2)
+   disputed: X-field-over-max [ffi-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [ffi-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [ffi-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (ffi-retain)
+
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       25  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   disputed: U-map-entry [native-drop]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-drop]: refused (-2)
+   disputed: X-field-over-max [native-drop]: refused (-2)
+   disputed: X-field-over-max-in-group [native-drop]: refused (-2)
+   disputed: X-tag-zero-Empty [native-drop]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-drop]: refused (-2)
+
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        1  unknown-dropped / unknown-dropped, map values always written
+        6  unknown-retained, appended in tag order
+   disputed: U-map-entry [native-retain]: accepted; projection matches the reading of null
+   disputed: X-field-2p32-plus-2 [native-retain]: refused (-2)
+   disputed: X-field-over-max [native-retain]: refused (-2)
+   disputed: X-field-over-max-in-group [native-retain]: refused (-2)
+   disputed: X-tag-zero-Empty [native-retain]: refused (-2)
+   disputed: X-tag-zero-nested-Empty [native-retain]: refused (-2)
+   retain mode wrote the DROPPED form on 1 row(s) (accepted by the contract; a retention gap):
+     U-map-entry (native-retain)
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 4 arms
+===== 4. controls (each MUST FAIL) =====
+  control proj: failed as required (104 arm-row failures)
+  control reenc: failed as required (104 arm-row failures)
+  control accept: failed as required (228 arm-row failures)
+  control noinit: failed as required: 52 C ABI arm-row failures, 0 native (native has no ak_init to skip)
+       FAIL E-map-dup-key [ffi-drop]: C1: refused with -10
+       FAIL E-map-empty-value-written [ffi-drop]: C1: refused with -10
+===== 5. decision 11 (WP5 step 7): per-position discard, pull == push, placement =====
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1, entry bytes 0
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2, entry bytes 0
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0, entry bytes 8
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing); rows with map-entry bytes 1
+discard mismatches: 0 row(s); pull != push: 0 row(s)
+  placement: pool n=2, grow           elements 0,1 in the pool's buffers, element 2 from grow; grow calls 1 (fresh 1); host entries cleared: true; bags exact: true  PASS
+  placement: pool n=2, no grow        rc -7 (AK_ERR_CAPACITY when the pool is exhausted and there is no grow); host entries cleared: true  PASS
+  placement: in-place refill          rc 0; 3 elements, each in the buffer the host wrote into its struct in new_tasks (refills 2), bags exact  PASS
+  placement: no refill (control)      rc -7 (without the refill: AK_ERR_CAPACITY at the second element)  PASS
+  placement: oneof stamp -> nothing   final member's bag Some([160, 6, 2]) (want its own run only); fresh buffers 1  PASS
+  placement: oneof stamp -> nothing -> stamp final member's bag Some([160, 6, 3]) (want its own run only); fresh buffers 1  PASS
+  placement: oneof stamp -> int       body Some(AsInt(7)), bags delivered 0 bytes; buffers grown 1 (fresh), reclaimed from the inactive slot 1, live after 0  PASS
+  placement: wrong root (refused)     decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root still decodes: true  PASS
+  placement: refused parse keeps A    parse A rc 0, 480 record bytes (footprint 480); parse B on A's context rc -8; after: 480 record bytes (footprint 480), identical: true  PASS
+  placement: decided at arm time      reset with all-zero options rc 0; root entry refilled after the reset; decode rc 0, root bag 0 bytes (want rc 0 and no bag); twin armed at reset: bag 3 bytes (want 3)  PASS
+  control unk-plant (bags not cleared): failed as required: discard mismatches: 307 row(s); pull != push: 0 row(s)   [PLANTED: clearing skipped]
+===== 6. the NO-UNKNOWN build (WP5 step 10): support compiled out, every unknown row dropped =====
+# /home/user/ArmoniK.Api/ffi/poc/rust/corpus/../target-corpus-nounk/release/deps/libak_core.so: ak_uencode_* 0, ak_dec_reset_* 0, ak_decode_WireZoo 1
+# the conformance corpus, C ABI and core-native, unknown fields dropped and retained
+#   native     core_native / core_native_retain, rendered from the same plans
+## ffi-nounk
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+## native-nounk
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+CORPUS PASSES on all 2 arms
+  ffi-nounk and native-nounk forms on unknown rows: 0 retained-form lines (must be 0)
+  control proj (no-unknown build): failed as required (52 arm-row failures)
+  control reenc (no-unknown build): failed as required (52 arm-row failures)
+  control accept (no-unknown build): failed as required (114 arm-row failures)
+  control noinit (no-unknown build): failed as required: 26 C ABI arm-row failures
+CORPUS GATE PASSED
+
+===== 11b. the codec harness pre-check, default (no FSM arm) =====
+# precheck: 620 checks, 0 failures, 25 inputs, 139 cases
+PRECHECK PASSED: 620 checks, 25 inputs, 139 cases; incumbent refusals on U-* rows (not timed): 8
+
+===== 11c. crossing counts of every timed core-ffi case vs gen/crossings.txt (and BASE's) =====
+  1092 lines identical to gen/crossings.txt and to BASE's
+
+===== 12. the NO-UNKNOWN variant: pre-check, byte identity, shape vectors, crossing counts =====
+# precheck: 359 checks, 0 failures, 25 inputs, 98 cases
+PRECHECK PASSED: 359 checks, 25 inputs, 98 cases; incumbent refusals on U-* rows (not timed): 8
+    conformance: VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+    shapes: VERDICT: every shape above is exercised and every arm agrees.
+  no-unknown crossing counts: 567 lines identical to gen/crossings-nounk.txt and to BASE's
+
+D23 CHECKS PASSED
+exit 0

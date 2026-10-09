@@ -1,0 +1,27 @@
+# fix2: 9c9586428830a634
+# fix3: 44eea860d8e9a7ee
+# fix3b: 9d4d2abce8afdf65
+# fix3c: aeb7eead4991e53e
+# fix3b = fix C with the step #[inline] (compiler's choice) instead of #[inline(always)]; fix3c = inlined into next only, begin calls an #[inline(never)] copy. Probes only, not committed code.
+# launch 1 fix2 loadavg 0.97 1.92 1.72
+# launch 1 fix3 loadavg 0.99 1.80 1.69
+# launch 1 fix3b loadavg 0.92 1.67 1.65
+# launch 1 fix3c loadavg 0.95 1.60 1.62
+# launch 2 fix3 loadavg 0.95 1.51 1.59
+# launch 2 fix3b loadavg 0.97 1.44 1.57
+# launch 2 fix3c loadavg 0.99 1.39 1.54
+# launch 2 fix2 loadavg 0.99 1.34 1.52
+# fix3d = fix C with the unknown-field cursor derived per call again (FsmU::root(dcx)) instead of cached at begin. Probe only.
+# launch 1 fix2 loadavg 3.43 2.12 1.77
+# launch 1 fix3 loadavg 2.89 2.07 1.76
+# launch 1 fix3d loadavg 2.47 2.01 1.75
+# launch 2 fix2 loadavg 2.24 1.98 1.74
+# launch 2 fix3 loadavg 1.97 1.93 1.73
+# launch 2 fix3d loadavg 1.75 1.88 1.71
+# fix3e = fix2 + fix C's inlining and merged entry checks only (group/arena pointers, unknown-field cursor derived per call; frame fetch indexed). Probe only.
+# launch 1 fix2 loadavg 3.44 2.34 1.89
+# launch 1 fix3 loadavg 2.41 2.20 1.87
+# launch 1 fix3e loadavg 1.72 2.05 1.83
+# launch 2 fix2 loadavg 1.40 1.93 1.79
+# launch 2 fix3 loadavg 1.22 1.83 1.76
+# launch 2 fix3e loadavg 1.11 1.72 1.73

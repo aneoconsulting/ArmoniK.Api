@@ -1,0 +1,39 @@
+# per-unit slopes (ns), from fix2-drop-2.txt
+unit                                pull-core   fsm-core      delta       pull        fsm       push
+per event (EV-empty 64 -> 1024)          5.23       8.35       3.12      21.80      23.82      21.45
+per packed value, ticks (256 -> 4096)       3.96       3.65      -0.31       5.43       5.27       4.97
+per packed value, codes (256 -> 4096)       2.16       2.43       0.28       3.73       3.47       3.25
+per packed value, flags (256 -> 4096)       1.25       0.94      -0.31       2.70       2.51       2.94
+per packed value, values (256 -> 4096)       2.01       0.62      -1.40       3.52       2.65       4.01
+
+# per row (ns): core delta = fsm-core - pull-core; facade-side delta = (fsm - fsm-core) - (pull - pull-core);
+# collect = fsm-collect - fsm (negative: collecting then replaying is cheaper than dispatching per event)
+row                                             events   fsm - pull   core delta facade delta      collect         push
+EV-empty-1                                           3         -4.2         13.9        -18.1         24.5         66.7
+EV-empty-1024                                     2049       4250.0       6510.0      -2260.0      12810.0      43790.0
+EV-empty-64                                        129        360.0        528.6       -168.6        740.0       2600.0
+P1.1                                                 2        -10.0         17.4        -27.4         30.0       1400.0
+P2.2                                              3501     104000.0     -15530.0     119530.0     -46000.0    1902000.0
+P2.2/latin1                                       3501      55000.0      -3490.0      58490.0     -19000.0    1960000.0
+P2.2/wide                                         3501     111000.0      -5880.0     116880.0      -2000.0    2213000.0
+P4.1                                               601      18990.0       1440.0      17550.0      -9130.0     304600.0
+P6.1                                              1401      -2300.0     -16800.0      14500.0      -3340.0     199290.0
+P7.1                                                 7         33.1         43.8        -10.7         69.0        339.8
+PK-codes-16                                          4          9.4         13.8         -4.4         32.0        152.5
+PK-codes-256                                         4        -40.0         76.7       -116.7         70.0       1000.0
+PK-codes-4096                                        4      -1050.0       1150.0      -2200.0        910.0      13490.0
+PK-flags-16                                          4        -17.9         11.4        -29.3         39.2        146.4
+PK-flags-256                                         4        -59.7        -78.6         18.9         59.1        862.8
+PK-flags-4096                                        4       -780.0      -1270.0        490.0        -40.0      12150.0
+PK-ticks-16                                          4          2.1         12.5        -10.4         42.3        172.2
+PK-ticks-256                                         4        -20.0        -72.2         52.2         70.0       1390.0
+PK-ticks-4096                                        4       -640.0      -1250.0        610.0        920.0      20480.0
+PK-values-16                                         4        -10.2          4.1        -14.3         29.4        162.1
+PK-values-256                                        4       -238.2       -351.2        113.0         72.7       1020.0
+PK-values-4096                                       4      -3570.0      -5720.0       2150.0       1220.0      16410.0
+U-oneof-group                                        2         -6.5          8.6        -15.1         25.5        162.7
+U-oneof-u-fixed32                                    2         -9.8          8.8        -18.6         34.7        139.5
+U-root-before                                        2         10.6         18.0         -7.4         28.6        816.3
+U-wire-ListMetricsResponse-batches-as-wt0           15       -100.0       -100.1          0.1        160.0       1740.0
+U-wire-ListProbeResponse-probes-as-wt0               2         -8.2          9.3        -17.5         30.0        261.8
+U-wire-UploadResultDataMessage-upload-as-wt0         1          5.7         14.7         -9.0          9.7        110.8

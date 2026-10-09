@@ -1,0 +1,13 @@
+# fix0: target-fix0/release/fsm_attrib sha256 5731e836e2cf37ae, core /home/user/ArmoniK.Api/ffi/poc/rust/target-fix0/release/deps/libak_core.so sha256 63e5a1929bc4045d
+# fix1: target-fix1/release/fsm_attrib sha256 31ff3395c3ff9a86, core /home/user/ArmoniK.Api/ffi/poc/rust/target-fix1/release/deps/libak_core.so sha256 6801065508c3d131
+# fix2: target-fix2/release/fsm_attrib sha256 8fb8858a0fc60d1f, core /home/user/ArmoniK.Api/ffi/poc/rust/target-fix2/release/deps/libak_core.so sha256 9c9586428830a634
+# fix3: target-fix3/release/fsm_attrib sha256 9420f5069e322d5e, core /home/user/ArmoniK.Api/ffi/poc/rust/target-fix3/release/deps/libak_core.so sha256 44eea860d8e9a7ee
+# launch 1 stage fix0: loadavg 0.97 1.76 1.80 (waited 40 s)
+# launch 1 stage fix1: loadavg 0.99 1.58 1.73 (waited 0 s)
+# launch 1 stage fix2: loadavg 0.92 1.41 1.66 (waited 5 s)
+# launch 1 stage fix3: loadavg 0.98 1.31 1.60 (waited 0 s)
+# launch 2 stage fix1: loadavg 0.98 1.22 1.54 (waited 10 s)
+# launch 2 stage fix2: loadavg 0.92 1.15 1.48 (waited 5 s)
+# launch 2 stage fix3: loadavg 0.96 1.11 1.44 (waited 5 s)
+# launch 2 stage fix0: loadavg 0.99 1.08 1.40 (waited 0 s)
+# done, loadavg 1.00 1.06 1.36

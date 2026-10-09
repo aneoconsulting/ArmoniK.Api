@@ -4538,3 +4538,15 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   reload, reader rebuilt on the stack, kind jump table, state written back), the reader double-checks
   bounds per byte, and each event pays the next() wrapper plus the step prologue. Not done: any fix;
   the retain-mode core split (core-only arms run in drop mode only); hardware-counter evidence.
+
+## 2026-10-09: D23 fixes A, B, C (owner-approved), FSM only
+
+- A (55c2771c): tight loop for packed bodies; P6.1 fsm-core 148 -> 92 us at once (= pull-core).
+  B (01c73821): FRd as a prefix slice; 6-byte varints 5.02 -> 3.65 ns/value, below pull's 3.99.
+  C (75f819f8): inlined step, merged checks, derivations cached at begin; per event 8.42 -> 7.81 ns,
+  but string-heavy rows' core 5-11% slower than with A+B alone. Probes (not committed): #[inline]
+  instead of inline(always): same; only inlining + merged checks: string rows back to A+B, per-event
+  and varint gains gone; the cached unknown-field cursor alone is not the cause. Left as approved;
+  the trade-off is in STATE for the owner.
+- Each fix was checked by the FSM differential before its commit; gen/d23_checks.sh on A+B+C passes
+  with every slice's generator checked (the C# agent was idle).
