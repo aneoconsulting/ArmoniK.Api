@@ -2359,6 +2359,258 @@ public static unsafe partial class Abi
     [DllImport(Lib, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern int ak_fsm_set_pvt_DualResponse(IntPtr ctx, ak_pvt_DualResponse* pvt);
 #endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_ListResultsResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_ListResultsResponse_sgt;
+    internal static int ak_fsm_begin_ListResultsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_ListResultsResponse_sgt); return ak_fsm_begin_ListResultsResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_ListResultsResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_ListResultsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_ListResultsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_ListResultsResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_ListResultsResponse_sgt;
+    internal static int ak_fsm_next_ListResultsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_ListResultsResponse_sgt); return ak_fsm_next_ListResultsResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_ListResultsResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_ListResultsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListResultsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_ListResultsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_ListTasksDetailedResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_ListTasksDetailedResponse_sgt;
+    internal static int ak_fsm_begin_ListTasksDetailedResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_ListTasksDetailedResponse_sgt); return ak_fsm_begin_ListTasksDetailedResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_ListTasksDetailedResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_ListTasksDetailedResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_ListTasksDetailedResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_ListTasksDetailedResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_ListTasksDetailedResponse_sgt;
+    internal static int ak_fsm_next_ListTasksDetailedResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_ListTasksDetailedResponse_sgt); return ak_fsm_next_ListTasksDetailedResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_ListTasksDetailedResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_ListTasksDetailedResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListTasksDetailedResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_ListTasksDetailedResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_ListProbeResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_ListProbeResponse_sgt;
+    internal static int ak_fsm_begin_ListProbeResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_ListProbeResponse_sgt); return ak_fsm_begin_ListProbeResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_ListProbeResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_ListProbeResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_ListProbeResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_ListProbeResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_ListProbeResponse_sgt;
+    internal static int ak_fsm_next_ListProbeResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_ListProbeResponse_sgt); return ak_fsm_next_ListProbeResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_ListProbeResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_ListProbeResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListProbeResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_ListProbeResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_ListTaskSummaryResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_ListTaskSummaryResponse_sgt;
+    internal static int ak_fsm_begin_ListTaskSummaryResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_ListTaskSummaryResponse_sgt); return ak_fsm_begin_ListTaskSummaryResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_ListTaskSummaryResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_ListTaskSummaryResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_ListTaskSummaryResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_ListTaskSummaryResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_ListTaskSummaryResponse_sgt;
+    internal static int ak_fsm_next_ListTaskSummaryResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_ListTaskSummaryResponse_sgt); return ak_fsm_next_ListTaskSummaryResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_ListTaskSummaryResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_ListTaskSummaryResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListTaskSummaryResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_ListTaskSummaryResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_UploadResultDataMessage_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_UploadResultDataMessage_sgt;
+    internal static int ak_fsm_begin_UploadResultDataMessage_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_UploadResultDataMessage_sgt); return ak_fsm_begin_UploadResultDataMessage_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_UploadResultDataMessage")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_UploadResultDataMessage_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_UploadResultDataMessage_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_UploadResultDataMessage_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_UploadResultDataMessage_sgt;
+    internal static int ak_fsm_next_UploadResultDataMessage_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_UploadResultDataMessage_sgt); return ak_fsm_next_UploadResultDataMessage_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_UploadResultDataMessage")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_UploadResultDataMessage_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_UploadResultDataMessage", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_UploadResultDataMessage_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_ListMetricsResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_ListMetricsResponse_sgt;
+    internal static int ak_fsm_begin_ListMetricsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_ListMetricsResponse_sgt); return ak_fsm_begin_ListMetricsResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_ListMetricsResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_ListMetricsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_ListMetricsResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_ListMetricsResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_ListMetricsResponse_sgt;
+    internal static int ak_fsm_next_ListMetricsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_ListMetricsResponse_sgt); return ak_fsm_next_ListMetricsResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_ListMetricsResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_ListMetricsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_ListMetricsResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_ListMetricsResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_begin_DualResponse_sgt__raw(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_begin_DualResponse_sgt;
+    internal static int ak_fsm_begin_DualResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_begin_DualResponse_sgt); return ak_fsm_begin_DualResponse_sgt__raw(ctx, buf, len, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_begin_DualResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_begin_DualResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_begin_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_begin_DualResponse_sgt(IntPtr ctx, byte* buf, nuint len, ak_fsm_ev* ev);
+#endif
+#endif
+#if NET5_0_OR_GREATER
+#if AK_HOST_COUNT
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    private static extern int ak_fsm_next_DualResponse_sgt__raw(IntPtr ctx, ak_fsm_ev* ev);
+    internal static long N_ak_fsm_next_DualResponse_sgt;
+    internal static int ak_fsm_next_DualResponse_sgt(IntPtr ctx, ak_fsm_ev* ev) { System.Threading.Interlocked.Increment(ref N_ak_fsm_next_DualResponse_sgt); return ak_fsm_next_DualResponse_sgt__raw(ctx, ev); }
+#elif NET7_0_OR_GREATER
+    [LibraryImport(Lib, EntryPoint = "ak_fsm_next_DualResponse")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    [SuppressGCTransition]
+    internal static partial int ak_fsm_next_DualResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#else
+    [DllImport(Lib, EntryPoint = "ak_fsm_next_DualResponse", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    [SuppressGCTransition]
+    internal static extern int ak_fsm_next_DualResponse_sgt(IntPtr ctx, ak_fsm_ev* ev);
+#endif
+#endif
 #if AK_HOST_COUNT
     /// CAMPAIGN req 19: every entry point called since the last EntryReset, by name.
     public static System.Collections.Generic.List<(string Name, long Calls)> EntryCounts()
@@ -2470,6 +2722,20 @@ public static unsafe partial class Abi
         if (N_ak_fsm_begin_DualResponse != 0) l.Add(("ak_fsm_begin_DualResponse", N_ak_fsm_begin_DualResponse));
         if (N_ak_fsm_next_DualResponse != 0) l.Add(("ak_fsm_next_DualResponse", N_ak_fsm_next_DualResponse));
         if (N_ak_fsm_set_pvt_DualResponse != 0) l.Add(("ak_fsm_set_pvt_DualResponse", N_ak_fsm_set_pvt_DualResponse));
+        if (N_ak_fsm_begin_ListResultsResponse_sgt != 0) l.Add(("ak_fsm_begin_ListResultsResponse_sgt", N_ak_fsm_begin_ListResultsResponse_sgt));
+        if (N_ak_fsm_next_ListResultsResponse_sgt != 0) l.Add(("ak_fsm_next_ListResultsResponse_sgt", N_ak_fsm_next_ListResultsResponse_sgt));
+        if (N_ak_fsm_begin_ListTasksDetailedResponse_sgt != 0) l.Add(("ak_fsm_begin_ListTasksDetailedResponse_sgt", N_ak_fsm_begin_ListTasksDetailedResponse_sgt));
+        if (N_ak_fsm_next_ListTasksDetailedResponse_sgt != 0) l.Add(("ak_fsm_next_ListTasksDetailedResponse_sgt", N_ak_fsm_next_ListTasksDetailedResponse_sgt));
+        if (N_ak_fsm_begin_ListProbeResponse_sgt != 0) l.Add(("ak_fsm_begin_ListProbeResponse_sgt", N_ak_fsm_begin_ListProbeResponse_sgt));
+        if (N_ak_fsm_next_ListProbeResponse_sgt != 0) l.Add(("ak_fsm_next_ListProbeResponse_sgt", N_ak_fsm_next_ListProbeResponse_sgt));
+        if (N_ak_fsm_begin_ListTaskSummaryResponse_sgt != 0) l.Add(("ak_fsm_begin_ListTaskSummaryResponse_sgt", N_ak_fsm_begin_ListTaskSummaryResponse_sgt));
+        if (N_ak_fsm_next_ListTaskSummaryResponse_sgt != 0) l.Add(("ak_fsm_next_ListTaskSummaryResponse_sgt", N_ak_fsm_next_ListTaskSummaryResponse_sgt));
+        if (N_ak_fsm_begin_UploadResultDataMessage_sgt != 0) l.Add(("ak_fsm_begin_UploadResultDataMessage_sgt", N_ak_fsm_begin_UploadResultDataMessage_sgt));
+        if (N_ak_fsm_next_UploadResultDataMessage_sgt != 0) l.Add(("ak_fsm_next_UploadResultDataMessage_sgt", N_ak_fsm_next_UploadResultDataMessage_sgt));
+        if (N_ak_fsm_begin_ListMetricsResponse_sgt != 0) l.Add(("ak_fsm_begin_ListMetricsResponse_sgt", N_ak_fsm_begin_ListMetricsResponse_sgt));
+        if (N_ak_fsm_next_ListMetricsResponse_sgt != 0) l.Add(("ak_fsm_next_ListMetricsResponse_sgt", N_ak_fsm_next_ListMetricsResponse_sgt));
+        if (N_ak_fsm_begin_DualResponse_sgt != 0) l.Add(("ak_fsm_begin_DualResponse_sgt", N_ak_fsm_begin_DualResponse_sgt));
+        if (N_ak_fsm_next_DualResponse_sgt != 0) l.Add(("ak_fsm_next_DualResponse_sgt", N_ak_fsm_next_DualResponse_sgt));
         return l;
     }
     public static void EntryReset()
@@ -2580,6 +2846,20 @@ public static unsafe partial class Abi
         N_ak_fsm_begin_DualResponse = 0;
         N_ak_fsm_next_DualResponse = 0;
         N_ak_fsm_set_pvt_DualResponse = 0;
+        N_ak_fsm_begin_ListResultsResponse_sgt = 0;
+        N_ak_fsm_next_ListResultsResponse_sgt = 0;
+        N_ak_fsm_begin_ListTasksDetailedResponse_sgt = 0;
+        N_ak_fsm_next_ListTasksDetailedResponse_sgt = 0;
+        N_ak_fsm_begin_ListProbeResponse_sgt = 0;
+        N_ak_fsm_next_ListProbeResponse_sgt = 0;
+        N_ak_fsm_begin_ListTaskSummaryResponse_sgt = 0;
+        N_ak_fsm_next_ListTaskSummaryResponse_sgt = 0;
+        N_ak_fsm_begin_UploadResultDataMessage_sgt = 0;
+        N_ak_fsm_next_UploadResultDataMessage_sgt = 0;
+        N_ak_fsm_begin_ListMetricsResponse_sgt = 0;
+        N_ak_fsm_next_ListMetricsResponse_sgt = 0;
+        N_ak_fsm_begin_DualResponse_sgt = 0;
+        N_ak_fsm_next_DualResponse_sgt = 0;
     }
 #endif
 }

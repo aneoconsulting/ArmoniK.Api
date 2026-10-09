@@ -84,6 +84,9 @@ plant "token ignored (every element group applied to element 0)" "[(int)ev->toke
 plant "a run's last element lost" "int n = (int)ev->n;" "int n = (int)ev->n - (ev->n > 1 ? 1 : 0);"
 plant "the root group not applied" "// The root group: always the last event, the end." "if (len >= 0) break;"
 plant "an error read as the end" "rc = op < 0 ? op : 0;" "rc = 0;"
+# s12: under AK_FSM_SGT=1, a defect in the [SuppressGCTransition] loop ONLY (its next calls turn
+# every later ADD into an error): caught only if the attributed path is the one running.
+[ "${AK_FSM_SGT:-}" = 1 ] && plant "the attributed loop's ADD events lost" "_sgt(_dctx, &ev);" "_sgt(_dctx, &ev); if (op == (int)Abi.AK_BDR_ADD) op = Abi.AK_ERR_HOST;"
 dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -f net8.0 > "$SCRATCH/build.log" 2>&1 || { cat "$SCRATCH/build.log"; exit 1; }
 cp target-core/release/libak_core.so "$B/"
 run "generated file restored" bash -c "python3 gen/generate.py | grep -c '^wrote' | grep -qx 0"

@@ -1,0 +1,19 @@
+# s12_checks.sh at 357319f6 + uncommitted; 2026-10-09T18:14:30Z
+## 1. gen/s10_checks.sh, plain path
+S10 CHECKS PASSED (net8.0; not the gate)
+## 2. gen/s10_checks.sh with AK_FSM_SGT=1
+S10 CHECKS PASSED (net8.0; not the gate)
+## 3. the share of FSM calls on the attributed imports (counting builds, AK_FSM_SGT=1, --variants 48)
+$ AK_FSM_SGT=1 BenchDotNet (bin-count) --verify-fsm
+verify-fsm (full): 114 inputs, 228 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 228 compared, 0 not in its list
+malformed variants: 20676 decodes per family (18626 refused by pull, FSM code == pull code required; 2050 accepted by all, graphs compared); push's code differs from pull's on 0
+FSM calls through the [SuppressGCTransition] imports: 468694 of 953057 (counting build; AK_FSM_SGT=1)
+verify-fsm (AK_FSM_SGT=1: the FSM family through TryFsmSgt): 0 failure(s)
+$ AK_FSM_SGT=1 BenchDotNet (bin-count-nounk) --verify-fsm
+verify-fsm (no-unknown): 114 inputs, 114 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 114 compared, 0 not in its list
+malformed variants: 10338 decodes per family (9313 refused by pull, FSM code == pull code required; 1025 accepted by all, graphs compared); push's code differs from pull's on 0
+FSM calls through the [SuppressGCTransition] imports: 468505 of 484165 (counting build; AK_FSM_SGT=1)
+verify-fsm (AK_FSM_SGT=1: the FSM family through TryFsmSgt): 0 failure(s)
+
+S12 CHECKS PASSED (net8.0; not the gate)
+done

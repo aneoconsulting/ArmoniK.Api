@@ -30,10 +30,14 @@ public static class Cases
     /// decode family) and push is the labelled extra `core-ffi-push`, so S9's set names push
     /// explicitly and S10's eight arms are core-ffi-push, core-ffi-pull and core-ffi (FSM).
     public static readonly bool S10 = Environment.GetEnvironmentVariable("AK_BDN_S10") == "1";
-    public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1" || S10;
+    /// s12 (owner, 2026-10-09), AK_BDN_S12=1: [SuppressGCTransition] on the FSM's begin / next.
+    /// Full build: core-ffi drop, core-ffi-sgt drop (the attributed imports), core-ffi retain (the
+    /// attribute is invalid there: reference); no-unknown build: core-ffi and core-ffi-sgt.
+    public static readonly bool S12 = Environment.GetEnvironmentVariable("AK_BDN_S12") == "1";
+    public static readonly bool S9 = Environment.GetEnvironmentVariable("AK_BDN_S9") == "1" || S10 || S12;
 
     /// The arms in their launch-1 order; launch n rotates it by n - 1 (requirement 22).
-    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-push", "core-ffi-pull" };
+    public static readonly string[] Arms = { "incumbent-prod", "incumbent-best", "host-gen", "core-ffi", "core-ffi-push", "core-ffi-pull", "core-ffi-sgt" };
 
 #if AK_NO_UNKNOWN_FIELDS
     // WP5 step 10: the NO-UNKNOWN build (unknown fields compiled out of the core, the
@@ -42,11 +46,13 @@ public static class Cases
     // (every unit is its own process, so they are cross-process controls, not in-process ones).
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
     // D24: core-ffi decodes with the FSM; push (core-ffi-push) and pull are labelled extras.
-    private static readonly string[] DecArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-push:no-unknown", "core-ffi-pull:no-unknown" };
-    private static readonly string[] UnkArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
+    private static readonly string[] DecArms = S12 ? new[] { "core-ffi:no-unknown", "core-ffi-sgt:no-unknown" } : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown", "core-ffi-push:no-unknown", "core-ffi-pull:no-unknown" };
+    private static readonly string[] UnkArms = S12 ? DecArms : new[] { "incumbent-prod:default", "incumbent-best:default", "host-gen:no-unknown", "core-ffi:no-unknown" };
 #else
     private static readonly string[] EncArms = { "incumbent-prod:default", "incumbent-best:default", "host-gen:drop", "host-gen:retain", "core-ffi:drop", "core-ffi:retain" };
-    private static readonly string[] S9Arms = S10
+    private static readonly string[] S9Arms = S12
+        ? new[] { "core-ffi:drop", "core-ffi-sgt:drop", "core-ffi:retain" }
+        : S10
         ? new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi-push:retain", "core-ffi-push:drop", "core-ffi-pull:retain", "core-ffi-pull:drop", "core-ffi:retain", "core-ffi:drop" }
         : new[] { "incumbent-prod:default", "incumbent-prod:discard", "core-ffi-push:retain", "core-ffi-push:drop", "core-ffi-pull:retain", "core-ffi-pull:drop" };
     // D24: core-ffi decodes with the FSM; push (core-ffi-push) and pull are labelled extras.
@@ -560,6 +566,7 @@ public static class Cases
             // D24: core-ffi decodes with the FSM; core-ffi-push (push) and core-ffi-pull are labelled extras.
             case "core-ffi:decode": case "core-ffi:decode-read": return () => ops.DecFfi(wire, len, retain, read);
             case "core-ffi-push:decode": case "core-ffi-push:decode-read": return () => ops.DecFfiPush(wire, len, retain, read);
+            case "core-ffi-sgt:decode": case "core-ffi-sgt:decode-read": return () => ops.DecFfiSgt(wire, len, retain, read);
             case "core-ffi-pull:decode": case "core-ffi-pull:decode-read":
                 if (c.Mode == "retain") return () => ops.DecFfiPullR(wire, len, true, read);
                 return () => ops.DecFfiPull(wire, len, read);

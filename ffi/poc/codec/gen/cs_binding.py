@@ -171,6 +171,44 @@ def emit_import(o, ret, name, args, lib="Lib", indent="    "):
     o += "#endif"
 
 
+def emit_import_sgt(o, ret, name, args, lib="Lib", indent="    "):
+    """D23 / s12 (owner, 2026-10-09): `<name>_sgt`, the SAME export declared with
+    [SuppressGCTransition] (no GC-mode transition around the call). .NET 5+ only (net48 has no
+    attribute); counted under its own name in the counting build. The runtime's rules for it
+    (learn.microsoft.com, SuppressGCTransitionAttribute): the native call runs under 1 us, makes
+    no blocking syscall, no call back into the runtime, throws nothing and takes no lock; which
+    calls meet them is the CALLER's to decide (cs_host: the FSM consumer's drop path only)."""
+    sname = name + "_sgt"
+    _COUNTED.append(sname)
+    names = ", ".join(_arg_names(args))
+    ret_kw = "" if ret == "void" else "return "
+    o += "#if NET5_0_OR_GREATER"
+    o += "#if AK_HOST_COUNT"
+    o += "%s[DllImport(%s, EntryPoint = \"%s\", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]" % (indent, lib, name)
+    o += "%s[SuppressGCTransition]" % indent
+    o += "%sprivate static extern %s %s__raw(%s);" % (indent, ret, sname, args)
+    o += "%sinternal static long N_%s;" % (indent, sname)
+    o += "%sinternal static %s %s(%s) { System.Threading.Interlocked.Increment(ref N_%s); %s%s__raw(%s); }" % (
+        indent, ret, sname, args, sname, ret_kw, sname, names)
+    o += "#elif NET7_0_OR_GREATER"
+    o += "%s[LibraryImport(%s, EntryPoint = \"%s\")]" % (indent, lib, name)
+    o += "%s[UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]" % indent
+    o += "%s[SuppressGCTransition]" % indent
+    o += "%sinternal static partial %s %s(%s);" % (indent, ret, sname, args)
+    o += "#else"
+    o += "%s[DllImport(%s, EntryPoint = \"%s\", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]" % (indent, lib, name)
+    o += "%s[SuppressGCTransition]" % indent
+    o += "%sinternal static extern %s %s(%s);" % (indent, ret, sname, args)
+    o += "#endif"
+    o += "#endif"
+
+
+def fsm_sgt_imports(p):
+    """[(ret, name, args)] of the FSM entries that get a [SuppressGCTransition] twin: begin and
+    next per root (never the setter, which runs once per context)."""
+    return [(r, n, a) for r, n, a in fsm_imports(p) if not n.startswith("ak_fsm_set_pvt_")]
+
+
 def _emit_counting(o):
     """The counting surface of the class just emitted (AK_HOST_COUNT only)."""
     o += "#if AK_HOST_COUNT"
@@ -420,6 +458,8 @@ def emit_abi(x, ns, lib="ak_core"):
     emit_import(o, "int", lc.init[0], "%s* opts, ak_err* err" % oname)
     for ret, name, args in _fixed_imports() + root_imports(p) + unk_imports(p) + pvt_imports(p) + fsm_imports(p):
         emit_import(o, ret, name, args)
+    for ret, name, args in fsm_sgt_imports(p):
+        emit_import_sgt(o, ret, name, args)
     _emit_counting(o)
     o += "}"
     o += ""
