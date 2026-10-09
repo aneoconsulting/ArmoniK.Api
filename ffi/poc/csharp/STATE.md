@@ -8,7 +8,7 @@ waits for the campaign. The history of how each item got here is in `JOURNAL.md`
 
 | | |
 |---|---|
-| **Status** | 2026-10-09 (latest): **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); full gate run (see **D24**). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-09 (latest): **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); the full gate at 1a5ccaea PASSED on both h2 variants (`logs/csharp/opt/d24/`). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -116,14 +116,26 @@ unit's last commit (gate logs, STATE, JOURNAL).
   core-ffi row (88 full, 44 no-unknown); gen/crossings*.txt: eight counts per row (encode, FSM,
   push, pull), the push and pull columns unchanged except P7.1; gen/rpc-counts*.txt and
   gen/rpc-delivery-counts*.txt: only the rows that had a push decode change (C, D and the
-  delivery cells), none still names ak_decode_. One row (Cf-nounk.callback-inline a+read)
-  carries `ak_fsm_set_pvt_ListTasksDetailedResponse=1`: the counted call is the first FSM
-  decode on that thread's context (deterministic over three runs; the push path has no
-  per-context mask call to show the same).
+  delivery cells), none still names ak_decode_.
+- **Two defects found by the first full gate (ff1bf0c2, `d24/gate-stock-FAILED-ff1bf0c2.log`),
+  both fixed (1a5ccaea):** (1) the net48 floor did not compile since step 9a:
+  `OrderedMap.EnsureCapacity` used Dictionary/List EnsureCapacity under `#if !NETSTANDARD2_0`,
+  and HarnessFloor compiles the facade for net48; now `#if NET6_0_OR_GREATER`, else the order
+  list's capacity only. (2) the delivery-cell counts were not reproducible: the FSM mask was set on
+  a context's first FSM decode, which in the callback / queue cells lands on whichever thread
+  decodes. The mask is now copied once in EnsureDec when the context is created (one call, never
+  per decode; TryFsm no longer tests it), and the delivery counts drop `ak_fsm_set_pvt_*` by name
+  with the other context-creation calls they already dropped (ak_dec_ctx_new_*,
+  ak_dec_set_pvt_*). Delivery counts then identical over three runs per build.
 - **Gate:** step 7 runs the corpus also with the push arms (net8.0); new step 10: BenchDotNet
   `--verify` both builds, `--verify-fsm` both builds (Rust events compared when the Rust log is
   present), four defects planted in the generated FSM consumer (each must fail), then the
-  generated file restored. Results: see the gate logs in the Log index.
+  generated file restored.
+- **Full gate at 1a5ccaea, from a clean worktree, both h2 variants: GATE PASSED**
+  (`logs/csharp/opt/d24/gate-stock.log`, `gate-h2-batch.log`; net8.0 and net6.0, net48 compiled,
+  both builds, every count file, the 4 FSM plants and every earlier control failing as required).
+  This is also the open item "a full C# gate at the end of the optimisation pass". The first
+  attempt at ff1bf0c2 failed (`gate-stock-FAILED-ff1bf0c2.log`, the two defects above).
 
 ## D23: the FSM consumer (2026-10-09; JOURNAL 79; container instrumentation, NOT gated)
 
@@ -299,7 +311,7 @@ amended contract and its checks), and this unit's last commit (table, STATE, JOU
   steps 5, 5b, 6, 7: unchanged; steps 6 and 7 add gen/counts-str-*.txt (per string path:
   e1, e2, eth256, e3, e3l, e1r, e1c, e1r128, each with -nounk).
 - **Quick checks:** `AK_GATE_LEVELS=8 AK_GATE_KEEP_CORE=1 gen/gate.sh` (net8.0 only, cores not
-  rebuilt; prints "CHECKS PASSED ... NOT the gate"). The full gate has not been run since
+  rebuilt; prints "CHECKS PASSED ... NOT the gate"). The full gate ran again at D24 (1a5ccaea, passed); before that it had not been run since
   step 1 (owner: no gate yet). Step 6's quick checks ran at `44f4f304`; the gate's new D21 lines
   (corpus under E1/E2, the planted controls, the per-path counts) were added after and run by
   hand with the same commands (`s6/corpus-strpaths.log`, the count files), not yet through
@@ -654,7 +666,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
    table); nothing further assigned in this slice.
 0. Optimisation pass: steps 1 to 7 (with 5b) are in; the aggregating session reads
    `logs/csharp/opt/s1-s4/` and the per-step logs (`s5/`, `s5b/`, `s6/`, `s7/`). The string path's
-   default stays E0 until the owner decides; gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) is due before any campaign use. D46
+   default stays E0 until the owner decides; gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) last ran at 1a5ccaea (D24): passed. D46
    (the grouped-mode JIT check's blind spot) is open.
 1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
@@ -669,6 +681,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 | `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
 | `opt/s5/`, `opt/s5b/` | D20 (utf8_skip all bits + strict host decode) and the static decode vtable: checks (`checks.log`, the lossy-decoder control) and decode-read A/B (`ab/`, before/after, retain/drop/no-unknown) |
 | `opt/s6/` | D21 string encode paths: `sweep/`, `sweep-fine/` (one-process length x content sweep), `strlen-census.txt`, `checks.log` (quick checks at 44f4f304), `corpus-strpaths.log` (corpus under E1/E2/ETH:16 and the planted controls), `ab/` (codec encode-core-hot E0/E1/E2/ETH:256, table.md, compact.md), `ab-rpc/` (Cf-retain b, k 1 and 8, E0/ETH:256/E1) |
+| `opt/d24/` | D24: gate-stock.log and gate-h2-batch.log (the full gate at 1a5ccaea, clean worktree: PASSED), gate-stock-FAILED-ff1bf0c2.log (the first attempt: net48 build, delivery counts), counts/ (every count and crossings file before D24, and the counting core-ffi tables) |
 | `opt/s11/` | the s10 table rerun on core 081de788 (FSM fixes A and B): generate.log (no C# change), build-core.log, checks/ (gen/s10_checks.sh PASSED), ab-s11/ (table.md, reference.md, fsm-above.txt, jsonl, BDN logs, header) |
 | `opt/s10/` | D23: build-core.log (cores at 8030b7f9, superseded), build-core-op.log (cores at c2b95f62); checks/ (gen/s10_checks.sh: checks.log, verify-fsm-*.log, events-*.txt, corpus-*.log, counts-s10.txt, counts-recommit.log); checks-v0/ (verify-fsm on the first contract, superseded); ab-s10/ (eight arms, decode-read: table.md times only, reference.md spreads / B/op / gen0 / minflt, jsonl, BDN logs, header) |
 | `opt/s9/` | step 9a: checks-9a.log, ab-9a/ (before/after, core push retain decode-read); step 9b: ab-9b/table.md (six arms, times only), reference.md (spreads, B/op, gen0, minflt), the jsonl and BDN logs |

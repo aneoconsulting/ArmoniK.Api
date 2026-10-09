@@ -2859,6 +2859,17 @@ Correctness only; nothing timed (owner: the Rust agent works in parallel). Logs
 - **Counts:** only decode rows moved; push rows reappear under core-ffi-push identical to the old
   core-ffi rows (88 / 44); crossings: 8 counts per row, push and pull columns unchanged except
   P7.1 (input change); rpc counts: only rows that had `ak_decode_` changed; none keeps it. One
-  delivery row carries a one-time `ak_fsm_set_pvt_*` (deterministic over three runs; the cause,
-  which thread's context first meets the FSM in the counted call, not traced further).
-- **Gate:** see the entry's last item (filled in at the end of the unit).
+  delivery row carried a one-time `ak_fsm_set_pvt_*` in this tree, three runs alike.
+- **First full gate** (clean worktree at ff1bf0c2, stock): FAILED 3. (1) HarnessFloor (net48)
+  did not compile: step 9a's OrderedMap.EnsureCapacity (only net8.0 quick checks had run since).
+  (2, 3) the delivery-cell counts differed from the committed files, the `ak_fsm_set_pvt_*` row
+  having moved to other cells: the lazy setter ran on the first FSM decode of whichever thread
+  decoded (a callback or queue continuation's thread), so "deterministic over three runs" in one
+  tree was not reproducibility. The delivery counts already drop the context-creation calls of a
+  continuation's first thread (ak_dec_ctx_new_*, ak_dec_set_pvt_*). Fixed (1a5ccaea): the facade
+  method under NET6_0_OR_GREATER; the FSM mask copied in EnsureDec at context creation (TryFsm no
+  longer tests per decode) and `ak_fsm_set_pvt_*` dropped with the others; delivery counts
+  regenerated, identical over three runs per build; codec counts and crossings unchanged.
+- **Gate:** the full gate at 1a5ccaea from a clean worktree PASSED on both h2 variants
+  (`d24/gate-stock.log`, `d24/gate-h2-batch.log`): net8.0 and net6.0, net48 compiled, both builds,
+  counts, step 10 (byte identity, the FSM differential, four FSM plants caught).
