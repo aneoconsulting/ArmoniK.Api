@@ -31,6 +31,19 @@ public sealed class OrderedMap<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TV
 
     public int Count => _order.Count;
 
+    /// Step 9a (owner, 2026-10-09): room for `n` entries in both the index and the order, so a
+    /// decoded run of known size grows them once (the decode's map runs). netstandard2.0 has no
+    /// Dictionary.EnsureCapacity: there only the order list is grown.
+    public void EnsureCapacity(int n)
+    {
+#if NETSTANDARD2_0
+        if (_order.Capacity < n) _order.Capacity = n;
+#else
+        _index.EnsureCapacity(n);
+        _order.EnsureCapacity(n);
+#endif
+    }
+
     public TValue this[TKey k]
     {
         get => _order[_index[k]].Value;

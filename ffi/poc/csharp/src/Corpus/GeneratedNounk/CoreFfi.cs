@@ -2194,6 +2194,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Options;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
         }
@@ -2380,6 +2381,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = t.Options;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
                     break;
@@ -3230,6 +3232,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).ParentTaskIds;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -3244,6 +3247,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).DataDependencies;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -3258,6 +3262,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).ExpectedOutputIds;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -3272,6 +3277,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).RetryOfIds;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -3286,6 +3292,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
         }
@@ -3480,30 +3487,35 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.ParentTaskIds;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.DataDependencies;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 3:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.ExpectedOutputIds;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 4:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.RetryOfIds;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 5:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = (t.Options ??= new TaskOptions()).Options;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
                     break;
@@ -3733,6 +3745,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Options ??= new TaskOptions()).Options;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
         }
@@ -3919,6 +3932,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var lst = (t.Options ??= new TaskOptions()).Options;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
                     break;
@@ -5247,6 +5261,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Ticks;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -5261,6 +5276,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Values;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -5275,6 +5291,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Codes;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -5289,6 +5306,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Flags;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add((xs[i] != 0));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -5303,6 +5321,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Statuses;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add((TaskStatus)xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -5496,30 +5515,35 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (long*)body; var lst = t.Ticks;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(xs[i]);
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (double*)body; var lst = t.Values;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(xs[i]);
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 3:   // a root-level run
                 {
                     var xs = (int*)body; var lst = t.Codes;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(xs[i]);
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 4:   // a root-level run
                 {
                     var xs = (byte*)body; var lst = t.Flags;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add((xs[i] != 0));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 5:   // a root-level run
                 {
                     var xs = (int*)body; var lst = t.Statuses;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add((TaskStatus)xs[i]);
                     break;
                 }
@@ -6116,6 +6140,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Results;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -6301,6 +6326,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_ResultRaw*)body; var lst = t.Results;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -6985,6 +7011,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.ParentTaskIds;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -6999,6 +7026,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.DataDependencies;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -7013,6 +7041,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.ExpectedOutputIds;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -7027,6 +7056,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.RetryOfIds;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -7041,6 +7071,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
@@ -7241,30 +7272,35 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_span*)body; var e = t.Tasks[(int)r.token]; var il = e.ParentTaskIds;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (ak_span*)body; var e = t.Tasks[(int)r.token]; var il = e.DataDependencies;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 3:
                 {
                     var xs = (ak_span*)body; var e = t.Tasks[(int)r.token]; var il = e.ExpectedOutputIds;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 4:
                 {
                     var xs = (ak_span*)body; var e = t.Tasks[(int)r.token]; var il = e.RetryOfIds;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 5:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
@@ -7636,6 +7672,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
@@ -7828,6 +7865,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
@@ -8078,6 +8116,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Probes;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8263,6 +8302,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_Probe*)body; var lst = t.Probes;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -8710,6 +8750,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Ticks;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8724,6 +8765,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Values;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8738,6 +8780,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Codes;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8752,6 +8795,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Flags;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add((xs[k] != 0));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8766,6 +8810,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Statuses;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add((TaskStatus)xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -8965,30 +9010,35 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (long*)body; var e = t.Batches[(int)r.token]; var il = e.Ticks;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(xs[k]);
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (double*)body; var e = t.Batches[(int)r.token]; var il = e.Values;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(xs[k]);
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 3:
                 {
                     var xs = (int*)body; var e = t.Batches[(int)r.token]; var il = e.Codes;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(xs[k]);
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 4:
                 {
                     var xs = (byte*)body; var e = t.Batches[(int)r.token]; var il = e.Flags;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add((xs[k] != 0));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 5:
                 {
                     var xs = (int*)body; var e = t.Batches[(int)r.token]; var il = e.Statuses;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add((TaskStatus)xs[k]);
                     break;
                 }
@@ -9673,6 +9723,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Left;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -9687,6 +9738,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Right;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -9874,12 +9926,14 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_Pair*)body; var lst = t.Left;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_dfix_Pair*)body; var lst = t.Right;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -10493,6 +10547,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Marks;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -10507,6 +10562,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Leaves;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -10694,12 +10750,14 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (long*)body; var lst = t.Marks;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(xs[i]);
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_dfix_ChunkLeaf*)body; var lst = t.Leaves;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -11088,6 +11146,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Labels;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -11102,6 +11161,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
         }
@@ -11117,6 +11177,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Inner ??= new ChunkInner()).Marks;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(xs[i]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -11131,6 +11192,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = (Tgt(obj).Inner ??= new ChunkInner()).Leaves;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -11322,12 +11384,14 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.Labels;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var lst = t.Attrs;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
                     break;
@@ -11335,12 +11399,14 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 case OP_ADD when outer == 0 && inner == 3:   // a root-level run
                 {
                     var xs = (long*)body; var lst = (t.Inner ??= new ChunkInner()).Marks;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(xs[i]);
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 4:   // a root-level run
                 {
                     var xs = (ak_dfix_ChunkLeaf*)body; var lst = (t.Inner ??= new ChunkInner()).Leaves;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -11883,6 +11949,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Labels;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -11897,6 +11964,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Attrs;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
@@ -11912,6 +11980,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = (e.Inner ??= new ChunkInner()).Marks;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -11926,6 +11995,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = (e.Inner ??= new ChunkInner()).Leaves;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -12123,12 +12193,14 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_span*)body; var e = t.Items[(int)r.token]; var il = e.Labels;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var e = t.Items[(int)r.token]; var il = e.Attrs;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
@@ -12136,12 +12208,14 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 case OP_ADD when outer == 1 && inner == 3:
                 {
                     var xs = (long*)body; var e = t.Items[(int)r.token]; var il = (e.Inner ??= new ChunkInner()).Marks;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(xs[k]);
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 4:
                 {
                     var xs = (ak_dfix_ChunkLeaf*)body; var e = t.Items[(int)r.token]; var il = (e.Inner ??= new ChunkInner()).Leaves;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
                     break;
                 }
@@ -12686,6 +12760,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Labels;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(G.Str(b, xs[k]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -12700,6 +12775,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = e.Attrs;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int k = 0; k < n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
         }
@@ -12715,6 +12791,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = (e.Inner ??= new ChunkInner()).Marks;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) il.Add(xs[k]);
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -12729,6 +12806,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             byte* b = ((DecRun*)obj)->Buf;
             var e = Tgt(obj).Items[(int)token];
             var il = (e.Inner ??= new ChunkInner()).Leaves;
+            il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             for (int k = 0; k < n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -12926,12 +13004,14 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_span*)body; var e = t.Items[(int)r.token]; var il = e.Labels;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(G.Str(b, xs[k]));
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 2:
                 {
                     var xs = (ak_dfix_ChunkElementAttrsEntry*)body; var e = t.Items[(int)r.token]; var il = e.Attrs;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int k = 0; k < (int)r.n; k++) il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value);
                     break;
@@ -12939,12 +13019,14 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 case OP_ADD when outer == 1 && inner == 3:
                 {
                     var xs = (long*)body; var e = t.Items[(int)r.token]; var il = (e.Inner ??= new ChunkInner()).Marks;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) il.Add(xs[k]);
                     break;
                 }
                 case OP_ADD when outer == 1 && inner == 4:
                 {
                     var xs = (ak_dfix_ChunkLeaf*)body; var e = t.Items[(int)r.token]; var il = (e.Inner ??= new ChunkInner()).Leaves;
+                    il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int k = 0; k < (int)r.n; k++) { var x = new ChunkLeaf(); G.D_ChunkLeaf(ref xs[k], x, b); il.Add(x); }
                     break;
                 }
@@ -13534,6 +13616,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Items;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) { var x = new LeafElement(); G.D_LeafElement(ref xs[i], x, b); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -13719,6 +13802,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_LeafElement*)body; var lst = t.Items;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) { var x = new LeafElement(); G.D_LeafElement(ref xs[i], x, b); lst.Add(x); }
                     break;
                 }
@@ -13995,6 +14079,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Attrs;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value.
             for (int i = 0; i < n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
         }
@@ -14010,6 +14095,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
             var lst = Tgt(obj).Texts;
+            lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
             for (int i = 0; i < n; i++) lst.Add(G.Str(b, xs[i]));
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
@@ -14197,6 +14283,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_SurrogateAttrsEntry*)body; var lst = t.Attrs;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value.
                     for (int i = 0; i < (int)r.n; i++) lst[G.Str(b, xs[i].key)] = G.Str(b, xs[i].value);
                     break;
@@ -14204,6 +14291,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_span*)body; var lst = t.Texts;
+                    lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
                     for (int i = 0; i < (int)r.n; i++) lst.Add(G.Str(b, xs[i]));
                     break;
                 }

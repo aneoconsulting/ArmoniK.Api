@@ -998,7 +998,11 @@ def _loop_forward_u(s, arr, n, tok):
 
 
 def _add_body(o, s, lst, xs, n, ind, var="i"):
-    """Append a decoded run to facade list `lst`."""
+    """Append a decoded run to facade list `lst`. Step 9a (owner, 2026-10-09): the run's count
+    is known before the loop, so the list (or map) is grown once for it: EnsureCapacity(Count +
+    n) (List<T> and the facade's OrderedMap; geometric, so a slot delivered in several runs
+    still grows by doubling)."""
+    o += "%s%s.EnsureCapacity(%s.Count + %s);   // step 9a: the run's count is known" % (ind, lst, lst, n)
     if s.kind == "blob":
         fn = "G.Str" if s.f.kind == "string" else "G.Bytes"
         o += "%sfor (int %s = 0; %s < %s; %s++) %s.Add(%s(b, %s[%s]));" % (ind, var, var, n, var, lst, fn, xs, var)
