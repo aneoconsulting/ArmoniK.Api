@@ -956,6 +956,74 @@ unsafe fn utf16_write_replacing(p: *const u16, len: usize, dst: *mut u8) -> usiz
     at
 }
 
+/// s13 (owner, 2026-10-09): the scalar writer with an ASCII word fast path, the
+/// `tc-scalar-word` build's transcoder (compiled into that build and into the tests, so its
+/// differential runs in every test build; the default library has none of it). Plain scalar Rust, no intrinsics: 8 units are tested as two u64 against
+/// 0xFF80FF80FF80FF80 (every unit < 0x80) and written as 8 bytes, then 4 units as one u64 (as
+/// simdutf's scalar fallback does), then one unit at a time exactly as
+/// `utf16_write_replacing` (a pair becomes its code point, a lone surrogate U+FFFD). Writes
+/// exactly the bytes `utf16_write_replacing` writes. Little-endian only (the refusal below).
+#[cfg(any(test, feature = "tc-scalar-word"))]
+#[inline]
+unsafe fn utf16_write_word(p: *const u16, len: usize, dst: *mut u8) -> usize {
+    const HI: u64 = 0xFF80_FF80_FF80_FF80;
+    // The low byte of each of the four u16 lanes, packed into 4 bytes (little-endian lanes).
+    #[inline(always)]
+    fn pack4(w: u64) -> u32 {
+        ((w & 0xFF) | ((w >> 8) & 0xFF00) | ((w >> 16) & 0xFF_0000) | ((w >> 24) & 0xFF00_0000)) as u32
+    }
+    let mut i = 0usize;
+    let mut at = 0usize;
+    while i < len {
+        if i + 8 <= len {
+            let a = (p.add(i) as *const u64).read_unaligned();
+            let b = (p.add(i + 4) as *const u64).read_unaligned();
+            if (a | b) & HI == 0 {
+                (dst.add(at) as *mut u32).write_unaligned(pack4(a));
+                (dst.add(at + 4) as *mut u32).write_unaligned(pack4(b));
+                i += 8;
+                at += 8;
+                continue;
+            }
+        }
+        if i + 4 <= len {
+            let a = (p.add(i) as *const u64).read_unaligned();
+            if a & HI == 0 {
+                (dst.add(at) as *mut u32).write_unaligned(pack4(a));
+                i += 4;
+                at += 4;
+                continue;
+            }
+        }
+        let c = *p.add(i) as u32;
+        if c < 0x80 {
+            *dst.add(at) = c as u8;
+            at += 1;
+            i += 1;
+            continue;
+        }
+        let cp = if (0xD800..0xDC00).contains(&c) {
+            if i + 1 < len && (0xDC00..0xE000).contains(&(*p.add(i + 1) as u32)) {
+                let lo = *p.add(i + 1) as u32;
+                i += 1;
+                0x10000 + ((c - 0xD800) << 10) + (lo - 0xDC00)
+            } else {
+                0xFFFD
+            }
+        } else if (0xDC00..0xE000).contains(&c) {
+            0xFFFD
+        } else {
+            c
+        };
+        at += write_cp(dst, at, cp);
+        i += 1;
+    }
+    at
+}
+
+#[cfg(all(feature = "tc-scalar-naive", feature = "tc-scalar-word"))]
+compile_error!("ak-core: tc-scalar-naive and tc-scalar-word are alternatives; enable at most one");
+
 // D19 (owner, 2026-10-04): the UTF-16 paths run on simdutf (C++, through the `simdutf`
 // crate, which builds it with cc). simdutf's UTF-16 functions used here are the LE ones and
 // the host hands the core its NATIVE `u16`s, so the two agree only on a little-endian
@@ -974,6 +1042,7 @@ compile_error!("ak-core: D19's UTF-16 paths call simdutf's UTF-16LE functions on
 /// start. A shorter `cap` measures first (simdutf's validation and length on valid input,
 /// the scalar count on invalid) and converts only if the result fits; `Err(need)` when it
 /// does not, nothing written. `len > 0`, `p` and `dst` valid.
+#[cfg(not(any(feature = "tc-scalar-naive", feature = "tc-scalar-word")))]
 #[inline]
 unsafe fn utf16_to_utf8_into(p: *const u16, len: usize, dst: *mut u8, cap: usize) -> Result<usize, usize> {
     if len <= cap / 3 {
@@ -998,6 +1067,29 @@ unsafe fn utf16_to_utf8_into(p: *const u16, len: usize, dst: *mut u8, cap: usize
         Ok(utf16_write_replacing(p, len, dst))
     }
 }
+
+/// s13, `tc-scalar-naive` / `tc-scalar-word` (measurement builds, default OFF): the same
+/// contract as the simdutf `utf16_to_utf8_into` above, in scalar Rust. `cap >= 3 * len`: one
+/// pass of the writer straight into `dst`; a shorter `cap`: the scalar count
+/// (`utf16_utf8_len`, the pre-D19 pre-pass), `Err(need)` if it does not fit, else the writer.
+/// Naive: `utf16_write_replacing` (the pre-D19 writer); word: `utf16_write_word`.
+#[cfg(any(feature = "tc-scalar-naive", feature = "tc-scalar-word"))]
+#[inline]
+unsafe fn utf16_to_utf8_into(p: *const u16, len: usize, dst: *mut u8, cap: usize) -> Result<usize, usize> {
+    #[cfg(feature = "tc-scalar-naive")]
+    let write = utf16_write_replacing;
+    #[cfg(feature = "tc-scalar-word")]
+    let write = utf16_write_word;
+    if len <= cap / 3 {
+        return Ok(write(p, len, dst));
+    }
+    let need = utf16_utf8_len(p, len);
+    if need > cap {
+        return Err(need);
+    }
+    Ok(write(p, len, dst))
+}
+
 
 /// UTF-16 code units in, UTF-8 out. `len` is the number of `u16`s (native order, so
 /// little-endian: see the refusal above).
@@ -2054,5 +2146,81 @@ mod d20_utf8_skip_tests {
                 ak_dec_ctx_free(ctx);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod s13_scalar_tc_tests {
+    //! s13 (owner, 2026-10-09): the scalar UTF-16 -> UTF-8 writers against the pre-D19
+    //! oracle `utf16_write_replacing`: random UTF-16 with lone and reversed surrogates, every
+    //! length 0 to 300 and long inputs; then this build's `utf16_to_utf8_into` (simdutf by
+    //! default, scalar under tc-scalar-naive / tc-scalar-word) in every cap regime.
+    use super::*;
+
+    fn lcg(x: &mut u64) -> u64 {
+        *x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        *x >> 33
+    }
+    /// One input of `n` units in one of several mixes (ASCII runs dominate some, so the word
+    /// fast path is entered and left at every alignment).
+    fn input(x: &mut u64, n: usize, mix: u64) -> Vec<u16> {
+        let mut v = Vec::with_capacity(n);
+        while v.len() < n {
+            let r = lcg(x) % 100;
+            let u: u16 = match mix {
+                0 => (lcg(x) % 0x80) as u16,                                    // ASCII
+                1 => if r < 85 { (lcg(x) % 0x80) as u16 } else { (0x80 + lcg(x) % 0x780) as u16 },
+                2 => (0x80 + lcg(x) % 0xFF00) as u16,                            // anything, surrogates included
+                _ => match r % 10 {
+                    0 => 0xD800 + (lcg(x) % 0x400) as u16,                       // high (paired or lone)
+                    1 => 0xDC00 + (lcg(x) % 0x400) as u16,                       // low (lone or reversed)
+                    2 => { v.push(0xDC00 + (lcg(x) % 0x400) as u16); 0xD800 + (lcg(x) % 0x400) as u16 } // reversed pair
+                    3 => { v.push(0xD800 + (lcg(x) % 0x400) as u16); 0xDC00 + (lcg(x) % 0x400) as u16 } // pair
+                    4 | 5 | 6 => (lcg(x) % 0x80) as u16,
+                    7 => (0x80 + lcg(x) % 0x780) as u16,
+                    _ => (0xE000 + lcg(x) % 0x2000) as u16,
+                },
+            };
+            v.push(u);
+        }
+        v.truncate(n);
+        v
+    }
+
+    #[test]
+    fn scalar_writers_equal_the_oracle() {
+        let mut x = 13u64;
+        let mut lens: Vec<usize> = (0..=300).collect();
+        lens.extend([1023, 1024, 4096, 4099, 65537]);
+        let mut checked = 0u64;
+        for &n in &lens {
+            for mix in 0..4u64 {
+                for _ in 0..(if n <= 300 { 6 } else { 1 }) {
+                    let u = input(&mut x, n, mix);
+                    let want_len = unsafe { utf16_utf8_len(u.as_ptr(), n) };
+                    let mut want = vec![0u8; 3 * n + 8];
+                    let wn = unsafe { utf16_write_replacing(u.as_ptr(), n, want.as_mut_ptr()) };
+                    assert_eq!(wn, want_len);
+                    want.truncate(wn);
+                    assert_eq!(want, String::from_utf16_lossy(&u).into_bytes());
+                    let mut got = vec![0u8; 3 * n + 8];
+                    let gn = unsafe { utf16_write_word(u.as_ptr(), n, got.as_mut_ptr()) };
+                    assert_eq!(&got[..gn], &want[..], "word writer, n {n} mix {mix}");
+                    // this build's utf16_to_utf8_into, every cap regime
+                    for cap in [3 * n, (3 * n).saturating_sub(1), wn, wn.saturating_sub(1), wn + 1, 0] {
+                        let mut d = vec![0u8; cap.max(1)];
+                        let r = if n == 0 { Ok(0) } else { unsafe { utf16_to_utf8_into(u.as_ptr(), n, d.as_mut_ptr(), cap) } };
+                        if wn <= cap {
+                            assert_eq!(r, Ok(wn), "n {n} mix {mix} cap {cap}");
+                            assert_eq!(&d[..wn], &want[..], "n {n} mix {mix} cap {cap}");
+                        } else {
+                            assert_eq!(r, Err(wn), "n {n} mix {mix} cap {cap}");
+                        }
+                    }
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 7000);
     }
 }

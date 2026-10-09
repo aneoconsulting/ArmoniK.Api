@@ -42,6 +42,15 @@ init-guard = []
 # the C ABI (FIX-PLAN WP5 item 6.1). Changes the ABI: enabled only by `poc/rust/corpus/`,
 # a workspace of its own, never together with a shapes.json host.
 corpus = ["ak-abi/corpus"]
+# s13 (owner, 2026-10-09), MEASUREMENT ONLY, default OFF (the default build is simdutf, D19):
+# the encode-side UTF-16 -> UTF-8 transcoder (`ak_tc_utf16`, and the additive
+# `ak_utf16_to_utf8`, which share `utf16_to_utf8_into`) in plain scalar Rust instead of
+# simdutf. `tc-scalar-naive`: the pre-D19 writer (`utf16_write_replacing`, after the scalar
+# count when the buffer is under the worst case); `tc-scalar-word`: a scalar writer with an
+# ASCII word fast path (`utf16_write_word`). At most one of them. Validation, lengths and
+# every decode path are unchanged.
+tc-scalar-naive = []
+tc-scalar-word = []
 # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
 # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
 # RPC arm only; the java and csharp slices do not have one.
