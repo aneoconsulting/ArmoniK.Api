@@ -1,0 +1,3 @@
+verify-fsm (no-unknown): 114 inputs, 114 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 114 compared, 0 not in its list
+malformed variants: 10338 decodes per family (9313 refused by pull, FSM code == pull code required; 1025 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)

@@ -1,0 +1,230 @@
+# s10_checks.sh at 83327748 + uncommitted; 2026-10-09T08:45:49Z
+## 0. generators current: generate.py rewrites nothing
+$ bash -c ! grep -q '^wrote' '/tmp/tmp.StUPx6oadn/gen.out'
+exit status: 0
+# cores: 619acaa74b742434 (full) ee2fdf8303981fe7 (nounk) 46d9b07bdb25cc5f (count) 4cc5ee7b0099cfe0 (count nounk) 8073e30963b6bf8d (corpus) d13564e8ac5a015b (corpus nounk)
+## 0b. layout: the C# declaration (ak_fsm_ev as amended included) against the probe of the Rust declaration, by name both ways + section 10; the planted swap must fail
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout target-core/layout.json
+# harness: layout
+# utc:                 2026-10-09T08:46:48Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.32.0.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=drop recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 106 C# structs / 509 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_kv, ak_call_opts, ak_client_opts, ak_rpc_counters, ak_pvt_ListResultsResponse, ak_pvt_ListTasksDetailedResponse, ... 5 more)
+section 10, the loaded core's ak_layout_facts against this compiler: 400 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll layout target-core/layout.json --plant   # a PLANT: must fail
+  FAIL ak_efix_TaskOptionsOptionsEntry.key: offset Rust 0, C# 24
+  FAIL ak_efix_TaskOptionsOptionsEntry.value: offset Rust 24, C# 0
+2 failure(s)
+exit status: 2
+plant layout plant: caught
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-nounk/Release/net8.0/harness.dll layout target-core-nounk/layout.json
+# harness: layout
+# utc:                 2026-10-09T08:46:49Z
+# runtime:             .NET 8.0.31
+# os:                  Ubuntu 24.04.4 LTS
+# arch:                X64
+# processors:          4
+# Google.Protobuf:     3.32.0.0
+# server GC:           False
+# latency mode:        Interactive
+# tiered compilation:  on (default)
+# tiered PGO:          on (default)
+# R2R:                 on (default)
+# floor sources:       no
+# managed codec:       plan options utf8=reject unknown=drop recursion_limit=100 (rendered by poc/codec/gen/cs_managed.py)
+# facade TFM:          net8.0
+# transcoder:          Encoding.UTF8.GetBytes(ReadOnlySpan<char>, Span<byte>) -- net6.0+
+# length-prefix sites: 72
+#
+# timings:             any timing a container prints is instrumentation (README 1.1)
+#
+layout, by name both ways: 79 C# structs / 324 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_kv, ak_call_opts, ak_client_opts, ak_rpc_counters, ak_pvt_ListResultsResponse, ak_pvt_ListTasksDetailedResponse, ... 5 more)
+section 10, the loaded core's ak_layout_facts against this compiler: 240 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --layout target-core-corpus/layout.json
+layout, by name both ways: 200 C# structs / 817 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_kv, ak_call_opts, ak_client_opts, ak_rpc_counters, ak_pvt_Timestamp, ak_pvt_Duration, ... 27 more)
+section 10, the loaded core's ak_layout_facts against this compiler: 574 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus --layout target-core-corpus-nounk/layout.json
+layout, by name both ways: 139 C# structs / 483 members against the Rust declaration probed in layout.json: all agree
+  (declared in ak-abi, not bound by this binding: ak_bytes, ak_completion, ak_kv, ak_call_opts, ak_client_opts, ak_rpc_counters, ak_pvt_Timestamp, ak_pvt_Duration, ... 27 more)
+section 10, the loaded core's ak_layout_facts against this compiler: 340 facts, all agree
+ak_abi_version() = 1; ak_init() returned 0
+0 failure(s)
+exit status: 0
+$ bash -c grep -o '"ak_fsm_ev"[^]]*' target-core/layout.json
+"ak_fsm_ev": {"size": 32, "align": 8, "fields": [{"name": "slot", "offset": 0, "size": 4}, {"name": "n", "offset": 4, "size": 4}, {"name": "token", "offset": 8, "size": 8}, {"name": "data", "offset": 16, "size": 8}, {"name": "bytes", "offset": 24, "size": 4}
+exit status: 0
+## 1. Cases.Verify (the pre-timing byte identity, P7.1's committed vector through every decode arm included), both builds
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 2. --verify-fsm: push = pull = FSM graphs on every payload, content set and U-* row, drop and retain;
+##    FSM calls = the Rust slice's events; malformed variants: FSM code = pull code, graphs where accepted
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --verify-fsm --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/events-full.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/verify-fsm-full.log' | tail -n 3; exit ${PIPESTATUS[0]}
+verify-fsm (full): 114 inputs, 228 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 228 compared, 0 not in its list
+malformed variants: 20676 decodes per family (18626 refused by pull, FSM code == pull code required; 2050 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/events-nounk.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/verify-fsm-nounk.log' | tail -n 3; exit ${PIPESTATUS[0]}
+verify-fsm (no-unknown): 114 inputs, 114 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 114 compared, 0 not in its list
+malformed variants: 10338 decodes per family (9313 refused by pull, FSM code == pull code required; 1025 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+## 3. the corpus with the FSM arms (AK_CORPUS_FSM=1: each FSM arm also requires push's and pull's code and re-encoding), both builds; default runs unchanged
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-full.log' 2>&1; rc=$?; grep -A12 '^## ffi-fsm' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-full.log' | grep -v '^$' | head -30; tail -n 4 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-full.log'; exit $rc
+## ffi-fsm-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+--
+## ffi-fsm-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 6 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-nounk.log' 2>&1; rc=$?; grep -A12 '^## ffi-fsm' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-nounk.log' | grep -v '^$' | head -15; tail -n 4 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-fsm-nounk.log'; exit $rc
+## ffi-fsm-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 3 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-full.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-full.log'; exit $rc
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-nounk.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/corpus-nounk.log'; exit $rc
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --unk-controls
+# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the
+# reference; each position zeroed in turn must equal it with that position's bags cleared;
+# pull must equal push (compared as retained re-encodings, ak_uencode_*)
+  U-chunkelem-all                    ChunkedResponse            positions  5, changed by zeroing  1 (items)
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks_options)
+  U-element-all                      ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks)
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2 (results_created_at, results_completed_at)
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0 ()
+  U-nested-all                       ListResultsResponse        positions  4, changed by zeroing  1 (results)
+  U-oneof-all                        ListProbeResponse          positions  3, changed by zeroing  1 (probes)
+  U-root-all                         ListResultsResponse        positions  4, changed by zeroing  1 (self)
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing)
+discard mismatches: 0 row(s); pull != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+## 4. counts: the committed counts unchanged (both builds); the eight-arm grid's counts per arm (AK_BDN_S10=1, core grid)
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.StUPx6oadn/c.txt' > /dev/null && diff -q gen/counts.txt '/tmp/tmp.StUPx6oadn/c.txt'
+Files gen/counts.txt and /tmp/tmp.StUPx6oadn/c.txt differ
+exit status: 1
+CHECK: counts full unchanged FAILED
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/tmp.StUPx6oadn/cn.txt' > /dev/null && diff -q gen/counts-nounk.txt '/tmp/tmp.StUPx6oadn/cn.txt'
+Files gen/counts-nounk.txt and /tmp/tmp.StUPx6oadn/cn.txt differ
+exit status: 1
+CHECK: counts nounk unchanged FAILED
+$ bash -c AK_BDN_S10=1 AK_CAMPAIGN_GRID=core AK_BDN_DIRS=decode-read dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s10/checks/counts-s10.txt' > /dev/null
+exit status: 0
+## 5. planted defects in the generated FSM consumer (src/Harness/Generated/CoreFfi.cs), each must be caught by --verify-fsm
+planted 3 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a PLANT: must fail
+  FAIL P2.2 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P2.2 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P2.2/latin1 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 100 failure(s)
+exit status: 1
+plant token ignored (every element group applied to element 0): caught
+planted 15 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a PLANT: must fail
+  FAIL P1.1 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P1.1 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P1.2 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 488 failure(s)
+exit status: 1
+plant a run's last element lost: caught
+planted 7 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a PLANT: must fail
+  FAIL P1.1 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P1.1 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P1.2 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 290 failure(s)
+exit status: 1
+plant the root group not applied: caught
+planted 7 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a PLANT: must fail
+  FAIL P1.1 byte 0 flipped drop: FSM 0 != pull -2 (push -2)
+  FAIL P1.1 byte 0 flipped retain: FSM -1001 != pull -2 (push -2)
+  FAIL P1.1 truncated at 107 drop: FSM 0 != pull -3 (push -3)
+verify-fsm: 2302 failure(s)
+exit status: 1
+plant an error read as the end: caught
+$ bash -c python3 gen/generate.py | grep -c '^wrote' | grep -qx 0
+exit status: 0
+
+S10 CHECKS: 2 FAILED

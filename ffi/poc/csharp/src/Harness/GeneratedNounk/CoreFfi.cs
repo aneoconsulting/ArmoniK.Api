@@ -1305,11 +1305,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListResultsResponse returns
-    /// the first event, ak_fsm_next_ListResultsResponse each next one; every event is
-    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
-    /// One `fixed` spans begin and every next (the core holds spans into the input
-    /// until the end event). Arming, Disarm, retain ownership and the failure path are
-    /// pull's; a failed decode's partial object is discarded.
+    /// the first event, ak_fsm_next_ListResultsResponse each next one, each RETURNING
+    /// the event's op (> 0; the root APPLY is the last, the end) or an error (< 0);
+    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
+    /// its payload. One `fixed` spans begin and every next (the core holds spans into
+    /// the input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
     public ListResultsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_ListResultsResponse* FsmPvt = MakeFsmPvt();
@@ -1338,22 +1339,22 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -1364,13 +1365,13 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListResultsResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListResultsResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_ADD:
                 switch (ev->slot)
@@ -2363,11 +2364,13 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListTasksDetailedResponse
-    /// returns the first event, ak_fsm_next_ListTasksDetailedResponse each next one;
-    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
-    /// its payload. One `fixed` spans begin and every next (the core holds spans into
-    /// the input until the end event). Arming, Disarm, retain ownership and the failure
-    /// path are pull's; a failed decode's partial object is discarded.
+    /// returns the first event, ak_fsm_next_ListTasksDetailedResponse each next one,
+    /// each RETURNING the event's op (> 0; the root APPLY is the last, the end) or an
+    /// error (< 0); every event is consumed (FsmDispatch) before the next call, which
+    /// may overwrite its payload. One `fixed` spans begin and every next (the core
+    /// holds spans into the input until the end event). Arming, Disarm, retain
+    /// ownership and the failure path are pull's; a failed decode's partial object is
+    /// discarded.
     public ListTasksDetailedResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_ListTasksDetailedResponse* FsmPvt = MakeFsmPvt();
@@ -2396,22 +2399,22 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -2422,13 +2425,13 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListTasksDetailedResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListTasksDetailedResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_NEW:
                 switch (ev->slot >> 16)
@@ -2926,11 +2929,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListProbeResponse returns the
-    /// first event, ak_fsm_next_ListProbeResponse each next one; every event is
-    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
-    /// One `fixed` spans begin and every next (the core holds spans into the input
-    /// until the end event). Arming, Disarm, retain ownership and the failure path are
-    /// pull's; a failed decode's partial object is discarded.
+    /// first event, ak_fsm_next_ListProbeResponse each next one, each RETURNING the
+    /// event's op (> 0; the root APPLY is the last, the end) or an error (< 0); every
+    /// event is consumed (FsmDispatch) before the next call, which may overwrite its
+    /// payload. One `fixed` spans begin and every next (the core holds spans into the
+    /// input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
     public ListProbeResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_ListProbeResponse* FsmPvt = MakeFsmPvt();
@@ -2959,22 +2963,22 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -2985,13 +2989,13 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListProbeResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListProbeResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_ADD:
                 switch (ev->slot)
@@ -3568,11 +3572,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListTaskSummaryResponse
-    /// returns the first event, ak_fsm_next_ListTaskSummaryResponse each next one;
-    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
-    /// its payload. One `fixed` spans begin and every next (the core holds spans into
-    /// the input until the end event). Arming, Disarm, retain ownership and the failure
-    /// path are pull's; a failed decode's partial object is discarded.
+    /// returns the first event, ak_fsm_next_ListTaskSummaryResponse each next one, each
+    /// RETURNING the event's op (> 0; the root APPLY is the last, the end) or an error
+    /// (< 0); every event is consumed (FsmDispatch) before the next call, which may
+    /// overwrite its payload. One `fixed` spans begin and every next (the core holds
+    /// spans into the input until the end event). Arming, Disarm, retain ownership and
+    /// the failure path are pull's; a failed decode's partial object is discarded.
     public ListTaskSummaryResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_ListTaskSummaryResponse* FsmPvt = MakeFsmPvt();
@@ -3601,22 +3606,22 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -3627,13 +3632,13 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListTaskSummaryResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListTaskSummaryResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_NEW:
                 switch (ev->slot >> 16)
@@ -4014,11 +4019,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_UploadResultDataMessage
-    /// returns the first event, ak_fsm_next_UploadResultDataMessage each next one;
-    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
-    /// its payload. One `fixed` spans begin and every next (the core holds spans into
-    /// the input until the end event). Arming, Disarm, retain ownership and the failure
-    /// path are pull's; a failed decode's partial object is discarded.
+    /// returns the first event, ak_fsm_next_UploadResultDataMessage each next one, each
+    /// RETURNING the event's op (> 0; the root APPLY is the last, the end) or an error
+    /// (< 0); every event is consumed (FsmDispatch) before the next call, which may
+    /// overwrite its payload. One `fixed` spans begin and every next (the core holds
+    /// spans into the input until the end event). Arming, Disarm, retain ownership and
+    /// the failure path are pull's; a failed decode's partial object is discarded.
     public UploadResultDataMessage Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_UploadResultDataMessage* FsmPvt = MakeFsmPvt();
@@ -4047,22 +4053,22 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
+                        op = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -4073,13 +4079,13 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(UploadResultDataMessage t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(UploadResultDataMessage t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
         }
     }
@@ -4820,11 +4826,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_ListMetricsResponse returns
-    /// the first event, ak_fsm_next_ListMetricsResponse each next one; every event is
-    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
-    /// One `fixed` spans begin and every next (the core holds spans into the input
-    /// until the end event). Arming, Disarm, retain ownership and the failure path are
-    /// pull's; a failed decode's partial object is discarded.
+    /// the first event, ak_fsm_next_ListMetricsResponse each next one, each RETURNING
+    /// the event's op (> 0; the root APPLY is the last, the end) or an error (< 0);
+    /// every event is consumed (FsmDispatch) before the next call, which may overwrite
+    /// its payload. One `fixed` spans begin and every next (the core holds spans into
+    /// the input until the end event). Arming, Disarm, retain ownership and the failure
+    /// path are pull's; a failed decode's partial object is discarded.
     public ListMetricsResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_ListMetricsResponse* FsmPvt = MakeFsmPvt();
@@ -4853,22 +4860,22 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -4879,13 +4886,13 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListMetricsResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListMetricsResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_NEW:
                 switch (ev->slot >> 16)
@@ -5490,11 +5497,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     }
 
     /// FIX-PLAN D23: the FSM decode family. ak_fsm_begin_DualResponse returns the first
-    /// event, ak_fsm_next_DualResponse each next one; every event is consumed
-    /// (FsmDispatch) before the next call, which may overwrite its payload. One `fixed`
-    /// spans begin and every next (the core holds spans into the input until the end
-    /// event). Arming, Disarm, retain ownership and the failure path are pull's; a
-    /// failed decode's partial object is discarded.
+    /// event, ak_fsm_next_DualResponse each next one, each RETURNING the event's op (>
+    /// 0; the root APPLY is the last, the end) or an error (< 0); every event is
+    /// consumed (FsmDispatch) before the next call, which may overwrite its payload.
+    /// One `fixed` spans begin and every next (the core holds spans into the input
+    /// until the end event). Arming, Disarm, retain ownership and the failure path are
+    /// pull's; a failed decode's partial object is discarded.
     public DualResponse Fsm(byte[] src, int len) { int rc = TryFsm(src, len, false, out var t); if (rc < 0) throw new InvalidOperationException($"core FSM decode failed: {rc}"); return t; }
     /// D23: the FSM's own D20 mask (every bit: G.Str validates), native, copied by the setter.
     private static readonly ak_pvt_DualResponse* FsmPvt = MakeFsmPvt();
@@ -5523,22 +5531,22 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                rc = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
+                int op = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
                 try
                 {
-                    while (rc >= 0)
+                    while (op > 0)
                     {
-                        if (rc == Abi.AK_FSM_END)
+                        if (op == (int)Abi.AK_BDR_APPLY)
                         {
-                            // The end event is the root group, always the last.
-                            if (ev.op != Abi.AK_BDR_APPLY) { rc = Abi.AK_ERR_HOST; break; }
+                            // The root group: always the last event, the end.
                             G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
                             break;
                         }
-                        FsmDispatch(t, b, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev);
                         _fwd++;
-                        rc = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
                     }
+                    rc = op < 0 ? op : 0;
                 }
                 catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; }
             }
@@ -5549,13 +5557,13 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         return 0;
     }
 
-    /// D23: one non-final event (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
+    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(DualResponse t, byte* b, ak_fsm_ev* ev)
+    private static void FsmDispatch(DualResponse t, byte* b, uint op, ak_fsm_ev* ev)
     {
         byte* d = (byte*)ev->data;
-        switch (ev->op)
+        switch (op)
         {
             case Abi.AK_BDR_ADD:
                 switch (ev->slot)

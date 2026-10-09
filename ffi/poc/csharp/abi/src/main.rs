@@ -50,7 +50,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
-    lay!(out, ak_fsm_ev, [op, slot, token, n, bytes, data]);
+    lay!(out, ak_fsm_ev, [slot, n, token, data, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
     lay!(out, ak_kv, [key, key_len, val, val_len]);
@@ -173,7 +173,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
-    lay!(out, ak_fsm_ev, [op, slot, token, n, bytes, data]);
+    lay!(out, ak_fsm_ev, [slot, n, token, data, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
     lay!(out, ak_kv, [key, key_len, val, val_len]);
@@ -412,7 +412,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
-    lay!(out, ak_fsm_ev, [op, slot, token, n, bytes, data]);
+    lay!(out, ak_fsm_ev, [slot, n, token, data, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
     lay!(out, ak_kv, [key, key_len, val, val_len]);
@@ -508,7 +508,7 @@ fn all(out: &mut Vec<String>) {
     lay!(out, ak_init_opts, [abi_version, flags, log, log_ctx]);
     lay!(out, AkCounters, [forward, reverse, transcode, prefix_moves, prefix_bytes, grows]);
     lay!(out, ak_bdr_rec, [op, slot, token, n, bytes]);
-    lay!(out, ak_fsm_ev, [op, slot, token, n, bytes, data]);
+    lay!(out, ak_fsm_ev, [slot, n, token, data, bytes]);
     lay!(out, ak_bytes, [ptr, len, owner]);
     lay!(out, ak_completion, [tag, status, grpc_status, bytes]);
     lay!(out, ak_kv, [key, key_len, val, val_len]);

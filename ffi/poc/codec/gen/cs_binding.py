@@ -111,8 +111,9 @@ def _consts():
     out = [("uint", "AK_ABI_VERSION", "%du" % FIXED.abi_version)]
     out += [("int", n, str(v)) for n, v, _d in FIXED.codes]
     out += [("uint", n, "%du" % v) for n, v in LIFECYCLE_FLAGS()]
-    # plan.FIXED.constants of a 32-bit integer type (the AK_BDR_* record ops and D23's
-    # AK_FSM_END); the pointer value and the i64 token are spelled by hand below.
+    # plan.FIXED.constants of a 32-bit integer type (the AK_BDR_* ops: the pull records' and,
+    # D23 as amended, the FSM calls' positive returns); the pointer value and the i64 token are
+    # spelled by hand below.
     out += [({"i32": "int", "u32": "uint"}[t], n, str(v) + ("u" if t == "u32" else ""))
             for n, t, v, _d in FIXED.constants if t in ("i32", "u32")]
     return out
@@ -291,8 +292,8 @@ def pvt_imports(p):
 
 
 def fsm_imports(p):
-    """[(ret, name, args)]: D23's FSM family per root (plan.fsm_entry_points): begin (writes
-    the first event), next, and its own D20 mask setter."""
+    """[(ret, name, args)]: D23's FSM family per root (plan.fsm_entry_points): begin and next
+    (each writes one event and returns its op, or an error), and its own D20 mask setter."""
     out = []
     for root in p.roots:
         for name, params, ret, _doc in fsm_entry_points(p, root):

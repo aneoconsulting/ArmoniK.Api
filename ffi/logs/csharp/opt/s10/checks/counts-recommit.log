@@ -1,0 +1,40 @@
+# 2026-10-09T08:59:33Z: counts re-committed after the P7.1 decode-input change (only the 6 P7.1 decode rows differ: rev 3 -> 7, the committed vector's six interleaved runs + the root apply); diff:
+diff --git a/ffi/poc/csharp/gen/counts-nounk.txt b/ffi/poc/csharp/gen/counts-nounk.txt
+index da501da7..2969fdaa 100644
+--- a/ffi/poc/csharp/gen/counts-nounk.txt
++++ b/ffi/poc/csharp/gen/counts-nounk.txt
+@@ -216,9 +216,9 @@ P7.1 ascii core-ffi encode-transport no-unknown | fwd 5 rev 2 grow 0 reset 0 | a
+ P7.1 ascii core-ffi encode-transport-hot no-unknown | fwd 5 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_enc_take=1 ak_encode_DualResponse=1
+ P7.1 ascii core-ffi encode-core no-unknown | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
+ P7.1 ascii core-ffi encode-core-hot no-unknown | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
+-P7.1 ascii core-ffi decode no-unknown | fwd 1 rev 3 grow 0 reset 0 | ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode no-unknown | fwd 1 rev 7 grow 0 reset 0 | ak_decode_DualResponse=1
+ P7.1 ascii core-ffi-pull decode no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_DualResponse=1
+-P7.1 ascii core-ffi decode-read no-unknown | fwd 1 rev 3 grow 0 reset 0 | ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode-read no-unknown | fwd 1 rev 7 grow 0 reset 0 | ak_decode_DualResponse=1
+ P7.1 ascii core-ffi-pull decode-read no-unknown | fwd 2 rev 0 grow 0 reset 0 | ak_bdr_ptr=1 ak_parse_DualResponse=1
+ U-deep-all corpus core-ffi encode-hot no-unknown | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+ U-deep-all corpus core-ffi decode no-unknown | fwd 1 rev 8 grow 0 reset 0 | ak_decode_ListTasksDetailedResponse=1
+diff --git a/ffi/poc/csharp/gen/counts.txt b/ffi/poc/csharp/gen/counts.txt
+index 709dd1f7..b327950f 100644
+--- a/ffi/poc/csharp/gen/counts.txt
++++ b/ffi/poc/csharp/gen/counts.txt
+@@ -390,11 +390,11 @@ P7.1 ascii core-ffi encode-core drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair
+ P7.1 ascii core-ffi encode-core retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+ P7.1 ascii core-ffi encode-core-hot drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
+ P7.1 ascii core-ffi encode-core-hot retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
+-P7.1 ascii core-ffi decode drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+-P7.1 ascii core-ffi decode retain | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode retain | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+ P7.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+-P7.1 ascii core-ffi decode-read drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+-P7.1 ascii core-ffi decode-read retain | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode-read drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
++P7.1 ascii core-ffi decode-read retain | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+ P7.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
+ U-deep-all corpus core-ffi encode-hot drop | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
+ U-deep-all corpus core-ffi encode-hot retain | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
+# rerun:
+counts bin-count = gen/counts.txt: identical
+counts bin-count-nounk = gen/counts-nounk.txt: identical

@@ -17,6 +17,7 @@ control() { local name="$1"; shift; echo "\$ $*   # a PLANT: must fail"; "$@" > 
 B="$SLICE/src/BenchDotNet/bin/Release/net8.0"; BN="$SLICE/src/BenchDotNet/bin-nounk/Release/net8.0"
 BC="$SLICE/src/BenchDotNet/bin-count/Release/net8.0"; BCN="$SLICE/src/BenchDotNet/bin-count-nounk/Release/net8.0"
 CB="$SLICE/src/Corpus/bin/Release/net8.0"; CBN="$SLICE/src/Corpus/bin-nounk/Release/net8.0"
+H="$SLICE/src/Harness/bin/Release/net8.0"; HN="$SLICE/src/Harness/bin-nounk/Release/net8.0"
 build_all() {
   for a in "" "-p:AkNounk=true"; do
     for pr in src/BenchDotNet/BenchDotNet.csproj src/Corpus/Corpus.csproj; do
@@ -24,6 +25,10 @@ build_all() {
     done
     dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -f net8.0 -p:AkHostCount=true $a > "$SCRATCH/build.log" 2>&1 || { cat "$SCRATCH/build.log"; exit 1; }
   done
+  for a in "" "-p:AkNounk=true"; do
+    dotnet build src/Harness/Harness.csproj -c Release -f net8.0 $a > "$SCRATCH/build.log" 2>&1 || { cat "$SCRATCH/build.log"; exit 1; }
+  done
+  cp target-core/release/libak_core.so "$H/"; cp target-core-nounk/release/libak_core.so "$HN/"
   cp target-core/release/libak_core.so "$B/"; cp target-core-nounk/release/libak_core.so "$BN/"
   cp target-core-count/release/libak_core.so "$BC/"; cp target-core-count-nounk/release/libak_core.so "$BCN/"
   cp target-core-corpus/release/libak_core.so "$CB/"; cp target-core-corpus-nounk/release/libak_core.so "$CBN/"
@@ -33,6 +38,13 @@ echo "## 0. generators current: generate.py rewrites nothing"
 python3 gen/generate.py > "$SCRATCH/gen.out" 2>&1; grep "^wrote" "$SCRATCH/gen.out"; run "generators current" bash -c "! grep -q '^wrote' '$SCRATCH/gen.out'"
 build_all
 echo "# cores: $(sha256sum "$B/libak_core.so" | cut -c1-16) (full) $(sha256sum "$BN/libak_core.so" | cut -c1-16) (nounk) $(sha256sum "$BC/libak_core.so" | cut -c1-16) (count) $(sha256sum "$BCN/libak_core.so" | cut -c1-16) (count nounk) $(sha256sum "$CB/libak_core.so" | cut -c1-16) (corpus) $(sha256sum "$CBN/libak_core.so" | cut -c1-16) (corpus nounk)"
+echo "## 0b. layout: the C# declaration (ak_fsm_ev as amended included) against the probe of the Rust declaration, by name both ways + section 10; the planted swap must fail"
+run "layout full" dotnet "$H/harness.dll" layout target-core/layout.json
+control "layout plant" dotnet "$H/harness.dll" layout target-core/layout.json --plant
+run "layout nounk" dotnet "$HN/harness.dll" layout target-core-nounk/layout.json
+run "corpus layout" "$CB/corpus" --layout target-core-corpus/layout.json
+run "corpus layout nounk" "$CBN/corpus" --layout target-core-corpus-nounk/layout.json
+run "ak_fsm_ev in the probe" bash -c "grep -o '\"ak_fsm_ev\"[^]]*' target-core/layout.json"
 echo "## 1. Cases.Verify (the pre-timing byte identity, P7.1's committed vector through every decode arm included), both builds"
 run "verify full" dotnet "$B/BenchDotNet.dll" --verify
 run "verify nounk" dotnet "$BN/BenchDotNet.dll" --verify

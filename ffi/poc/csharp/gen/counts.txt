@@ -390,11 +390,11 @@ P7.1 ascii core-ffi encode-core drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair
 P7.1 ascii core-ffi encode-core retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
 P7.1 ascii core-ffi encode-core-hot drop | fwd 4 rev 2 grow 0 reset 0 | ak_elem_Pair=2 ak_enc_reset=1 ak_encode_DualResponse=1
 P7.1 ascii core-ffi encode-core-hot retain | fwd 4 rev 2 grow 0 reset 0 | ak_enc_reset=1 ak_uelem_Pair=2 ak_uencode_DualResponse=1
-P7.1 ascii core-ffi decode drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
-P7.1 ascii core-ffi decode retain | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi decode drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi decode retain | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
 P7.1 ascii core-ffi-pull decode drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
-P7.1 ascii core-ffi decode-read drop | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
-P7.1 ascii core-ffi decode-read retain | fwd 2 rev 3 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi decode-read drop | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
+P7.1 ascii core-ffi decode-read retain | fwd 2 rev 7 grow 0 reset 1 | ak_dec_reset_DualResponse=1 ak_decode_DualResponse=1
 P7.1 ascii core-ffi-pull decode-read drop | fwd 3 rev 0 grow 0 reset 1 | ak_bdr_ptr=1 ak_dec_reset_DualResponse=1 ak_parse_DualResponse=1
 U-deep-all corpus core-ffi encode-hot drop | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_elemu_TaskDetailed=1 ak_enc_reset=1 ak_enc_take=1 ak_encode_ListTasksDetailedResponse=1
 U-deep-all corpus core-ffi encode-hot retain | fwd 9 rev 6 grow 0 reset 0 | ak_blob_run=4 ak_elem_TaskOptionsOptionsEntry=1 ak_enc_reset=1 ak_enc_take=1 ak_uelemu_TaskDetailed=1 ak_uencode_ListTasksDetailedResponse=1
