@@ -93,6 +93,11 @@ def targets(ir):
         # WP5 step 10: the no-unknown variant's binding (harness feature `unknown-fields` off).
         "crates/harness/src/generated/binding_nounk.rs":
             rust_binding.emit_binding(P.relower(ir, ir.options.with_unknown("drop"))),
+        # reset-on-entry (owner, 2026-10-10; measurement experiment): the bindings rendered
+        # for a core built with that feature (harness feature `reset-on-entry`).
+        "crates/harness/src/generated/binding_roe.rs": rust_binding.emit_binding(ir, reset_on_entry=True),
+        "crates/harness/src/generated/binding_roe_nounk.rs":
+            rust_binding.emit_binding(P.relower(ir, ir.options.with_unknown("drop")), reset_on_entry=True),
         # FIX-PLAN WP3 (design/CAMPAIGN.md): the campaign's per-root table and visitors.
         "crates/campaign/src/generated/roots.rs": rust_campaign.emit(ir),
     }
@@ -121,6 +126,9 @@ def corpus_targets():
         "corpus/crates/harness/src/generated/binding.rs": rust_binding.emit_binding(abi),
         "corpus/crates/harness/src/generated/binding_nounk.rs":
             rust_binding.emit_binding(P.relower(abi, abi.options.with_unknown("drop"))),
+        "corpus/crates/harness/src/generated/binding_roe.rs": rust_binding.emit_binding(abi, reset_on_entry=True),
+        "corpus/crates/harness/src/generated/binding_roe_nounk.rs":
+            rust_binding.emit_binding(P.relower(abi, abi.options.with_unknown("drop")), reset_on_entry=True),
         "corpus/crates/harness/src/generated/dispatch.rs":
             rust_corpus.emit_dispatch(full, abi_roots, refused),
         # The core for the corpus schema, written here too so this slice's --check gates it.

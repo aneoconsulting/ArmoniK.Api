@@ -1,0 +1,616 @@
+# reset-on-entry checks, build VARIANT (reset-on-entry core and binding) no-unknown
+ABANDON P1.1 no-unknown calls 1 of 2: fsm true push true pull true
+ERR P1.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P1.1 no-unknown: 858 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P1.2 no-unknown calls 1 of 5: fsm true push true pull true
+ABANDON P1.2 no-unknown calls 3 of 5: fsm true push true pull true
+ERR P1.2 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P1.2 no-unknown: 218121 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P1.2/latin1 no-unknown calls 1 of 5: fsm true push true pull true
+ABANDON P1.2/latin1 no-unknown calls 3 of 5: fsm true push true pull true
+ERR P1.2/latin1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2/latin1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2/latin1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P1.2/latin1 no-unknown: 370110 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P1.2/wide no-unknown calls 1 of 5: fsm true push true pull true
+ABANDON P1.2/wide no-unknown calls 3 of 5: fsm true push true pull true
+ERR P1.2/wide no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2/wide no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.2/wide no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P1.2/wide no-unknown: 522099 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P1.3 no-unknown calls 1 of 3: fsm true push true pull true
+ABANDON P1.3 no-unknown calls 2 of 3: fsm true push true pull true
+ERR P1.3 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.3 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P1.3 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P1.3 no-unknown: 605 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.1 no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON P2.1 no-unknown calls 5 of 8: fsm true push true pull true
+ERR P2.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.1 no-unknown: 1037 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.2 no-unknown calls 1 of 3501: fsm true push true pull true
+ABANDON P2.2 no-unknown calls 1751 of 3501: fsm true push true pull true
+ERR P2.2 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.2 no-unknown: 540422 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.2/latin1 no-unknown calls 1 of 3501: fsm true push true pull true
+ABANDON P2.2/latin1 no-unknown calls 1751 of 3501: fsm true push true pull true
+ERR P2.2/latin1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2/latin1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2/latin1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.2/latin1 no-unknown: 944454 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.2/wide no-unknown calls 1 of 3501: fsm true push true pull true
+ABANDON P2.2/wide no-unknown calls 1751 of 3501: fsm true push true pull true
+ERR P2.2/wide no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2/wide no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.2/wide no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.2/wide no-unknown: 1348486 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.3 no-unknown calls 1 of 876: fsm true push true pull true
+ABANDON P2.3 no-unknown calls 439 of 876: fsm true push true pull true
+ERR P2.3 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.3 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.3 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.3 no-unknown: 647024 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.4 no-unknown calls 1 of 561: fsm true push true pull true
+ABANDON P2.4 no-unknown calls 281 of 561: fsm true push true pull true
+ERR P2.4 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.4 no-unknown: 979465 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.4/latin1 no-unknown calls 1 of 561: fsm true push true pull true
+ABANDON P2.4/latin1 no-unknown calls 281 of 561: fsm true push true pull true
+ERR P2.4/latin1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4/latin1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4/latin1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.4/latin1 no-unknown: 1890741 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.4/wide no-unknown calls 1 of 561: fsm true push true pull true
+ABANDON P2.4/wide no-unknown calls 281 of 561: fsm true push true pull true
+ERR P2.4/wide no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4/wide no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.4/wide no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.4/wide no-unknown: 2802017 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P2.5 no-unknown calls 1 of 141: fsm true push true pull true
+ABANDON P2.5 no-unknown calls 71 of 141: fsm true push true pull true
+ERR P2.5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P2.5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P2.5 no-unknown: 19632 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P3.1 no-unknown calls 1 of 2: fsm true push true pull true
+ERR P3.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P3.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P3.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P3.1 no-unknown: 12097 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P4.1 no-unknown calls 1 of 601: fsm true push true pull true
+ABANDON P4.1 no-unknown calls 301 of 601: fsm true push true pull true
+ERR P4.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P4.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P4.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P4.1 no-unknown: 65321 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR P5.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P5.1 no-unknown: 116 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR P5.2 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.2 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.2 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P5.2 no-unknown: 65620 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR P5.3 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.3 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.3 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P5.3 no-unknown: 1048660 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR P5.4 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.4 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P5.4 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P5.4 no-unknown: 4194390 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P6.1 no-unknown calls 1 of 1401: fsm true push true pull true
+ABANDON P6.1 no-unknown calls 701 of 1401: fsm true push true pull true
+ERR P6.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P6.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P6.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC P6.1 no-unknown: 123354 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON P7.1 no-unknown calls 1 of 7: fsm true push true pull true
+ABANDON P7.1 no-unknown calls 4 of 7: fsm true push true pull true
+ERR P7.1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P7.1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR P7.1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ABANDON U-deep-all no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-all no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-all no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-fixed32 no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-fixed32 no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-fixed32 no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-fixed64 no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-fixed64 no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-fixed64 no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-len no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-len no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-len no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-msg no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-msg no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-msg no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-packed no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-packed no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-packed no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-repeated no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-repeated no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-repeated no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-deep-u-varint no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-deep-u-varint no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-deep-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-deep-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-deep-u-varint no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-all no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-all no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-all no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-fixed32 no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-fixed32 no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-fixed32 no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-fixed64 no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-fixed64 no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-fixed64 no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-len no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-len no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-len no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-msg no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-msg no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-msg no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-packed no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-packed no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-packed no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-repeated no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-repeated no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-repeated no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-element-u-varint no-unknown calls 1 of 8: fsm true push true pull true
+ABANDON U-element-u-varint no-unknown calls 5 of 8: fsm true push true pull true
+ERR U-element-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-element-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-element-u-varint no-unknown: 847 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-enum-value-127 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-enum-value-127 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-127 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-127 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-enum-value-127 no-unknown: 16 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-enum-value-2147483647 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-enum-value-2147483647 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-2147483647 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-2147483647 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-enum-value-2147483647 no-unknown: 20 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-enum-value-999 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-enum-value-999 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-999 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-999 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-enum-value-999 no-unknown: 17 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-enum-value-packed no-unknown calls 1 of 4: fsm true push true pull true
+ABANDON U-enum-value-packed no-unknown calls 3 of 4: fsm true push true pull true
+ERR U-enum-value-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-enum-value-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-enum-value-packed no-unknown: 16 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-all no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-all no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-fixed32 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-fixed32 no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-fixed64 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-fixed64 no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-len no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-len no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-msg no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-msg no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-packed no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-packed no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-repeated no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-repeated no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-leaf-u-varint no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-leaf-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-leaf-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-leaf-u-varint no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-all no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-all no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-before no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-before no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-before no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-before no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-before no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-group no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-group no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-group no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-group no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-group no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-interleaved no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-interleaved no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-interleaved no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-interleaved no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-interleaved no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-fixed32 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-fixed32 no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-fixed64 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-fixed64 no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-len no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-len no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-msg no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-msg no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-packed no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-packed no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-repeated no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-repeated no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-nested-u-varint no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-nested-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-nested-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-nested-u-varint no-unknown: 210 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-all no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-all no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-before no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-before no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-before no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-before no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-before no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-group no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-group no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-group no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-group no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-group no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-interleaved no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-interleaved no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-interleaved no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-interleaved no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-interleaved no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-member-after-known no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-member-after-known no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-after-known no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-after-known no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-member-after-known no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-member-alone no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-member-alone no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-alone no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-alone no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-member-alone no-unknown: 54 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-member-before-known no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-member-before-known no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-before-known no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-member-before-known no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-member-before-known no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-fixed32 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-fixed32 no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-fixed64 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-fixed64 no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-len no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-len no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-msg no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-msg no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-packed no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-packed no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-repeated no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-repeated no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-oneof-u-varint no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-oneof-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-oneof-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-oneof-u-varint no-unknown: 61 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-all no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-all no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-all no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-all no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-all no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-before no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-before no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-before no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-before no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-before no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-group no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-group no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-group no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-group no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-group no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-interleaved no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-interleaved no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-interleaved no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-interleaved no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-interleaved no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-max-tag no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-max-tag no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-max-tag no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-max-tag no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-max-tag no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-fixed32 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-fixed32 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-fixed32 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-fixed32 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-fixed32 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-fixed64 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-fixed64 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-fixed64 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-fixed64 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-fixed64 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-len no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-len no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-len no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-len no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-len no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-msg no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-msg no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-msg no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-msg no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-msg no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-packed no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-packed no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-packed no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-packed no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-packed no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-repeated no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-repeated no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-repeated no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-repeated no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-repeated no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-root-u-varint no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-root-u-varint no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-varint no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-root-u-varint no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-root-u-varint no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-DualResponse-left-as-wt0 no-unknown calls 1 of 3: fsm true push true pull true
+ABANDON U-wire-DualResponse-left-as-wt0 no-unknown calls 2 of 3: fsm true push true pull true
+ERR U-wire-DualResponse-left-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-DualResponse-left-as-wt0 no-unknown: 64 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-DualResponse-left-as-wt1 no-unknown calls 1 of 3: fsm true push true pull true
+ABANDON U-wire-DualResponse-left-as-wt1 no-unknown calls 2 of 3: fsm true push true pull true
+ERR U-wire-DualResponse-left-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-DualResponse-left-as-wt1 no-unknown: 64 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-DualResponse-left-as-wt5 no-unknown calls 1 of 3: fsm true push true pull true
+ABANDON U-wire-DualResponse-left-as-wt5 no-unknown calls 2 of 3: fsm true push true pull true
+ERR U-wire-DualResponse-left-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-DualResponse-left-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-DualResponse-left-as-wt5 no-unknown: 64 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt0 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt0 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListMetricsResponse-batches-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListMetricsResponse-batches-as-wt0 no-unknown: 1240 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt1 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt1 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListMetricsResponse-batches-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListMetricsResponse-batches-as-wt1 no-unknown: 1240 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt5 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListMetricsResponse-batches-as-wt5 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListMetricsResponse-batches-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListMetricsResponse-batches-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListMetricsResponse-batches-as-wt5 no-unknown: 1240 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListProbeResponse-probes-as-wt0 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListProbeResponse-probes-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListProbeResponse-probes-as-wt0 no-unknown: 131 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListProbeResponse-probes-as-wt1 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListProbeResponse-probes-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListProbeResponse-probes-as-wt1 no-unknown: 131 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListProbeResponse-probes-as-wt5 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListProbeResponse-probes-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListProbeResponse-probes-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListProbeResponse-probes-as-wt5 no-unknown: 131 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-page-as-wt1 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-page-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-page-as-wt1 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-page-as-wt2 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-page-as-wt2 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt2 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt2 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-page-as-wt2 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-page-as-wt5 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-page-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-page-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-page-as-wt5 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-results-as-wt0 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-results-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-results-as-wt0 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-results-as-wt1 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-results-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-results-as-wt1 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListResultsResponse-results-as-wt5 no-unknown calls 1 of 2: fsm true push true pull true
+ERR U-wire-ListResultsResponse-results-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListResultsResponse-results-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListResultsResponse-results-as-wt5 no-unknown: 427 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown calls 1 of 7: fsm true push true pull true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown calls 4 of 7: fsm true push true pull true
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTaskSummaryResponse-tasks-as-wt0 no-unknown: 610 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown calls 1 of 7: fsm true push true pull true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown calls 4 of 7: fsm true push true pull true
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTaskSummaryResponse-tasks-as-wt1 no-unknown: 610 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown calls 1 of 7: fsm true push true pull true
+ABANDON U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown calls 4 of 7: fsm true push true pull true
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTaskSummaryResponse-tasks-as-wt5 no-unknown: 610 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-page-as-wt1 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-page-as-wt2 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-page-as-wt5 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-tasks-as-wt0 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-tasks-as-wt1 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown calls 1 of 15: fsm true push true pull true
+ABANDON U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown calls 8 of 15: fsm true push true pull true
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-ListTasksDetailedResponse-tasks-as-wt5 no-unknown: 1743 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR U-wire-UploadResultDataMessage-upload-as-wt0 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt0 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt0 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-UploadResultDataMessage-upload-as-wt0 no-unknown: 96 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR U-wire-UploadResultDataMessage-upload-as-wt1 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt1 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt1 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-UploadResultDataMessage-upload-as-wt1 no-unknown: 96 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+ERR U-wire-UploadResultDataMessage-upload-as-wt5 no-unknown push: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt5 no-unknown pull: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ERR U-wire-UploadResultDataMessage-upload-as-wt5 no-unknown fsm: rc -3 detail after call 0, after other operations 0, after the next decode 0
+ENC U-wire-UploadResultDataMessage-upload-as-wt5 no-unknown: 96 B; after the call true, after other operations true, next encode (default value) true, then the value again true
+# ABANDON: 155 abandoned decodes followed by fresh fsm, push and pull decodes; 7 (input, mode) pairs with a single event (nothing to abandon)
+# ERR: 342 failed decodes (input less its last byte, three families)
+# ENC: 113 encodes read after the call
+# 724 checks, 0 failures
+ROE CHECKS PASSED

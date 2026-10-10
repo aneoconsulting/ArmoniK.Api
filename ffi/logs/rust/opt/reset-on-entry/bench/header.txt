@@ -1,0 +1,8 @@
+# commit b9adfaf7 + uncommitted changes in poc/rust or poc/codec; rustc 1.94.1 (e408947bf 2026-03-25)
+# binary /home/user/ArmoniK.Api/ffi/poc/rust/target-roe/release/roe_bench (e11eb82dc6cd7a89); core /home/user/ArmoniK.Api/ffi/poc/rust/target-roe/release/deps/libak_core.so (5ba767b35c1f518c), marker exports: 3
+# model name	: Intel(R) Xeon(R) Processor @ 2.10GHz; 4 CPUs; taskset -c 1; 3 launches, one after the other (one binary: both paths in each process)
+# settings: roe_bench --rounds 21 --round-ms 20 (the core grid's inputs, drop and retain)
+# launch 1: 2026-10-10T16:38:51Z, load 0.98 1.40 1.48
+# launch 2: 2026-10-10T16:41:30Z, load 1.40 1.34 1.44
+# launch 3: 2026-10-10T16:44:10Z, load 1.02 1.20 1.36
+# done 2026-10-10T16:46:48Z, load 1.01 1.12 1.31

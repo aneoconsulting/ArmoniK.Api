@@ -22,6 +22,8 @@ unknown-fields = ["harness/unknown-fields", "ak-core/unknown-fields", "ak-abi/un
 init-guard = ["harness/init-guard"]
 # README R5 / CAMPAIGN.md requirement 19: the counting build, for bin `crossings` only.
 count = ["harness/count"]
+# reset-on-entry (owner, 2026-10-10; measurement experiment): the variant core and binding.
+reset-on-entry = ["harness/reset-on-entry", "ak-core/reset-on-entry"]
 
 [dependencies]
 harness = { path = "../harness", default-features = false, features = ["guard"] }

@@ -387,6 +387,19 @@ fn decided_at_arm_time(cx: &Cx) -> bool {
         let r2 = binding::decode_with_list_results_response_opts(cx.dec, &b, &mut o2);
         let bag2 = r2.as_ref().map(|v| v.unknown_fields.len()).unwrap_or(usize::MAX);
         binding::unk_reclaim();
+        // reset-on-entry (owner, 2026-10-10; measurement experiment): the core re-arms from
+        // the stored options pointer on EVERY decode entry, so the decision moves from the
+        // reset to the decode's entry: the refill made after the reset IS seen (a bag), as
+        // the twin's. This is the variant's defining difference from rule 1 as amended
+        // (R-H20), stated rather than hidden.
+        #[cfg(feature = "reset-on-entry")]
+        {
+            let pass = r0 == AK_OK && rc == 0 && bag == 3 && bag2 == 3;
+            println!("  placement: {:<24} reset-on-entry VARIANT: reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (the variant decides at the DECODE ENTRY: want rc 0 and the bag, 3 bytes); twin armed at reset: bag {} bytes (want 3)  {}",
+                     "decided at entry (roe)", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));
+            return pass;
+        }
+        #[allow(unreachable_code)]
         let pass = r0 == AK_OK && rc == 0 && bag == 0 && bag2 == 3;
         println!("  placement: {:<24} reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (want rc 0 and no bag); twin armed at reset: bag {} bytes (want 3)  {}",
                  "decided at arm time", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));

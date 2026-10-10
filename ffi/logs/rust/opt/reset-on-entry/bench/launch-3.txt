@@ -1,0 +1,351 @@
+# roe_bench: reset-on-entry core; arms explicit (default binding, the core's switch off on its contexts) and roe (variant binding); 21 rounds of ~20 ms per arm, interleaved, order rotated per round; process CPU per op; CONTAINER INSTRUMENTATION, absolute times only
+input                                          mode    arm                    median          p10          p90
+P1.1                                           drop    dec-rd explicit       1.30 us      1.29 us      1.39 us
+P1.1                                           drop    dec-rd roe            1.31 us      1.29 us      1.40 us
+P1.1                                           drop    enc-rb explicit      275.4 ns     271.0 ns     280.2 ns
+P1.1                                           drop    enc-rb roe           279.3 ns     276.9 ns     295.2 ns
+P1.1                                           drop    enc-tt explicit      419.0 ns     416.3 ns     423.5 ns
+P1.1                                           drop    enc-tt roe           424.3 ns     421.4 ns     433.7 ns
+P1.1                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.3 ns
+P1.1                                           retain  dec-rd explicit       1.33 us      1.31 us      1.41 us
+P1.1                                           retain  dec-rd roe            1.33 us      1.29 us      1.38 us
+P1.1                                           retain  enc-rb explicit      287.0 ns     283.6 ns     289.5 ns
+P1.1                                           retain  enc-rb roe           281.0 ns     279.1 ns     282.7 ns
+P1.1                                           retain  enc-tt explicit      422.2 ns     418.7 ns     425.1 ns
+P1.1                                           retain  enc-tt roe           427.4 ns     421.3 ns     430.9 ns
+P1.1                                           retain  ak_enc_reset           5.2 ns       5.2 ns       5.3 ns
+P1.2                                           drop    dec-rd explicit     435.56 us    430.85 us    443.53 us
+P1.2                                           drop    dec-rd roe          431.99 us    425.60 us    441.45 us
+P1.2                                           drop    enc-rb explicit      85.38 us     83.07 us     88.54 us
+P1.2                                           drop    enc-rb roe           85.07 us     83.77 us     86.92 us
+P1.2                                           drop    enc-tt explicit      86.28 us     85.07 us     88.85 us
+P1.2                                           drop    enc-tt roe           85.43 us     84.59 us     88.97 us
+P1.2                                           drop    ak_enc_reset           5.2 ns       5.2 ns       5.4 ns
+P1.2                                           retain  dec-rd explicit     448.15 us    433.99 us    456.12 us
+P1.2                                           retain  dec-rd roe          442.14 us    431.65 us    455.05 us
+P1.2                                           retain  enc-rb explicit      88.86 us     87.56 us     91.92 us
+P1.2                                           retain  enc-rb roe           88.92 us     88.09 us     92.22 us
+P1.2                                           retain  enc-tt explicit      89.07 us     87.46 us     91.34 us
+P1.2                                           retain  enc-tt roe           89.51 us     88.77 us     94.41 us
+P1.2                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P1.3                                           drop    dec-rd explicit      19.64 us     19.34 us     20.52 us
+P1.3                                           drop    dec-rd roe           19.80 us     19.47 us     20.25 us
+P1.3                                           drop    enc-rb explicit       3.81 us      3.75 us      4.09 us
+P1.3                                           drop    enc-rb roe            3.77 us      3.72 us      3.89 us
+P1.3                                           drop    enc-tt explicit       3.97 us      3.90 us      4.04 us
+P1.3                                           drop    enc-tt roe            4.00 us      3.91 us      4.06 us
+P1.3                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P1.3                                           retain  dec-rd explicit      19.77 us     19.49 us     19.98 us
+P1.3                                           retain  dec-rd roe           19.78 us     19.55 us     20.41 us
+P1.3                                           retain  enc-rb explicit       3.98 us      3.93 us      4.10 us
+P1.3                                           retain  enc-rb roe            3.97 us      3.91 us      4.06 us
+P1.3                                           retain  enc-tt explicit       4.21 us      4.12 us      4.42 us
+P1.3                                           retain  enc-tt roe            4.18 us      4.07 us      4.31 us
+P1.3                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.5 ns
+P2.1                                           drop    dec-rd explicit       2.65 us      2.63 us      2.77 us
+P2.1                                           drop    dec-rd roe            2.66 us      2.63 us      2.76 us
+P2.1                                           drop    enc-rb explicit      465.7 ns     458.9 ns     479.8 ns
+P2.1                                           drop    enc-rb roe           462.4 ns     457.2 ns     470.6 ns
+P2.1                                           drop    enc-tt explicit      622.8 ns     612.8 ns     644.1 ns
+P2.1                                           drop    enc-tt roe           610.9 ns     603.9 ns     635.3 ns
+P2.1                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.5 ns
+P2.1                                           retain  dec-rd explicit       2.73 us      2.65 us      2.90 us
+P2.1                                           retain  dec-rd roe            2.71 us      2.66 us      2.90 us
+P2.1                                           retain  enc-rb explicit      496.9 ns     484.5 ns     535.0 ns
+P2.1                                           retain  enc-rb roe           497.2 ns     488.2 ns     615.9 ns
+P2.1                                           retain  enc-tt explicit      644.3 ns     629.8 ns     719.2 ns
+P2.1                                           retain  enc-tt roe           644.0 ns     633.2 ns     710.2 ns
+P2.1                                           retain  ak_enc_reset           5.4 ns       5.3 ns       5.8 ns
+P2.2                                           drop    dec-rd explicit      1.986 ms     1.947 ms     2.120 ms
+P2.2                                           drop    dec-rd roe           1.951 ms     1.897 ms     1.983 ms
+P2.2                                           drop    enc-rb explicit     297.51 us    291.97 us    307.56 us
+P2.2                                           drop    enc-rb roe          296.45 us    291.15 us    302.44 us
+P2.2                                           drop    enc-tt explicit     303.03 us    293.94 us    313.49 us
+P2.2                                           drop    enc-tt roe          298.41 us    292.75 us    318.96 us
+P2.2                                           drop    ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P2.2                                           retain  dec-rd explicit      2.002 ms     1.897 ms     2.072 ms
+P2.2                                           retain  dec-rd roe           1.964 ms     1.876 ms     2.019 ms
+P2.2                                           retain  enc-rb explicit     324.18 us    308.71 us    349.94 us
+P2.2                                           retain  enc-rb roe          318.89 us    311.43 us    334.16 us
+P2.2                                           retain  enc-tt explicit     321.87 us    311.68 us    343.02 us
+P2.2                                           retain  enc-tt roe          323.03 us    314.60 us    341.14 us
+P2.2                                           retain  ak_enc_reset           5.4 ns       5.3 ns       5.4 ns
+P2.2/latin1                                    drop    dec-rd explicit      2.014 ms     1.963 ms     2.130 ms
+P2.2/latin1                                    drop    dec-rd roe           1.996 ms     1.922 ms     2.148 ms
+P2.2/latin1                                    drop    enc-rb explicit     312.34 us    301.74 us    344.41 us
+P2.2/latin1                                    drop    enc-rb roe          303.63 us    299.28 us    338.25 us
+P2.2/latin1                                    drop    enc-tt explicit     317.46 us    305.45 us    343.49 us
+P2.2/latin1                                    drop    enc-tt roe          312.33 us    303.29 us    345.71 us
+P2.2/latin1                                    drop    ak_enc_reset           5.4 ns       5.3 ns       5.5 ns
+P2.2/latin1                                    retain  dec-rd explicit      2.063 ms     1.943 ms     2.223 ms
+P2.2/latin1                                    retain  dec-rd roe           1.986 ms     1.903 ms     2.100 ms
+P2.2/latin1                                    retain  enc-rb explicit     315.17 us    309.76 us    330.34 us
+P2.2/latin1                                    retain  enc-rb roe          315.56 us    306.00 us    328.80 us
+P2.2/latin1                                    retain  enc-tt explicit     320.96 us    310.91 us    348.52 us
+P2.2/latin1                                    retain  enc-tt roe          321.08 us    311.42 us    333.60 us
+P2.2/latin1                                    retain  ak_enc_reset           5.3 ns       5.3 ns       5.5 ns
+P2.2/wide                                      drop    dec-rd explicit      2.230 ms     2.145 ms     2.404 ms
+P2.2/wide                                      drop    dec-rd roe           2.144 ms     2.070 ms     2.315 ms
+P2.2/wide                                      drop    enc-rb explicit     306.36 us    296.88 us    336.54 us
+P2.2/wide                                      drop    enc-rb roe          309.79 us    296.07 us    337.99 us
+P2.2/wide                                      drop    enc-tt explicit     316.38 us    299.92 us    341.63 us
+P2.2/wide                                      drop    enc-tt roe          316.51 us    305.69 us    332.67 us
+P2.2/wide                                      drop    ak_enc_reset           5.3 ns       5.3 ns       5.6 ns
+P2.2/wide                                      retain  dec-rd explicit      2.177 ms     2.127 ms     2.274 ms
+P2.2/wide                                      retain  dec-rd roe           2.100 ms     2.061 ms     2.237 ms
+P2.2/wide                                      retain  enc-rb explicit     309.04 us    302.69 us    314.60 us
+P2.2/wide                                      retain  enc-rb roe          312.13 us    305.22 us    324.04 us
+P2.2/wide                                      retain  enc-tt explicit     316.87 us    312.48 us    329.86 us
+P2.2/wide                                      retain  enc-tt roe          320.51 us    314.50 us    349.46 us
+P2.2/wide                                      retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P2.3                                           drop    dec-rd explicit      1.302 ms     1.277 ms     1.363 ms
+P2.3                                           drop    dec-rd roe           1.259 ms     1.233 ms     1.350 ms
+P2.3                                           drop    enc-rb explicit     157.24 us    153.78 us    169.83 us
+P2.3                                           drop    enc-rb roe          155.78 us    151.68 us    167.86 us
+P2.3                                           drop    enc-tt explicit     165.09 us    162.05 us    174.50 us
+P2.3                                           drop    enc-tt roe          165.63 us    160.75 us    173.57 us
+P2.3                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.6 ns
+P2.3                                           retain  dec-rd explicit      1.302 ms     1.283 ms     1.337 ms
+P2.3                                           retain  dec-rd roe           1.279 ms     1.245 ms     1.325 ms
+P2.3                                           retain  enc-rb explicit     160.01 us    156.17 us    163.94 us
+P2.3                                           retain  enc-rb roe          158.11 us    155.97 us    166.09 us
+P2.3                                           retain  enc-tt explicit     165.07 us    161.90 us    178.09 us
+P2.3                                           retain  enc-tt roe          168.63 us    163.07 us    175.72 us
+P2.3                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P2.4                                           drop    dec-rd explicit      1.839 ms     1.761 ms     1.934 ms
+P2.4                                           drop    dec-rd roe           1.785 ms     1.712 ms     1.894 ms
+P2.4                                           drop    enc-rb explicit     252.84 us    245.81 us    286.60 us
+P2.4                                           drop    enc-rb roe          256.15 us    242.09 us    280.32 us
+P2.4                                           drop    enc-tt explicit     250.53 us    238.93 us    273.45 us
+P2.4                                           drop    enc-tt roe          251.75 us    237.28 us    261.49 us
+P2.4                                           drop    ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P2.4                                           retain  dec-rd explicit      1.741 ms     1.717 ms     1.785 ms
+P2.4                                           retain  dec-rd roe           1.670 ms     1.653 ms     1.794 ms
+P2.4                                           retain  enc-rb explicit     246.40 us    241.30 us    259.98 us
+P2.4                                           retain  enc-rb roe          246.76 us    242.44 us    256.36 us
+P2.4                                           retain  enc-tt explicit     241.59 us    236.97 us    247.05 us
+P2.4                                           retain  enc-tt roe          242.72 us    239.92 us    254.60 us
+P2.4                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P2.5                                           drop    dec-rd explicit      63.88 us     63.08 us     64.77 us
+P2.5                                           drop    dec-rd roe           63.35 us     62.70 us     64.40 us
+P2.5                                           drop    enc-rb explicit       8.66 us      8.58 us      8.80 us
+P2.5                                           drop    enc-rb roe            8.55 us      8.49 us      8.82 us
+P2.5                                           drop    enc-tt explicit       8.87 us      8.77 us      9.09 us
+P2.5                                           drop    enc-tt roe            8.78 us      8.72 us      9.00 us
+P2.5                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P2.5                                           retain  dec-rd explicit      63.39 us     62.94 us     63.99 us
+P2.5                                           retain  dec-rd roe           62.86 us     62.11 us     63.66 us
+P2.5                                           retain  enc-rb explicit       8.70 us      8.62 us      8.82 us
+P2.5                                           retain  enc-rb roe            8.70 us      8.64 us      8.84 us
+P2.5                                           retain  enc-tt explicit       8.92 us      8.82 us      9.08 us
+P2.5                                           retain  enc-tt roe            8.96 us      8.86 us      9.15 us
+P2.5                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.3 ns
+P3.1                                           drop    dec-rd explicit      31.54 us     30.46 us     33.09 us
+P3.1                                           drop    dec-rd roe           31.34 us     30.64 us     33.03 us
+P3.1                                           drop    enc-rb explicit       6.29 us      6.24 us      6.48 us
+P3.1                                           drop    enc-rb roe            6.15 us      6.02 us      6.39 us
+P3.1                                           drop    enc-tt explicit       6.49 us      6.36 us      6.75 us
+P3.1                                           drop    enc-tt roe            6.33 us      6.24 us      6.72 us
+P3.1                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P3.1                                           retain  dec-rd explicit      32.52 us     31.55 us     33.87 us
+P3.1                                           retain  dec-rd roe           31.80 us     31.26 us     33.65 us
+P3.1                                           retain  enc-rb explicit       6.81 us      6.53 us      6.99 us
+P3.1                                           retain  enc-rb roe            6.47 us      6.28 us      6.73 us
+P3.1                                           retain  enc-tt explicit       6.90 us      6.77 us      7.19 us
+P3.1                                           retain  enc-tt roe            6.66 us      6.44 us      6.95 us
+P3.1                                           retain  ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P4.1                                           drop    dec-rd explicit     340.08 us    331.82 us    355.78 us
+P4.1                                           drop    dec-rd roe          342.48 us    328.36 us    352.46 us
+P4.1                                           drop    enc-rb explicit      45.36 us     44.14 us     46.86 us
+P4.1                                           drop    enc-rb roe           45.68 us     43.86 us     47.35 us
+P4.1                                           drop    enc-tt explicit      45.60 us     43.94 us     47.44 us
+P4.1                                           drop    enc-tt roe           45.49 us     44.25 us     48.01 us
+P4.1                                           drop    ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P4.1                                           retain  dec-rd explicit     326.14 us    321.85 us    331.89 us
+P4.1                                           retain  dec-rd roe          328.25 us    322.48 us    349.03 us
+P4.1                                           retain  enc-rb explicit      46.18 us     45.52 us     47.16 us
+P4.1                                           retain  enc-rb roe           46.48 us     45.50 us     47.52 us
+P4.1                                           retain  enc-tt explicit      46.96 us     45.82 us     47.79 us
+P4.1                                           retain  enc-tt roe           46.57 us     45.69 us     47.66 us
+P4.1                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P5.1                                           drop    dec-rd explicit      131.0 ns     129.9 ns     132.0 ns
+P5.1                                           drop    dec-rd roe           132.1 ns     130.9 ns     135.2 ns
+P5.1                                           drop    enc-rb explicit       38.9 ns      38.7 ns      39.9 ns
+P5.1                                           drop    enc-rb roe            32.3 ns      30.0 ns      44.8 ns
+P5.1                                           drop    enc-tt explicit      178.2 ns     174.3 ns     179.4 ns
+P5.1                                           drop    enc-tt roe           183.4 ns     181.9 ns     185.3 ns
+P5.1                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P5.1                                           retain  dec-rd explicit      140.2 ns     139.2 ns     145.0 ns
+P5.1                                           retain  dec-rd roe           141.5 ns     138.0 ns     144.6 ns
+P5.1                                           retain  enc-rb explicit       33.3 ns      32.7 ns      34.8 ns
+P5.1                                           retain  enc-rb roe            33.2 ns      32.4 ns      34.0 ns
+P5.1                                           retain  enc-tt explicit      180.7 ns     178.6 ns     187.1 ns
+P5.1                                           retain  enc-tt roe           186.8 ns     183.6 ns     194.3 ns
+P5.1                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P5.2                                           drop    dec-rd explicit       1.95 us      1.91 us      2.05 us
+P5.2                                           drop    dec-rd roe            1.96 us      1.93 us      2.04 us
+P5.2                                           drop    enc-rb explicit       1.86 us      1.82 us      1.89 us
+P5.2                                           drop    enc-rb roe            1.84 us      1.80 us      1.91 us
+P5.2                                           drop    enc-tt explicit       2.01 us      1.98 us      2.07 us
+P5.2                                           drop    enc-tt roe            2.02 us      1.98 us      2.07 us
+P5.2                                           drop    ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P5.2                                           retain  dec-rd explicit       1.99 us      1.94 us      2.04 us
+P5.2                                           retain  dec-rd roe            1.97 us      1.95 us      2.02 us
+P5.2                                           retain  enc-rb explicit       1.80 us      1.76 us      1.86 us
+P5.2                                           retain  enc-rb roe            1.82 us      1.80 us      1.90 us
+P5.2                                           retain  enc-tt explicit       1.97 us      1.94 us      2.13 us
+P5.2                                           retain  enc-tt roe            1.97 us      1.94 us      2.03 us
+P5.2                                           retain  ak_enc_reset           5.4 ns       5.2 ns       5.5 ns
+P5.3                                           drop    dec-rd explicit      44.59 us     43.81 us     45.83 us
+P5.3                                           drop    dec-rd roe           44.01 us     43.44 us     45.17 us
+P5.3                                           drop    enc-rb explicit      41.27 us     40.67 us     43.41 us
+P5.3                                           drop    enc-rb roe           41.41 us     40.93 us     43.49 us
+P5.3                                           drop    enc-tt explicit      56.90 us     55.87 us     60.46 us
+P5.3                                           drop    enc-tt roe           57.00 us     56.14 us     61.84 us
+P5.3                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.3 ns
+P5.3                                           retain  dec-rd explicit      43.95 us     43.18 us     46.52 us
+P5.3                                           retain  dec-rd roe           43.97 us     42.68 us     44.63 us
+P5.3                                           retain  enc-rb explicit      41.83 us     40.51 us     42.87 us
+P5.3                                           retain  enc-rb roe           38.84 us     38.18 us     41.36 us
+P5.3                                           retain  enc-tt explicit      55.63 us     55.09 us     58.33 us
+P5.3                                           retain  enc-tt roe           55.58 us     54.67 us     59.81 us
+P5.3                                           retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P5.4                                           drop    dec-rd explicit     348.11 us    334.47 us    357.36 us
+P5.4                                           drop    dec-rd roe          338.17 us    323.78 us    349.02 us
+P5.4                                           drop    enc-rb explicit     338.78 us    328.36 us    353.97 us
+P5.4                                           drop    enc-rb roe          336.92 us    323.41 us    350.15 us
+P5.4                                           drop    enc-tt explicit     342.29 us    326.98 us    352.90 us
+P5.4                                           drop    enc-tt roe          337.57 us    327.64 us    353.12 us
+P5.4                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P5.4                                           retain  dec-rd explicit     342.51 us    332.82 us    359.45 us
+P5.4                                           retain  dec-rd roe          332.11 us    324.15 us    353.46 us
+P5.4                                           retain  enc-rb explicit     334.06 us    325.22 us    343.22 us
+P5.4                                           retain  enc-rb roe          328.39 us    322.37 us    341.70 us
+P5.4                                           retain  enc-tt explicit     335.37 us    327.82 us    343.46 us
+P5.4                                           retain  enc-tt roe          334.62 us    327.83 us    348.05 us
+P5.4                                           retain  ak_enc_reset           5.4 ns       5.3 ns       5.5 ns
+P6.1                                           drop    dec-rd explicit     198.74 us    194.69 us    212.71 us
+P6.1                                           drop    dec-rd roe          196.96 us    193.41 us    210.09 us
+P6.1                                           drop    enc-rb explicit      61.72 us     60.40 us     64.73 us
+P6.1                                           drop    enc-rb roe           61.03 us     60.01 us     64.69 us
+P6.1                                           drop    enc-tt explicit      62.49 us     60.61 us     64.09 us
+P6.1                                           drop    enc-tt roe           62.96 us     61.38 us     66.50 us
+P6.1                                           drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+P6.1                                           retain  dec-rd explicit     208.77 us    206.22 us    227.64 us
+P6.1                                           retain  dec-rd roe          195.94 us    193.76 us    202.10 us
+P6.1                                           retain  enc-rb explicit      61.28 us     60.35 us     62.18 us
+P6.1                                           retain  enc-rb roe           61.55 us     60.41 us     63.22 us
+P6.1                                           retain  enc-tt explicit      62.49 us     61.40 us     70.56 us
+P6.1                                           retain  enc-tt roe           61.87 us     60.92 us     64.73 us
+P6.1                                           retain  ak_enc_reset           5.3 ns       5.3 ns       5.8 ns
+P7.1                                           drop    dec-rd explicit      434.7 ns     426.2 ns     465.4 ns
+P7.1                                           drop    dec-rd roe           428.3 ns     423.1 ns     441.1 ns
+P7.1                                           drop    ak_enc_reset           5.4 ns       5.3 ns       5.6 ns
+P7.1                                           retain  dec-rd explicit      441.4 ns     433.0 ns     454.8 ns
+P7.1                                           retain  dec-rd roe           440.1 ns     433.8 ns     461.9 ns
+P7.1                                           retain  ak_enc_reset           5.3 ns       5.3 ns       5.4 ns
+U-deep-u-repeated                              drop    dec-rd explicit       2.43 us      2.38 us      2.58 us
+U-deep-u-repeated                              drop    dec-rd roe            2.45 us      2.38 us      2.52 us
+U-deep-u-repeated                              drop    enc-rb explicit      431.8 ns     424.1 ns     446.4 ns
+U-deep-u-repeated                              drop    enc-rb roe           431.7 ns     425.9 ns     441.7 ns
+U-deep-u-repeated                              drop    enc-tt explicit      593.7 ns     581.9 ns     610.1 ns
+U-deep-u-repeated                              drop    enc-tt roe           577.1 ns     571.3 ns     592.5 ns
+U-deep-u-repeated                              drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+U-deep-u-repeated                              retain  dec-rd explicit       2.63 us      2.59 us      2.70 us
+U-deep-u-repeated                              retain  dec-rd roe            2.62 us      2.58 us      2.78 us
+U-deep-u-repeated                              retain  enc-rb explicit      459.9 ns     451.1 ns     485.9 ns
+U-deep-u-repeated                              retain  enc-rb roe           464.2 ns     458.4 ns     493.1 ns
+U-deep-u-repeated                              retain  enc-tt explicit      614.4 ns     606.7 ns     644.8 ns
+U-deep-u-repeated                              retain  enc-tt roe           605.4 ns     597.9 ns     629.9 ns
+U-deep-u-repeated                              retain  ak_enc_reset           5.3 ns       5.3 ns       5.4 ns
+U-nested-before                                drop    dec-rd explicit      395.3 ns     379.8 ns     411.3 ns
+U-nested-before                                drop    dec-rd roe           389.0 ns     379.5 ns     404.2 ns
+U-nested-before                                drop    enc-rb explicit       82.3 ns      81.3 ns      85.1 ns
+U-nested-before                                drop    enc-rb roe            84.4 ns      82.7 ns      87.1 ns
+U-nested-before                                drop    enc-tt explicit      224.9 ns     219.9 ns     229.5 ns
+U-nested-before                                drop    enc-tt roe           232.9 ns     227.9 ns     248.1 ns
+U-nested-before                                drop    ak_enc_reset           5.5 ns       5.3 ns       5.6 ns
+U-nested-before                                retain  dec-rd explicit      559.5 ns     550.0 ns     576.8 ns
+U-nested-before                                retain  dec-rd roe           547.5 ns     539.9 ns     567.8 ns
+U-nested-before                                retain  enc-rb explicit       90.7 ns      90.3 ns      92.5 ns
+U-nested-before                                retain  enc-rb roe            88.2 ns      86.7 ns      95.4 ns
+U-nested-before                                retain  enc-tt explicit      226.0 ns     223.6 ns     232.5 ns
+U-nested-before                                retain  enc-tt roe           235.9 ns     234.2 ns     245.7 ns
+U-nested-before                                retain  ak_enc_reset           5.4 ns       5.3 ns       5.5 ns
+U-oneof-u-repeated                             drop    dec-rd explicit      159.3 ns     157.7 ns     166.8 ns
+U-oneof-u-repeated                             drop    dec-rd roe           159.9 ns     158.2 ns     165.3 ns
+U-oneof-u-repeated                             drop    enc-rb explicit       45.5 ns      44.9 ns      46.7 ns
+U-oneof-u-repeated                             drop    enc-rb roe            53.8 ns      52.5 ns      55.4 ns
+U-oneof-u-repeated                             drop    enc-tt explicit      192.0 ns     190.1 ns     199.1 ns
+U-oneof-u-repeated                             drop    enc-tt roe           201.5 ns     199.3 ns     205.5 ns
+U-oneof-u-repeated                             drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+U-oneof-u-repeated                             retain  dec-rd explicit      210.3 ns     207.4 ns     221.5 ns
+U-oneof-u-repeated                             retain  dec-rd roe           210.5 ns     209.0 ns     216.3 ns
+U-oneof-u-repeated                             retain  enc-rb explicit       49.2 ns      47.8 ns      50.0 ns
+U-oneof-u-repeated                             retain  enc-rb roe            57.1 ns      56.2 ns      59.0 ns
+U-oneof-u-repeated                             retain  enc-tt explicit      192.5 ns     191.0 ns     197.2 ns
+U-oneof-u-repeated                             retain  enc-tt roe           203.6 ns     200.2 ns     207.7 ns
+U-oneof-u-repeated                             retain  ak_enc_reset           5.4 ns       5.2 ns       5.5 ns
+U-wire-DualResponse-left-as-wt5                drop    dec-rd explicit      284.4 ns     282.1 ns     285.9 ns
+U-wire-DualResponse-left-as-wt5                drop    dec-rd roe           285.0 ns     282.1 ns     287.4 ns
+U-wire-DualResponse-left-as-wt5                drop    enc-rb explicit       74.5 ns      74.3 ns      75.3 ns
+U-wire-DualResponse-left-as-wt5                drop    enc-rb roe            81.6 ns      81.4 ns      82.2 ns
+U-wire-DualResponse-left-as-wt5                drop    enc-tt explicit      208.7 ns     206.6 ns     210.0 ns
+U-wire-DualResponse-left-as-wt5                drop    enc-tt roe           228.7 ns     227.5 ns     231.3 ns
+U-wire-DualResponse-left-as-wt5                drop    ak_enc_reset           5.2 ns       5.2 ns       5.3 ns
+U-wire-DualResponse-left-as-wt5                retain  dec-rd explicit      330.0 ns     328.0 ns     332.9 ns
+U-wire-DualResponse-left-as-wt5                retain  dec-rd roe           321.3 ns     319.5 ns     328.8 ns
+U-wire-DualResponse-left-as-wt5                retain  enc-rb explicit       84.3 ns      83.3 ns      84.7 ns
+U-wire-DualResponse-left-as-wt5                retain  enc-rb roe            84.8 ns      84.0 ns      85.4 ns
+U-wire-DualResponse-left-as-wt5                retain  enc-tt explicit      212.7 ns     209.9 ns     213.9 ns
+U-wire-DualResponse-left-as-wt5                retain  enc-tt roe           230.3 ns     229.0 ns     231.8 ns
+U-wire-DualResponse-left-as-wt5                retain  ak_enc_reset           5.2 ns       5.2 ns       5.3 ns
+U-wire-ListMetricsResponse-batches-as-wt0      drop    dec-rd explicit       1.60 us      1.58 us      1.63 us
+U-wire-ListMetricsResponse-batches-as-wt0      drop    dec-rd roe            1.56 us      1.53 us      1.62 us
+U-wire-ListMetricsResponse-batches-as-wt0      drop    enc-rb explicit      599.2 ns     595.1 ns     621.1 ns
+U-wire-ListMetricsResponse-batches-as-wt0      drop    enc-rb roe           595.6 ns     575.9 ns     624.3 ns
+U-wire-ListMetricsResponse-batches-as-wt0      drop    enc-tt explicit      743.4 ns     734.9 ns     776.5 ns
+U-wire-ListMetricsResponse-batches-as-wt0      drop    enc-tt roe           737.0 ns     731.2 ns     761.1 ns
+U-wire-ListMetricsResponse-batches-as-wt0      drop    ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+U-wire-ListMetricsResponse-batches-as-wt0      retain  dec-rd explicit       1.71 us      1.67 us      1.73 us
+U-wire-ListMetricsResponse-batches-as-wt0      retain  dec-rd roe            1.64 us      1.61 us      1.68 us
+U-wire-ListMetricsResponse-batches-as-wt0      retain  enc-rb explicit      610.6 ns     601.1 ns     640.2 ns
+U-wire-ListMetricsResponse-batches-as-wt0      retain  enc-rb roe           588.5 ns     579.5 ns     611.8 ns
+U-wire-ListMetricsResponse-batches-as-wt0      retain  enc-tt explicit      749.3 ns     736.2 ns     776.7 ns
+U-wire-ListMetricsResponse-batches-as-wt0      retain  enc-tt roe           759.4 ns     744.4 ns     769.4 ns
+U-wire-ListMetricsResponse-batches-as-wt0      retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    dec-rd explicit       2.27 us      2.25 us      2.36 us
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    dec-rd roe            2.33 us      2.28 us      2.40 us
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    enc-rb explicit      399.5 ns     392.0 ns     415.3 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    enc-rb roe           398.8 ns     394.6 ns     412.2 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    enc-tt explicit      550.1 ns     541.1 ns     573.0 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    enc-tt roe           549.6 ns     535.8 ns     572.2 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    drop    ak_enc_reset           5.3 ns       5.3 ns       5.4 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  dec-rd explicit       2.41 us      2.37 us      2.52 us
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  dec-rd roe            2.40 us      2.36 us      2.45 us
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  enc-rb explicit      415.5 ns     406.1 ns     436.0 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  enc-rb roe           410.6 ns     402.6 ns     446.1 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  enc-tt explicit      560.6 ns     549.8 ns     633.1 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  enc-tt roe           560.7 ns     545.8 ns     608.0 ns
+U-wire-ListTaskSummaryResponse-tasks-as-wt5    retain  ak_enc_reset           5.4 ns       5.2 ns       5.5 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    dec-rd explicit      139.7 ns     138.3 ns     141.2 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    dec-rd roe           140.9 ns     138.4 ns     145.1 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    enc-rb explicit       32.4 ns      31.6 ns      33.3 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    enc-rb roe            30.4 ns      29.6 ns      31.4 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    enc-tt explicit      174.2 ns     172.4 ns     178.4 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    enc-tt roe           175.5 ns     172.6 ns     184.1 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   drop    ak_enc_reset           5.4 ns       5.3 ns       5.5 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  dec-rd explicit      180.6 ns     179.3 ns     187.8 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  dec-rd roe           182.5 ns     180.8 ns     184.1 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  enc-rb explicit       36.2 ns      35.6 ns      37.4 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  enc-rb roe            35.4 ns      35.0 ns      36.0 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  enc-tt explicit      175.8 ns     174.4 ns     182.6 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  enc-tt roe           177.6 ns     174.5 ns     181.2 ns
+U-wire-UploadResultDataMessage-upload-as-wt5   retain  ak_enc_reset           5.3 ns       5.2 ns       5.4 ns
+[ListResultsResponse]                          retain  ak_dec_reset (opts)       8.6 ns       8.1 ns       8.7 ns
+[ListTasksDetailedResponse]                    retain  ak_dec_reset (opts)      33.0 ns      32.7 ns      33.5 ns
+[ListProbeResponse]                            retain  ak_dec_reset (opts)       6.4 ns       6.3 ns       6.4 ns
+[ListTaskSummaryResponse]                      retain  ak_dec_reset (opts)      10.4 ns      10.3 ns      10.7 ns
+[UploadResultDataMessage]                      retain  ak_dec_reset (opts)       5.4 ns       5.3 ns       5.6 ns
+[ListMetricsResponse]                          retain  ak_dec_reset (opts)       5.8 ns       5.7 ns       5.8 ns
+[DualResponse]                                 retain  ak_dec_reset (opts)       6.6 ns       6.5 ns       6.7 ns

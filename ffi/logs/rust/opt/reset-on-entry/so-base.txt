@@ -1,0 +1,5 @@
+# libak_core.so sha256, ffi/poc/codec at b9adfaf7 (before reset-on-entry), rustc 1.94.1, cargo build --release -p ak-core in ffi/poc/codec, CARGO_TARGET_DIR=ffi/poc/rust/target-roe-so/<set>; sets: full = --features rpc,init-guard; nounk = --no-default-features --features rpc,init-guard; corpus = --features corpus,init-guard; count = --features count,rpc,init-guard. A rebuild after touching lib.rs reproduced the full set's hash.
+base full 7b8ed0b888940ab7e9f41cf6b011036af020f596e294d111dc8df1361c4c81a4
+base nounk 17dbc6ebe8b3173631ee4f0f563cae077f531e5f075749adb4834304386729ad
+base corpus 44c28bac239c673c26f7ec7d0913e8977510d4c79f806245fc3b0d12f44311f8
+base count 2f20b778615381794f2db0a36d888c1563bf947226c0d6144e4b9e2e0f4f398e

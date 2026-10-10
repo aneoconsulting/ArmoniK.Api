@@ -1,0 +1,137 @@
+
+===== 0. configuration =====
+rustc 1.94.1 (e408947bf 2026-03-25)
+commit b9adfaf7 + uncommitted changes in poc/rust or poc/codec; base b9adfaf7
+4
+ 16:30:16 up  7:12,  0 user,  load average: 0.61, 1.24, 1.52
+
+===== 1. generators current =====
+  this slice: current (27 files)
+  the core: current
+  the C# slice's generated output: current (cs_host.py's option off = its committed text)
+
+===== 2. the default build unchanged =====
+  libak_core.so (full): byte-identical to the base (7b8ed0b888940ab7)
+  libak_core.so (nounk): byte-identical to the base (17dbc6ebe8b31736)
+  libak_core.so (corpus): byte-identical to the base (44c28bac239c673c)
+  libak_core.so (count): byte-identical to the base (2f20b77861538179)
+  ffi/poc/rust/crates/harness/src/generated/binding.rs: identical to b9adfaf7
+  ffi/poc/rust/crates/harness/src/generated/binding_nounk.rs: identical to b9adfaf7
+  ffi/poc/rust/corpus/crates/harness/src/generated/binding.rs: identical to b9adfaf7
+  ffi/poc/rust/corpus/crates/harness/src/generated/binding_nounk.rs: identical to b9adfaf7
+  ffi/poc/rust/crates/campaign/src/generated/roots.rs: identical to b9adfaf7
+  ffi/poc/rust/corpus/crates/harness/src/generated/dispatch.rs: identical to b9adfaf7
+  ffi/poc/csharp/src: identical to b9adfaf7
+  default crossing counts: identical to gen/crossings.txt (1324 lines)
+  default crossing counts (no-unknown): identical to gen/crossings-nounk.txt (685 lines)
+
+===== 3. core and runtime unit tests with reset-on-entry (debug build) =====
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+===== 4. variant: the FSM differential, full and no-unknown =====
+  target-roe: loads /home/user/ArmoniK.Api/ffi/poc/rust/target-roe/release/deps/libak_core.so (1 reset-on-entry marker)
+  # 44302 checks, 0 failures
+  FSM DIFFERENTIAL PASSED
+  target-roe-nounk: loads /home/user/ArmoniK.Api/ffi/poc/rust/target-roe-nounk/release/deps/libak_core.so (1 reset-on-entry marker)
+  # 22172 checks, 0 failures
+  FSM DIFFERENTIAL PASSED
+
+===== 5. variant: the codec suite's pre-check (full grid), both builds =====
+  target-roe: # precheck: 6196 checks, 0 failures, 114 inputs, 5572 cases
+  target-roe: PRECHECK PASSED: 6196 checks, 114 inputs, 5572 cases; incumbent refusals on U-* rows (not timed): 54
+  target-roe-nounk: # precheck: 3485 checks, 0 failures, 114 inputs, 3304 cases
+  target-roe-nounk: PRECHECK PASSED: 3485 checks, 114 inputs, 3304 cases; incumbent refusals on U-* rows (not timed): 54
+
+===== 6. variant: byte identity and the shape vectors =====
+  conformance: VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+  shapes: VERDICT: every shape above is exercised and every arm agrees.
+
+===== 7. roe_check: default and variant, both builds =====
+  target: # reset-on-entry checks, build DEFAULT (explicit resets) full (drop, retain)
+  target: # ABANDON: 310 abandoned decodes followed by fresh fsm, push and pull decodes; 14 (input, mode) pairs with a single event (nothing to abandon)
+  target: # ERR: 684 failed decodes (input less its last byte, three families)
+  target: # ENC: 226 encodes read after the call
+  target: # 1448 checks, 0 failures
+  target-nounk: # reset-on-entry checks, build DEFAULT (explicit resets) no-unknown
+  target-nounk: # ABANDON: 155 abandoned decodes followed by fresh fsm, push and pull decodes; 7 (input, mode) pairs with a single event (nothing to abandon)
+  target-nounk: # ERR: 342 failed decodes (input less its last byte, three families)
+  target-nounk: # ENC: 113 encodes read after the call
+  target-nounk: # 724 checks, 0 failures
+  target-roe: # reset-on-entry checks, build VARIANT (reset-on-entry core and binding) full (drop, retain)
+  target-roe: # ABANDON: 310 abandoned decodes followed by fresh fsm, push and pull decodes; 14 (input, mode) pairs with a single event (nothing to abandon)
+  target-roe: # ERR: 684 failed decodes (input less its last byte, three families)
+  target-roe: # ENC: 226 encodes read after the call
+  target-roe: # HOSTERR: 264 decodes failed by the host (inputs with an unknown field, three families)
+  target-roe: # REARM: 114 inputs, 12780 comparisons (5 per family and position), 288 (input, family, position) cases where zeroing the position changes the value
+  target-roe: # REARM control (core re-arm off on the context): failed as required on 88 of 88 inputs where a position matters
+  target-roe: # 1914 checks, 0 failures
+  target-roe-nounk: # reset-on-entry checks, build VARIANT (reset-on-entry core and binding) no-unknown
+  target-roe-nounk: # ABANDON: 155 abandoned decodes followed by fresh fsm, push and pull decodes; 7 (input, mode) pairs with a single event (nothing to abandon)
+  target-roe-nounk: # ERR: 342 failed decodes (input less its last byte, three families)
+  target-roe-nounk: # ENC: 113 encodes read after the call
+  target-roe-nounk: # 724 checks, 0 failures
+  target vs target-roe: the 1220 ABANDON / ERR / ENC lines identical (today's behaviour = the variant's)
+  target-nounk vs target-roe-nounk: the 610 ABANDON / ERR / ENC lines identical (today's behaviour = the variant's)
+
+===== 8. variant corpus: six arms, the FSM corpus differential, decision 11's controls =====
+  variant core: /home/user/ArmoniK.Api/ffi/poc/rust/target-corpus-roe/release/deps/libak_core.so (1 marker)
+  ## ffi-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  ## ffi-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  ## ffi-push-drop
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  ## ffi-push-retain
+     pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  ## native-drop
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+  ## native-retain
+     pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+  CORPUS PASSES on all 6 arms
+  no-unknown: ## ffi-nounk
+  no-unknown:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  no-unknown: ## ffi-push-nounk
+  no-unknown:    pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+  no-unknown: ## native-nounk
+  no-unknown:    pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+  no-unknown: CORPUS PASSES on all 3 arms
+  # API checks: 174 checks, 0 failures
+  # 2632 checks, 0 failures
+  FSM CORPUS DIFFERENTIAL PASSED
+  no-unknown: # API checks: 174 checks, 0 failures
+  no-unknown: # 1403 checks, 0 failures
+  no-unknown: FSM CORPUS DIFFERENTIAL PASSED
+  rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing); rows with map-entry bytes 1
+  discard mismatches: 0 row(s); pull != push: 0 row(s)
+    placement: pool n=2, grow           elements 0,1 in the pool's buffers, element 2 from grow; grow calls 1 (fresh 1); host entries cleared: true; bags exact: true  PASS
+    placement: pool n=2, no grow        rc -7 (AK_ERR_CAPACITY when the pool is exhausted and there is no grow); host entries cleared: true  PASS
+    placement: in-place refill          rc 0; 3 elements, each in the buffer the host wrote into its struct in new_tasks (refills 2), bags exact  PASS
+    placement: no refill (control)      rc -7 (without the refill: AK_ERR_CAPACITY at the second element)  PASS
+    placement: oneof stamp -> nothing   final member's bag Some([160, 6, 2]) (want its own run only); fresh buffers 1  PASS
+    placement: oneof stamp -> nothing -> stamp final member's bag Some([160, 6, 3]) (want its own run only); fresh buffers 1  PASS
+    placement: oneof stamp -> int       body Some(AsInt(7)), bags delivered 0 bytes; buffers grown 1 (fresh), reclaimed from the inactive slot 1, live after 0  PASS
+    placement: wrong root (refused)     decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root still decodes: true  PASS
+    placement: refused parse keeps A    parse A rc 0, 480 record bytes (footprint 480); parse B on A's context rc -8; after: 480 record bytes (footprint 480), identical: true  PASS
+    placement: decided at entry (roe)   reset-on-entry VARIANT: reset with all-zero options rc 0; root entry refilled after the reset; decode rc 0, root bag 3 bytes (the variant decides at the DECODE ENTRY: want rc 0 and the bag, 3 bytes); twin armed at reset: bag 3 bytes (want 3)  PASS
+  decision 11 controls: the variant's output identical to the default build's but for the one case below (320 lines: discard per position, pull == push, placement cases)
+  default: placement: decided at arm time      reset with all-zero options rc 0; root entry refilled after the reset; decode rc 0, root bag 0 bytes (want rc 0 and no bag); twin armed at reset: bag 3 bytes (want 3)  PASS
+  variant: placement: decided at entry (roe)   reset-on-entry VARIANT: reset with all-zero options rc 0; root entry refilled after the reset; decode rc 0, root bag 3 bytes (the variant decides at the DECODE ENTRY: want rc 0 and the bag, 3 bytes); twin armed at reset: bag 3 bytes (want 3)  PASS
+  control unk-plant (bags not cleared): failed as required: discard mismatches: 307 row(s); pull != push: 0 row(s)   [PLANTED: clearing skipped]
+
+===== 9. variant crossing counts =====
+  identical to gen/crossings-roe.txt (1325 lines)
+  no-unknown: identical to gen/crossings-roe-nounk.txt (686 lines)
+  crossings: rows 1306; (row kind, direction, mode, delta forward/reverse/resets): rows, example (default -> variant)
+  crossings: rows where variant forward = default forward - default resets, reverse equal, variant resets 0: 1306 of 1306
+  crossings: rows with a default reset (so changed): 754; unchanged rows: 552
+  crossings-nounk: rows 667; (row kind, direction, mode, delta forward/reverse/resets): rows, example (default -> variant)
+  crossings-nounk: rows where variant forward = default forward - default resets, reverse equal, variant resets 0: 667 of 667
+  crossings-nounk: rows with a default reset (so changed): 143; unchanged rows: 524
+
+===== 10. variant RPC: uploads and section 9's semantics =====
+  the upload byte check passes on every cell (variant)
+  the RPC semantics cases pass (variant): 72 cases
+
+ROE CHECKS PASSED

@@ -8,8 +8,17 @@ pub mod arms_rest;
 pub mod pull;
 pub mod generated {
     /// WP5 step 10: without `unknown-fields`, the no-unknown variant's binding.
-    #[cfg_attr(not(feature = "unknown-fields"), path = "binding_nounk.rs")]
+    /// reset-on-entry (measurement experiment): the binding rendered for that core.
+    #[cfg_attr(all(not(feature = "reset-on-entry"), not(feature = "unknown-fields")), path = "binding_nounk.rs")]
+    #[cfg_attr(all(feature = "reset-on-entry", feature = "unknown-fields"), path = "binding_roe.rs")]
+    #[cfg_attr(all(feature = "reset-on-entry", not(feature = "unknown-fields")), path = "binding_roe_nounk.rs")]
     pub mod binding;
+    /// reset-on-entry: the default binding (explicit resets) beside it, on the same core,
+    /// for the in-process comparison (`ak_measure_*_set_roe(ctx, 0)` on its contexts).
+    #[cfg(feature = "reset-on-entry")]
+    #[cfg_attr(feature = "unknown-fields", path = "binding.rs")]
+    #[cfg_attr(not(feature = "unknown-fields"), path = "binding_nounk.rs")]
+    pub mod binding_explicit;
 }
 
 /// The host links the codec, so it knows the symbol (ABI v1 section 6), and a missing one

@@ -27,6 +27,10 @@ unknown-fields = ["ak-core/unknown-fields", "ak-abi/unknown-fields", "facade/unk
 guard = []
 # README R5: the counting build.
 count = ["ak-rt/count", "ak-core/count"]
+# reset-on-entry (owner, 2026-10-10; measurement experiment): the core's `reset-on-entry`
+# feature and the binding rendered for it (`src/generated/binding_roe*.rs`); the default
+# binding is also compiled, as `binding_explicit`, for the in-process comparison.
+reset-on-entry = ["ak-core/reset-on-entry"]
 # ABI v1 open decision 3 (third framing): the decode side's UTF-8 policy.
 # Default = lossy. These two make decode validate and REJECT.
 dec-reject = ["ak-rt/dec-reject"]

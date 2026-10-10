@@ -4602,3 +4602,32 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
 - Floor: this slice's target directories removed (about 9 GB), then `RUSTUP_TOOLCHAIN=1.88.0
   bash gen/gate.sh` at c7b3392f with no uncommitted change in poc/rust or poc/codec: GATE PASSED
   (`gate-floor-1.88.log`; the six plants caught again, crossing counts identical, corpus 6 / 3 arms).
+
+## 2026-10-10: reset-on-entry (owner): a measurement experiment, core feature default OFF
+
+- Core: the encode entries reset on entry, the decode entries (push, pull, FSM begin) re-arm from
+  the stored options pointer. First placement put the macros at the top of lib.rs and the `roe`
+  fields on lines of their own: that would shift every later line of lib.rs (panic locations in
+  the .so), so everything moved to the end of lib.rs (`#[macro_export]` macros) or onto existing
+  lines. The default .so then measured byte-identical in four feature sets (rebuild after a touch
+  reproduced the hash first, so the comparison means something).
+- Re-arm calls `unk_arm` with the layout (`UNK_LAYOUT_*`, `pub(crate)` for the FSM's module), not
+  `ak_dec_reset_<Root>`, so the init and root checks are not repeated on entry.
+- A per-context switch (`ak_measure_*_set_roe`) exists so the explicit path and the variant run
+  in one process on one core (the measurement's requirement); the explicit path pays one branch.
+- Bindings: variant rendering arms once (the binding's existing `armed` flag) and never calls
+  `ak_enc_reset`; the default binding's text is untouched. The C# option renders the same two
+  changes (ArmFor resets only on a pointer change); not compiled here.
+- Checks found ONE difference by definition: unkctl's "decided at arm time" (R-H20) fails on the
+  variant, because the decision moves from the reset to the decode entry (a refill after the
+  reset is seen). Not a defect of the build: the variant's definition. The case now states the
+  variant's expectation under the feature; reported for the aggregating session.
+- The first ERR check read `ak_dec_err` after malformed inputs: 0 in both builds, because codec
+  errors are returned, not put on the slot. A HOSTERR case was added (a grow that calls
+  `ak_fail`) so the slot actually carries something; it reads -4242 after the call and after other
+  operations, 0 after the next decode, the same with the core's re-arm off.
+- REARM's control (re-arm off) fails on 88 of 88 inputs where a position matters: the check bites.
+- Counts: every row's forward falls by exactly its default resets (754 / 143 rows), reverse
+  unchanged.
+- Timing: the reset calls cost 5-6 ns (encode) and 5-33 ns (decode, by root); the encode and
+  decode-read rows differ both ways outside the launch ranges on a few rows; not attributed.

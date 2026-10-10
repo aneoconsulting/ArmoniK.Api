@@ -189,6 +189,8 @@ fn main() {
     println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");
     println!("# The counts do not depend on the h2 variant (stock or h2-batch): h2 is inside the core, below every counted entry point.");
     println!("# B-cb, C-cb, E-cb (and Bf-cb, Cf-cb, Ef-cb): the callback cells (CAMPAIGN req 16 as amended, Rust's reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb + ak_call_destroy + ak_bytes_free, one reverse (the completion); d: ak_call_send_cb / _enc_cb per chunk and ak_call_recv_cb, one reverse per completion.");
+    #[cfg(feature = "reset-on-entry")]
+    println!("# reset-on-entry VARIANT (measurement experiment): the core resets each context on entry and the binding calls no ak_enc_reset and no ak_dec_reset_<Root> while the context is armed with its options (counted warm: the warm call armed it), so the resets column is 0.");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

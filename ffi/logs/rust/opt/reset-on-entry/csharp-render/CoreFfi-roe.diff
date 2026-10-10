@@ -1,0 +1,311 @@
+# cs_host.emit_host(p, ...) default vs reset_on_entry=True (the shapes plan, harness namespace). The default render is byte-identical to ffi/poc/csharp/src/Harness/Generated/CoreFfi.cs and gen/generate.py --check passes (every C# output unchanged). Rendered only: not compiled here.
+--- /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/cs-roe/CoreFfi.default.cs	2026-10-10 16:16:48.155538812 +0000
++++ /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/cs-roe/CoreFfi.roe.cs	2026-10-10 16:16:48.159538813 +0000
+@@ -1643,7 +1643,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_ListResultsResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -1719,6 +1719,7 @@
+         public UnkArena* Arena;
+         public ak_dec_ListResultsResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public ListResultsResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -1819,12 +1820,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_ListResultsResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -2722,7 +2734,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_ListTasksDetailedResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -2886,6 +2898,7 @@
+         public UnkArena* Arena;
+         public ak_dec_ListTasksDetailedResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public ListTasksDetailedResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -3082,12 +3095,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -3866,7 +3890,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_ListProbeResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -3942,6 +3966,7 @@
+         public UnkArena* Arena;
+         public ak_dec_ListProbeResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public ListProbeResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -4041,12 +4066,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_ListProbeResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -4669,7 +4705,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_ListTaskSummaryResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -4761,6 +4797,7 @@
+         public UnkArena* Arena;
+         public ak_dec_ListTaskSummaryResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public ListTaskSummaryResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -4881,12 +4918,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -5419,7 +5467,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_UploadResultDataMessage* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -5488,6 +5536,7 @@
+         public UnkArena* Arena;
+         public ak_dec_UploadResultDataMessage_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public UploadResultDataMessage Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -5570,12 +5619,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -6162,7 +6222,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_ListMetricsResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -6329,6 +6389,7 @@
+         public UnkArena* Arena;
+         public ak_dec_ListMetricsResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public ListMetricsResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -6507,12 +6568,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
+@@ -7193,7 +7265,7 @@
+         IntPtr _ctx = __h.Ctx;
+         Stage _st = __h.St;
+         Run_DualResponse* _run = __h.Run;
+-        Abi.ak_enc_reset(_ctx);
++        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset).
+         _st.Reset();
+         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
+         _run->Chunk = Chunk;
+@@ -7281,6 +7353,7 @@
+         public UnkArena* Arena;
+         public ak_dec_DualResponse_opts* Uo;
+         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
++        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)
+         public DualResponse Root;
+         private GCHandle _self;
+         public DecCtx()
+@@ -7396,12 +7469,23 @@
+     private int ArmFor(int mode)
+     {
+         Undelivered = 0;
+-        _resets++;
+         var h = _dh;
+-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_DualResponse(h.Ctx, null); }
++        if (mode == -2)
++        {
++            h.Run->Arena = null;
++            if (!h.CoreArmed) return 0;
++            h.CoreArmed = false;
++            _resets++;
++            return Abi.ak_dec_reset_DualResponse(h.Ctx, null);
++        }
+         h.Arena->Begin();
+         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+-        return Abi.ak_dec_reset_DualResponse(h.Ctx, Arm(mode));
++        var uo = Arm(mode);
++        if (h.CoreArmed) return 0;
++        _resets++;
++        int rr = Abi.ak_dec_reset_DualResponse(h.Ctx, uo);
++        if (rr == 0) h.CoreArmed = true;
++        return rr;
+     }
+ 
+     /// After every decode: a buffer still outstanding (the arena's count) after a success is
