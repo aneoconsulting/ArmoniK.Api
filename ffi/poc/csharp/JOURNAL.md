@@ -2914,3 +2914,32 @@ to re-render the s12 table from its jsonl, checked byte-identical). gen/s10_chec
 (`logs/csharp/opt/d25/checks.log`; codec counts equal to the committed files in both builds),
 and the RPC count files reproduced identical against the server (`d25/rpc-counts.log`). The s12
 logs stay as the record. No timing.
+
+## 84. s13: scalar Rust UTF-16 -> UTF-8 transcoders under E1R (2026-10-09 / 10)
+
+Container instrumentation. Logs `ffi/logs/csharp/opt/s13-tc-scalar/`.
+
+- Core (cb20ae6e, additive, default OFF): `tc-scalar-naive` (the pre-D19 writer) and
+  `tc-scalar-word` (8 / 4 units per u64 ASCII test, then per unit, lone surrogates U+FFFD), in
+  `utf16_to_utf8_into` (ak_tc_utf16 and ak_utf16_to_utf8). Default build byte-identical
+  (7b8ed0b888940ab7). LLVM SLP-vectorised the word writer's 8-unit path into SSE2.
+- Differential (cargo test, release and debug, three builds) and Cases.Verify under E0 / E1R /
+  E1R:128 plus the corpus under E1R per core: passed.
+- Harness defect found before any number was taken: a core copied beside the BDN host never
+  reached the timed children (BDN rebuilds them from the project, which copies target-core's
+  library). Fixed with AK_CORE_LIB (a DllImport resolver; AbiVariant checks the same file) and a
+  per-row record of the mapped core files; checked on a smoke and on every grid cell.
+- JIT: the one-process sweep's E1R is bimodal across processes under the default .NET 8
+  configuration (about 125-150 ns or about 700 ns per 48-unit string, same core); stable with
+  DOTNET_TieredPGO=0 (139-150 ns over three processes), so the sweep ran that way. Bisecting
+  binding commits with today's core: 81a9ddb5 121 ns, 7bbf8f2d 380, 6b31eebc 676 (one process
+  each, default configuration), i.e. the process-to-process variation, not a binding change, is
+  what those figures show; s7's sweep figures were taken in a fast-mode process.
+- Sweep (`sweep/table.md`, ns per string, PGO off, two processes per core): see the table; the
+  word writer is close to simdutf on ASCII up to about 96 units and slower above and on Latin-1 and
+  wide; the naive writer is slower than both on ASCII from 32 units; on astral input the naive
+  writer is the fastest of the three.
+- Grid (`grid/table.md`, us per op, encode-core-hot, drop and retain, default JIT configuration):
+  E1R per core against E0 per core, E1R:128 as a control (E0's path on every row). Two container
+  restarts: the grid was rerun cell by cell with gen/s13_grid.sh (resume at cell granularity,
+  quiet wait per cell, commit per rep), the cut cells kept under grid-INTERRUPTED/.

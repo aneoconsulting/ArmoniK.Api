@@ -121,12 +121,21 @@ run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req
   core's two processes 702 ns, the scalar cores' 122-169 ns); with DOTNET_TieredPGO=0 139-150 ns
   over 3 runs, with DOTNET_TieredCompilation=0 133, DOTNET_TC_QuickJitForLoops=0 119. The sweep
   was therefore run with DOTNET_TieredPGO=0 (`sweep/`). The BDN grid runs with the default
-  configuration (as the campaign); its E1R rows have been stable across reps so far. Not
-  attributed further (perf does not run in this container).
+  configuration (as the campaign). In it, E1R's two per-process medians differ by up to about
+  50 % on some rows (simdutf core: P2.2/latin1 1,205 / 1,819 us, P2.4 drop 1,522 / 1,873 us) where
+  E0's and E1R:128's stay close: consistent with the same per-process JIT effect, not shown to be
+  it. Not attributed further (perf does not run in this container).
 - **Measured:** `sweep/table.md` (ns per string; E0 from the default core's process, E1R per
   core; `reference.md` per process, each with its in-process E0) and `grid/table.md` (us per op,
   encode-core-hot, core-ffi drop and retain, E0 / E1R / E1R:128 per core; `reference.md`).
-  `grid-INTERRUPTED/`: a first grid run cut by a container restart in rep 1, not used.
+  The grid spans two container restarts: the first whole-grid run (opt_ab.sh) was cut in rep 1
+  (`grid-INTERRUPTED/`, not used); the second completed 7 rep-1 cells before the next restart;
+  `gen/s13_grid.sh` then resumed cell by cell (a cell = one variant x one rep, one process with its
+  own quiet wait; complete = rc 0 and 363 jsonl lines; the cut cell moved to
+  grid-INTERRUPTED/ as -cut2; each cell's line in `grid/header.txt` carries the boot time) and
+  committed after each rep. Every cell's rows record the core its child processes mapped
+  (`core_maps`): each the intended core. E1R:128 takes E0's path on every grid row (no grid
+  string reaches 128 units), so its columns do not involve the transcoder.
 
 ## s12 / D25: [SuppressGCTransition] on the FSM's begin / next: tested, then dropped (2026-10-09; JOURNAL 82, 83)
 
