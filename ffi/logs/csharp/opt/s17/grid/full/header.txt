@@ -3,3 +3,10 @@
 # rep 1 lazy-e0 full: rc=0 1034 s; bin src/BenchDotNet/bin-lazy/Release/net8.0; AK_STR_ENC=E0; core b5e67662054d6f83 (AK_CORE_LIB); boot 2026-10-10 09:18:10; quiet: load1 0.48, no process above 10 % (waited 50 s); # build:          full (WP5 step 10; the loaded core checked to be the same variant by its u-family exports); host encode render lazy-nested (s17; every BDN child checked to be the same render)
 # rep 1 eager-e1r128 full: rc=0 1043 s; bin src/BenchDotNet/bin/Release/net8.0; AK_STR_ENC=E1R:128; core b5e67662054d6f83 (AK_CORE_LIB); boot 2026-10-10 09:18:10; quiet: load1 0.47, no process above 10 % (waited 60 s); # build:          full (WP5 step 10; the loaded core checked to be the same variant by its u-family exports); host encode render eager (s17; every BDN child checked to be the same render)
 # rep 1 lazy-e1r128 full: rc=0 1005 s; bin src/BenchDotNet/bin-lazy/Release/net8.0; AK_STR_ENC=E1R:128; core b5e67662054d6f83 (AK_CORE_LIB); boot 2026-10-10 09:18:10; quiet: load1 0.46, no process above 10 % (waited 50 s); # build:          full (WP5 step 10; the loaded core checked to be the same variant by its u-family exports); host encode render lazy-nested (s17; every BDN child checked to be the same render)
+# rep 1 committed 036179a7
+# 2026-10-10T22:15:19Z resume after the grid run was killed (exit 137) during rep 2 lazy-e1r128; boot 2026-10-10 09:18:10; target-core intact (b5e67662054d6f83, as rep 1); no core, cs_host or slice source change since 4807275f; the cut cell is moved to full-INTERRUPTED/ by the runner
+# s17_grid.sh (full) invocation 2026-10-10T22:15:56Z, boot 2026-10-10 09:18:10; 036179a7; client CPUs 0,1; full grid (AK_CAMPAIGN_GRID unset); AK_BDN_DIRS=encode-core-hot,encode-transport AK_BDN_ARMS=core-ffi AK_BDN_ONLY= ; core b5e67662054d6f83 (target-core, AK_CORE_LIB) for every cell; eager = bin/, lazy = bin-lazy/ (/p:AkLazy=true); complete = rc=0 line in header.txt and a jsonl
+# rep 1 eager-e0: complete before this invocation, skipped
+# rep 1 lazy-e0: complete before this invocation, skipped
+# rep 1 eager-e1r128: complete before this invocation, skipped
+# rep 1 lazy-e1r128: complete before this invocation, skipped
