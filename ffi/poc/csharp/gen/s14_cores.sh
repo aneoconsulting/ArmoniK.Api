@@ -17,8 +17,19 @@ build() {  # name features
   ( cd "$SNAP/ffi/poc/codec" && CARGO_TARGET_DIR="$dir" cargo build --release -q -p ak-core --features "$2" 2>"$SCRATCH/cargo.err" ) || { cat "$SCRATCH/cargo.err"; exit 1; }
   echo "#   $1: --features $2 -> $(sha256sum "$dir/release/libak_core.so" | cut -c1-16) ($(nm -D --defined-only "$dir/release/libak_core.so" | grep -c ' T ak_') ak_* exports)"
 }
+tgt() {  # lib getter -> the address the getter returns (its `lea`), whatever symbol objdump labels it with
+  local a; a=$(nm -D --defined-only "$1" | awk -v g="$2" '$3==g{print $1}')
+  objdump -d --no-show-raw-insn --start-address=$((16#$a)) --stop-address=$((16#$a + 8)) "$1" | awk '$2=="lea"{for(i=1;i<=NF;i++) if($i=="#") print $(i+1); exit}'
+}
+fold_check() {  # name getter: the getter must NOT return tc_utf8_trusted's address (the encoder's fast path)
+  local lib="$SLICE/$1/release/libak_core.so" a b
+  a=$(tgt "$lib" "$2"); b=$(tgt "$lib" ak_tc_utf8_trusted)
+  [ -n "$a" ] && [ "$a" != "$b" ] && echo "#   $1: $2 -> $a, ak_tc_utf8_trusted -> $b: distinct (the fast path cannot take it)" || { echo "#   $1: $2 -> $a == ak_tc_utf8_trusted -> $b: FOLDED, the rung would not run"; exit 1; }
+}
 build target-core-mgeneric "rpc,init-guard,tc-measure-generic"
 build target-core-mstub "rpc,init-guard,tc-measure-u16stub"
 build target-core-s14default "rpc,init-guard"
 a=$(sha256sum "$SLICE/target-core-s14default/release/libak_core.so" | cut -c1-64); b=$(sha256sum "$SLICE/target-core/release/libak_core.so" | cut -c1-64)
 [ "$a" = "$b" ] && echo "# default build from this snapshot == target-core (byte-identical: ${a:0:16})" || echo "# default build from this snapshot ${a:0:16} != target-core ${b:0:16} (target-core built from another commit?)"
+fold_check target-core-mgeneric ak_tc_bytes
+fold_check target-core-mstub ak_tc_utf16

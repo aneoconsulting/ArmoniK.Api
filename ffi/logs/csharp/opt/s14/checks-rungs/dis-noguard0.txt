@@ -1,0 +1,1606 @@
+; Assembly listing for method Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:Go(Armonik.Ffi.Facade.UploadResultDataMessage,bool,bool,byref,byref):int:this (Tier0)
+; Emitting BLENDED_CODE for X64 with AVX512 - Unix
+; Tier0 code
+; rbp based frame
+; partially interruptible
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 504
+       vzeroupper 
+       lea      rbp, [rsp+0x220]
+       xor      ebx, ebx
+       mov      qword ptr [rbp-0x1C8], rbx
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqa  xmmword ptr [rbp-0x1C0], xmm8
+       vmovdqa  xmmword ptr [rbp-0x1B0], xmm8
+       mov      rbx, -336
+       vmovdqa  xmmword ptr [rbp+rbx-0x50], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x40], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x30], xmm8
+       add      rbx, 48
+       jne      SHORT  -5 instr
+       mov      gword ptr [rbp-0x30], rdi
+       mov      gword ptr [rbp-0x38], rsi
+       mov      dword ptr [rbp-0x3C], edx
+       mov      dword ptr [rbp-0x40], ecx
+       mov      bword ptr [rbp-0x48], r8
+       mov      bword ptr [rbp-0x50], r9
+ 
+G_M000_IG02:                ;; offset=0x0072
+       lea      rdi, [rbp-0x218]
+       mov      rsi, r10
+       call     CORINFO_HELP_INIT_PINVOKE_FRAME
+       mov      qword ptr [rbp-0x1C8], rax
+       mov      rdi, rsp
+       mov      qword ptr [rbp-0x1F8], rdi
+       mov      rdi, rbp
+       mov      qword ptr [rbp-0x1E8], rdi
+       mov      rdi, bword ptr [rbp-0x48]
+       xor      eax, eax
+       mov      qword ptr [rdi], rax
+       mov      rdi, bword ptr [rbp-0x50]
+       xor      eax, eax
+       mov      dword ptr [rdi], eax
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x18]
+       mov      rax, 0x7F63EB5E2918
+       mov      qword ptr [rbp-0x208], rax
+       lea      rax, G_M000_IG04
+       mov      qword ptr [rbp-0x1F0], rax
+       mov      rax, qword ptr [rbp-0x1C8]
+       lea      rcx, bword ptr [rbp-0x218]
+       mov      qword ptr [rax+0x10], rcx
+       mov      rax, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG03:                ;; offset=0x00F1
+       call     [Armonik.Ffi.Harness.Abi:ak_enc_reset(long)]
+ 
+G_M000_IG04:                ;; offset=0x00F7
+       mov      rcx, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rcx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG05
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG05:                ;; offset=0x0111
+       mov      rdi, qword ptr [rbp-0x1C8]
+       mov      rax, bword ptr [rbp-0x210]
+       mov      qword ptr [rdi+0x10], rax
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, gword ptr [rdi+0x08]
+       cmp      dword ptr [rdi], edi
+       call     [Armonik.Ffi.Harness.Stage:Reset():this]
+       call     [Armonik.Ffi.Harness.Stage:get_Defer():int]
+       mov      dword ptr [rbp-0x54], eax
+       xor      edi, edi
+       mov      qword ptr [rbp-0x60], rdi
+       xor      edi, edi
+       mov      qword ptr [rbp-0x68], rdi
+       cmp      dword ptr [rbp-0x54], 0
+       je       SHORT G_M000_IG06
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, qword ptr [rax+0x128]
+       mov      qword ptr [rbp-0x60], rdi
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rax, qword ptr [rax+0x130]
+       mov      qword ptr [rbp-0x68], rax
+ 
+G_M000_IG06:                ;; offset=0x0178
+       mov      rax, gword ptr [rbp-0x30]
+       mov      rax, qword ptr [rax+0x28]
+       mov      rcx, gword ptr [rbp-0x30]
+       mov      ecx, dword ptr [rcx+0x40]
+       mov      dword ptr [rax], ecx
+       mov      rax, gword ptr [rbp-0x30]
+       mov      rax, qword ptr [rax+0x28]
+       mov      ecx, dword ptr [rbp-0x3C]
+       movzx    rcx, cl
+       test     ecx, ecx
+       setne    cl
+       movzx    rcx, cl
+       mov      dword ptr [rax+0x04], ecx
+       xor      eax, eax
+       mov      qword ptr [rbp-0xA0], rax
+       xor      eax, eax
+       mov      qword ptr [rbp-0xA0], rax
+       mov      rax, qword ptr [rbp-0xA0]
+       mov      qword ptr [rbp-0x70], rax
+       mov      rax, gword ptr [rbp-0x38]
+       mov      rax, gword ptr [rax+0x08]
+       mov      gword ptr [rbp-0x190], rax
+       mov      rax, gword ptr [rbp-0x190]
+       mov      gword ptr [rbp-0x198], rax
+       cmp      gword ptr [rbp-0x190], 0
+       jne      SHORT G_M000_IG07
+       xor      rax, rax
+       mov      gword ptr [rbp-0x1A0], rax
+       jmp      SHORT G_M000_IG08
+ 
+G_M000_IG07:                ;; offset=0x01F1
+       mov      rax, gword ptr [rbp-0x198]
+       mov      rax, gword ptr [rax+0x18]
+       mov      gword ptr [rbp-0x1A0], rax
+ 
+G_M000_IG08:                ;; offset=0x0203
+       mov      rax, gword ptr [rbp-0x1A0]
+       mov      gword ptr [rbp-0x1A8], rax
+       cmp      gword ptr [rbp-0x1A0], 0
+       jne      SHORT G_M000_IG09
+       call     [System.Array:Empty[ubyte]():ubyte[]]
+       mov      gword ptr [rbp-0x1A8], rax
+ 
+G_M000_IG09:                ;; offset=0x0228
+       mov      rdx, gword ptr [rbp-0x1A8]
+       mov      gword ptr [rbp-0x78], rdx
+       mov      edx, dword ptr [rbp-0x3C]
+       movzx    rdx, dl
+       test     edx, edx
+       je       G_M000_IG22
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0x118], zmm0
+       vmovdqu32 zmmword ptr [rbp-0xE0], zmm0
+       mov      rdx, gword ptr [rbp-0x30]
+       mov      rdx, gword ptr [rdx+0x08]
+       lea      rdi, [rbp-0x118]
+       mov      rsi, gword ptr [rbp-0x38]
+       call     [Armonik.Ffi.Harness.G:U_UploadResultDataMessage(byref,Armonik.Ffi.Facade.UploadResultDataMessage,Armonik.Ffi.Harness.Stage)]
+       mov      edi, dword ptr [rbp-0x40]
+       movzx    rdi, dil
+       test     edi, edi
+       jne      SHORT G_M000_IG10
+       xor      edi, edi
+       mov      dword ptr [rbp-0x1BC], edi
+       jmp      G_M000_IG43
+ 
+G_M000_IG10:                ;; offset=0x028A
+       mov      rdi, 0x7F63EB3283F8
+       mov      esi, 193
+       call     CORINFO_HELP_GETSHARED_NONGCSTATIC_BASE
+       mov      rdi, 0x7F63EB3283F8
+       mov      esi, 193
+       call     CORINFO_HELP_GETSHARED_NONGCSTATIC_BASE
+       inc      qword ptr [(reloc 0x7f63eb328708)]
+       cmp      dword ptr [rbp-0x54], 0
+       je       SHORT G_M000_IG12
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, qword ptr [rax+0x128]
+       cmp      rdi, qword ptr [rbp-0x60]
+       jne      SHORT G_M000_IG11
+       xor      edi, edi
+       mov      dword ptr [rbp-0x54], edi
+       jmp      SHORT G_M000_IG12
+ 
+G_M000_IG11:                ;; offset=0x02DD
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       lea      rdi, bword ptr [rax+0x38]
+       mov      rsi, gword ptr [rbp-0x38]
+       call     CORINFO_HELP_ASSIGN_REF
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      r9d, dword ptr [rbp-0x54]
+       mov      dword ptr [rax+0x150], r9d
+ 
+G_M000_IG12:                ;; offset=0x0309
+       cmp      dword ptr [rbp-0x54], 0
+       jne      G_M000_IG19
+       mov      r9, gword ptr [rbp-0x78]
+       mov      gword ptr [rbp-0x128], r9
+       cmp      gword ptr [rbp-0x78], 0
+       je       SHORT G_M000_IG13
+       mov      r9, gword ptr [rbp-0x128]
+       cmp      dword ptr [r9+0x08], 0
+       jne      SHORT G_M000_IG14
+ 
+G_M000_IG13:                ;; offset=0x0333
+       xor      r9d, r9d
+       mov      qword ptr [rbp-0x120], r9
+       jmp      SHORT G_M000_IG15
+ 
+G_M000_IG14:                ;; offset=0x033F
+       mov      r9, gword ptr [rbp-0x128]
+       xor      esi, esi
+       cmp      esi, dword ptr [r9+0x08]
+       jae      G_M000_IG45
+       mov      edi, esi
+       lea      r9, bword ptr [r9+rdi+0x10]
+       mov      qword ptr [rbp-0x1D0], r9
+       mov      r9, qword ptr [rbp-0x1D0]
+       mov      qword ptr [rbp-0x120], r9
+ 
+G_M000_IG15:                ;; offset=0x036E
+       mov      r9, gword ptr [rbp-0x78]
+       mov      r9d, dword ptr [r9+0x08]
+       movsxd   r9, r9d
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       lea      rcx, [rbp-0x118]
+       lea      rdx, [rbp-0x70]
+       mov      r8, qword ptr [rbp-0x120]
+       mov      rax, 0x7F63EB5E35B8
+       mov      qword ptr [rbp-0x208], rax
+       lea      rax, G_M000_IG17
+       mov      qword ptr [rbp-0x1F0], rax
+       mov      rax, qword ptr [rbp-0x1C8]
+       lea      r10, bword ptr [rbp-0x218]
+       mov      qword ptr [rax+0x10], r10
+       mov      rax, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG16:                ;; offset=0x03D7
+       call     [Armonik.Ffi.Harness.Abi:ak_uencode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long]
+ 
+G_M000_IG17:                ;; offset=0x03DD
+       mov      rcx, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rcx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG18
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG18:                ;; offset=0x03F7
+       mov      rdi, qword ptr [rbp-0x1C8]
+       mov      rsi, bword ptr [rbp-0x210]
+       mov      qword ptr [rdi+0x10], rsi
+       mov      qword ptr [rbp-0x80], rax
+       xor      rdi, rdi
+       mov      gword ptr [rbp-0x128], rdi
+       jmp      G_M000_IG35
+ 
+G_M000_IG19:                ;; offset=0x041B
+       cmp      dword ptr [rbp-0x54], 1
+       je       SHORT G_M000_IG20
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       lea      rdx, [rbp-0x70]
+       lea      rcx, [rbp-0x118]
+       mov      r8, gword ptr [rbp-0x38]
+       mov      r9, gword ptr [rbp-0x78]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinH_u(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       mov      qword ptr [rbp-0x1B8], rax
+       jmp      SHORT G_M000_IG21
+ 
+G_M000_IG20:                ;; offset=0x0453
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       lea      rdx, [rbp-0x70]
+       lea      rcx, [rbp-0x118]
+       mov      r8, gword ptr [rbp-0x38]
+       mov      r9, gword ptr [rbp-0x78]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_u(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       mov      qword ptr [rbp-0x1B8], rax
+ 
+G_M000_IG21:                ;; offset=0x0483
+       mov      rdx, qword ptr [rbp-0x1B8]
+       mov      qword ptr [rbp-0x80], rdx
+       jmp      G_M000_IG35
+ 
+G_M000_IG22:                ;; offset=0x0493
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0x180], zmm0
+       vmovdqu  ymmword ptr [rbp-0x148], ymm0
+       mov      rdx, gword ptr [rbp-0x30]
+       mov      rdx, gword ptr [rdx+0x08]
+       lea      rdi, [rbp-0x180]
+       mov      rsi, gword ptr [rbp-0x38]
+       call     [Armonik.Ffi.Harness.G:E_UploadResultDataMessage(byref,Armonik.Ffi.Facade.UploadResultDataMessage,Armonik.Ffi.Harness.Stage)]
+       mov      edi, dword ptr [rbp-0x40]
+       movzx    rdi, dil
+       test     edi, edi
+       jne      SHORT G_M000_IG23
+       xor      edi, edi
+       mov      dword ptr [rbp-0x1BC], edi
+       jmp      G_M000_IG43
+ 
+G_M000_IG23:                ;; offset=0x04D7
+       mov      rdi, 0x7F63EB3283F8
+       mov      esi, 193
+       call     CORINFO_HELP_GETSHARED_NONGCSTATIC_BASE
+       mov      rdi, 0x7F63EB3283F8
+       mov      esi, 193
+       call     CORINFO_HELP_GETSHARED_NONGCSTATIC_BASE
+       inc      qword ptr [(reloc 0x7f63eb328708)]
+       cmp      dword ptr [rbp-0x54], 0
+       je       SHORT G_M000_IG25
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, qword ptr [rax+0x128]
+       cmp      rdi, qword ptr [rbp-0x60]
+       jne      SHORT G_M000_IG24
+       xor      edi, edi
+       mov      dword ptr [rbp-0x54], edi
+       jmp      SHORT G_M000_IG25
+ 
+G_M000_IG24:                ;; offset=0x052A
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       lea      rdi, bword ptr [rax+0x38]
+       mov      rsi, gword ptr [rbp-0x38]
+       call     CORINFO_HELP_ASSIGN_REF
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      r9d, dword ptr [rbp-0x54]
+       mov      dword ptr [rax+0x150], r9d
+ 
+G_M000_IG25:                ;; offset=0x0556
+       cmp      dword ptr [rbp-0x54], 0
+       jne      G_M000_IG32
+       mov      r9, gword ptr [rbp-0x78]
+       mov      gword ptr [rbp-0x128], r9
+       cmp      gword ptr [rbp-0x78], 0
+       je       SHORT G_M000_IG26
+       mov      r9, gword ptr [rbp-0x128]
+       cmp      dword ptr [r9+0x08], 0
+       jne      SHORT G_M000_IG27
+ 
+G_M000_IG26:                ;; offset=0x0580
+       xor      r9d, r9d
+       mov      qword ptr [rbp-0x188], r9
+       jmp      SHORT G_M000_IG28
+ 
+G_M000_IG27:                ;; offset=0x058C
+       mov      r9, gword ptr [rbp-0x128]
+       xor      esi, esi
+       cmp      esi, dword ptr [r9+0x08]
+       jae      G_M000_IG45
+       mov      edi, esi
+       lea      r9, bword ptr [r9+rdi+0x10]
+       mov      qword ptr [rbp-0x1D8], r9
+       mov      r9, qword ptr [rbp-0x1D8]
+       mov      qword ptr [rbp-0x188], r9
+ 
+G_M000_IG28:                ;; offset=0x05BB
+       mov      r9, gword ptr [rbp-0x78]
+       mov      r9d, dword ptr [r9+0x08]
+       movsxd   r9, r9d
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       lea      rcx, [rbp-0x180]
+       lea      rdx, [rbp-0x70]
+       mov      r8, qword ptr [rbp-0x188]
+       mov      rax, 0x7F63EB5E3580
+       mov      qword ptr [rbp-0x208], rax
+       lea      rax, G_M000_IG30
+       mov      qword ptr [rbp-0x1F0], rax
+       mov      rax, qword ptr [rbp-0x1C8]
+       lea      r10, bword ptr [rbp-0x218]
+       mov      qword ptr [rax+0x10], r10
+       mov      rax, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG29:                ;; offset=0x0624
+       call     [Armonik.Ffi.Harness.Abi:ak_encode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long]
+ 
+G_M000_IG30:                ;; offset=0x062A
+       mov      rcx, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rcx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG31
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG31:                ;; offset=0x0644
+       mov      rdi, qword ptr [rbp-0x1C8]
+       mov      rsi, bword ptr [rbp-0x210]
+       mov      qword ptr [rdi+0x10], rsi
+       mov      qword ptr [rbp-0x80], rax
+       xor      rdi, rdi
+       mov      gword ptr [rbp-0x128], rdi
+       jmp      SHORT G_M000_IG35
+ 
+G_M000_IG32:                ;; offset=0x0665
+       cmp      dword ptr [rbp-0x54], 1
+       je       SHORT G_M000_IG33
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       lea      rdx, [rbp-0x70]
+       lea      rcx, [rbp-0x180]
+       mov      r8, gword ptr [rbp-0x38]
+       mov      r9, gword ptr [rbp-0x78]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinH_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       mov      qword ptr [rbp-0x1B0], rax
+       jmp      SHORT G_M000_IG34
+ 
+G_M000_IG33:                ;; offset=0x069D
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x28]
+       mov      rsi, gword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rsi+0x18]
+       lea      rdx, [rbp-0x70]
+       lea      rcx, [rbp-0x180]
+       mov      r8, gword ptr [rbp-0x38]
+       mov      r9, gword ptr [rbp-0x78]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       mov      qword ptr [rbp-0x1B0], rax
+ 
+G_M000_IG34:                ;; offset=0x06CD
+       mov      rdi, qword ptr [rbp-0x1B0]
+       mov      qword ptr [rbp-0x80], rdi
+ 
+G_M000_IG35:                ;; offset=0x06D8
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, gword ptr [rdi+0x08]
+       cmp      dword ptr [rdi], edi
+       call     [Armonik.Ffi.Harness.Stage:ReleasePins():this]
+       cmp      dword ptr [rbp-0x54], 0
+       je       SHORT G_M000_IG36
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       xor      edi, edi
+       mov      dword ptr [rax+0x150], edi
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       xor      rdi, rdi
+       mov      gword ptr [rax+0x38], rdi
+       movzx    rdi, byte  ptr [(reloc 0x7f63eb3285ad)]
+       test     edi, edi
+       jne      SHORT G_M000_IG36
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rbx, qword ptr [rax+0x128]
+       sub      rbx, qword ptr [rbp-0x60]
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, qword ptr [rax+0x130]
+       sub      rdi, qword ptr [rbp-0x68]
+       cmp      rbx, rdi
+       je       SHORT G_M000_IG36
+       cmp      qword ptr [rbp-0x80], 0
+       jl       SHORT G_M000_IG36
+       mov      qword ptr [rbp-0x80], -1
+ 
+G_M000_IG36:                ;; offset=0x075A
+       cmp      qword ptr [rbp-0x80], 0
+       jge      SHORT G_M000_IG37
+       mov      edi, dword ptr [rbp-0x80]
+       mov      dword ptr [rbp-0x1BC], edi
+       jmp      G_M000_IG43
+ 
+G_M000_IG37:                ;; offset=0x076F
+       mov      rdi, gword ptr [rbp-0x30]
+       movzx    rdi, byte  ptr [rdi+0x4C]
+       test     edi, edi
+       je       SHORT G_M000_IG38
+       xor      edi, edi
+       mov      dword ptr [rbp-0x1BC], edi
+       jmp      G_M000_IG43
+ 
+G_M000_IG38:                ;; offset=0x0789
+       mov      rdi, gword ptr [rbp-0x30]
+       mov      rdi, qword ptr [rdi+0x18]
+       lea      rsi, [rbp-0x88]
+       lea      rdx, [rbp-0x90]
+       mov      rax, 0x7F63EB5E2950
+       mov      qword ptr [rbp-0x208], rax
+       lea      rax, G_M000_IG40
+       mov      qword ptr [rbp-0x1F0], rax
+       mov      rax, qword ptr [rbp-0x1C8]
+       lea      rcx, bword ptr [rbp-0x218]
+       mov      qword ptr [rax+0x10], rcx
+       mov      rax, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG39:                ;; offset=0x07DB
+       call     [Armonik.Ffi.Harness.Abi:ak_enc_take(long,ulong,ulong):int]
+ 
+G_M000_IG40:                ;; offset=0x07E1
+       mov      rcx, qword ptr [rbp-0x1C8]
+       mov      byte  ptr [rcx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG41
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG41:                ;; offset=0x07FB
+       mov      rcx, qword ptr [rbp-0x1C8]
+       mov      rdx, bword ptr [rbp-0x210]
+       mov      qword ptr [rcx+0x10], rdx
+       mov      dword ptr [rbp-0x94], eax
+       cmp      dword ptr [rbp-0x94], 0
+       je       SHORT G_M000_IG42
+       mov      eax, dword ptr [rbp-0x94]
+       mov      dword ptr [rbp-0x1BC], eax
+       jmp      SHORT G_M000_IG43
+ 
+G_M000_IG42:                ;; offset=0x082A
+       mov      rax, bword ptr [rbp-0x48]
+       mov      rcx, qword ptr [rbp-0x88]
+       mov      qword ptr [rax], rcx
+       mov      rax, bword ptr [rbp-0x50]
+       mov      ecx, dword ptr [rbp-0x90]
+       mov      dword ptr [rax], ecx
+       xor      eax, eax
+       mov      dword ptr [rbp-0x1BC], eax
+ 
+G_M000_IG43:                ;; offset=0x084C
+       mov      eax, dword ptr [rbp-0x1BC]
+ 
+G_M000_IG44:                ;; offset=0x0852
+       add      rsp, 504
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG45:                ;; offset=0x0864
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 2154
+
+; Assembly listing for method Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long (Tier0)
+; Emitting BLENDED_CODE for X64 with AVX512 - Unix
+; Tier0 code
+; rbp based frame
+; partially interruptible
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 312
+       lea      rbp, [rsp+0x160]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqa  xmmword ptr [rbp-0x100], xmm8
+       mov      rbx, -144
+       vmovdqa  xmmword ptr [rbp+rbx-0x60], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x50], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x40], xmm8
+       add      rbx, 48
+       jne      SHORT  -5 instr
+       mov      qword ptr [rbp-0x60], rbx
+       mov      qword ptr [rbp-0x30], rdi
+       mov      qword ptr [rbp-0x38], rsi
+       mov      qword ptr [rbp-0x40], rdx
+       mov      qword ptr [rbp-0x48], rcx
+       mov      gword ptr [rbp-0x50], r8
+       mov      gword ptr [rbp-0x58], r9
+ 
+G_M000_IG02:                ;; offset=0x0064
+       lea      rdi, [rbp-0x158]
+       mov      rsi, r10
+       call     CORINFO_HELP_INIT_PINVOKE_FRAME
+       mov      qword ptr [rbp-0x100], rax
+       mov      rdi, rsp
+       mov      qword ptr [rbp-0x138], rdi
+       mov      rdi, rbp
+       mov      qword ptr [rbp-0x128], rdi
+       mov      rdi, gword ptr [rbp-0x50]
+       mov      rdi, gword ptr [rdi+0x08]
+       mov      gword ptr [rbp-0x90], rdi
+       mov      rdi, gword ptr [rbp-0x90]
+       mov      gword ptr [rbp-0x98], rdi
+       mov      rdi, gword ptr [rbp-0x90]
+       mov      gword ptr [rbp-0xA0], rdi
+       cmp      gword ptr [rbp-0x90], 0
+       jne      SHORT G_M000_IG03
+       mov      rdi, gword ptr [rbp-0x98]
+       mov      gword ptr [rbp-0xA8], rdi
+       xor      rdi, rdi
+       mov      gword ptr [rbp-0xB0], rdi
+       jmp      SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x00DC
+       mov      rdi, gword ptr [rbp-0x98]
+       mov      gword ptr [rbp-0xA8], rdi
+       mov      rdi, gword ptr [rbp-0xA0]
+       mov      rdi, gword ptr [rdi+0x08]
+       mov      gword ptr [rbp-0xB0], rdi
+ 
+G_M000_IG04:                ;; offset=0x00FC
+       mov      rdi, gword ptr [rbp-0xA8]
+       mov      gword ptr [rbp-0xB8], rdi
+       mov      rdi, gword ptr [rbp-0xB0]
+       mov      gword ptr [rbp-0xC0], rdi
+       cmp      gword ptr [rbp-0xB0], 0
+       jne      SHORT G_M000_IG05
+       mov      rdi, gword ptr [rbp-0xB8]
+       mov      gword ptr [rbp-0xC8], rdi
+       xor      edi, edi
+       mov      qword ptr [rbp-0xD0], rdi
+       jmp      SHORT G_M000_IG06
+ 
+G_M000_IG05:                ;; offset=0x013B
+       mov      rdi, gword ptr [rbp-0xC0]
+       call     [System.String:GetPinnableReference():byref:this]
+       mov      bword ptr [rbp-0x70], rax
+       mov      rdi, gword ptr [rbp-0xB8]
+       mov      gword ptr [rbp-0xC8], rdi
+       mov      rdi, bword ptr [rbp-0x70]
+       mov      qword ptr [rbp-0x108], rdi
+       mov      rdi, qword ptr [rbp-0x108]
+       mov      qword ptr [rbp-0xD0], rdi
+ 
+G_M000_IG06:                ;; offset=0x0173
+       mov      rdi, qword ptr [rbp-0xD0]
+       mov      qword ptr [rbp-0x60], rdi
+       mov      rdi, gword ptr [rbp-0xC8]
+       mov      gword ptr [rbp-0xD8], rdi
+       cmp      gword ptr [rbp-0xC8], 0
+       jne      SHORT G_M000_IG07
+       xor      rdi, rdi
+       mov      gword ptr [rbp-0xE0], rdi
+       jmp      SHORT G_M000_IG08
+ 
+G_M000_IG07:                ;; offset=0x01A1
+       mov      rdi, gword ptr [rbp-0xD8]
+       mov      rdi, gword ptr [rdi+0x10]
+       mov      gword ptr [rbp-0xE0], rdi
+ 
+G_M000_IG08:                ;; offset=0x01B3
+       mov      rdi, gword ptr [rbp-0xE0]
+       mov      gword ptr [rbp-0xE8], rdi
+       cmp      gword ptr [rbp-0xE0], 0
+       jne      SHORT G_M000_IG09
+       xor      edi, edi
+       mov      qword ptr [rbp-0xF0], rdi
+       jmp      SHORT G_M000_IG10
+ 
+G_M000_IG09:                ;; offset=0x01D6
+       mov      rdi, gword ptr [rbp-0xE8]
+       call     [System.String:GetPinnableReference():byref:this]
+       mov      bword ptr [rbp-0x78], rax
+       mov      rdi, bword ptr [rbp-0x78]
+       mov      qword ptr [rbp-0x110], rdi
+       mov      rdi, qword ptr [rbp-0x110]
+       mov      qword ptr [rbp-0xF0], rdi
+ 
+G_M000_IG10:                ;; offset=0x0200
+       mov      rdi, qword ptr [rbp-0xF0]
+       mov      qword ptr [rbp-0x68], rdi
+       mov      rdi, qword ptr [rbp-0x48]
+       mov      rdi, qword ptr [rdi]
+       cmp      rdi, qword ptr [(reloc 0x7f63eb328560)]
+       jne      SHORT G_M000_IG11
+       mov      rdi, qword ptr [rbp-0x48]
+       mov      rax, qword ptr [rbp-0x60]
+       mov      qword ptr [rdi], rax
+       movzx    rdi, byte  ptr [(reloc 0x7f63eb3285ad)]
+       test     edi, edi
+       jne      SHORT G_M000_IG11
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rbx, rax
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, qword ptr [rax+0x130]
+       inc      rdi
+       mov      qword ptr [rbx+0x130], rdi
+ 
+G_M000_IG11:                ;; offset=0x025A
+       mov      rdi, qword ptr [rbp-0x48]
+       mov      rdi, qword ptr [rdi+0x18]
+       cmp      rdi, qword ptr [(reloc 0x7f63eb328560)]
+       jne      SHORT G_M000_IG12
+       mov      rdi, qword ptr [rbp-0x48]
+       mov      rax, qword ptr [rbp-0x68]
+       mov      qword ptr [rdi+0x18], rax
+       movzx    rdi, byte  ptr [(reloc 0x7f63eb3285ad)]
+       test     edi, edi
+       jne      SHORT G_M000_IG12
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rbx, rax
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      r9, qword ptr [rax+0x130]
+       inc      r9
+       mov      qword ptr [rbx+0x130], r9
+ 
+G_M000_IG12:                ;; offset=0x02AB
+       mov      r9, gword ptr [rbp-0x58]
+       mov      gword ptr [rbp-0x88], r9
+       cmp      gword ptr [rbp-0x58], 0
+       je       SHORT G_M000_IG13
+       mov      r9, gword ptr [rbp-0x88]
+       cmp      dword ptr [r9+0x08], 0
+       jne      SHORT G_M000_IG14
+ 
+G_M000_IG13:                ;; offset=0x02CB
+       xor      r9d, r9d
+       mov      qword ptr [rbp-0x80], r9
+       jmp      SHORT G_M000_IG15
+ 
+G_M000_IG14:                ;; offset=0x02D4
+       mov      r9, gword ptr [rbp-0x88]
+       xor      edi, edi
+       cmp      edi, dword ptr [r9+0x08]
+       jae      G_M000_IG21
+       mov      esi, edi
+       lea      r9, bword ptr [r9+rsi+0x10]
+       mov      qword ptr [rbp-0x118], r9
+       mov      r9, qword ptr [rbp-0x118]
+       mov      qword ptr [rbp-0x80], r9
+ 
+G_M000_IG15:                ;; offset=0x0300
+       mov      r9, gword ptr [rbp-0x58]
+       mov      r9d, dword ptr [r9+0x08]
+       movsxd   r9, r9d
+       mov      rdi, qword ptr [rbp-0x30]
+       mov      rsi, qword ptr [rbp-0x38]
+       mov      rdx, qword ptr [rbp-0x40]
+       mov      rcx, qword ptr [rbp-0x48]
+       mov      r8, qword ptr [rbp-0x80]
+       mov      rax, 0x7F63EB5E3580
+       mov      qword ptr [rbp-0x148], rax
+       lea      rax, G_M000_IG17
+       mov      qword ptr [rbp-0x130], rax
+       mov      rax, qword ptr [rbp-0x100]
+       lea      r10, bword ptr [rbp-0x158]
+       mov      qword ptr [rax+0x10], r10
+       mov      rax, qword ptr [rbp-0x100]
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG16:                ;; offset=0x035B
+       call     [Armonik.Ffi.Harness.Abi:ak_encode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long]
+ 
+G_M000_IG17:                ;; offset=0x0361
+       mov      rcx, qword ptr [rbp-0x100]
+       mov      byte  ptr [rcx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG18
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG18:                ;; offset=0x037B
+       mov      rcx, qword ptr [rbp-0x100]
+       mov      rdx, bword ptr [rbp-0x150]
+       mov      qword ptr [rcx+0x10], rdx
+       mov      qword ptr [rbp-0xF8], rax
+ 
+G_M000_IG19:                ;; offset=0x0394
+       mov      rax, qword ptr [rbp-0xF8]
+ 
+G_M000_IG20:                ;; offset=0x039B
+       add      rsp, 312
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG21:                ;; offset=0x03AD
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 947
+
+; Assembly listing for method Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:Go(Armonik.Ffi.Facade.UploadResultDataMessage,bool,bool,byref,byref):int:this (Tier1)
+; Emitting BLENDED_CODE for X64 with AVX512 - Unix
+; Tier1 code
+; optimized code
+; rbp based frame
+; partially interruptible
+; No PGO data
+; 0 inlinees with PGO data; 1 single block inlinees; 2 inlinees without PGO data
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 392
+       vzeroupper 
+       lea      rbp, [rsp+0x1B0]
+       xor      ebx, ebx
+       mov      qword ptr [rbp-0x128], rbx
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqa  xmmword ptr [rbp-0x120], xmm8
+       vmovdqa  xmmword ptr [rbp-0x110], xmm8
+       mov      rbx, -192
+       vmovdqa  xmmword ptr [rbp+rbx-0x40], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x30], xmm8
+       vmovdqa  xmmword ptr [rbp+rbx-0x20], xmm8
+       add      rbx, 48
+       jne      SHORT  -5 instr
+       mov      qword ptr [rbp-0x40], rbx
+       mov      gword ptr [rbp-0x140], rsi
+       mov      dword ptr [rbp-0x2C], ecx
+       mov      rbx, rdi
+       mov      r14d, edx
+       mov      r13, r8
+       mov      r12, r9
+ 
+G_M000_IG02:                ;; offset=0x0076
+       lea      rdi, [rbp-0x1A0]
+       mov      rsi, r10
+       call     CORINFO_HELP_INIT_PINVOKE_FRAME
+       mov      rdi, rsp
+       mov      qword ptr [rbp-0x180], rdi
+       mov      rdi, rbp
+       mov      qword ptr [rbp-0x170], rdi
+       xor      edi, edi
+       mov      bword ptr [rbp-0x148], r13
+       mov      qword ptr [r13], rdi
+ 
+G_M000_IG03:                ;; offset=0x00A6
+       mov      bword ptr [rbp-0x150], r12
+       mov      dword ptr [r12], edi
+       mov      gword ptr [rbp-0x138], rbx
+       mov      rdi, qword ptr [rbx+0x18]
+       mov      rcx, 0x7F63EB5E2918
+       mov      qword ptr [rbp-0x190], rcx
+       lea      rcx, G_M000_IG06
+       mov      qword ptr [rbp-0x178], rcx
+       lea      rcx, bword ptr [rbp-0x1A0]
+       mov      qword ptr [rax+0x10], rcx
+       mov      qword ptr [rbp-0x130], rax
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG04:                ;; offset=0x00F1
+       mov      rcx, 0x7F645A5BEE40
+ 
+G_M000_IG05:                ;; offset=0x00FB
+       call     rcx ; Armonik.Ffi.Harness.Abi:ak_enc_reset(long)
+ 
+G_M000_IG06:                ;; offset=0x00FD
+       mov      rbx, qword ptr [rbp-0x130]
+       mov      byte  ptr [rbx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG07
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG07:                ;; offset=0x0117
+       mov      rdi, bword ptr [rbp-0x198]
+       mov      qword ptr [rbx+0x10], rdi
+       mov      r15, gword ptr [rbp-0x138]
+       mov      rdi, gword ptr [r15+0x08]
+       cmp      dword ptr [rdi], edi
+       call     [Armonik.Ffi.Harness.Stage:Reset():this]
+       call     [Armonik.Ffi.Harness.Stage:get_Defer():int]
+       mov      r13d, eax
+       xor      r12d, r12d
+       xor      eax, eax
+       test     r13d, r13d
+       je       SHORT G_M000_IG10
+ 
+G_M000_IG08:                ;; offset=0x0148
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG62
+       mov      rdi, qword ptr [rax+0x08]
+       mov      r12, qword ptr [rdi+0x10]
+       test     r12, r12
+       je       G_M000_IG62
+ 
+G_M000_IG09:                ;; offset=0x0178
+       mov      rdi, qword ptr [r12+0x128]
+       mov      rax, rdi
+       mov      rdi, qword ptr [r12+0x130]
+       mov      qword ptr [rbp-0x38], rdi
+       mov      r12, rax
+       mov      rax, qword ptr [rbp-0x38]
+ 
+G_M000_IG10:                ;; offset=0x0196
+       mov      rdi, qword ptr [r15+0x28]
+       mov      esi, dword ptr [r15+0x40]
+       mov      dword ptr [rdi], esi
+       mov      rdi, qword ptr [r15+0x28]
+       xor      esi, esi
+       test     r14b, r14b
+       setne    sil
+       mov      dword ptr [rdi+0x04], esi
+       xor      edi, edi
+       mov      qword ptr [rbp-0x40], rdi
+       mov      rcx, gword ptr [rbp-0x140]
+       mov      rdx, gword ptr [rcx+0x08]
+       mov      gword ptr [rbp-0x160], rdx
+       mov      rdi, rdx
+       test     rdi, rdi
+       jne      SHORT G_M000_IG12
+ 
+G_M000_IG11:                ;; offset=0x01D0
+       xor      r8, r8
+       jmp      SHORT G_M000_IG13
+ 
+G_M000_IG12:                ;; offset=0x01D5
+       mov      r8, gword ptr [rdi+0x18]
+ 
+G_M000_IG13:                ;; offset=0x01D9
+       test     r8, r8
+       jne      SHORT G_M000_IG15
+ 
+G_M000_IG14:                ;; offset=0x01DE
+       mov      qword ptr [rbp-0x38], rax
+       mov      rdi, 0x7F63EB054D28
+       mov      esi, 11
+       call     CORINFO_HELP_CLASSINIT_SHARED_DYNAMICCLASS
+       mov      rsi, 0x7F574E001D10
+       mov      r8, gword ptr [rsi]
+       mov      rax, r8
+       mov      r8, rax
+       mov      rax, qword ptr [rbp-0x38]
+ 
+G_M000_IG15:                ;; offset=0x020D
+       mov      gword ptr [rbp-0x158], r8
+       test     r14b, r14b
+       je       G_M000_IG34
+ 
+G_M000_IG16:                ;; offset=0x021D
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0xC8], zmm0
+       vmovdqu32 zmmword ptr [rbp-0x90], zmm0
+       mov      r14, gword ptr [r15+0x08]
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0xC8], zmm0
+       vmovdqu32 zmmword ptr [rbp-0x90], zmm0
+       mov      rdx, gword ptr [rbp-0x160]
+       test     rdx, rdx
+       mov      qword ptr [rbp-0x38], rax
+       je       SHORT G_M000_IG17
+       mov      rsi, rdx
+       lea      rdi, [rbp-0xC8]
+       mov      rdx, r14
+       call     [Armonik.Ffi.Harness.G:U_UploadResultData(byref,Armonik.Ffi.Facade.UploadResultData,Armonik.Ffi.Harness.Stage)]
+       mov      esi, dword ptr [rbp-0x58]
+       or       esi, 1
+       mov      dword ptr [rbp-0x58], esi
+ 
+G_M000_IG17:                ;; offset=0x027D
+       mov      rcx, gword ptr [rbp-0x140]
+       mov      rsi, gword ptr [rcx+0x10]
+       mov      rdi, r14
+       cmp      dword ptr [rdi], edi
+       call     [Armonik.Ffi.Harness.Stage:Blob(ubyte[]):Armonik.Ffi.Harness.ak_blob:this]
+       mov      qword ptr [rbp-0x68], rax
+       mov      qword ptr [rbp-0x60], rdx
+       cmp      byte  ptr [rbp-0x2C], 0
+       jne      SHORT G_M000_IG19
+ 
+G_M000_IG18:                ;; offset=0x02A1
+       xor      eax, eax
+       jmp      G_M000_IG61
+ 
+G_M000_IG19:                ;; offset=0x02A8
+       mov      r14, 0x7F63EB328708
+       inc      qword ptr [r14]
+       test     r13d, r13d
+       je       G_M000_IG23
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG63
+       mov      rdi, qword ptr [rax+0x08]
+       mov      rax, qword ptr [rdi+0x10]
+       test     rax, rax
+       je       G_M000_IG63
+ 
+G_M000_IG20:                ;; offset=0x02EE
+       mov      r14, rax
+       cmp      qword ptr [r14+0x128], r12
+       jne      SHORT G_M000_IG21
+       xor      r13d, r13d
+       jmp      SHORT G_M000_IG23
+ 
+G_M000_IG21:                ;; offset=0x02FF
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax+0x10], 2
+       jl       G_M000_IG64
+       mov      rdi, qword ptr [rax+0x18]
+       mov      rdi, qword ptr [rdi+0x10]
+       test     rdi, rdi
+       je       G_M000_IG64
+       mov      rax, bword ptr [rdi]
+       add      rax, 16
+ 
+G_M000_IG22:                ;; offset=0x0337
+       lea      rdi, bword ptr [rax+0x38]
+       mov      rsi, gword ptr [rbp-0x140]
+       call     CORINFO_HELP_ASSIGN_REF
+       mov      dword ptr [r14+0x150], r13d
+       jmp      G_M000_IG31
+ 
+G_M000_IG23:                ;; offset=0x0353
+       mov      r14, gword ptr [rbp-0x158]
+       mov      gword ptr [rbp-0xD0], r14
+       test     r14, r14
+       je       SHORT G_M000_IG24
+       mov      rdi, gword ptr [rbp-0xD0]
+       cmp      dword ptr [rdi+0x08], 0
+       jne      SHORT G_M000_IG25
+ 
+G_M000_IG24:                ;; offset=0x0373
+       xor      r8d, r8d
+       jmp      SHORT G_M000_IG26
+ 
+G_M000_IG25:                ;; offset=0x0378
+       mov      r8, gword ptr [rbp-0xD0]
+       cmp      dword ptr [r8+0x08], 0
+       jbe      G_M000_IG69
+       mov      r8, gword ptr [rbp-0xD0]
+       add      r8, 16
+ 
+G_M000_IG26:                ;; offset=0x0395
+       mov      rdi, qword ptr [r15+0x28]
+       mov      gword ptr [rbp-0x138], r15
+       mov      rsi, qword ptr [r15+0x18]
+       mov      r9d, dword ptr [r14+0x08]
+       lea      rcx, [rbp-0xC8]
+       lea      rdx, [rbp-0x40]
+       mov      rax, 0x7F63EB5E35B8
+       mov      qword ptr [rbp-0x190], rax
+       lea      rax, G_M000_IG28
+       mov      qword ptr [rbp-0x178], rax
+       lea      rax, bword ptr [rbp-0x1A0]
+       mov      qword ptr [rbx+0x10], rax
+       mov      byte  ptr [rbx+0x0C], 0
+ 
+G_M000_IG27:                ;; offset=0x03E1
+       call     [Armonik.Ffi.Harness.Abi:ak_uencode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long]
+ 
+G_M000_IG28:                ;; offset=0x03E7
+       mov      byte  ptr [rbx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG29
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG29:                ;; offset=0x03FA
+       mov      rdi, bword ptr [rbp-0x198]
+       mov      qword ptr [rbx+0x10], rdi
+       mov      r15, rax
+ 
+G_M000_IG30:                ;; offset=0x0408
+       xor      rdi, rdi
+       mov      gword ptr [rbp-0xD0], rdi
+       jmp      G_M000_IG50
+ 
+G_M000_IG31:                ;; offset=0x0416
+       mov      r14, gword ptr [rbp-0x158]
+       cmp      r13d, 1
+       je       SHORT G_M000_IG32
+       mov      rdi, qword ptr [r15+0x28]
+       mov      rsi, qword ptr [r15+0x18]
+       lea      rdx, [rbp-0x40]
+       lea      rcx, [rbp-0xC8]
+       mov      r8, gword ptr [rbp-0x140]
+       mov      r9, r14
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinH_u(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       jmp      SHORT G_M000_IG33
+ 
+G_M000_IG32:                ;; offset=0x0448
+       mov      rdi, qword ptr [r15+0x28]
+       mov      rsi, qword ptr [r15+0x18]
+       lea      rdx, [rbp-0x40]
+       lea      rcx, [rbp-0xC8]
+       mov      r8, gword ptr [rbp-0x140]
+       mov      r9, r14
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_u(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+ 
+G_M000_IG33:                ;; offset=0x046B
+       mov      gword ptr [rbp-0x138], r15
+       mov      r15, rax
+       jmp      G_M000_IG50
+ 
+G_M000_IG34:                ;; offset=0x047A
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0x128], zmm0
+       vmovdqu  ymmword ptr [rbp-0xF0], ymm0
+       mov      r9, gword ptr [r15+0x08]
+       vxorps   ymm0, ymm0, ymm0
+       vmovdqu32 zmmword ptr [rbp-0x128], zmm0
+       vmovdqu  ymmword ptr [rbp-0xF0], ymm0
+       mov      rdx, gword ptr [rbp-0x160]
+       test     rdx, rdx
+       je       SHORT G_M000_IG35
+       mov      qword ptr [rbp-0x38], rax
+       mov      rsi, rdx
+       lea      rdi, [rbp-0x128]
+       mov      rdx, r9
+       call     [Armonik.Ffi.Harness.G:E_UploadResultData(byref,Armonik.Ffi.Facade.UploadResultData,Armonik.Ffi.Harness.Stage)]
+       mov      edi, dword ptr [rbp-0xD8]
+       or       edi, 1
+       mov      dword ptr [rbp-0xD8], edi
+       mov      rax, qword ptr [rbp-0x38]
+ 
+G_M000_IG35:                ;; offset=0x04E0
+       cmp      byte  ptr [rbp-0x2C], 0
+       mov      qword ptr [rbp-0x38], rax
+       je       G_M000_IG18
+       mov      r14, 0x7F63EB328708
+       inc      qword ptr [r14]
+       test     r13d, r13d
+       je       G_M000_IG39
+       mov      rdi, 0x7F6469AA2498
+       mov      rdx, 0x7F646A3DC820
+       call     rdx
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG65
+       mov      rdi, qword ptr [rax+0x08]
+       mov      r14, qword ptr [rdi+0x10]
+       test     r14, r14
+       je       G_M000_IG65
+ 
+G_M000_IG36:                ;; offset=0x0534
+       cmp      qword ptr [r14+0x128], r12
+       jne      SHORT G_M000_IG37
+       xor      r13d, r13d
+       jmp      SHORT G_M000_IG39
+ 
+G_M000_IG37:                ;; offset=0x0542
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax+0x10], 2
+       jl       G_M000_IG66
+       mov      rdi, qword ptr [rax+0x18]
+       mov      rdi, qword ptr [rdi+0x10]
+       test     rdi, rdi
+       je       G_M000_IG66
+       mov      rax, bword ptr [rdi]
+       add      rax, 16
+ 
+G_M000_IG38:                ;; offset=0x057A
+       lea      rdi, bword ptr [rax+0x38]
+       mov      rsi, gword ptr [rbp-0x140]
+       call     CORINFO_HELP_ASSIGN_REF
+       mov      dword ptr [r14+0x150], r13d
+       jmp      G_M000_IG47
+ 
+G_M000_IG39:                ;; offset=0x0596
+       mov      r8, gword ptr [rbp-0x158]
+       mov      gword ptr [rbp-0xD0], r8
+       test     r8, r8
+       je       SHORT G_M000_IG40
+       mov      rdi, gword ptr [rbp-0xD0]
+       cmp      dword ptr [rdi+0x08], 0
+       jne      SHORT G_M000_IG41
+ 
+G_M000_IG40:                ;; offset=0x05B6
+       xor      r10d, r10d
+       jmp      SHORT G_M000_IG42
+ 
+G_M000_IG41:                ;; offset=0x05BB
+       mov      r10, gword ptr [rbp-0xD0]
+       cmp      dword ptr [r10+0x08], 0
+       jbe      G_M000_IG69
+       mov      r10, gword ptr [rbp-0xD0]
+       add      r10, 16
+ 
+G_M000_IG42:                ;; offset=0x05D8
+       mov      rdi, qword ptr [r15+0x28]
+       mov      gword ptr [rbp-0x138], r15
+       mov      rsi, qword ptr [r15+0x18]
+       mov      r9d, dword ptr [r8+0x08]
+       lea      rcx, [rbp-0x128]
+       lea      rdx, [rbp-0x40]
+       mov      r8, r10
+       mov      r10, 0x7F63EB5E3580
+       mov      qword ptr [rbp-0x190], r10
+       lea      r10, G_M000_IG45
+       mov      qword ptr [rbp-0x178], r10
+       lea      r10, bword ptr [rbp-0x1A0]
+       mov      qword ptr [rbx+0x10], r10
+       mov      byte  ptr [rbx+0x0C], 0
+ 
+G_M000_IG43:                ;; offset=0x0627
+       mov      r10, 0x7F645A525870
+ 
+G_M000_IG44:                ;; offset=0x0631
+       call     r10 ; Armonik.Ffi.Harness.Abi:ak_encode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long
+ 
+G_M000_IG45:                ;; offset=0x0634
+       mov      byte  ptr [rbx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG46
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG46:                ;; offset=0x0647
+       mov      rdi, bword ptr [rbp-0x198]
+       mov      qword ptr [rbx+0x10], rdi
+       mov      r15, rax
+       jmp      G_M000_IG30
+ 
+G_M000_IG47:                ;; offset=0x065A
+       cmp      r13d, 1
+       je       SHORT G_M000_IG48
+       mov      rdi, qword ptr [r15+0x28]
+       mov      rsi, qword ptr [r15+0x18]
+       lea      rdx, [rbp-0x40]
+       lea      rcx, [rbp-0x128]
+       mov      r8, gword ptr [rbp-0x140]
+       mov      r9, gword ptr [rbp-0x158]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinH_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+       jmp      SHORT G_M000_IG49
+ 
+G_M000_IG48:                ;; offset=0x0689
+       mov      rdi, qword ptr [r15+0x28]
+       mov      rsi, qword ptr [r15+0x18]
+       lea      rdx, [rbp-0x40]
+       lea      rcx, [rbp-0x128]
+       mov      r8, gword ptr [rbp-0x140]
+       mov      r9, gword ptr [rbp-0x158]
+       call     [Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long]
+ 
+G_M000_IG49:                ;; offset=0x06B0
+       mov      gword ptr [rbp-0x138], r15
+       mov      r15, rax
+ 
+G_M000_IG50:                ;; offset=0x06BA
+       mov      r14, gword ptr [rbp-0x138]
+       mov      rdi, gword ptr [r14+0x08]
+       cmp      dword ptr [rdi], edi
+       call     [Armonik.Ffi.Harness.Stage:ReleasePins():this]
+       test     r13d, r13d
+       je       G_M000_IG53
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG67
+       mov      rdi, qword ptr [rax+0x08]
+       mov      rax, qword ptr [rdi+0x10]
+       test     rax, rax
+       je       G_M000_IG67
+ 
+G_M000_IG51:                ;; offset=0x0706
+       mov      r13, rax
+       xor      edi, edi
+       mov      dword ptr [r13+0x150], edi
+       mov      rdi, 0x7F6469AA2498
+       mov      rax, 0x7F646A3DC820
+       call     rax
+       cmp      dword ptr [rax+0x10], 2
+       jl       G_M000_IG68
+       mov      rdi, qword ptr [rax+0x18]
+       mov      rdi, qword ptr [rdi+0x10]
+       test     rdi, rdi
+       je       G_M000_IG68
+       mov      rax, bword ptr [rdi]
+       add      rax, 16
+ 
+G_M000_IG52:                ;; offset=0x074A
+       xor      rdi, rdi
+       mov      gword ptr [rax+0x38], rdi
+       mov      rdi, qword ptr [r13+0x128]
+       sub      rdi, r12
+       mov      rsi, qword ptr [r13+0x130]
+       sub      rsi, qword ptr [rbp-0x38]
+       cmp      rdi, rsi
+       je       SHORT G_M000_IG53
+       test     r15, r15
+       jl       SHORT G_M000_IG53
+       mov      r15, -1
+       jmp      SHORT G_M000_IG54
+ 
+G_M000_IG53:                ;; offset=0x077B
+       test     r15, r15
+       jge      SHORT G_M000_IG55
+ 
+G_M000_IG54:                ;; offset=0x0780
+       mov      eax, r15d
+       jmp      G_M000_IG61
+ 
+G_M000_IG55:                ;; offset=0x0788
+       cmp      byte  ptr [r14+0x4C], 0
+       jne      G_M000_IG18
+       mov      r15, r14
+       mov      rdi, qword ptr [r15+0x18]
+       lea      rsi, [rbp-0x48]
+       lea      rdx, [rbp-0x50]
+       mov      rax, 0x7F63EB5E2950
+       mov      qword ptr [rbp-0x190], rax
+       lea      rax, G_M000_IG58
+       mov      qword ptr [rbp-0x178], rax
+       lea      rax, bword ptr [rbp-0x1A0]
+       mov      qword ptr [rbx+0x10], rax
+       mov      byte  ptr [rbx+0x0C], 0
+ 
+G_M000_IG56:                ;; offset=0x07D0
+       mov      rax, 0x7F645A5BEF00
+ 
+G_M000_IG57:                ;; offset=0x07DA
+       call     rax ; Armonik.Ffi.Harness.Abi:ak_enc_take(long,ulong,ulong):int
+ 
+G_M000_IG58:                ;; offset=0x07DC
+       mov      byte  ptr [rbx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG59
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG59:                ;; offset=0x07EF
+       mov      rdi, bword ptr [rbp-0x198]
+       mov      qword ptr [rbx+0x10], rdi
+       test     eax, eax
+       je       SHORT G_M000_IG60
+       jmp      SHORT G_M000_IG61
+ 
+G_M000_IG60:                ;; offset=0x0800
+       mov      rax, qword ptr [rbp-0x48]
+       mov      r13, bword ptr [rbp-0x148]
+       mov      qword ptr [r13], rax
+       mov      eax, dword ptr [rbp-0x50]
+       mov      r12, bword ptr [rbp-0x150]
+       mov      dword ptr [r12], eax
+       jmp      G_M000_IG18
+ 
+G_M000_IG61:                ;; offset=0x0822
+       add      rsp, 392
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG62:                ;; offset=0x0834
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      rdi, rax
+       mov      r12, rdi
+       jmp      G_M000_IG09
+ 
+G_M000_IG63:                ;; offset=0x0849
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG20
+ 
+G_M000_IG64:                ;; offset=0x0858
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG22
+ 
+G_M000_IG65:                ;; offset=0x0867
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       mov      r14, rax
+       jmp      G_M000_IG36
+ 
+G_M000_IG66:                ;; offset=0x0879
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG38
+ 
+G_M000_IG67:                ;; offset=0x0888
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG51
+ 
+G_M000_IG68:                ;; offset=0x0897
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_GCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG52
+ 
+G_M000_IG69:                ;; offset=0x08A6
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 2220
+
+; Assembly listing for method Armonik.Ffi.Harness.CoreFfi_UploadResultDataMessage:RootPinR_e(ulong,long,ulong,ulong,Armonik.Ffi.Facade.UploadResultDataMessage,ubyte[]):long (Tier1)
+; Emitting BLENDED_CODE for X64 with AVX512 - Unix
+; Tier1 code
+; optimized code
+; rbp based frame
+; partially interruptible
+; No PGO data
+; 0 inlinees with PGO data; 2 single block inlinees; 0 inlinees without PGO data
+
+G_M000_IG01:                ;; offset=0x0000
+       push     rbp
+       push     r15
+       push     r14
+       push     r13
+       push     r12
+       push     rbx
+       sub      rsp, 120
+       lea      rbp, [rsp+0xA0]
+       vxorps   xmm8, xmm8, xmm8
+       vmovdqu  xmmword ptr [rbp-0x48], xmm8
+       xor      ebx, ebx
+       mov      qword ptr [rbp-0x38], rbx
+       mov      qword ptr [rbp-0x30], rdx
+       mov      r13, rdi
+       mov      r12, rsi
+       mov      rbx, rcx
+       mov      r14, r8
+       mov      r15, r9
+ 
+G_M000_IG02:                ;; offset=0x0039
+       lea      rdi, [rbp-0x90]
+       mov      rsi, r10
+       call     CORINFO_HELP_INIT_PINVOKE_FRAME
+       mov      qword ptr [rbp-0x50], rax
+       mov      rdi, rsp
+       mov      qword ptr [rbp-0x70], rdi
+       mov      rdi, rbp
+       mov      qword ptr [rbp-0x60], rdi
+       mov      rdi, gword ptr [r14+0x08]
+       mov      rcx, rdi
+       test     rdi, rdi
+       jne      SHORT G_M000_IG04
+ 
+G_M000_IG03:                ;; offset=0x0066
+       xor      rdi, rdi
+       xor      rdx, rdx
+       jmp      SHORT G_M000_IG05
+ 
+G_M000_IG04:                ;; offset=0x006C
+       mov      rdi, rcx
+       mov      rdx, gword ptr [rdi+0x08]
+ 
+G_M000_IG05:                ;; offset=0x0073
+       test     rdx, rdx
+       jne      SHORT G_M000_IG07
+ 
+G_M000_IG06:                ;; offset=0x0078
+       xor      ecx, ecx
+       jmp      SHORT G_M000_IG08
+ 
+G_M000_IG07:                ;; offset=0x007C
+       add      rdx, 12
+       mov      bword ptr [rbp-0x38], rdx
+       mov      rcx, bword ptr [rbp-0x38]
+ 
+G_M000_IG08:                ;; offset=0x0088
+       test     rdi, rdi
+       jne      SHORT G_M000_IG10
+ 
+G_M000_IG09:                ;; offset=0x008D
+       xor      rdx, rdx
+       jmp      SHORT G_M000_IG11
+ 
+G_M000_IG10:                ;; offset=0x0091
+       mov      rdx, gword ptr [rdi+0x10]
+ 
+G_M000_IG11:                ;; offset=0x0095
+       test     rdx, rdx
+       jne      SHORT G_M000_IG13
+ 
+G_M000_IG12:                ;; offset=0x009A
+       xor      r14d, r14d
+       jmp      SHORT G_M000_IG14
+ 
+G_M000_IG13:                ;; offset=0x009F
+       add      rdx, 12
+       mov      bword ptr [rbp-0x40], rdx
+       mov      r14, bword ptr [rbp-0x40]
+ 
+G_M000_IG14:                ;; offset=0x00AB
+       cmp      qword ptr [rbx], 0x30000
+       jne      SHORT G_M000_IG17
+ 
+G_M000_IG15:                ;; offset=0x00B4
+       mov      qword ptr [rbx], rcx
+       mov      rdi, 0x7F6469AA2498
+       mov      rcx, 0x7F646A3DC820
+       call     rcx
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG30
+       mov      rdi, qword ptr [rax+0x08]
+       mov      rax, qword ptr [rdi+0x10]
+       test     rax, rax
+       je       G_M000_IG30
+ 
+G_M000_IG16:                ;; offset=0x00E7
+       inc      qword ptr [rax+0x130]
+ 
+G_M000_IG17:                ;; offset=0x00EE
+       cmp      qword ptr [rbx+0x18], 0x30000
+       jne      SHORT G_M000_IG20
+ 
+G_M000_IG18:                ;; offset=0x00F8
+       mov      qword ptr [rbx+0x18], r14
+       mov      rdi, 0x7F6469AA2498
+       mov      rcx, 0x7F646A3DC820
+       call     rcx
+       cmp      dword ptr [rax], 2
+       jl       G_M000_IG31
+       mov      r9, qword ptr [rax+0x08]
+       mov      rax, qword ptr [r9+0x10]
+       test     rax, rax
+       je       G_M000_IG31
+ 
+G_M000_IG19:                ;; offset=0x012C
+       inc      qword ptr [rax+0x130]
+ 
+G_M000_IG20:                ;; offset=0x0133
+       mov      gword ptr [rbp-0x48], r15
+       test     r15, r15
+       je       SHORT G_M000_IG22
+ 
+G_M000_IG21:                ;; offset=0x013C
+       mov      r9, gword ptr [rbp-0x48]
+       cmp      dword ptr [r9+0x08], 0
+       jne      SHORT G_M000_IG23
+ 
+G_M000_IG22:                ;; offset=0x0147
+       xor      r8d, r8d
+       jmp      SHORT G_M000_IG24
+ 
+G_M000_IG23:                ;; offset=0x014C
+       mov      r8, gword ptr [rbp-0x48]
+       cmp      dword ptr [r8+0x08], 0
+       jbe      G_M000_IG32
+       mov      r8, gword ptr [rbp-0x48]
+       add      r8, 16
+ 
+G_M000_IG24:                ;; offset=0x0163
+       mov      r9d, dword ptr [r15+0x08]
+       mov      rdi, r13
+       mov      rsi, r12
+       mov      rdx, qword ptr [rbp-0x30]
+       mov      rcx, rbx
+       mov      r10, 0x7F63EB5E3580
+       mov      qword ptr [rbp-0x80], r10
+       lea      r10, G_M000_IG27
+       mov      qword ptr [rbp-0x68], r10
+       lea      r10, bword ptr [rbp-0x90]
+       mov      rax, qword ptr [rbp-0x50]
+       mov      qword ptr [rax+0x10], r10
+       mov      byte  ptr [rax+0x0C], 0
+ 
+G_M000_IG25:                ;; offset=0x01A0
+       mov      r10, 0x7F645A525870
+ 
+G_M000_IG26:                ;; offset=0x01AA
+       call     r10 ; Armonik.Ffi.Harness.Abi:ak_encode_UploadResultDataMessage(ulong,long,ulong,ulong,ulong,ulong):long
+ 
+G_M000_IG27:                ;; offset=0x01AD
+       mov      rbx, qword ptr [rbp-0x50]
+       mov      byte  ptr [rbx+0x0C], 1
+       cmp      dword ptr [(reloc 0x7f6469ac6b10)], 0
+       je       SHORT G_M000_IG28
+       call     [CORINFO_HELP_STOP_FOR_GC]
+ 
+G_M000_IG28:                ;; offset=0x01C4
+       mov      rdi, bword ptr [rbp-0x88]
+       mov      qword ptr [rbx+0x10], rdi
+ 
+G_M000_IG29:                ;; offset=0x01CF
+       add      rsp, 120
+       pop      rbx
+       pop      r12
+       pop      r13
+       pop      r14
+       pop      r15
+       pop      rbp
+       ret      
+ 
+G_M000_IG30:                ;; offset=0x01DE
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG16
+ 
+G_M000_IG31:                ;; offset=0x01ED
+       mov      edi, 2
+       call     CORINFO_HELP_GETSHARED_NONGCTHREADSTATIC_BASE_NOCTOR_OPTIMIZED
+       jmp      G_M000_IG19
+ 
+G_M000_IG32:                ;; offset=0x01FC
+       call     CORINFO_HELP_RNGCHKFAIL
+       int3     
+ 
+; Total bytes of code 514
+

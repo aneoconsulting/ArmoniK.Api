@@ -1,0 +1,8 @@
+# s14 part 2: are the rungs in the build? (correctness of the ladder, not timing)
+# R3g (AK_STR_NOGUARD=1) vs R3, DOTNET_TieredPGO=0, Tier1 code of the one-string root (dis-noguard{0,1}.txt, DOTNET_JitDisasm='RootPinR_e Go'):
+#   NOGUARD=0 Go: 2220 bytes, 7 thread-static base helper calls
+#   NOGUARD=0 RootPinR_e: 514 bytes, 2 thread-static base helper calls
+#   NOGUARD=1 Go: 2086 bytes, 7 thread-static base helper calls
+#   NOGUARD=1 RootPinR_e: 371 bytes, 0 thread-static base helper calls
+# R1 (core tc-measure-generic, E0): gdb breakpoint on tc_copy_generic hit from enc_blob <- ak_encode_UploadResultDataMessage (gdb-generic-e0.txt)
+# R2 (core tc-measure-u16stub as rebuilt at c6e29dbe, E1R): gdb breakpoint on tc_utf16_stub hit from enc_blob (gdb-stub-e1r.txt); the first stub core (cde67864) had folded the stub into tc_utf8_trusted (one address), see ../cores2.log

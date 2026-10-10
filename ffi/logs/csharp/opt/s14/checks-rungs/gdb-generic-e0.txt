@@ -1,0 +1,25 @@
+Function "_ZN7ak_core15tc_copy_generic17h2d7e0ebca3fc071dE" not defined.
+Breakpoint 1 (_ZN7ak_core15tc_copy_generic17h2d7e0ebca3fc071dE) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7ffff6fff6c0 (LWP 27048)]
+[New Thread 0x7fffee5ff6c0 (LWP 27049)]
+[New Thread 0x7ffff67fe6c0 (LWP 27050)]
+[New Thread 0x7ffff5ffd6c0 (LWP 27051)]
+[New Thread 0x7ffff57fc6c0 (LWP 27052)]
+[New Thread 0x7ffff4ffb6c0 (LWP 27053)]
+[New Thread 0x7fffeffff6c0 (LWP 27054)]
+[New Thread 0x7fffeddfe6c0 (LWP 27055)]
+
+Thread 1 "dotnet" hit Breakpoint 1, 0x00007fffec37ef50 in ak_core::tc_copy_generic () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mgeneric/release/libak_core.so
+#0  0x00007fffec37ef50 in ak_core::tc_copy_generic () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mgeneric/release/libak_core.so
+#1  0x00007fffec2d7af8 in ak_core::enc_blob () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mgeneric/release/libak_core.so
+#2  0x00007fffec325a1a in ak_encode_UploadResultDataMessage () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mgeneric/release/libak_core.so
+#3  0x00007fff78d1ccba in ?? ()
+#4  0x00000000004622fa in ?? ()
+#5  0x00007ffff76977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+From                To                  Syms Read   Shared Object Library
+0x00007fffec2d7330  0x00007fffec524738  Yes (*)     /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mgeneric/release/libak_core.so
+(*): Shared library is missing debugging information.
+Kill the program being debugged? (y or n) [answered Y; input not from terminal]
+[Inferior 1 (process 27045) killed]

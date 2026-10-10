@@ -1,0 +1,7 @@
+# s14 cores: git archive HEAD ffi/poc/codec, last core commit c6e29dbe; rustc 1.94.1
+#   target-core-mgeneric: --features rpc,init-guard,tc-measure-generic -> 95f86dcb5370d6db (168 ak_* exports)
+#   target-core-mstub: --features rpc,init-guard,tc-measure-u16stub -> c1c7db27869524d8 (169 ak_* exports)
+#   target-core-s14default: --features rpc,init-guard -> 7b8ed0b888940ab7 (168 ak_* exports)
+# default build from this snapshot == target-core (byte-identical: 7b8ed0b888940ab7)
+#   target-core-mgeneric: ak_tc_bytes -> 17ef50, ak_tc_utf8_trusted -> 17f1f0: distinct (the fast path cannot take it)
+#   target-core-mstub: ak_tc_utf16 -> 1c94b0, ak_tc_utf8_trusted -> 1c9750: distinct (the fast path cannot take it)

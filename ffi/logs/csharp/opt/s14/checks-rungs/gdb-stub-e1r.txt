@@ -1,0 +1,20 @@
+Function "_ZN7ak_core13tc_utf16_stub17ha7c498661e2ad2edE" not defined.
+Breakpoint 1 (_ZN7ak_core13tc_utf16_stub17ha7c498661e2ad2edE) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7ffff6fff6c0 (LWP 29623)]
+[New Thread 0x7ffff67fe6c0 (LWP 29624)]
+[New Thread 0x7ffff5ffd6c0 (LWP 29625)]
+[New Thread 0x7ffff57fc6c0 (LWP 29626)]
+[New Thread 0x7ffff4ffb6c0 (LWP 29627)]
+[New Thread 0x7fffe7fff6c0 (LWP 29628)]
+[New Thread 0x7fff6ffff6c0 (LWP 29629)]
+[New Thread 0x7fff6ebff6c0 (LWP 29630)]
+
+Thread 1 "dotnet" hit Breakpoint 1, 0x00007fff6d1c94b0 in ak_core::tc_utf16_stub () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mstub/release/libak_core.so
+#0  0x00007fff6d1c94b0 in ak_core::tc_utf16_stub () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mstub/release/libak_core.so
+#1  0x00007fff6d0d7a28 in ak_core::enc_blob () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mstub/release/libak_core.so
+#2  0x00007fff6d12594a in ak_encode_UploadResultDataMessage () from /home/user/ArmoniK.Api/ffi/poc/csharp/target-core-mstub/release/libak_core.so
+#3  0x00007fff78d4e151 in ?? ()
+Kill the program being debugged? (y or n) [answered Y; input not from terminal]
+[Inferior 1 (process 29620) killed]
