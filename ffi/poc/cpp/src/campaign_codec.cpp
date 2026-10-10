@@ -289,7 +289,7 @@ std::string det_bytes(const google::protobuf::MessageLite &m) {
 template <class Fac, class Pb>
 struct Fns {
   intptr_t (*ffi_enc)(ak_enc_ctx *, const Fac &, const shapes::ffi::Tcs &);
-  int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, Fac *);
+  int32_t (*ffi_dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, Fac *);
   void (*nat_enc)(const Fac &, ak::Enc *);
   int32_t (*nat_dec)(const uint8_t *, size_t, Fac *);
   void (*natr_enc)(const Fac &, ak::Enc *);
@@ -298,7 +298,7 @@ struct Fns {
   // options entry armed). NULL until the generated binding exports the decision-11 retain
   // entry points (WP5 step 7); set here, the arm appears in the gate and the rounds.
   intptr_t (*ffi_enc_retain)(ak_enc_ctx *, const Fac &, const shapes::ffi::Tcs &);
-  int32_t (*ffi_dec_retain)(ak_dec_ctx *, const uint8_t *, size_t, Fac *);
+  int32_t (*ffi_dec_retain)(shapes::ffi::DecHost *, const uint8_t *, size_t, Fac *);
 };
 
 struct Ctx {
@@ -327,10 +327,10 @@ template <class Fac> struct Bor;
 #define BOR(Root, sroot)                                                                         \
   template <> struct Bor<shapes::Root> {                                                        \
     typedef shapes_borrow::Root B;                                                              \
-    static int32_t (*dec())(ak_dec_ctx *, const uint8_t *, size_t, B *) {                       \
+    static int32_t (*dec())(shapes_borrow::ffi::DecHost *, const uint8_t *, size_t, B *) {                       \
       return &shapes_borrow::ffi::decode_with_##sroot;                                         \
     }                                                                                           \
-    static int32_t (*dec_retain())(ak_dec_ctx *, const uint8_t *, size_t, B *) { return AK_BOR_RETAIN(sroot); } \
+    static int32_t (*dec_retain())(shapes_borrow::ffi::DecHost *, const uint8_t *, size_t, B *) { return AK_BOR_RETAIN(sroot); } \
   };
 AK_ROOTS(BOR)
 #undef BOR
@@ -345,7 +345,7 @@ template <class Fac> struct Pull;
 #endif
 #define PULL(Root, sroot)                                                                        \
   template <> struct Pull<shapes::Root> {                                                       \
-    typedef int32_t (*Fn)(ak_dec_ctx *, const uint8_t *, size_t, shapes::Root *);                \
+    typedef int32_t (*Fn)(shapes::ffi::DecHost *, const uint8_t *, size_t, shapes::Root *);                \
     static Fn walk() { return &shapes::ffi::pull_with_##sroot; }                                \
     static Fn drain() { return &shapes::ffi::pull_drain_with_##sroot; }                          \
     static Fn walk_retain() { return AK_PULL_RETAIN(sroot); }                                    \
@@ -425,9 +425,9 @@ Group make_group(const std::string &payload, const std::string &content, const s
   // (walked, and drained) must be equal.
   for (int r = 0; r < 2; ++r) {
     typename Pull<Fac>::Fn pw = r ? Pull<Fac>::walk_retain() : Pull<Fac>::walk();
-    int32_t (*pd)(ak_dec_ctx *, const uint8_t *, size_t, Fac *) = r ? F.ffi_dec_retain : F.ffi_dec;
+    int32_t (*pd)(shapes::ffi::DecHost *, const uint8_t *, size_t, Fac *) = r ? F.ffi_dec_retain : F.ffi_dec;
     if (!pw || !pd) continue;
-    ak_dec_ctx *dc = r ? cx->dcsr->of<Fac>() : cx->dcs->of<Fac>();
+    shapes::ffi::DecHost *dc = r ? cx->dcsr->of<Fac>() : cx->dcs->of<Fac>();
     Fac a, b, c;
     int32_t ra = pd(dc, cbf, cn, &a);  // the plant (AK_CAMPAIGN_PLANT) changes push's input only
     int32_t rb = pw(dc, cb, cn, &b);
@@ -607,7 +607,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
     }, [F, cx, cbf, cn, want_fold]() -> std::string {
       Fac v;
       int32_t rc = F.ffi_dec(cx->dcs->of<Fac>(), cbf, cn, &v);
-      if (rc != 0 || ak_dec_err(cx->dcs->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcs->of<Fac>()); return "decode refused"; }
+      if (rc != 0 || ak_dec_err(cx->dcs->of<Fac>()->ctx) != 0) { ak_dec_err_reset(cx->dcs->of<Fac>()->ctx); return "decode refused"; }
       return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
     }});
     if (F.ffi_dec_retain) {
@@ -622,7 +622,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
       }, [F, cx, cb, cn, want_fold]() -> std::string {
         Fac v;
         int32_t rc = F.ffi_dec_retain(cx->dcsr->of<Fac>(), cb, cn, &v);
-        if (rc != 0 || ak_dec_err(cx->dcsr->of<Fac>()) != 0) { ak_dec_err_reset(cx->dcsr->of<Fac>()); return "decode refused"; }
+        if (rc != 0 || ak_dec_err(cx->dcsr->of<Fac>()->ctx) != 0) { ak_dec_err_reset(cx->dcsr->of<Fac>()->ctx); return "decode refused"; }
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
     }
@@ -667,7 +667,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
     {
       typedef typename Bor<Fac>::B BF;
       for (int r = 0; r < 2; ++r) {
-        int32_t (*bdec)(ak_dec_ctx *, const uint8_t *, size_t, BF *) = r ? Bor<Fac>::dec_retain() : Bor<Fac>::dec();
+        int32_t (*bdec)(shapes_borrow::ffi::DecHost *, const uint8_t *, size_t, BF *) = r ? Bor<Fac>::dec_retain() : Bor<Fac>::dec();
         if (!bdec) continue;
         shapes_borrow::ffi::DecCtxs *bc = r ? cx->bdcsr : cx->bdcs;
         g.slots.push_back({"core-ffi-borrow", dir, r ? "retain" : AK_FFI_DROP_MODE, [bdec, bc, cb, cn, read](long n) {
@@ -681,7 +681,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
         }, [bdec, bc, cb, cn, want_fold]() -> std::string {
           BF v;
           int32_t rc = bdec(bc->of<BF>(), cb, cn, &v);
-          if (rc != 0 || ak_dec_err(bc->of<BF>()) != 0) { ak_dec_err_reset(bc->of<BF>()); return "borrow decode refused"; }
+          if (rc != 0 || ak_dec_err(bc->of<BF>()->ctx) != 0) { ak_dec_err_reset(bc->of<BF>()->ctx); return "borrow decode refused"; }
           return shapes_borrow::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
         }});
       }
@@ -702,7 +702,7 @@ Group make_group(const std::string &payload, const std::string &content, const s
       }, [pw, pc, cb, cn, want_fold]() -> std::string {
         Fac v;
         int32_t rc = pw(pc->of<Fac>(), cb, cn, &v);
-        if (rc != 0 || ak_dec_err(pc->of<Fac>()) != 0) { ak_dec_err_reset(pc->of<Fac>()); return "pull decode refused"; }
+        if (rc != 0 || ak_dec_err(pc->of<Fac>()->ctx) != 0) { ak_dec_err_reset(pc->of<Fac>()->ctx); return "pull decode refused"; }
         return shapes::touch::touch(v) == want_fold ? "" : "field fold differs from the incumbent's";
       }});
     }

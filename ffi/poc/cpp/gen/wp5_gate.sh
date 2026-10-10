@@ -5,7 +5,7 @@
 # Logs, into ffi/logs/cpp/:
 #   wp5-generator.log    generate.py --check (drift + the one-generator guard over the shared
 #                        C++ backend and this slice's glue), the shared core's --check,
-#                        refusal_test.py, rd2_guard.sh (the RPC layout plants), audit, R0
+#                        no_tls.py --plant (D26), refusal_test.py, rd2_guard.sh (the RPC layout plants), audit, R0
 #   wp5-conformance.log  byte identity on the payload set at C++17 target, C++17 floor,
 #                        C++14, C++11 and static, against the core built WITH init-guard;
 #                        and the planted build whose binding skips ak_init, which must FAIL
@@ -118,6 +118,8 @@ fi
   must "generate.py --check" 0 py gen/generate.py --check
   step "poc/codec/gen/generate.py --check (the shared core this slice gates)"
   must "codec generate.py --check" 0 py ../codec/gen/generate.py --check
+  step "no_tls.py --plant (FIX-PLAN D26: no thread-local storage on a timed path; the plant must be found)"
+  must "no_tls.py --plant" 0 py gen/no_tls.py --plant
   step "refusal_test.py"
   must "refusal_test.py" 0 py gen/refusal_test.py
   step "rd2_guard.sh (ak_client_opts rendered from plan.rpc; two plants refused)"

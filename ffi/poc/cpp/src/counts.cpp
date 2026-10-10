@@ -55,8 +55,8 @@ static void count_enc(const char *id, const char *what, ak_enc_ctx *ctx,
 }
 
 template <class F>
-static void count_dec(const char *id, const char *what, ak_dec_ctx *dctx,
-                      int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *), const std::string &b,
+static void count_dec(const char *id, const char *what, shapes::ffi::DecHost *dctx,
+                      int32_t (*dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *), const std::string &b,
                       double elems, F *out) {
   AkCounters c;
   // FIX-PLAN D27: the count is taken WARM, as the timed loop runs (the same decode once
@@ -64,11 +64,11 @@ static void count_dec(const char *id, const char *what, ak_dec_ctx *dctx,
   // every decode entry, so a retain decode in the loop makes no reset; the arming is the
   // warm call's.
   { F warm; dec(dctx, (const uint8_t *)b.data(), b.size(), &warm); }
-  ak_dec_counters_reset(dctx);
+  ak_dec_counters_reset(dctx->ctx);
   shapes::ffi::host_calls_take();
   dec(dctx, (const uint8_t *)b.data(), b.size(), out);
   uint64_t host = shapes::ffi::host_calls_take();
-  ak_dec_counters(dctx, &c);
+  ak_dec_counters(dctx->ctx, &c);
   show(id, what, c, host, 0, elems);
 }
 
@@ -77,29 +77,29 @@ static void count_dec(const char *id, const char *what, ak_dec_ctx *dctx,
 // host counts the records its replay dispatches (pull_records_take). A retain pull's reverse
 // calls are decision 11's `grow` only (none on a payload, which carries no unknown field).
 template <class F>
-static uint64_t push_reverse(ak_dec_ctx *dctx, int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+static uint64_t push_reverse(shapes::ffi::DecHost *dctx, int32_t (*dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *),
                              const std::string &b) {
   AkCounters c;
   F out;
-  ak_dec_counters_reset(dctx);
+  ak_dec_counters_reset(dctx->ctx);
   dec(dctx, (const uint8_t *)b.data(), b.size(), &out);
-  ak_dec_counters(dctx, &c);
+  ak_dec_counters(dctx->ctx, &c);
   return c.reverse;
 }
 template <class F>
-static void count_pull(const char *id, const char *what, ak_dec_ctx *dctx,
-                       int32_t (*pull)(ak_dec_ctx *, const uint8_t *, size_t, F *), const std::string &b,
+static void count_pull(const char *id, const char *what, shapes::ffi::DecHost *dctx,
+                       int32_t (*pull)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *), const std::string &b,
                        uint64_t want_records) {
   AkCounters c;
   F out;
   { F warm; pull(dctx, (const uint8_t *)b.data(), b.size(), &warm); }  // D27: warm, as count_dec
-  ak_dec_counters_reset(dctx);
+  ak_dec_counters_reset(dctx->ctx);
   shapes::ffi::host_calls_take();
   shapes::ffi::pull_records_take();
   pull(dctx, (const uint8_t *)b.data(), b.size(), &out);
   uint64_t host = shapes::ffi::host_calls_take();
   uint64_t recs = shapes::ffi::pull_records_take();
-  ak_dec_counters(dctx, &c);
+  ak_dec_counters(dctx->ctx, &c);
   unsigned long long fwd = (unsigned long long)(c.forward + host);
   std::printf("  %-6s %-22s forward %6llu  reverse %6llu  records %6llu  (core %llu + host %llu)  %s\n", id, what,
               fwd, (unsigned long long)c.reverse, (unsigned long long)recs, (unsigned long long)c.forward,
@@ -112,7 +112,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      intptr_t (*ffi_enc_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_nb)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_unk)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
-                     int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+                     int32_t (*ffi_dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *),
                      double elems) {
@@ -141,7 +141,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   if (ffi_enc_unk) count_enc<F>(id, "encode retain", ctx, ffi_enc_unk, facade, tc, elems);
 
   // Decision 11 rule 6: the context is bound to this payload's root.
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();
   F out;
   count_dec<F>(id, "decode", dctx, ffi_dec, wire, elems, &out);
 #ifndef AK_NO_UNKNOWN_FIELDS
@@ -169,10 +169,10 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 // copied into a buffer the core asks `grow` for (reverse crossings), grown geometrically.
 template <class F>
 static void run_row(const std::string &id, const std::string &v,
-                    int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+                    int32_t (*dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *),
                     intptr_t (*enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                     intptr_t (*enc_unk)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &)) {
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();
   ak_enc_ctx *ctx = ak_enc_ctx_new();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   F d;
@@ -267,7 +267,7 @@ static void grid_case(const std::string &id, F (*mk)(void), void (*pbmk)(P *),
   std::string wire;
   pb_serialize_det(pbm, &wire);
   ak_enc_ctx *ctx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();
   if (encode) count_enc_transport<F>(id.c_str(), AK_GRID_ENC_WHAT, ctx, enc, facade, elems);
   F out;
   count_dec<F>(id.c_str(), AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(F), wire, elems, &out);
@@ -278,7 +278,7 @@ template <class F>
 static void grid_row(const std::string &id, const std::string &v,
                      intptr_t (*enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &)) {
   ak_enc_ctx *ctx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();
   F d;
   count_dec<F>(id.c_str(), AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(F), v, 0, &d);
   count_enc_transport<F>(id.c_str(), AK_GRID_ENC_WHAT, ctx, enc, d, 0);
@@ -305,7 +305,7 @@ static int grid_main(const std::string &corpus) {
     std::ifstream vf((std::string("payloads/") + AK_P71_VECTOR).c_str(), std::ios::binary);
     std::string v((std::istreambuf_iterator<char>(vf)), std::istreambuf_iterator<char>());
     if (!v.empty()) {
-      ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
+      shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
       shapes::DualResponse out;
       count_dec<shapes::DualResponse>("P7.1", AK_GRID_DEC_WHAT, dctx, AK_GRID_DEC(shapes::DualResponse), v, 0, &out);
       shapes::ffi::dec_ctx_free(dctx);

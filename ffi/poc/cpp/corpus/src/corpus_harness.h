@@ -78,15 +78,15 @@ Outcome native_arm(const uint8_t *b, size_t n, size_t sites,
 
 template <class T>
 Outcome ffi_arm(const uint8_t *b, size_t n, Cx &cx,
-                int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, T *),
+                int32_t (*dec)(ffi::DecHost *, const uint8_t *, size_t, T *),
                 intptr_t (*enc)(ak_enc_ctx *, const T &, const ffi::Tcs &),
                 std::string (*proj)(const T &)) {
   T v;
-  ak_dec_ctx *dc = ffi::dec_ctx_new_for<T>();
+  ffi::DecHost *dc = ffi::dec_ctx_new_for<T>();
   if (dc == NULL) return Outcome::error(AK_ERR_INVALID_STATE);
   int32_t rc = dec(dc, b, n, &v);
-  if (rc == 0) rc = ak_dec_err(dc);
-  ak_dec_ctx_free(dc);
+  if (rc == 0) rc = ak_dec_err(dc->ctx);
+  ffi::dec_ctx_free(dc);
   if (rc != 0) return Outcome::error(rc);
   Outcome o;
   o.kind = Outcome::kOk;
@@ -124,9 +124,9 @@ std::string unk_bytes(Cx &cx, intptr_t (*enc)(ak_enc_ctx *, const T &, const ffi
 }
 
 template <class T>
-int32_t unk_dec_rc(ak_dec_ctx *dc, int32_t rc) {
-  if (rc == 0) rc = ak_dec_err(dc);
-  ak_dec_err_reset(dc);
+int32_t unk_dec_rc(ffi::DecHost *dc, int32_t rc) {
+  if (rc == 0) rc = ak_dec_err(dc->ctx);
+  ak_dec_err_reset(dc->ctx);
   return rc;
 }
 
@@ -145,23 +145,23 @@ std::string unk_controls(const uint8_t *b, size_t n, Cx &cx,
                          intptr_t (*enc)(ak_enc_ctx *, const T &, const ffi::Tcs &), bool plant) {
   typedef ffi::DecRoot<T> R;
   std::ostringstream js;
-  ak_dec_ctx *dc = R::ctx_new(NULL);
+  ffi::DecHost *dc = R::ctx_new(NULL);
   if (dc == NULL) return "{\"crash\":\"no context\"}";
-  ffi::unk_entry_bytes();
+  ffi::unk_entry_bytes(dc);
   T all;
   int32_t rc = unk_dec_rc<T>(dc, R::decode_unk(dc, b, n, &all));
-  size_t eb_all = ffi::unk_entry_bytes();
+  size_t eb_all = ffi::unk_entry_bytes(dc);
   T drop;
   int32_t drc = unk_dec_rc<T>(dc, R::decode(dc, b, n, &drop));
-  size_t eb_drop = ffi::unk_entry_bytes();
+  size_t eb_drop = ffi::unk_entry_bytes(dc);
   T pool;
   uint64_t refills = 0;
   int32_t prc = unk_dec_rc<T>(dc, R::decode_pool(dc, b, n, &pool, 2, 8, &refills));
-  size_t eb_pool = ffi::unk_entry_bytes();
+  size_t eb_pool = ffi::unk_entry_bytes(dc);
   if (rc != 0) {
     // A refused vector: every mode must refuse it with the same code.
     js << "{\"err\":" << rc << ",\"drop_err\":" << drc << ",\"pool_err\":" << prc << "}";
-    ak_dec_ctx_free(dc);
+    ffi::dec_ctx_free(dc);
     return js.str();
   }
   std::string ball = unk_bytes<T>(cx, enc, all);
@@ -177,7 +177,7 @@ std::string unk_controls(const uint8_t *b, size_t n, Cx &cx,
     R::opts(&o, i);
     T got;
     int32_t grc = unk_dec_rc<T>(dc, R::decode_opts(dc, b, n, &got, &o));
-    size_t eb = ffi::unk_entry_bytes();
+    size_t eb = ffi::unk_entry_bytes(dc);
     T exp = all;
     if (!plant) R::clear(exp, i);
     std::string bexp = unk_bytes<T>(cx, enc, exp);
@@ -186,8 +186,8 @@ std::string unk_controls(const uint8_t *b, size_t n, Cx &cx,
     if (eb != (R::is_entry(i) ? 0 : eb_all)) emism.push_back(i);
   }
   // Every buffer the binding allocated was delivered or reclaimed inside each decode.
-  size_t leaked = ffi::unk_reclaim();
-  ak_dec_ctx_free(dc);
+  size_t leaked = ffi::unk_reclaim(dc);
+  ffi::dec_ctx_free(dc);
   js << "{\"positions\":" << (int)R::kPositions << ",\"changed\":" << changed
      << ",\"entry_bytes\":" << eb_all << ",\"refills\":" << refills
      << ",\"drop_equal\":" << (drop_equal ? "true" : "false")

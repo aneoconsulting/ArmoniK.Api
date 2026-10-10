@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <new>
 #include <type_traits>
 #include <unordered_set>
 
@@ -259,34 +260,34 @@ static inline void fill_list_probe_response_sparse(struct ak_efix_ListProbeRespo
 static inline void fill_list_metrics_response_sparse(struct ak_efix_ListMetricsResponse *d, const ListMetricsResponse &o, const Tcs &t);
 static inline void fill_upload_result_data_message_sparse(struct ak_efix_UploadResultDataMessage *d, const UploadResultDataMessage &o, const Tcs &t);
 static inline void fill_dual_response_sparse(struct ak_efix_DualResponse *d, const DualResponse &o, const Tcs &t);
-static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_TaskDetailed &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_TaskSummary &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_list_results_response(ListResultsResponse *dst, const struct ak_dfix_ListResultsResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *dst, const struct ak_dfix_ListTasksDetailedResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx);
-static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx);
+static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_TaskDetailed &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_TaskSummary &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_list_results_response(ListResultsResponse *dst, const struct ak_dfix_ListResultsResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *dst, const struct ak_dfix_ListTasksDetailedResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
+static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);
 
 // Total fill (ABI v1 section 6): every member assigned, presence ASSIGNED
 // and not OR-ed. A partial fill does not fail, it silently inherits the
@@ -758,37 +759,37 @@ static inline void fill_dual_response_sparse(struct ak_efix_DualResponse *d, con
   (void)d; (void)o; (void)t;
 }
 
-static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_timestamp(Timestamp *dst, const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   dst->seconds = f.seconds;
   dst->nanos = f.nanos;
 }
-static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline Timestamp from_timestamp(const struct ak_dfix_Timestamp &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   Timestamp r;
-  fill_timestamp(&r, f, base, ctx);
+  fill_timestamp(&r, f, base, ctx, hd);
   return r;
 }
 
-static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_duration(Duration *dst, const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   dst->seconds = f.seconds;
   dst->nanos = f.nanos;
 }
-static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline Duration from_duration(const struct ak_dfix_Duration &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   Duration r;
-  fill_duration(&r, f, base, ctx);
+  fill_duration(&r, f, base, ctx, hd);
   return r;
 }
 
-static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.session_id, ctx, &dst->session_id);
   s_of(base, f.name, ctx, &dst->name);
   s_of(base, f.owner_task_id, ctx, &dst->owner_task_id);
   dst->status = shapes::ResultStatus(f.status);
-  if (f.presence & (1u << 0)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
+  if (f.presence & (1u << 0)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx, hd);
   else dst->created_at.reset();
-  if (f.presence & (1u << 1)) fill_timestamp(&dst->completed_at.emplace(), f.completed_at, base, ctx);
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->completed_at.emplace(), f.completed_at, base, ctx, hd);
   else dst->completed_at.reset();
   s_of(base, f.result_id, ctx, &dst->result_id);
   dst->size = f.size;
@@ -796,17 +797,17 @@ static inline void fill_result_raw(ResultRaw *dst, const struct ak_dfix_ResultRa
   b_of(base, f.opaque_id, &dst->opaque_id);
   dst->manual_deletion = (f.manual_deletion != 0);
 }
-static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline ResultRaw from_result_raw(const struct ak_dfix_ResultRaw &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   ResultRaw r;
-  fill_result_raw(&r, f, base, ctx);
+  fill_result_raw(&r, f, base, ctx, hd);
   return r;
 }
 
 // In place, never constructed: `TaskOptions` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
-  if (f.presence & (1u << 0)) fill_duration(&dst->max_duration.emplace(), f.max_duration, base, ctx);
+static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_TaskOptions &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
+  if (f.presence & (1u << 0)) fill_duration(&dst->max_duration.emplace(), f.max_duration, base, ctx, hd);
   else dst->max_duration.reset();
   dst->max_retries = f.max_retries;
   dst->priority = f.priority;
@@ -818,55 +819,55 @@ static inline void fill_task_options(TaskOptions *dst, const struct ak_dfix_Task
   s_of(base, f.engine_type, ctx, &dst->engine_type);
 }
 
-static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_task_output(TaskOutput *dst, const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   dst->success = (f.success != 0);
   s_of(base, f.error, ctx, &dst->error);
 }
-static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline TaskOutput from_task_output(const struct ak_dfix_TaskOutput &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   TaskOutput r;
-  fill_task_output(&r, f, base, ctx);
+  fill_task_output(&r, f, base, ctx, hd);
   return r;
 }
 
 // In place, never constructed: `TaskDetailed` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_TaskDetailed &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_TaskDetailed &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.id, ctx, &dst->id);
   s_of(base, f.session_id, ctx, &dst->session_id);
   s_of(base, f.owner_pod_id, ctx, &dst->owner_pod_id);
   dst->status = shapes::TaskStatus(f.status);
   s_of(base, f.status_message, ctx, &dst->status_message);
-  if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
+  if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx, hd);
   else dst->options.reset();
-  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx, hd);
   else dst->created_at.reset();
-  if (f.presence & (1u << 2)) fill_timestamp(&dst->submitted_at.emplace(), f.submitted_at, base, ctx);
+  if (f.presence & (1u << 2)) fill_timestamp(&dst->submitted_at.emplace(), f.submitted_at, base, ctx, hd);
   else dst->submitted_at.reset();
-  if (f.presence & (1u << 3)) fill_timestamp(&dst->started_at.emplace(), f.started_at, base, ctx);
+  if (f.presence & (1u << 3)) fill_timestamp(&dst->started_at.emplace(), f.started_at, base, ctx, hd);
   else dst->started_at.reset();
-  if (f.presence & (1u << 4)) fill_timestamp(&dst->ended_at.emplace(), f.ended_at, base, ctx);
+  if (f.presence & (1u << 4)) fill_timestamp(&dst->ended_at.emplace(), f.ended_at, base, ctx, hd);
   else dst->ended_at.reset();
-  if (f.presence & (1u << 5)) fill_timestamp(&dst->pod_ttl.emplace(), f.pod_ttl, base, ctx);
+  if (f.presence & (1u << 5)) fill_timestamp(&dst->pod_ttl.emplace(), f.pod_ttl, base, ctx, hd);
   else dst->pod_ttl.reset();
-  if (f.presence & (1u << 6)) fill_task_output(&dst->output.emplace(), f.output, base, ctx);
+  if (f.presence & (1u << 6)) fill_task_output(&dst->output.emplace(), f.output, base, ctx, hd);
   else dst->output.reset();
   s_of(base, f.pod_hostname, ctx, &dst->pod_hostname);
-  if (f.presence & (1u << 7)) fill_timestamp(&dst->received_at.emplace(), f.received_at, base, ctx);
+  if (f.presence & (1u << 7)) fill_timestamp(&dst->received_at.emplace(), f.received_at, base, ctx, hd);
   else dst->received_at.reset();
-  if (f.presence & (1u << 8)) fill_timestamp(&dst->acquired_at.emplace(), f.acquired_at, base, ctx);
+  if (f.presence & (1u << 8)) fill_timestamp(&dst->acquired_at.emplace(), f.acquired_at, base, ctx, hd);
   else dst->acquired_at.reset();
-  if (f.presence & (1u << 9)) fill_duration(&dst->creation_to_end_duration.emplace(), f.creation_to_end_duration, base, ctx);
+  if (f.presence & (1u << 9)) fill_duration(&dst->creation_to_end_duration.emplace(), f.creation_to_end_duration, base, ctx, hd);
   else dst->creation_to_end_duration.reset();
-  if (f.presence & (1u << 10)) fill_duration(&dst->processing_to_end_duration.emplace(), f.processing_to_end_duration, base, ctx);
+  if (f.presence & (1u << 10)) fill_duration(&dst->processing_to_end_duration.emplace(), f.processing_to_end_duration, base, ctx, hd);
   else dst->processing_to_end_duration.reset();
   s_of(base, f.initial_task_id, ctx, &dst->initial_task_id);
-  if (f.presence & (1u << 11)) fill_duration(&dst->received_to_end_duration.emplace(), f.received_to_end_duration, base, ctx);
+  if (f.presence & (1u << 11)) fill_duration(&dst->received_to_end_duration.emplace(), f.received_to_end_duration, base, ctx, hd);
   else dst->received_to_end_duration.reset();
-  if (f.presence & (1u << 12)) fill_timestamp(&dst->processed_at.emplace(), f.processed_at, base, ctx);
+  if (f.presence & (1u << 12)) fill_timestamp(&dst->processed_at.emplace(), f.processed_at, base, ctx, hd);
   else dst->processed_at.reset();
-  if (f.presence & (1u << 13)) fill_timestamp(&dst->fetched_at.emplace(), f.fetched_at, base, ctx);
+  if (f.presence & (1u << 13)) fill_timestamp(&dst->fetched_at.emplace(), f.fetched_at, base, ctx, hd);
   else dst->fetched_at.reset();
   s_of(base, f.payload_id, ctx, &dst->payload_id);
   s_of(base, f.created_by, ctx, &dst->created_by);
@@ -874,31 +875,31 @@ static inline void fill_task_detailed(TaskDetailed *dst, const struct ak_dfix_Ta
 
 // In place, never constructed: `TaskSummary` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_TaskSummary &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_task_summary(TaskSummary *dst, const struct ak_dfix_TaskSummary &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.id, ctx, &dst->id);
   s_of(base, f.session_id, ctx, &dst->session_id);
-  if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx);
+  if (f.presence & (1u << 0)) fill_task_options(&dst->options.get_or_insert(), f.options, base, ctx, hd);
   else dst->options.reset();
   dst->status = shapes::TaskStatus(f.status);
-  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx);
+  if (f.presence & (1u << 1)) fill_timestamp(&dst->created_at.emplace(), f.created_at, base, ctx, hd);
   else dst->created_at.reset();
   s_of(base, f.error, ctx, &dst->error);
   s_of(base, f.status_message, ctx, &dst->status_message);
   dst->count_data_dependencies = f.count_data_dependencies;
 }
 
-static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_empty(Empty *dst, const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
 }
-static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline Empty from_empty(const struct ak_dfix_Empty &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   Empty r;
-  fill_empty(&r, f, base, ctx);
+  fill_empty(&r, f, base, ctx, hd);
   return r;
 }
 
-static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.id, ctx, &dst->id);
   if (f.presence & (1u << 0)) dst->opt_count.set(f.opt_count);
   else dst->opt_count.reset();
@@ -913,97 +914,97 @@ static inline void fill_probe(Probe *dst, const struct ak_dfix_Probe &f, const u
     case 12: {
       b_of(base, f.body_as_blob, &dst->body.set_as_blob()); break; }
     case 13: {
-      fill_timestamp(&dst->body.set_as_stamp(), f.body_as_stamp, base, ctx); break; }
+      fill_timestamp(&dst->body.set_as_stamp(), f.body_as_stamp, base, ctx, hd); break; }
     case 14: {
-      fill_empty(&dst->body.set_as_nothing(), f.body_as_nothing, base, ctx); break; }
+      fill_empty(&dst->body.set_as_nothing(), f.body_as_nothing, base, ctx, hd); break; }
     default: dst->body.clear(); break;
   }
 }
-static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline Probe from_probe(const struct ak_dfix_Probe &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   Probe r;
-  fill_probe(&r, f, base, ctx);
+  fill_probe(&r, f, base, ctx, hd);
   return r;
 }
 
-static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_upload_result_data(UploadResultData *dst, const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.session_id, ctx, &dst->session_id);
   s_of(base, f.result_id, ctx, &dst->result_id);
   b_of(base, f.data_chunk, &dst->data_chunk);
 }
-static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline UploadResultData from_upload_result_data(const struct ak_dfix_UploadResultData &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   UploadResultData r;
-  fill_upload_result_data(&r, f, base, ctx);
+  fill_upload_result_data(&r, f, base, ctx, hd);
   return r;
 }
 
 // In place, never constructed: `MetricsBatch` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_metrics_batch(MetricsBatch *dst, const struct ak_dfix_MetricsBatch &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.id, ctx, &dst->id);
 }
 
-static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_pair(Pair *dst, const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   s_of(base, f.key, ctx, &dst->key);
   dst->value = f.value;
 }
-static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline Pair from_pair(const struct ak_dfix_Pair &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   Pair r;
-  fill_pair(&r, f, base, ctx);
+  fill_pair(&r, f, base, ctx, hd);
   return r;
 }
 
 // In place, never constructed: `ListResultsResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_list_results_response(ListResultsResponse *dst, const struct ak_dfix_ListResultsResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_list_results_response(ListResultsResponse *dst, const struct ak_dfix_ListResultsResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   dst->page = f.page;
   dst->total = f.total;
 }
 
 // In place, never constructed: `ListTasksDetailedResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *dst, const struct ak_dfix_ListTasksDetailedResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_list_tasks_detailed_response(ListTasksDetailedResponse *dst, const struct ak_dfix_ListTasksDetailedResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
   dst->page = f.page;
   dst->total = f.total;
 }
 
 // In place, never constructed: `ListTaskSummaryResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_list_task_summary_response(ListTaskSummaryResponse *dst, const struct ak_dfix_ListTaskSummaryResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
 }
 
 // In place, never constructed: `ListProbeResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_list_probe_response(ListProbeResponse *dst, const struct ak_dfix_ListProbeResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
 }
 
 // In place, never constructed: `ListMetricsResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_list_metrics_response(ListMetricsResponse *dst, const struct ak_dfix_ListMetricsResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
 }
 
-static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
-  if (f.presence & (1u << 0)) fill_upload_result_data(&dst->upload.emplace(), f.upload, base, ctx);
+static inline void fill_upload_result_data_message(UploadResultDataMessage *dst, const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
+  if (f.presence & (1u << 0)) fill_upload_result_data(&dst->upload.emplace(), f.upload, base, ctx, hd);
   else dst->upload.reset();
 }
-static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx) {
+static inline UploadResultDataMessage from_upload_result_data_message(const struct ak_dfix_UploadResultDataMessage &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
   UploadResultDataMessage r;
-  fill_upload_result_data_message(&r, f, base, ctx);
+  fill_upload_result_data_message(&r, f, base, ctx, hd);
   return r;
 }
 
 // In place, never constructed: `DualResponse` carries a repeated or map field,
 // and `apply` arrives AFTER the runs that populated it.
-static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx) {
-  (void)dst; (void)f; (void)base; (void)ctx;
+static inline void fill_dual_response(DualResponse *dst, const struct ak_dfix_DualResponse &f, const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {
+  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;
 }
 
 static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *obj, int64_t token) {
@@ -2887,6 +2888,7 @@ intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &
 struct Sink_ListResultsResponse {
   ListResultsResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -2896,7 +2898,8 @@ static void apply_list_results_response(ak_dec_ctx *ctx, void *obj, const struct
     Sink_ListResultsResponse *s = (Sink_ListResultsResponse *)obj;
     const struct ak_dfix_ListResultsResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   s->out->page = f.page;
   s->out->total = f.total;
   AK_DGUARD_END
@@ -2908,7 +2911,7 @@ static void add_list_results_response_results(ak_dec_ctx *ctx, void *obj, int64_
     grow_by(s->out->results, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
       s->out->results.emplace_back();  // B-3: the element is built in place
-      fill_result_raw(&s->out->results.back(), elems[i], s->base, ctx);
+      fill_result_raw(&s->out->results.back(), elems[i], s->base, ctx, s->hd);
     }
     AK_REFILL();
   AK_DGUARD_END
@@ -2920,19 +2923,20 @@ static const struct ak_dvt_ListResultsResponse k_dvt_ListResultsResponse = {
     add_list_results_response_results
 };
 
-static int32_t decode_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListResultsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_ListResultsResponse(ctx, &sink, b, n, &k_dvt_ListResultsResponse);
+  return ak_decode_ListResultsResponse(hd->ctx, &sink, b, n, &k_dvt_ListResultsResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_ListResultsResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
-  return decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<ListResultsResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return decode_impl_list_results_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_list_results_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -2957,16 +2961,18 @@ static int32_t pull_replay_list_results_response(ak_dec_ctx *ctx, void *obj, con
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_list_results_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_list_results_response;
-static int32_t pull_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_ListResultsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_ListResultsResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_list_results_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -2977,7 +2983,7 @@ static int32_t pull_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_list_results_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -2994,17 +3000,18 @@ static int32_t pull_impl_list_results_response(ak_dec_ctx *ctx, const uint8_t *b
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
-  return pull_impl_list_results_response(ctx, b, n, out, false);
+int32_t pull_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return pull_impl_list_results_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
-  return pull_impl_list_results_response(ctx, b, n, out, true);
+int32_t pull_drain_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  return pull_impl_list_results_response(hd, b, n, out, true);
 }
 
 struct Sink_ListTasksDetailedResponse {
   ListTasksDetailedResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3014,7 +3021,8 @@ static void apply_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
     const struct ak_dfix_ListTasksDetailedResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   s->out->page = f.page;
   s->out->total = f.total;
   AK_DGUARD_END
@@ -3040,7 +3048,7 @@ static int64_t new_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj
 static void apply_list_tasks_detailed_response_tasks(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_TaskDetailed *fx) {
   AK_DGUARD_BEGIN
     Sink_ListTasksDetailedResponse *s = (Sink_ListTasksDetailedResponse *)obj;
-    fill_task_detailed(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    fill_task_detailed(&s->out->tasks[(size_t)tok], *fx, s->base, ctx, s->hd);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3143,19 +3151,20 @@ static const struct ak_dvt_ListTasksDetailedResponse k_dvt_ListTasksDetailedResp
     add_list_tasks_detailed_response_tasks_options_options
 };
 
-static int32_t decode_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTasksDetailedResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_ListTasksDetailedResponse(ctx, &sink, b, n, &k_dvt_ListTasksDetailedResponse);
+  return ak_decode_ListTasksDetailedResponse(hd->ctx, &sink, b, n, &k_dvt_ListTasksDetailedResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_ListTasksDetailedResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
-  return decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<ListTasksDetailedResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return decode_impl_list_tasks_detailed_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_list_tasks_detailed_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3198,16 +3207,18 @@ static int32_t pull_replay_list_tasks_detailed_response(ak_dec_ctx *ctx, void *o
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_list_tasks_detailed_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_list_tasks_detailed_response;
-static int32_t pull_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_ListTasksDetailedResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_ListTasksDetailedResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_list_tasks_detailed_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3218,7 +3229,7 @@ static int32_t pull_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uin
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_list_tasks_detailed_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3235,17 +3246,18 @@ static int32_t pull_impl_list_tasks_detailed_response(ak_dec_ctx *ctx, const uin
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
-  return pull_impl_list_tasks_detailed_response(ctx, b, n, out, false);
+int32_t pull_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return pull_impl_list_tasks_detailed_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
-  return pull_impl_list_tasks_detailed_response(ctx, b, n, out, true);
+int32_t pull_drain_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  return pull_impl_list_tasks_detailed_response(hd, b, n, out, true);
 }
 
 struct Sink_ListProbeResponse {
   ListProbeResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3255,7 +3267,8 @@ static void apply_list_probe_response(ak_dec_ctx *ctx, void *obj, const struct a
     Sink_ListProbeResponse *s = (Sink_ListProbeResponse *)obj;
     const struct ak_dfix_ListProbeResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   AK_DGUARD_END
 }
 
@@ -3265,7 +3278,7 @@ static void add_list_probe_response_probes(ak_dec_ctx *ctx, void *obj, int64_t t
     grow_by(s->out->probes, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
       s->out->probes.emplace_back();  // B-3: the element is built in place
-      fill_probe(&s->out->probes.back(), elems[i], s->base, ctx);
+      fill_probe(&s->out->probes.back(), elems[i], s->base, ctx, s->hd);
     }
     AK_REFILL();
   AK_DGUARD_END
@@ -3277,19 +3290,20 @@ static const struct ak_dvt_ListProbeResponse k_dvt_ListProbeResponse = {
     add_list_probe_response_probes
 };
 
-static int32_t decode_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListProbeResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_ListProbeResponse(ctx, &sink, b, n, &k_dvt_ListProbeResponse);
+  return ak_decode_ListProbeResponse(hd->ctx, &sink, b, n, &k_dvt_ListProbeResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_ListProbeResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
-  return decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<ListProbeResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return decode_impl_list_probe_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_list_probe_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3314,16 +3328,18 @@ static int32_t pull_replay_list_probe_response(ak_dec_ctx *ctx, void *obj, const
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_list_probe_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_list_probe_response;
-static int32_t pull_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_ListProbeResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_ListProbeResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_list_probe_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3334,7 +3350,7 @@ static int32_t pull_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, 
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_list_probe_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3351,17 +3367,18 @@ static int32_t pull_impl_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, 
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
-  return pull_impl_list_probe_response(ctx, b, n, out, false);
+int32_t pull_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return pull_impl_list_probe_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
-  return pull_impl_list_probe_response(ctx, b, n, out, true);
+int32_t pull_drain_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  return pull_impl_list_probe_response(hd, b, n, out, true);
 }
 
 struct Sink_ListTaskSummaryResponse {
   ListTaskSummaryResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3371,7 +3388,8 @@ static void apply_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const s
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
     const struct ak_dfix_ListTaskSummaryResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   AK_DGUARD_END
 }
 
@@ -3395,7 +3413,7 @@ static int64_t new_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj) 
 static void apply_list_task_summary_response_tasks(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_TaskSummary *fx) {
   AK_DGUARD_BEGIN
     Sink_ListTaskSummaryResponse *s = (Sink_ListTaskSummaryResponse *)obj;
-    fill_task_summary(&s->out->tasks[(size_t)tok], *fx, s->base, ctx);
+    fill_task_summary(&s->out->tasks[(size_t)tok], *fx, s->base, ctx, s->hd);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3426,19 +3444,20 @@ static const struct ak_dvt_ListTaskSummaryResponse k_dvt_ListTaskSummaryResponse
     add_list_task_summary_response_tasks_options_options
 };
 
-static int32_t decode_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListTaskSummaryResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_ListTaskSummaryResponse(ctx, &sink, b, n, &k_dvt_ListTaskSummaryResponse);
+  return ak_decode_ListTaskSummaryResponse(hd->ctx, &sink, b, n, &k_dvt_ListTaskSummaryResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_ListTaskSummaryResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
-  return decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<ListTaskSummaryResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return decode_impl_list_task_summary_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_list_task_summary_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3469,16 +3488,18 @@ static int32_t pull_replay_list_task_summary_response(ak_dec_ctx *ctx, void *obj
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_list_task_summary_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_list_task_summary_response;
-static int32_t pull_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_ListTaskSummaryResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_ListTaskSummaryResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_list_task_summary_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3489,7 +3510,7 @@ static int32_t pull_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_list_task_summary_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3506,17 +3527,18 @@ static int32_t pull_impl_list_task_summary_response(ak_dec_ctx *ctx, const uint8
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
-  return pull_impl_list_task_summary_response(ctx, b, n, out, false);
+int32_t pull_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return pull_impl_list_task_summary_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
-  return pull_impl_list_task_summary_response(ctx, b, n, out, true);
+int32_t pull_drain_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  return pull_impl_list_task_summary_response(hd, b, n, out, true);
 }
 
 struct Sink_UploadResultDataMessage {
   UploadResultDataMessage *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3526,8 +3548,9 @@ static void apply_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const s
     Sink_UploadResultDataMessage *s = (Sink_UploadResultDataMessage *)obj;
     const struct ak_dfix_UploadResultDataMessage &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
-  if (f.presence & (1u << 0)) fill_upload_result_data(&s->out->upload.emplace(), f.upload, base, ctx);
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
+  if (f.presence & (1u << 0)) fill_upload_result_data(&s->out->upload.emplace(), f.upload, base, ctx, hd);
   else s->out->upload.reset();
   AK_DGUARD_END
 }
@@ -3537,19 +3560,20 @@ static const struct ak_dvt_UploadResultDataMessage k_dvt_UploadResultDataMessage
     apply_upload_result_data_message
 };
 
-static int32_t decode_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_UploadResultDataMessage sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_UploadResultDataMessage(ctx, &sink, b, n, &k_dvt_UploadResultDataMessage);
+  return ak_decode_UploadResultDataMessage(hd->ctx, &sink, b, n, &k_dvt_UploadResultDataMessage);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_UploadResultDataMessage(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
-  return decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
+// DecRoot<UploadResultDataMessage>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return decode_impl_upload_result_data_message(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_upload_result_data_message(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3572,16 +3596,18 @@ static int32_t pull_replay_upload_result_data_message(ak_dec_ctx *ctx, void *obj
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_upload_result_data_message;
-static thread_local std::vector<uint64_t> t_pull_scratch_upload_result_data_message;
-static int32_t pull_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_UploadResultDataMessage sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_UploadResultDataMessage(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_upload_result_data_message;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3592,7 +3618,7 @@ static int32_t pull_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_upload_result_data_message;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3609,17 +3635,18 @@ static int32_t pull_impl_upload_result_data_message(ak_dec_ctx *ctx, const uint8
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
-  return pull_impl_upload_result_data_message(ctx, b, n, out, false);
+int32_t pull_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return pull_impl_upload_result_data_message(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
-  return pull_impl_upload_result_data_message(ctx, b, n, out, true);
+int32_t pull_drain_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  return pull_impl_upload_result_data_message(hd, b, n, out, true);
 }
 
 struct Sink_ListMetricsResponse {
   ListMetricsResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3629,7 +3656,8 @@ static void apply_list_metrics_response(ak_dec_ctx *ctx, void *obj, const struct
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
     const struct ak_dfix_ListMetricsResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   AK_DGUARD_END
 }
 
@@ -3653,7 +3681,7 @@ static int64_t new_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj) {
 static void apply_list_metrics_response_batches(ak_dec_ctx *ctx, void *obj, int64_t tok, const struct ak_dfix_MetricsBatch *fx) {
   AK_DGUARD_BEGIN
     Sink_ListMetricsResponse *s = (Sink_ListMetricsResponse *)obj;
-    fill_metrics_batch(&s->out->batches[(size_t)tok], *fx, s->base, ctx);
+    fill_metrics_batch(&s->out->batches[(size_t)tok], *fx, s->base, ctx, s->hd);
     AK_REFILL();
   AK_DGUARD_END
 }
@@ -3721,19 +3749,20 @@ static const struct ak_dvt_ListMetricsResponse k_dvt_ListMetricsResponse = {
     add_list_metrics_response_batches_statuses
 };
 
-static int32_t decode_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_ListMetricsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_ListMetricsResponse(ctx, &sink, b, n, &k_dvt_ListMetricsResponse);
+  return ak_decode_ListMetricsResponse(hd->ctx, &sink, b, n, &k_dvt_ListMetricsResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_ListMetricsResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
-  return decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<ListMetricsResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return decode_impl_list_metrics_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_list_metrics_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3776,16 +3805,18 @@ static int32_t pull_replay_list_metrics_response(ak_dec_ctx *ctx, void *obj, con
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_list_metrics_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_list_metrics_response;
-static int32_t pull_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_ListMetricsResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_ListMetricsResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_list_metrics_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3796,7 +3827,7 @@ static int32_t pull_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_list_metrics_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3813,17 +3844,18 @@ static int32_t pull_impl_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
-  return pull_impl_list_metrics_response(ctx, b, n, out, false);
+int32_t pull_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return pull_impl_list_metrics_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
-  return pull_impl_list_metrics_response(ctx, b, n, out, true);
+int32_t pull_drain_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  return pull_impl_list_metrics_response(hd, b, n, out, true);
 }
 
 struct Sink_DualResponse {
   DualResponse *out;
   const uint8_t *base;
+  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`
   // Decision 11 rule 1: called after every element delivery, where the host may
   // refill its pools in place. NULL unless the decode pre-allocates.
 };
@@ -3833,7 +3865,8 @@ static void apply_dual_response(ak_dec_ctx *ctx, void *obj, const struct ak_dfix
     Sink_DualResponse *s = (Sink_DualResponse *)obj;
     const struct ak_dfix_DualResponse &f = *fx;
     const uint8_t *base = s->base;
-    (void)f; (void)base;
+    DecHost *hd = s->hd;
+    (void)f; (void)base; (void)hd;
   AK_DGUARD_END
 }
 
@@ -3843,7 +3876,7 @@ static void add_dual_response_left(ak_dec_ctx *ctx, void *obj, int64_t tok, cons
     grow_by(s->out->left, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
       s->out->left.emplace_back();  // B-3: the element is built in place
-      fill_pair(&s->out->left.back(), elems[i], s->base, ctx);
+      fill_pair(&s->out->left.back(), elems[i], s->base, ctx, s->hd);
     }
     AK_REFILL();
   AK_DGUARD_END
@@ -3855,7 +3888,7 @@ static void add_dual_response_right(ak_dec_ctx *ctx, void *obj, int64_t tok, con
     grow_by(s->out->right, (size_t)n);
     for (int32_t i = 0; i < n; ++i) {
       s->out->right.emplace_back();  // B-3: the element is built in place
-      fill_pair(&s->out->right.back(), elems[i], s->base, ctx);
+      fill_pair(&s->out->right.back(), elems[i], s->base, ctx, s->hd);
     }
     AK_REFILL();
   AK_DGUARD_END
@@ -3868,19 +3901,20 @@ static const struct ak_dvt_DualResponse k_dvt_DualResponse = {
     add_dual_response_right
 };
 
-static int32_t decode_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, void (*refill)(void *), void *hold) {
+static int32_t decode_impl_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out, void (*refill)(void *), void *hold) {
   AK_INIT_OR_RETURN();
   Sink_DualResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   (void)refill; (void)hold;
-  return ak_decode_DualResponse(ctx, &sink, b, n, &k_dvt_DualResponse);
+  return ak_decode_DualResponse(hd->ctx, &sink, b, n, &k_dvt_DualResponse);
 }
 
 // Decode with the context as it is armed: a context from
-// ak_dec_ctx_new_DualResponse(NULL) (or last reset with NULL) drops every unknown field.
-int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
-  return decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
+// DecRoot<DualResponse>::ctx_new(NULL) (or last reset with NULL) drops every unknown field.
+int32_t decode_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out) {
+  return decode_impl_dual_response(hd, b, n, out, NULL, NULL);
 }
 
 static int32_t pull_replay_dual_response(ak_dec_ctx *ctx, void *obj, const uint8_t *r, size_t len, std::vector<int64_t> &toks) {
@@ -3907,16 +3941,18 @@ static int32_t pull_replay_dual_response(ak_dec_ctx *ctx, void *obj, const uint8
   return AK_OK;
 }
 
-static thread_local std::vector<int64_t> t_pull_toks_dual_response;
-static thread_local std::vector<uint64_t> t_pull_scratch_dual_response;
-static int32_t pull_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, bool drain) {
+// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept
+// across calls, the tokens cleared at the start of each), never thread-local.
+static int32_t pull_impl_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out, bool drain) {
   AK_INIT_OR_RETURN();
+  ak_dec_ctx *ctx = hd->ctx;
   Sink_DualResponse sink;
   sink.out = out;
   sink.base = b;
+  sink.hd = hd;
   int32_t rc = ak_parse_DualResponse(ctx, b, n);
   if (rc < 0) return rc;
-  std::vector<int64_t> &toks = t_pull_toks_dual_response;
+  std::vector<int64_t> &toks = hd->toks;
   toks.clear();
   if (!drain) {
     const uint8_t *p = NULL;
@@ -3927,7 +3963,7 @@ static int32_t pull_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t
   } else {
     // A host that must COPY: the records drained into its own 8-aligned memory in
     // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.
-    std::vector<uint64_t> &sc = t_pull_scratch_dual_response;
+    std::vector<uint64_t> &sc = hd->scratch;
     if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);
     const size_t total = ak_bdr_footprint(ctx);
     ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)
@@ -3944,16 +3980,27 @@ static int32_t pull_impl_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t
   AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)
 }
 
-int32_t pull_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
-  return pull_impl_dual_response(ctx, b, n, out, false);
+int32_t pull_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out) {
+  return pull_impl_dual_response(hd, b, n, out, false);
 }
 
-int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
-  return pull_impl_dual_response(ctx, b, n, out, true);
+int32_t pull_drain_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out) {
+  return pull_impl_dual_response(hd, b, n, out, true);
 }
 
-void dec_ctx_free(ak_dec_ctx *ctx) {
-  ak_dec_ctx_free(ctx);
+// FIX-PLAN D26: the host context and the core context it owns, freed together.
+DecHost *dec_host_adopt(ak_dec_ctx *c) {
+  if (c == NULL) return NULL;
+  DecHost *hd = new (std::nothrow) DecHost();
+  if (hd == NULL) { ak_dec_ctx_free(c); return NULL; }
+  hd->ctx = c;
+  return hd;
+}
+
+void dec_ctx_free(DecHost *hd) {
+  if (hd == NULL) return;
+  ak_dec_ctx_free(hd->ctx);
+  delete hd;
 }
 
 }  // namespace ffi

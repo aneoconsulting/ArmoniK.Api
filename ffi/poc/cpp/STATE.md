@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-10-10: **D27** (reset on entry) in this slice's binding, counts regenerated, fast checks passed, full gates not run: section "D27". Before it: 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
+| **Status** | 2026-10-10: **D26** (no thread-local storage on a timed path: the host decode context `DecHost`, the API takes it in place of `ak_dec_ctx *`), counts unchanged, fast checks and decision 11 under ASan passed, full gates not run: section "D26". Before it the same day: **D27** (reset on entry) in this slice's binding, counts regenerated, fast checks passed: section "D27". Before it: 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
 | **WP12 (2026-10-02, container)** | WP12's done criterion for this slice: the full C++ gates run twice in this container at `1bdbaa07` (= `0f75213f` plus this unit's script commits: the core-swap call sites, inert when AK_CORE_SWAP is unset, deliv_checks' CPU sets from the environment, the WP12 driver; no C++ source, core, generator or CMake change), from a private worktree: **stock** and **h2-batch** each pass wp5_gate (C++17 target and floor, C++14, C++11, static), d11_asan, the campaign gate (Unix sockets), deliv_checks over TCP 127.0.0.1 and q_checks; 0 failures in every step on both. Section "WP12 gates" below; logs `logs/cpp/opt/wp12-gates/`. The Rust slice's gate step of the final-gate driver was not run here (the Rust agent runs it in parallel) |
 | **Physical machine build** | `nix-shell gen/shell.nix` (the system's nixpkgs): g++ 15.3.0, cmake 4.1.6, protobuf 34.1 (C++ version 7.34.1), grpc++ 1.80.0 (the "current" incumbent of CAMPAIGN section 3; ArmoniK's v1.54.0 is not on this machine), abseil 20260107; rustc 1.95.0 (ambient); Google Benchmark v1.8.3 Release (gbench_release, now installed with `CMAKE_INSTALL_LIBDIR=lib`). Changes this build needed: `shapes_pb` at C++17 when protobuf is 22 or later, plus utf8_range and protobuf.pc's abseil libraries; rt.cpp's protobuf UTF-8 ceiling through `utf8_range::IsStructurallyValid` there; `Arena::Create` for `CreateMessage` (removed); every cargo invocation's `CARGO_BUILD_BUILD_DIR` = its `CARGO_TARGET_DIR` (the machine's `~/.cargo/config.toml` sets one shared `build.build-dir`); grpc++ channels set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost" (below). Only the C++17 targets were built here; the C++11 / C++14 floor targets include protobuf headers, which need C++17 from protobuf 22 on, and were not attempted |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
@@ -20,6 +20,69 @@ defect. What this file reports as results are correctness outcomes and crossing 
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
 | **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container (2026-09-28: the container came up without them; reinstalled from apt, libprotobuf-dev 3.21.12-8.2ubuntu0.3, libgrpc++-dev 1.51.1-4.1build5, protobuf-compiler, protobuf-compiler-grpc). `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
 | **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
+
+## D26: no thread-local storage on a timed path (2026-10-10, owner; done by the Rust slice agent on the coordinator's order; fast checks only)
+
+FIX-PLAN D26 as amended: one host context per binding context, created with it and owning the
+core context, its per-call state reset at the start of each call, reused, reached by the callbacks
+through the pointers the ABI already hands them. Logs `logs/cpp/d26/`. No timing.
+- **Before** (`before-at-head.txt`, gen/no_tls.py's scan of the committed bindings at 445c71fc):
+  264 thread-locals on timed paths in the six generated bindings (shapes full and no-unknown, the
+  borrowed facade's two, the corpus's two): the live set `live` (in `unk_live()`),
+  `t_unk_entry_bytes`, `t_pull_toks_<root>`, `t_pull_scratch_<root>`, `t_unk_opts_<root>`,
+  `t_unk_armed_<root>`. The harness and RPC sources (src/, corpus/src/) had none. **After**: only
+  the counting build's `t_host_calls` and `t_pull_records`, under `#ifdef AK_COUNTING`.
+- **Host decode context** (cpp_binding.py): `struct DecHost { ctx; toks; scratch; [full:] live;
+  entry_bytes; root; unk_opts; unk_opts_free; armed; }`, one per decode context. Created by
+  `DecRoot<T>::ctx_new` / `dec_ctx_new_for<T>` / `DecCtxs` (`bound_ctx_new_<root>`: the host
+  context, its root's retain options malloc'd at a stable address with `host` = the host context,
+  then the core context), or over an existing core context by `dec_host_adopt` (no retain
+  options); freed by `dec_ctx_free(DecHost *)` (core context, undelivered buffers, what the
+  options still hold, the options). The push callbacks reach it through the sink (`Sink_<Root>.hd`,
+  the core's `obj`), the group readers (`fill_*` / `from_*`) take it as a parameter, `unk_grow`
+  through the options' `host` word (NULL = untracked), the pull replay and the pool refill through
+  their own structs. `armed` replaces the per-thread armed list: the hazard D27 patched (a freed
+  context's stale entry taken for a new context at the same address) cannot occur, and
+  `bound_ctx_new_*` / `bound_reset_*` no longer forget anything.
+- **API change** (a cost of the change, reported): every decode entry (`decode_with_*`,
+  `_unk`, `_opts`, `_pool`, `pull_with_*`, `pull_drain_with_*`, `pull_with_*_unk`) takes a
+  `DecHost *` in place of `ak_dec_ctx *`; `DecCtxs::of<T>()`, `DecRoot<T>::ctx_new`,
+  `dec_ctx_new_for<T>` return one; `unk_track`, `unk_reclaim`, `unk_entry_bytes` take one. A caller
+  reaches the core context as `hd->ctx` (ak_dec_err, counters). `decode_with_*_opts` puts the host
+  context in a NULL `host` word of the caller's options for the call and restores it after.
+- **Defect found by ASan in this unit, fixed**: the wrong-root case of decision 11 rule 6
+  (conformance `d11_wrong_root`: a ListResultsResponse context through
+  `decode_with_list_tasks_detailed_response_unk`) wrote the other root's options layout over the
+  host context's (a heap overflow: before D26 each root had its own thread-local options). The
+  non-sanitized build passed it. Fixed: the host context records its root; the arming of another
+  root's (or an adopted) host context never touches its options and returns the core's refusal
+  (AK_ERR_INVALID_STATE, -8, as the test requires).
+- **Harness** (the sites that built against the old API, ported): conformance.cpp (the D11
+  instrumented grow carries the host context it forwards to `unk_grow`; buffers tracked in the
+  test's host context; raw core calls through `->ctx`; the raw-ABI refill test keeps a raw core
+  context), bench.cpp (the borrowed facade's arm now has its own context: the two arms shared one
+  core context before, which two binding types cannot), campaign_codec.cpp, campaign_rpc.cpp (each
+  caller thread's `ThreadCtx` holds two host contexts), concurrency.cpp, contentsets.cpp,
+  counts.cpp, rpcbench.cpp, corpus_harness.h. No thread-local was in any of them.
+- **Encode**: unchanged; the loop callbacks already received `EncObj_<Root>` (root, transcoders)
+  on the encode's stack through `obj`.
+- **Check**: `gen/no_tls.py --plant` (comments and literals ignored, the preprocessor nesting
+  tracked so an allowed tally outside `#ifdef AK_COUNTING` fails; the control plants a new
+  thread-local and an allowed name outside its `#ifdef` in a copy of a generated binding: both
+  found). Wired into gen/wp5_gate.sh's generator step; the gate itself was not run.
+- **Checks run**: `gen/d26_checks.sh build` (`d26-checks.txt`, 0 failing steps): no_tls with its
+  control; gen/generate.py --check; gen/d27_checks.sh into d26/ (conformance_a17_shared 608/0 and
+  conformance_nounk_a17 478/0; the corpus six arms with no retention gap outside U-map-entry, the
+  decision 11 controls pass and their plant fails, the no-unknown corpus; counts IDENTICAL to the
+  committed count logs: counts-baseline 530 rows, counts-nounk-baseline 301, counts-grid 49,
+  counts-grid-nounk 49, rpc-counts 132, rpc-counts-nounk 78); gen/concurrency.sh (shipped builds
+  pass, planted builds fail as required). `gen/d11_asan.sh` into `d26/asan.log` (decision 11 under
+  ASan and LSan, both builds). Every target of `build/` built (make, the C++11 and C++14 targets
+  included).
+- **Not run** (owner, 2026-10-10: checks, not gates): wp5_gate and nounk_gate as a whole (the
+  floor and C++14/C++11/static conformance and corpus runs, noinit, probe, bytes audit, boundary,
+  groupskip, ODR, bench gates, content sets), the campaign gate, deliv_checks, q_checks, both h2
+  variants; `build-campaign/` not rebuilt.
 
 ## D27: reset on entry (2026-10-10, owner; done by the Rust slice agent on the coordinator's order; fast checks only)
 
@@ -751,6 +814,8 @@ and the record is in JOURNAL.md. The items reported against other owners were re
 
 ## What is not measured
 
+**D26.** No timing (the host-context binding against the thread-local one was not timed); the full gates not run (section D26); the concurrency suite decodes in drop mode only, so retain decodes on per-thread host contexts are exercised by the single-threaded checks only; ThreadSanitizer not run.
+
 **TCP loopback (tcp-attrib).** The module code (2.8 to 3.6 ms per d/16 call at the leaf of the core cells' client kernel samples on TCP, 0.36 to 0.86 for A and D) is
 attributed to netfilter by its callers (nf_hook_slow) and by the modules loaded, not by symbol: /proc/kallsyms and
 /sys/module/*/sections need root. TCP state is sampled every 5 ms with ss, not per packet. The per-write kernel cost on
@@ -840,6 +905,8 @@ include strace's own overhead). Nothing was measured with netfilter unloaded (a 
 
 ## Next step
 
+D26 (2026-10-10) done in this slice's binding; nothing further assigned. The full gates (wp5_gate, nounk_gate, the campaign gate, both h2 variants) have not run since D27 and D26.
+
 WP12 (2026-10-02): the C++ half of the done criterion holds in this container on both variants
 (`logs/cpp/opt/wp12-gates/`); the Rust slice's gate is the Rust agent's. Open, for the coordinator: the same gates on
 the physical machine's grpc++ 1.80 / protobuf 34 (there the C++11 / C++14 targets that include protobuf headers do not
@@ -885,6 +952,8 @@ The gate: `CLEAN=1 gen/wp5_gate.sh build` (about 16 minutes here, from a clone d
 shared core changed. `gen/run_all.sh` takes timings and is not a gate.
 
 ## Log index
+
+D26 (2026-10-10): `d26/` holds `d26-checks.txt` (gen/d26_checks.sh), `no-tls.log`, `generators.log`, `conformance.log`, `corpus.log`, `counts.log`, `concurrency.log`, `asan.log` (gen/d11_asan.sh, after the fix: 0 failures), `asan-wrong-root-before-fix.txt` (the overflow's report), `before-at-head.txt` (the scan of the pre-D26 bindings). D27: `d27/`.
 
 Current gate (clean worktree at `9997ea57`; the campaign and Rust gates of the same run are in `opt/final-gate/`):
 

@@ -41,6 +41,31 @@ uint64_t host_calls_take();
 // X-2, counting build: the pull records the replay dispatched since the last call.
 uint64_t pull_records_take();
 
+// FIX-PLAN D26: the HOST decode context. One per binding decode context: created with the
+// core context it owns (DecRoot<T>::ctx_new, dec_ctx_new_for, DecCtxs), its per-call
+// state reset at the start of each call, reused, freed with it (dec_ctx_free). The decode
+// callbacks reach it through the sink the core hands them as `obj`, unk_grow through the
+// options' `host` word. Nothing of it is thread-local; a context is used by one thread
+// at a time.
+struct DecHost {
+  ak_dec_ctx *ctx;                // the core decode context (owned)
+  std::vector<int64_t> toks;      // pull: the replay's element tokens (cleared per call)
+  std::vector<uint64_t> scratch;  // pull_drain: the 8-aligned chunk (kept)
+  std::vector<void *> live;       // decision 11: buffers placed, not yet delivered
+  size_t entry_bytes;             // decision 11: map-entry unknown bytes (U-map-entry)
+  int root;                       // the root it is bound to (DecRoot<T>::kIndex), -1 adopted
+  void *unk_opts;                 // that root's decode_with_*_unk options (malloc'd, stable address)
+  void (*unk_opts_free)(void *);  // frees what their entries still hold
+  bool armed;                     // ctx armed with *unk_opts (D27: once, left armed)
+  DecHost() : ctx(NULL), entry_bytes(0), root(-1), unk_opts(NULL), unk_opts_free(NULL), armed(false) {}
+ private:
+  DecHost(const DecHost &);
+  DecHost &operator=(const DecHost &);
+};
+// A host context over a core context `c` (owned from here), with no retain options;
+// NULL when c is NULL. Freed, with the core context, by dec_ctx_free.
+DecHost *dec_host_adopt(ak_dec_ctx *c);
+
 struct EncObj_ListResultsResponse {
   const ListResultsResponse *o;
   Tcs t;
@@ -73,190 +98,188 @@ struct EncObj_DualResponse {
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t);
-int32_t decode_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t decode_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
-int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
-int32_t pull_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_drain_with_list_results_response(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t pull_with_list_results_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out);
-int32_t decode_with_list_results_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_list_results_response_opts(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out, struct ak_dec_ListResultsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_results_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out);
+int32_t decode_with_list_results_response_pool(DecHost *hd, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *o, int zero);
 void unk_clear_list_results_response(ListResultsResponse &o, int pos);
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t);
-int32_t decode_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t decode_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
-int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
-int32_t pull_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_drain_with_list_tasks_detailed_response(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t pull_with_list_tasks_detailed_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
-int32_t decode_with_list_tasks_detailed_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_list_tasks_detailed_response_opts(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, struct ak_dec_ListTasksDetailedResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_tasks_detailed_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out);
+int32_t decode_with_list_tasks_detailed_response_pool(DecHost *hd, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o, int zero);
 void unk_clear_list_tasks_detailed_response(ListTasksDetailedResponse &o, int pos);
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t);
-int32_t decode_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t decode_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
-int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
-int32_t pull_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_drain_with_list_probe_response(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t pull_with_list_probe_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out);
-int32_t decode_with_list_probe_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_list_probe_response_opts(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out, struct ak_dec_ListProbeResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_probe_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out);
+int32_t decode_with_list_probe_response_pool(DecHost *hd, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *o, int zero);
 void unk_clear_list_probe_response(ListProbeResponse &o, int pos);
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t);
-int32_t decode_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t decode_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
-int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
-int32_t pull_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_drain_with_list_task_summary_response(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t pull_with_list_task_summary_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
-int32_t decode_with_list_task_summary_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_list_task_summary_response_opts(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, struct ak_dec_ListTaskSummaryResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_task_summary_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out);
+int32_t decode_with_list_task_summary_response_pool(DecHost *hd, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o, int zero);
 void unk_clear_list_task_summary_response(ListTaskSummaryResponse &o, int pos);
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t);
-int32_t decode_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t decode_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
-int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
-int32_t pull_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_drain_with_upload_result_data_message(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t pull_with_upload_result_data_message_unk(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out);
-int32_t decode_with_upload_result_data_message_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_upload_result_data_message_opts(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out, struct ak_dec_UploadResultDataMessage_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_upload_result_data_message_unk(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out);
+int32_t decode_with_upload_result_data_message_pool(DecHost *hd, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o, int zero);
 void unk_clear_upload_result_data_message(UploadResultDataMessage &o, int pos);
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t);
-int32_t decode_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t decode_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
-int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
-int32_t pull_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_drain_with_list_metrics_response(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t pull_with_list_metrics_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out);
-int32_t decode_with_list_metrics_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_list_metrics_response_opts(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out, struct ak_dec_ListMetricsResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_list_metrics_response_unk(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out);
+int32_t decode_with_list_metrics_response_pool(DecHost *hd, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o, int zero);
 void unk_clear_list_metrics_response(ListMetricsResponse &o, int pos);
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t);
-int32_t decode_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t decode_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out);
 // X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse
 // call), then the records replayed through the push vtable's own host functions;
 // `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in
 // chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.
-int32_t pull_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
-int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
-int32_t pull_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_drain_with_dual_response(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out);
+int32_t pull_with_dual_response_unk(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out);
 // Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read
 // in place and must stay alive and unmoved for the call.
-int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
-int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out);
-int32_t decode_with_dual_response_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
+int32_t decode_with_dual_response_opts(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out, struct ak_dec_DualResponse_opts *opts, void (*refill)(void *) = NULL, void *hold = NULL);
+int32_t decode_with_dual_response_unk(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out);
+int32_t decode_with_dual_response_pool(DecHost *hd, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills = NULL);
 void unk_opts_dual_response(struct ak_dec_DualResponse_opts *o, int zero);
 void unk_clear_dual_response(DualResponse &o, int pos);
 
 // Decision 11, the host side of the unknown-field buffers (see binding.cpp).
+// `host` is the options' host word: a DecHost (its live set tracks the buffer), or NULL.
 int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);
-void unk_track(void *p);
-size_t unk_reclaim();
-size_t unk_entry_bytes();
+void unk_track(DecHost *hd, void *p);
+size_t unk_reclaim(DecHost *hd);
+size_t unk_entry_bytes(DecHost *hd);
 
 // Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the
 // root's context constructor, reset, options and decodes, for code generic over T.
 template <class T> struct DecRoot;
-// FIX-PLAN D27: a bound context created through the binding. The binding arms a context
-// ONCE (the core re-arms on every decode entry) and remembers the contexts it armed; a
-// context released with a raw ak_dec_ctx_free stays in that list, so a new context at the
-// same address is forgotten here, before it can be taken for an armed one.
-ak_dec_ctx *bound_ctx_new_list_results_response(struct ak_dec_ListResultsResponse_opts *o);
-ak_dec_ctx *bound_ctx_new_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o);
-ak_dec_ctx *bound_ctx_new_list_probe_response(struct ak_dec_ListProbeResponse_opts *o);
-ak_dec_ctx *bound_ctx_new_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o);
-ak_dec_ctx *bound_ctx_new_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o);
-ak_dec_ctx *bound_ctx_new_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o);
-ak_dec_ctx *bound_ctx_new_dual_response(struct ak_dec_DualResponse_opts *o);
-// The same for a reset through DecRoot<T>::reset: the context then points at the caller's
-// options, so the binding forgets it as armed with its own.
-int32_t bound_reset_list_results_response(ak_dec_ctx *c, struct ak_dec_ListResultsResponse_opts *o);
-int32_t bound_reset_list_tasks_detailed_response(ak_dec_ctx *c, struct ak_dec_ListTasksDetailedResponse_opts *o);
-int32_t bound_reset_list_probe_response(ak_dec_ctx *c, struct ak_dec_ListProbeResponse_opts *o);
-int32_t bound_reset_list_task_summary_response(ak_dec_ctx *c, struct ak_dec_ListTaskSummaryResponse_opts *o);
-int32_t bound_reset_upload_result_data_message(ak_dec_ctx *c, struct ak_dec_UploadResultDataMessage_opts *o);
-int32_t bound_reset_list_metrics_response(ak_dec_ctx *c, struct ak_dec_ListMetricsResponse_opts *o);
-int32_t bound_reset_dual_response(ak_dec_ctx *c, struct ak_dec_DualResponse_opts *o);
+// FIX-PLAN D26: a bound context is created through the binding, as a host context that
+// owns it (DecHost). Options whose host word is NULL get the host context there.
+DecHost *bound_ctx_new_list_results_response(struct ak_dec_ListResultsResponse_opts *o);
+DecHost *bound_ctx_new_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o);
+DecHost *bound_ctx_new_list_probe_response(struct ak_dec_ListProbeResponse_opts *o);
+DecHost *bound_ctx_new_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o);
+DecHost *bound_ctx_new_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o);
+DecHost *bound_ctx_new_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o);
+DecHost *bound_ctx_new_dual_response(struct ak_dec_DualResponse_opts *o);
+// A reset through DecRoot<T>::reset: the context then points at the caller's options.
+int32_t bound_reset_list_results_response(DecHost *c, struct ak_dec_ListResultsResponse_opts *o);
+int32_t bound_reset_list_tasks_detailed_response(DecHost *c, struct ak_dec_ListTasksDetailedResponse_opts *o);
+int32_t bound_reset_list_probe_response(DecHost *c, struct ak_dec_ListProbeResponse_opts *o);
+int32_t bound_reset_list_task_summary_response(DecHost *c, struct ak_dec_ListTaskSummaryResponse_opts *o);
+int32_t bound_reset_upload_result_data_message(DecHost *c, struct ak_dec_UploadResultDataMessage_opts *o);
+int32_t bound_reset_list_metrics_response(DecHost *c, struct ak_dec_ListMetricsResponse_opts *o);
+int32_t bound_reset_dual_response(DecHost *c, struct ak_dec_DualResponse_opts *o);
 template <> struct DecRoot<ListResultsResponse> {
   typedef struct ak_dec_ListResultsResponse_opts Opts;
   enum { kPositions = 4, kIndex = 0 };
   static const char *name() { return "ListResultsResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_results_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_results_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_list_results_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_list_results_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_results_response(o, zero); }
   static void clear(ListResultsResponse &v, int pos) { unk_clear_list_results_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[4] = {false, false, false, false};
     return pos >= 0 && pos < 4 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return decode_with_list_results_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out, Opts *o) {
     return decode_with_list_results_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return decode_with_list_results_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return pull_with_list_results_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return pull_drain_with_list_results_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out) {
     return pull_with_list_results_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, ListResultsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_results_response_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -264,33 +287,33 @@ template <> struct DecRoot<ListTasksDetailedResponse> {
   typedef struct ak_dec_ListTasksDetailedResponse_opts Opts;
   enum { kPositions = 18, kIndex = 1 };
   static const char *name() { return "ListTasksDetailedResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_tasks_detailed_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_tasks_detailed_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_list_tasks_detailed_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_list_tasks_detailed_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_tasks_detailed_response(o, zero); }
   static void clear(ListTasksDetailedResponse &v, int pos) { unk_clear_list_tasks_detailed_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[18] = {false, false, false, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false};
     return pos >= 0 && pos < 18 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return decode_with_list_tasks_detailed_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, Opts *o) {
     return decode_with_list_tasks_detailed_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return decode_with_list_tasks_detailed_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return pull_with_list_tasks_detailed_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return pull_drain_with_list_tasks_detailed_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
     return pull_with_list_tasks_detailed_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, ListTasksDetailedResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_tasks_detailed_response_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -298,33 +321,33 @@ template <> struct DecRoot<ListProbeResponse> {
   typedef struct ak_dec_ListProbeResponse_opts Opts;
   enum { kPositions = 3, kIndex = 2 };
   static const char *name() { return "ListProbeResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_probe_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_probe_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_list_probe_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_list_probe_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_probe_response(o, zero); }
   static void clear(ListProbeResponse &v, int pos) { unk_clear_list_probe_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[3] = {false, false, false};
     return pos >= 0 && pos < 3 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return decode_with_list_probe_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out, Opts *o) {
     return decode_with_list_probe_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return decode_with_list_probe_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return pull_with_list_probe_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return pull_drain_with_list_probe_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out) {
     return pull_with_list_probe_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, ListProbeResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_probe_response_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -332,33 +355,33 @@ template <> struct DecRoot<ListTaskSummaryResponse> {
   typedef struct ak_dec_ListTaskSummaryResponse_opts Opts;
   enum { kPositions = 6, kIndex = 3 };
   static const char *name() { return "ListTaskSummaryResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_task_summary_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_task_summary_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_list_task_summary_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_list_task_summary_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_task_summary_response(o, zero); }
   static void clear(ListTaskSummaryResponse &v, int pos) { unk_clear_list_task_summary_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[6] = {false, false, false, true, false, false};
     return pos >= 0 && pos < 6 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return decode_with_list_task_summary_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, Opts *o) {
     return decode_with_list_task_summary_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return decode_with_list_task_summary_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return pull_with_list_task_summary_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return pull_drain_with_list_task_summary_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
     return pull_with_list_task_summary_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, ListTaskSummaryResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_task_summary_response_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -366,33 +389,33 @@ template <> struct DecRoot<UploadResultDataMessage> {
   typedef struct ak_dec_UploadResultDataMessage_opts Opts;
   enum { kPositions = 2, kIndex = 4 };
   static const char *name() { return "UploadResultDataMessage"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_upload_result_data_message(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_upload_result_data_message(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_upload_result_data_message(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_upload_result_data_message(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_upload_result_data_message(o, zero); }
   static void clear(UploadResultDataMessage &v, int pos) { unk_clear_upload_result_data_message(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[2] = {false, false};
     return pos >= 0 && pos < 2 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return decode_with_upload_result_data_message(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, Opts *o) {
     return decode_with_upload_result_data_message_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return decode_with_upload_result_data_message_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return pull_with_upload_result_data_message(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return pull_drain_with_upload_result_data_message(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
     return pull_with_upload_result_data_message_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, UploadResultDataMessage *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_upload_result_data_message_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -400,33 +423,33 @@ template <> struct DecRoot<ListMetricsResponse> {
   typedef struct ak_dec_ListMetricsResponse_opts Opts;
   enum { kPositions = 2, kIndex = 5 };
   static const char *name() { return "ListMetricsResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_metrics_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_metrics_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_list_metrics_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_list_metrics_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_metrics_response(o, zero); }
   static void clear(ListMetricsResponse &v, int pos) { unk_clear_list_metrics_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[2] = {false, false};
     return pos >= 0 && pos < 2 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return decode_with_list_metrics_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out, Opts *o) {
     return decode_with_list_metrics_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return decode_with_list_metrics_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return pull_with_list_metrics_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return pull_drain_with_list_metrics_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out) {
     return pull_with_list_metrics_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, ListMetricsResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_list_metrics_response_pool(c, b, n, out, k, cap, refills);
   }
 };
@@ -434,48 +457,47 @@ template <> struct DecRoot<DualResponse> {
   typedef struct ak_dec_DualResponse_opts Opts;
   enum { kPositions = 3, kIndex = 6 };
   static const char *name() { return "DualResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_dual_response(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_dual_response(c, o); }
+  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_dual_response(o); }
+  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_dual_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_dual_response(o, zero); }
   static void clear(DualResponse &v, int pos) { unk_clear_dual_response(v, pos); }
   static bool is_entry(int pos) {
     static const bool k[3] = {false, false, false};
     return pos >= 0 && pos < 3 && k[pos];
   }
-  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, DualResponse *out) {
     return decode_with_dual_response(c, b, n, out);
   }
-  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, Opts *o) {
+  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, DualResponse *out, Opts *o) {
     return decode_with_dual_response_opts(c, b, n, out, o);
   }
-  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, DualResponse *out) {
     return decode_with_dual_response_unk(c, b, n, out);
   }
-  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, DualResponse *out) {
     return pull_with_dual_response(c, b, n, out);
   }
-  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, DualResponse *out) {
     return pull_drain_with_dual_response(c, b, n, out);
   }
-  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out) {
+  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, DualResponse *out) {
     return pull_with_dual_response_unk(c, b, n, out);
   }
-  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
+  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, DualResponse *out, uint32_t k, uint32_t cap, uint64_t *refills) {
     return decode_with_dual_response_pool(c, b, n, out, k, cap, refills);
   }
 };
 // A context bound to T's root, in drop mode (NULL options).
-template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }
+template <class T> inline DecHost *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }
 
-// Free a decode context. Use it rather than ak_dec_ctx_free for a context that
-// decode_with_*_unk may have left armed (rule 7): the binding forgets it first, so a
-// new context at the same address is not taken for an armed one.
-void dec_ctx_free(ak_dec_ctx *ctx);
+// Free a host context and the core context it owns, with what it still holds (its
+// options' unconsumed buffers, its undelivered ones).
+void dec_ctx_free(DecHost *hd);
 
 // One bound context per root, in drop mode, for a host that decodes several roots
 // (one set per thread: a context is not shared between threads).
 struct DecCtxs {
-  ak_dec_ctx *c[7];
+  DecHost *c[7];
   DecCtxs() {
     c[0] = bound_ctx_new_list_results_response(NULL);
     c[1] = bound_ctx_new_list_tasks_detailed_response(NULL);
@@ -492,7 +514,7 @@ struct DecCtxs {
     for (int i = 0; i < 7; ++i) if (c[i] == NULL) return false;
     return true;
   }
-  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }
+  template <class T> DecHost *of() const { return c[DecRoot<T>::kIndex]; }
  private:
   DecCtxs(const DecCtxs &);
   DecCtxs &operator=(const DecCtxs &);

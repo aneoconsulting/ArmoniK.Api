@@ -218,12 +218,12 @@ static void calibrate_all(std::vector<Arm> &arms) {
 
 template <class F, class P, class B>
 static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
-                     int32_t (*bor_dec)(ak_dec_ctx *, const uint8_t *, size_t, B *),
+                     int32_t (*bor_dec)(shapes_borrow::ffi::DecHost *, const uint8_t *, size_t, B *),
                      intptr_t (*bor_enc)(ak_enc_ctx *, const B &, const shapes_borrow::ffi::Tcs &),
                      intptr_t (*ffi_enc)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_nb)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
-                     int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+                     int32_t (*ffi_dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *),
                      const char *want_sha) {
@@ -240,7 +240,10 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
 
   ak::Enc e(shapes::native::kSites);
   ak_enc_ctx *ctx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();  // decision 11 rule 6: bound to the root (both facades)
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();  // decision 11 rule 6: bound to the root
+  // FIX-PLAN D26: each binding's host context is its own type, so the borrowed facade's arm
+  // has its own context (before D26 the two arms shared one core context).
+  shapes_borrow::ffi::DecHost *bdctx = shapes_borrow::ffi::dec_ctx_new_for<B>();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
   shapes::ffi::Tcs tv = shapes::ffi::tcs_core_validating();
 #ifdef AK_GATE_PLANT
@@ -330,8 +333,8 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     a.gate = [&]() {
       F o;
       int32_t rc = ffi_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
-      bool ok = rc == 0 && ak_dec_err(dctx) == 0 && o == facade;
-      ak_dec_err_reset(dctx);
+      bool ok = rc == 0 && ak_dec_err(dctx->ctx) == 0 && o == facade;
+      ak_dec_err_reset(dctx->ctx);
       return ok;
     };
     dec.push_back(a);
@@ -341,7 +344,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     // maps and message children are still constructed -- and it is a measurement arm, not
     // a proposal: the views are valid only while the input buffer lives.
     a.name = "ffi-borrow";
-    a.fn = [&]() { B o; bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
+    a.fn = [&]() { B o; bor_dec(bdctx, (const uint8_t *)wire.data(), wire.size(), &o); AK_SINK_MEM(o); };
     // BYTE IDENTITY GATES THE ARM (R2): decode into the borrowed facade and re-encode.
     // Against the MANIFEST's canonical form, not against `wire`. The timed input is the
     // incumbent's bytes, and on P2.5 those carry two explicit empty map values that the
@@ -351,7 +354,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     // it is now the arm's gate, so a failure means the row is never taken.
     a.gate = [&]() {
       B o;
-      int32_t rc = bor_dec(dctx, (const uint8_t *)wire.data(), wire.size(), &o);
+      int32_t rc = bor_dec(bdctx, (const uint8_t *)wire.data(), wire.size(), &o);
       ak_enc_ctx *c2 = ak_enc_ctx_new();
       shapes_borrow::ffi::Tcs bt = shapes_borrow::ffi::tcs_core();
       intptr_t n = bor_enc(c2, o, bt);
@@ -362,7 +365,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
       ak_enc_ctx_free(c2);
       bool ok = rc == 0 && n >= 0 && sha_of(back) == want;
       if (!ok) ++g_borrow_fail;
-      ak_dec_err_reset(dctx);
+      ak_dec_err_reset(bdctx->ctx);
       return ok;
     };
     dec.push_back(a);
@@ -371,7 +374,8 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   gate_arms(id, "dec", dec);
   if (g_gate_only) {
     ak_enc_ctx_free(ctx);
-    ak_dec_ctx_free(dctx);
+    shapes::ffi::dec_ctx_free(dctx);
+    shapes_borrow::ffi::dec_ctx_free(bdctx);
     return;
   }
   calibrate_all(enc);
@@ -381,7 +385,8 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     run_round(id, "dec", dec, r);
   }
   ak_enc_ctx_free(ctx);
-  ak_dec_ctx_free(dctx);
+  shapes::ffi::dec_ctx_free(dctx);
+  shapes_borrow::ffi::dec_ctx_free(bdctx);
   std::printf("  %-5s %8zu B  done\n", id, wire.size());
 }
 

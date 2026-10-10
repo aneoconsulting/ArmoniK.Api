@@ -85,7 +85,7 @@ double timed(F f, int n) {
 template <class Fac, class Pb>
 static void run(Row *row, const char *id, Fac (*mk)(void), void (*pbmk)(Pb *),
                 intptr_t (*ffi_enc)(ak_enc_ctx *, const Fac &, const shapes::ffi::Tcs &),
-                int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, std::size_t, Fac *),
+                int32_t (*ffi_dec)(shapes::ffi::DecHost *, const uint8_t *, std::size_t, Fac *),
                 void (*nat_enc)(const Fac &, ak::Enc *), const char *ascii_sha, int rounds) {
   row->id = id;
   static const ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1,
@@ -93,7 +93,7 @@ static void run(Row *row, const char *id, Fac (*mk)(void), void (*pbmk)(Pb *),
   static const char *names[3] = {"ascii", "latin1", "wide"};
 
   ak_enc_ctx *ectx = ak_enc_ctx_new();
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<Fac>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<Fac>();
   shapes::ffi::Tcs tc = shapes::ffi::tcs_core();
 
   for (int s = 0; s < 3; ++s) {

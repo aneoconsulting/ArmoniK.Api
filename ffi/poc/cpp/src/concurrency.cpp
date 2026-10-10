@@ -73,7 +73,7 @@ struct Shape {
 
 template <class F, class P, F (*MK)(void), void (*PBMK)(P *), void (*NAT)(const F &, ak::Enc *),
           intptr_t (*FFI)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
-          int32_t (*DEC)(ak_dec_ctx *, const uint8_t *, std::size_t, F *)>
+          int32_t (*DEC)(shapes::ffi::DecHost *, const uint8_t *, std::size_t, F *)>
 struct Case {
   static const F &obj() {
     static F o = MK();
@@ -93,7 +93,7 @@ struct Case {
   }
   static void enc_native(ak::Enc *e) { NAT(obj(), e); }
   static intptr_t enc_ffi(ak_enc_ctx *c, const shapes::ffi::Tcs &t) { return FFI(c, obj(), t); }
-  static ak_dec_ctx *ctx(shapes::ffi::DecCtxs &d) { return d.of<F>(); }
+  static ak_dec_ctx *ctx(shapes::ffi::DecCtxs &d) { return d.of<F>()->ctx; }
   static bool roundtrip(shapes::ffi::DecCtxs &d, const uint8_t *p, std::size_t n) {
     F back;
     if (DEC(d.of<F>(), p, n, &back) < 0) return false;

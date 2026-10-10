@@ -661,8 +661,8 @@ ak_client *core_client(ak_runtime *rt, const std::string &target, const std::str
 // Per caller thread: its encode context, its root-bound decode context, host-gen's encoders.
 struct ThreadCtx {
   ak_enc_ctx *ec = nullptr;
-  ak_dec_ctx *dc = nullptr;
-  ak_dec_ctx *dcr = nullptr;  // retain decodes: its own context, left armed (rule 7), so a drop
+  shapes::ffi::DecHost *dc = nullptr;   // FIX-PLAN D26: host contexts, each owning its core context
+  shapes::ffi::DecHost *dcr = nullptr;  // retain decodes: its own context, left armed (rule 7), so a drop
                               // decode on `dc` never pays a disarming reset
   ak::Enc *ne = nullptr, *nre = nullptr;
   ak_enc_ctx *zec = nullptr;  // EXPERIMENT p6: cell Cf-zc's own zero-copy encode context (created on first use)
@@ -1703,16 +1703,16 @@ int count_cells(World &w, int n) {
       const int calls = j.dir == 'd' ? (n > 1 ? n / 2 : 1) : n;
       ak_rpc_counters_reset();
       ak_enc_counters_reset(tc.ec);
-      ak_dec_counters_reset(tc.dc);
-      ak_dec_counters_reset(tc.dcr);
+      ak_dec_counters_reset(tc.dc->ctx);
+      ak_dec_counters_reset(tc.dcr->ctx);
       shapes::ffi::host_calls_take();
       for (int i = 0; i < calls; ++i) cell_call(w, ci, j, 0, tc);
       struct ak_rpc_counters rc;
       ak_rpc_counters(&rc);
       AkCounters ce, cd, cdr;
       ak_enc_counters(tc.ec, &ce);
-      ak_dec_counters(tc.dc, &cd);
-      ak_dec_counters(tc.dcr, &cdr);
+      ak_dec_counters(tc.dc->ctx, &cd);
+      ak_dec_counters(tc.dcr->ctx, &cdr);
       uint64_t host = shapes::ffi::host_calls_take();
       uint64_t codec_f = ce.forward + cd.forward + cdr.forward, codec_r = ce.reverse + cd.reverse + cdr.reverse;
       uint64_t fwd = rc.forward + codec_f + host, rev = rc.reverse + codec_r;

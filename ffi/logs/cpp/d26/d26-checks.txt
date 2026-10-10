@@ -1,0 +1,18 @@
+>>> ok: no_tls
+>>> ok: generate.py --check
+>>> ok: conformance_a17_shared
+>>> ok: conformance_nounk_a17
+>>> ok
+>>> ok
+>>> ok: the plant failed (exit 1)
+>>> ok
+>>> ok: 530 rows identical to counts-baseline.log
+>>> ok: 301 rows identical to counts-nounk-baseline.log
+>>> ok: 49 rows identical to counts-grid.log
+>>> ok: 49 rows identical to counts-grid-nounk.log
+>>> ok: 132 RPC rows identical to rpc-counts.log
+>>> ok: 78 RPC rows identical to rpc-counts-nounk.log
+cpp D27 checks: 0 failure(s)
+>>> ok: concurrency
+cpp D26 checks: 0 failing step(s)
+checks=0

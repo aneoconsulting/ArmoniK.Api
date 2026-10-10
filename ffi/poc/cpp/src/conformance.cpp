@@ -43,7 +43,7 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
                      intptr_t (*ffi_enc_nb)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_unk)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
                      intptr_t (*ffi_enc_unk_z)(ak_enc_ctx *, const F &, const shapes::ffi::Tcs &),
-                     int32_t (*ffi_dec)(ak_dec_ctx *, const uint8_t *, size_t, F *),
+                     int32_t (*ffi_dec)(shapes::ffi::DecHost *, const uint8_t *, size_t, F *),
                      void (*nat_enc)(const F &, ak::Enc *),
                      int32_t (*nat_dec)(const uint8_t *, size_t, F *),
                      const char *want_sha, size_t want_bytes) {
@@ -217,9 +217,9 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
   int32_t rc = nat_dec((const uint8_t *)pb_bytes.data(), pb_bytes.size(), &fnat);
   check(rc == 0, std::string(id) + " native decode rc");
   F fffi;
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<F>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<F>();
   rc = ffi_dec(dctx, (const uint8_t *)pb_bytes.data(), pb_bytes.size(), &fffi);
-  check(rc == 0 && ak_dec_err(dctx) == 0, std::string(id) + " ffi decode rc");
+  check(rc == 0 && ak_dec_err(dctx->ctx) == 0, std::string(id) + " ffi decode rc");
 #ifndef AK_NO_UNKNOWN_FIELDS
   {
     // Decision 11 on the same bytes and the same bound context: retain everywhere, and the
@@ -229,13 +229,13 @@ static void run_case(const char *id, F (*mk)(void), void (*pbmk)(P *),
     uint64_t refills = 0;
     int32_t urc = shapes::ffi::DecRoot<F>::decode_unk(dctx, (const uint8_t *)pb_bytes.data(),
                                                       pb_bytes.size(), &fu);
-    check(urc == 0 && ak_dec_err(dctx) == 0 && fu == facade,
+    check(urc == 0 && ak_dec_err(dctx->ctx) == 0 && fu == facade,
           std::string(id) + " ffi-retain decode == built value");
     int32_t prc = shapes::ffi::DecRoot<F>::decode_pool(dctx, (const uint8_t *)pb_bytes.data(),
                                                        pb_bytes.size(), &fp, 2, 16, &refills);
-    check(prc == 0 && ak_dec_err(dctx) == 0 && fp == facade,
+    check(prc == 0 && ak_dec_err(dctx->ctx) == 0 && fp == facade,
           std::string(id) + " ffi-pool decode == built value");
-    check(shapes::ffi::unk_reclaim() == 0, std::string(id) + " no unknown-field buffer left live");
+    check(shapes::ffi::unk_reclaim(dctx) == 0, std::string(id) + " no unknown-field buffer left live");
   }
 #endif
   shapes::ffi::dec_ctx_free(dctx);
@@ -261,9 +261,9 @@ static void run_p71(const std::string &dir) {
   int32_t rc = shapes::native::decode_dual_response((const uint8_t *)v.data(), v.size(), &f);
   check(rc == 0, "P7.1 native decode");
   shapes::DualResponse g;
-  ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
+  shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::DualResponse>();
   rc = shapes::ffi::decode_with_dual_response(dctx, (const uint8_t *)v.data(), v.size(), &g);
-  check(rc == 0 && ak_dec_err(dctx) == 0, "P7.1 ffi decode");
+  check(rc == 0 && ak_dec_err(dctx->ctx) == 0, "P7.1 ffi decode");
   shapes::ffi::dec_ctx_free(dctx);
   check(f == g, "P7.1 native/ffi decoded values agree");
   check(f.left.size() == 3 && f.right.size() == 3, "P7.1 3+3 elements");
@@ -348,10 +348,10 @@ static void run_absent_and_unknown() {
     int32_t rc = shapes::native::decode_list_results_response(
         (const uint8_t *)s.data(), s.size(), &fn);
     check(rc == 0, std::string("unknown field skipped, native: ") + vs[i].name);
-    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+    shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
     rc = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
-    check(rc == 0 && ak_dec_err(dctx) == 0,
+    check(rc == 0 && ak_dec_err(dctx->ctx) == 0,
           std::string("unknown field skipped, ffi: ") + vs[i].name);
     shapes::ffi::dec_ctx_free(dctx);
     ns::ListResultsResponse pbm;
@@ -420,10 +420,10 @@ static void run_absent_and_unknown() {
       int32_t rc = shapes::native::decode_list_results_response(
           (const uint8_t *)out.data(), out.size(), &fn);
       check(rc == 0, std::string("unknown NESTED field skipped, native: ") + vs2[i].name);
-      ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+      shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
       rc = shapes::ffi::decode_with_list_results_response(
           dctx, (const uint8_t *)out.data(), out.size(), &ff);
-      check(rc == 0 && ak_dec_err(dctx) == 0,
+      check(rc == 0 && ak_dec_err(dctx->ctx) == 0,
             std::string("unknown NESTED field skipped, ffi: ") + vs2[i].name);
       shapes::ffi::dec_ctx_free(dctx);
       ns::ListResultsResponse pbm;
@@ -480,10 +480,10 @@ static void run_absent_and_unknown() {
     check(shapes::native::decode_list_probe_response(
               (const uint8_t *)out.data(), out.size(), &fn) == 0,
           "unknown oneof-member tag skipped, native");
-    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListProbeResponse>();
+    shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListProbeResponse>();
     check(shapes::ffi::decode_with_list_probe_response(
               dctx, (const uint8_t *)out.data(), out.size(), &ff) == 0 &&
-              ak_dec_err(dctx) == 0,
+              ak_dec_err(dctx->ctx) == 0,
           "unknown oneof-member tag skipped, ffi");
     shapes::ffi::dec_ctx_free(dctx);
     check(fn == ff, "unknown oneof-member tag: arms agree on the value");
@@ -527,7 +527,7 @@ static void run_absent_and_unknown() {
     check(rc == 0, "malformed UTF-8: the lossy policy accepts it (and that is the problem)");
 #else
     check(rc == ak::ERR_TRANSCODE, "malformed UTF-8 rejected by the native decoder");
-    ak_dec_ctx *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+    shapes::ffi::DecHost *dctx = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
     shapes::ListResultsResponse ff;
     int32_t frc = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)s.data(), s.size(), &ff);
@@ -535,10 +535,10 @@ static void run_absent_and_unknown() {
     // `string` on decode under utf8="reject" and refuses with AK_ERR_TRANSCODE before
     // delivering anything; the binding's own check (`s_of` -> ak_fail) is no longer the
     // one that fires. Either path must report -6: the return code, or the sticky slot.
-    check(frc == ak::ERR_TRANSCODE || ak_dec_err(dctx) == ak::ERR_TRANSCODE,
+    check(frc == ak::ERR_TRANSCODE || ak_dec_err(dctx->ctx) == ak::ERR_TRANSCODE,
           "malformed UTF-8 refused on the ffi decode path (core rc or the sticky slot)");
     // The sticky slot must not poison the next decode (the rust slice's D17).
-    ak_dec_err_reset(dctx);
+    ak_dec_err_reset(dctx->ctx);
     shapes::ListResultsResponse g2;
     std::string good;
     {
@@ -548,7 +548,7 @@ static void run_absent_and_unknown() {
     }
     int32_t rc2 = shapes::ffi::decode_with_list_results_response(
         dctx, (const uint8_t *)good.data(), good.size(), &g2);
-    check(rc2 == 0 && ak_dec_err(dctx) == 0,
+    check(rc2 == 0 && ak_dec_err(dctx->ctx) == 0,
           "a good decode after a rejected one succeeds (D17 regression)");
     shapes::ffi::dec_ctx_free(dctx);
 #endif
@@ -627,6 +627,7 @@ struct D11Grow {
   uint32_t fresh;
   int32_t fail_rc;
   int32_t short_by;
+  shapes::ffi::DecHost *hd;  // FIX-PLAN D26: the host context whose live set unk_grow tracks in
 };
 
 static int32_t d11_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
@@ -634,18 +635,18 @@ static int32_t d11_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap) {
   ++h->calls;
   if (*dst == NULL) ++h->fresh;
   if (h->fail_rc != 0) return h->fail_rc;
-  int32_t rc = shapes::ffi::unk_grow(host, want, dst, cap);
+  int32_t rc = shapes::ffi::unk_grow(h->hd, want, dst, cap);
   if (rc == AK_OK && h->short_by > 0) *cap = want - h->short_by;
   return rc;
 }
 
-static struct ak_unk_buf d11_buf(uint32_t cap) {
+static struct ak_unk_buf d11_buf(uint32_t cap, shapes::ffi::DecHost *hd) {
   struct ak_unk_buf b;
   b.data = std::malloc(cap);
   b.len = 0;
   b.cap = cap;
   // Registered with the binding, so a buffer the decode never delivers is reclaimed by it.
-  shapes::ffi::unk_track(b.data);
+  shapes::ffi::unk_track(hd, b.data);
   return b;
 }
 
@@ -673,8 +674,9 @@ static void d11_pool() {
   std::vector<std::string> runs;
   std::string b = d11_results(&runs);
   for (int grow = 1; grow >= 0; --grow) {
-    struct ak_unk_buf arr[2] = {d11_buf(64), d11_buf(64)};
-    D11Grow gc = {0, 0, 0, 0};
+    shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+    struct ak_unk_buf arr[2] = {d11_buf(64, c), d11_buf(64, c)};
+    D11Grow gc = {0, 0, 0, 0, c};
     struct ak_dec_ListResultsResponse_opts o;
     std::memset(&o, 0, sizeof(o));
     o.host = &gc;
@@ -683,7 +685,6 @@ static void d11_pool() {
     o.results.grow = grow ? d11_grow : NULL;
     o.results_created_at = kD11NoPool;
     o.results_completed_at = kD11NoPool;
-    ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
     shapes::ListResultsResponse v;
     int32_t rc = shapes::ffi::decode_with_list_results_response_opts(
         c, (const uint8_t *)b.data(), b.size(), &v, &o);
@@ -701,7 +702,7 @@ static void d11_pool() {
       check(rc == AK_ERR_CAPACITY && cleared && gc.calls == 0,
             "d11 pool: exhausted with no grow is AK_ERR_CAPACITY, never a partial copy");
     }
-    check(shapes::ffi::unk_reclaim() == 0, "d11 pool: nothing left live after the decode");
+    check(shapes::ffi::unk_reclaim(c) == 0, "d11 pool: nothing left live after the decode");
     shapes::ffi::dec_ctx_free(c);
   }
 }
@@ -779,7 +780,7 @@ static void d11_refill() {
     vt.new_tasks = d11_new;
     vt.apply_tasks = d11_apply;
     int32_t rc = ak_decode_ListTasksDetailedResponse(c, &h, (const uint8_t *)b.data(), b.size(), &vt);
-    shapes::ffi::dec_ctx_free(c);
+    ak_dec_ctx_free(c);  // a raw context: the core's own API, no host context
     if (refill) {
       bool ok = rc == 0 && h.got.size() == 3 && h.placed.size() == 3;
       for (size_t i = 0; ok && i < 3; ++i)
@@ -820,12 +821,13 @@ static void d11_oneof() {
     }
     std::string b;
     d11_ld(1, p, &b);
-    D11Grow gc = {0, 0, 0, 0};
+    D11Grow gc = {0, 0, 0, 0, NULL};
     struct ak_dec_ListProbeResponse_opts o;
     shapes::ffi::unk_opts_list_probe_response(&o, -1);
     o.host = &gc;
     o.probes_body.grow = d11_grow;
-    ak_dec_ctx *c = ak_dec_ctx_new_ListProbeResponse(NULL);
+    shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListProbeResponse>();
+    gc.hd = c;
     shapes::ListProbeResponse v;
     int32_t rc = shapes::ffi::decode_with_list_probe_response_opts(
         c, (const uint8_t *)b.data(), b.size(), &v, &o);
@@ -861,23 +863,25 @@ static void d11_errors() {
       {"root buffer fits, no grow", -1, 0, 0, 16, false, 0},
   };
   for (int i = 0; i < 5; ++i) {
-    D11Grow gc = {0, 0, cs[i].fail_rc, cs[i].short_by};
+    D11Grow gc = {0, 0, cs[i].fail_rc, cs[i].short_by, NULL};
     struct ak_dec_ListResultsResponse_opts o;
     shapes::ffi::unk_opts_list_results_response(&o, cs[i].zero);
     o.host = &gc;
     o.self.grow = cs[i].grow ? d11_grow : NULL;
-    if (cs[i].prealloc) o.self.buf = d11_buf(cs[i].prealloc);
-    ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
+    shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+    gc.hd = c;
+    if (cs[i].prealloc) o.self.buf = d11_buf(cs[i].prealloc, c);
     shapes::ListResultsResponse v;
     int32_t rc = shapes::ffi::decode_with_list_results_response_opts(
         c, (const uint8_t *)b.data(), b.size(), &v, &o);
+    size_t live = shapes::ffi::unk_reclaim(c);
     shapes::ffi::dec_ctx_free(c);
     bool ok = rc == cs[i].want;
     if (ok && rc == 0) ok = v.unknown_fields == (cs[i].zero == 0 ? std::string() : root_run);
     std::printf("  %-32s rc %d (want %d)%s\n", cs[i].name, rc, cs[i].want,
                 rc == 0 ? (ok ? ", bag as expected" : ", bag WRONG") : "");
     check(ok, std::string("d11 errors: ") + cs[i].name);
-    check(shapes::ffi::unk_reclaim() == 0, std::string("d11 errors: nothing left live: ") + cs[i].name);
+    check(live == 0, std::string("d11 errors: nothing left live: ") + cs[i].name);
   }
 }
 
@@ -885,13 +889,13 @@ static void d11_errors() {
 // root's decode, parse and reset, and the binding's armed decode of another root reports
 // the refused reset; its own root still decodes after.
 static void d11_wrong_root() {
-  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
+  shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
   const uint8_t *e = (const uint8_t *)"";
   struct ak_dvt_ListTasksDetailedResponse vt;
   std::memset(&vt, 0, sizeof(vt));
-  int32_t d = ak_decode_ListTasksDetailedResponse(c, NULL, e, 0, &vt);
-  int32_t p = ak_parse_ListTasksDetailedResponse(c, e, 0);
-  int32_t r = ak_dec_reset_ListTasksDetailedResponse(c, NULL);
+  int32_t d = ak_decode_ListTasksDetailedResponse(c->ctx, NULL, e, 0, &vt);
+  int32_t p = ak_parse_ListTasksDetailedResponse(c->ctx, e, 0);
+  int32_t r = ak_dec_reset_ListTasksDetailedResponse(c->ctx, NULL);
   shapes::ListTasksDetailedResponse t1, t2;
   int32_t bd = shapes::ffi::decode_with_list_tasks_detailed_response(c, e, 0, &t1);
   int32_t bu = shapes::ffi::decode_with_list_tasks_detailed_response_unk(c, e, 0, &t2);
@@ -899,7 +903,7 @@ static void d11_wrong_root() {
   // pool holder untouched and be freed once (the noinit build found a double free here).
   shapes::ListTasksDetailedResponse t3;
   int32_t bp = shapes::ffi::decode_with_list_tasks_detailed_response_pool(c, e, 0, &t3, 2, 16, NULL);
-  check(bp == AK_ERR_INVALID_STATE && shapes::ffi::unk_reclaim() == 0,
+  check(bp == AK_ERR_INVALID_STATE && shapes::ffi::unk_reclaim(c) == 0,
         "d11 wrong root through the pool decode: refused, nothing left live, no double free");
   shapes::ListResultsResponse own;
   int32_t ok_own = shapes::ffi::decode_with_list_results_response_unk(c, e, 0, &own);
@@ -917,7 +921,7 @@ static void d11_roundtrip() {
   std::string b = d11_results(&runs);
   std::string tail = d11_run(42);
   b += tail;
-  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
+  shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
   shapes::ListResultsResponse v, dv;
   int32_t rc = shapes::ffi::decode_with_list_results_response_unk(c, (const uint8_t *)b.data(), b.size(), &v);
   int32_t drc = shapes::ffi::decode_with_list_results_response(c, (const uint8_t *)b.data(), b.size(), &dv);
@@ -952,13 +956,13 @@ static void d11_reuse() {
   std::string with = d11_results(&runs);
   std::string without;
   d11_ld(1, std::string("\x0a\x02zz", 4), &without);   // one element, no unknown field
-  struct ak_unk_buf arr[2] = {d11_buf(64), d11_buf(64)};
+  shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
+  struct ak_unk_buf arr[2] = {d11_buf(64, c), d11_buf(64, c)};
   void *p0 = arr[0].data, *p1 = arr[1].data;
   struct ak_dec_ListResultsResponse_opts o;
   shapes::ffi::unk_opts_list_results_response(&o, -1);
   o.results.bufs = arr;
   o.results.n = 2;
-  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(NULL);
   shapes::ListResultsResponse v1, v2;
   int32_t rc1 = shapes::ffi::decode_with_list_results_response_opts(
       c, (const uint8_t *)without.data(), without.size(), &v1, &o);
@@ -968,12 +972,13 @@ static void d11_reuse() {
   bool bags = rc2 == 0 && v2.results.size() == 3;
   for (size_t i = 0; bags && i < 3; ++i) bags = v2.results[i].unknown_fields == runs[i];
   bool taken = arr[0].data == NULL && arr[1].data == NULL;
+  size_t live = shapes::ffi::unk_reclaim(c);
   shapes::ffi::dec_ctx_free(c);
   std::printf("  options reused (R-H7): first decode rc %d, unconsumed buffers still in the options %d;"
               " second decode rc %d, bags exact %d, both taken %d\n", rc1, (int)kept, rc2, (int)bags, (int)taken);
   check(rc1 == 0 && kept && bags && taken,
         "d11 options reused across decodes: unconsumed host buffers survive the first decode");
-  check(shapes::ffi::unk_reclaim() == 0, "d11 reuse: nothing left live");
+  check(live == 0, "d11 reuse: nothing left live");
 }
 
 static void run_decision11() {
@@ -991,12 +996,12 @@ static void run_decision11() {
 // field at the root and inside an element; the layout table above is the variant's (240
 // facts) and was compared with this core's export.
 static void run_decision11() {
-  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse();
+  shapes::ffi::DecHost *c = shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>();
   const uint8_t *e = (const uint8_t *)"";
   struct ak_dvt_ListTasksDetailedResponse vt;
   std::memset(&vt, 0, sizeof(vt));
-  int32_t d = ak_decode_ListTasksDetailedResponse(c, NULL, e, 0, &vt);
-  int32_t p = ak_parse_ListTasksDetailedResponse(c, e, 0);
+  int32_t d = ak_decode_ListTasksDetailedResponse(c->ctx, NULL, e, 0, &vt);
+  int32_t p = ak_parse_ListTasksDetailedResponse(c->ctx, e, 0);
   shapes::ListTasksDetailedResponse t1;
   int32_t bd = shapes::ffi::decode_with_list_tasks_detailed_response(c, e, 0, &t1);
   // One element with an unknown run, and one at the root: decoded, both dropped.

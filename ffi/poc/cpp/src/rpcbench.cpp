@@ -66,9 +66,9 @@ static long decode_pb(const uint8_t *p, size_t n) {
 
 static long decode_core(const uint8_t *p, size_t n) {
   shapes::ListTasksDetailedResponse f;
-  ak_dec_ctx *d = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);  // decision 11 rule 6
+  shapes::ffi::DecHost *d = shapes::ffi::dec_ctx_new_for<shapes::ListTasksDetailedResponse>();  // decision 11 rule 6
   shapes::ffi::decode_with_list_tasks_detailed_response(d, p, n, &f);
-  ak_dec_ctx_free(d);
+  shapes::ffi::dec_ctx_free(d);
   return (long)f.tasks.size();
 }
 

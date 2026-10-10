@@ -1,0 +1,24 @@
+# conformance_a17_shared under ASan (-fsanitize=address, ASAN_OPTIONS=detect_leaks=1), built from
+# the D26 binding BEFORE the wrong-root fix (2026-10-10, scratch build; the d11_asan.sh run at the
+# same state had written ">>> FAIL: exit 1" for conformance into d26/asan.log, since overwritten
+# by the run after the fix). The report's first 30 lines, copied from the run's output:
+==7000==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x50b0000e5f78 at pc 0x7fc8de6fa97d bp 0x7ffc5616eb80 sp 0x7ffc5616e328
+WRITE of size 440 at 0x50b0000e5f78 thread T0
+    #0 0x7fc8de6fa97c in memset ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87
+    #1 0x55d635f7bd5a in memset /usr/include/x86_64-linux-gnu/bits/string_fortified.h:59
+    #2 0x55d635f7bd5a in shapes::ffi::unk_opts_list_tasks_detailed_response(ak_dec_ListTasksDetailedResponse_opts*, int) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:4930
+    #3 0x55d635f7db4c in unk_arm_once_list_tasks_detailed_response /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:4877
+    #4 0x55d635f7db4c in shapes::ffi::decode_with_list_tasks_detailed_response_unk(shapes::ffi::DecHost*, unsigned char const*, unsigned long, shapes::ListTasksDetailedResponse*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:5036
+    #5 0x55d635e3f4db in d11_wrong_root /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:901
+    #6 0x55d635e35243 in run_decision11 /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:990
+    #7 0x55d635e35243 in main /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:1086
+
+0x50b0000e5f78 is located 0 bytes after 104-byte region [0x50b0000e5f10,0x50b0000e5f78)
+allocated by thread T0 here:
+    #0 0x7fc8de6fd9c7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+    #1 0x55d635f7a66b in shapes::ffi::bound_ctx_new_list_results_response(ak_dec_ListResultsResponse_opts*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.cpp:4455
+    #2 0x55d635e3f11c in shapes::ffi::DecRoot<shapes::ListResultsResponse>::ctx_new(ak_dec_ListResultsResponse_opts*) /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.h:283
+    #3 0x55d635e3f11c in shapes::ffi::DecHost* shapes::ffi::dec_ctx_new_for<shapes::ListResultsResponse>() /home/user/ArmoniK.Api/ffi/poc/cpp/src/generated/binding.h:518
+    #4 0x55d635e3f11c in d11_wrong_root /home/user/ArmoniK.Api/ffi/poc/cpp/src/conformance.cpp:892
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors_memintrinsics.inc:87 in memset

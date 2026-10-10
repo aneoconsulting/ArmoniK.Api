@@ -2353,3 +2353,21 @@ changes.
   so the first regeneration showed retain decode rows UNCHANGED: the arm was being counted. Made
   the decode counts warm, as the timed loop runs; then every retain row drops by 1.
 - Fast checks only (owner's rule): conformance, corpus, controls, counts (gen/d27_checks.sh).
+
+## 2026-10-10: D26 no thread-local storage (done by the Rust slice agent on the coordinator's order)
+
+- Scan of the committed bindings: 264 thread-locals on timed paths (live set, entry bytes, pull
+  tokens and scratch per root, retain options and armed list per root), none in src/ or corpus/src.
+- cpp_binding.py: `DecHost` per decode context owning the core context; the decode API takes it in
+  place of `ak_dec_ctx *` (a public-surface change, reported). The armed list became one flag in
+  the host context, so D27's stale-address patch (forget on create and reset) is gone with it.
+- First build: the compiler found every harness site on the old API; ported (bench.cpp's borrowed
+  arm needed its own context: it shared one core context with the owned arm before).
+- First check run passed everything, but `d11_asan.sh` failed conformance: heap-buffer-overflow in
+  `unk_opts_list_tasks_detailed_response` from `d11_wrong_root`. The host context's options are its
+  own root's type; another root's `_unk` decode on it wrote its layout over them. Before D26 the
+  options were per root and thread-local, so the test was safe. The plain build did not crash, so
+  only ASan saw it. Fixed: the host context records its root; arming another root's host context
+  returns the core's refusal without touching the options.
+- Rechecked after the fix: gen/d26_checks.sh (conformance, corpus, decision 11 controls and plant,
+  counts and RPC counts identical, concurrency) and gen/d11_asan.sh. No timing.

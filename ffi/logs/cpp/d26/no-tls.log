@@ -1,0 +1,8 @@
+# cpp D26 checks: no thread-local storage (445c71fc + uncommitted changes in poc/cpp or poc/codec; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25))
+no_tls: 94 C/C++ files scanned (src, include, nounk, corpus/src, corpus/include, corpus/nounk)
+  allowed t_host_calls    (under #ifdef AK_COUNTING): 6 file(s)
+  allowed t_pull_records  (under #ifdef AK_COUNTING): 6 file(s)
+  control: two thread-locals planted in a copy of src/generated/binding.cpp (one new, one an allowed name outside #ifdef AK_COUNTING) -> 2 finding(s)
+    src/generated/binding.cpp (PLANTED):7091: thread_local t_planted (thread-local)
+    src/generated/binding.cpp (PLANTED):7092: thread_local t_host_calls (allowed only under #ifdef AK_COUNTING)
+NO_TLS PASSED

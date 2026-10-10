@@ -10,7 +10,7 @@
 # Log: ffi/logs/cpp/asan.log (wp5s9-asan.log is the step 9 run, full build only)
 set -u
 cd "$(dirname "$0")/.." || exit 2
-L=../../logs/cpp
+L=../../logs/cpp; LOG=${AK_ASAN_LOG:-$L/asan.log}  # D26: AK_ASAN_LOG
 KEEP=${1:-}
 A=${KEEP:-$(mktemp -d)}
 FAILS=0
@@ -54,6 +54,6 @@ mkdir -p "$A"
     --expect-dropped ffi-drop,ffi-pull-drop | grep -E '^## |^   pass|dropped form|^# rows|^CORPUS|FAIL|!!'
   [ ${PIPESTATUS[0]} -eq 0 ] && echo ">>> ok: no-unknown corpus under ASan" || { echo ">>> FAIL: no-unknown corpus under ASan"; FAILS=$((FAILS+1)); }
   echo "d11_asan: $FAILS failure(s)"
-} > "$L/asan.log" 2>&1
+} > "$LOG" 2>&1
 [ -z "$KEEP" ] && rm -rf "$A"
-grep -q ">>> FAIL" "$L/asan.log" && exit 1 || exit 0
+grep -q ">>> FAIL" "$LOG" && exit 1 || exit 0

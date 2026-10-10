@@ -9,7 +9,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 B=${1:-build}
 . gen/core_swap.sh
-L=../../logs/cpp; D=$L/d27; mkdir -p "$D"
+L=../../logs/cpp; D=${AK_CHECK_LOGDIR:-$L/d27}; mkdir -p "$D"   # D26: AK_CHECK_LOGDIR (gen/d26_checks.sh)
 PAY=../../schema/generated
 S=$(mktemp -d); trap 'rm -rf "$S"' EXIT
 fails=0

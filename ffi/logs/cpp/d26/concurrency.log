@@ -1,0 +1,651 @@
+# cpp D26 checks: concurrency (445c71fc + uncommitted changes in poc/cpp or poc/codec; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25))
+== ABI v1 obligation 12.5 ==
+date: 2026-10-10T20:40:52Z  nproc = 4  build dir: build
+
+=========== conc_a17_shared 4 6   (must PASS) ===========
+$ ldd build/conc_a17_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_shared exit code = 0 (-eq 0)
+  >>> ok: conc_a17_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_c11_shared 4 6   (must PASS) ===========
+$ ldd build/conc_c11_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201103  impl=floor  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_c11_shared exit code = 0 (-eq 0)
+  >>> ok: conc_c11_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_c11_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_c11_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_static 4 6   (must PASS) ===========
+$ ldd build/conc_a17_static | grep ak_core
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=static  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_static exit code = 0 (-eq 0)
+  >>> ok: conc_a17_static native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_static core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_static decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_shared 16 4   (must PASS) ===========
+$ ldd build/conc_a17_shared | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=16  rounds=4
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: none   (the linked ak-core is the shipped build)
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   16 threads x 4 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence       256 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together          256 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 16 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 8 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      64 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      64 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)              128 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)  256 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+42 checks, 0 failures
+  exit 0
+  >>> ok: conc_a17_shared exit code = 0 (-eq 0)
+  >>> ok: conc_a17_shared native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_shared decoder wrong = 0 (-eq 0)
+
+=========== conc_a17_pad 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd build/conc_a17_pad | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=0   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: pad-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_PAD: this probe reads `resize_prefix`, which the plant removes on
+    the narrowing side, so it under-reports here. The surface is the shipped
+    build's, above.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 69 (native 23, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 69 (native 23, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 12, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made two threads disagree
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 24, wrong against the reference 24
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   66 distinct wrong encodes (native 22, ffi 22, hosttc 22), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   69 distinct wrong encodes (native 23, ffi 23, hosttc 23), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 93  core-encoder 184  decoder 0
+
+41 checks, 8 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_pad exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_pad native-encoder wrong = 93 (-gt 0)
+  >>> ok: conc_a17_pad core-encoder wrong (the ffi arm CAN fail) = 184 (-gt 0)
+  >>> ok: conc_a17_pad decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_both 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd build/conc_a17_both | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-both/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=1  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: pad-widths,global-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_GLOBAL: there is no per-context table to read, so an empty
+    surface here is the plant and not a bad shape set.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  native: P1.3 after P1.1 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P1.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+  FAIL  native: P1.3 after P2.2 is byte-identical to P1.3 on a virgin encoder
+  FAIL  ffi:    P1.3 after P2.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 72 (native 24, ffi 24, ffi-hosttc 24); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 72 (native 24, ffi 24, ffi-hosttc 24); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   P1.1 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P1.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+   P2.2 then P1.3: disagreed 0, wrong 12 (of 12 rounds)
+  FAIL  no ordered pair made a thread diverge from the reference
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 36
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   72 distinct wrong encodes (native 24, ffi 24, hosttc 24), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 123  core-encoder 243  decoder 0
+
+41 checks, 9 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_both exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_both native-encoder wrong = 123 (-gt 0)
+  >>> ok: conc_a17_both core-encoder wrong (the ffi arm CAN fail) = 243 (-gt 0)
+  >>> ok: conc_a17_both decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_corepad 4 6   (a REFUSED design: must FAIL) ===========
+$ ldd build/conc_a17_corepad | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-pad/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=0   (the shipped design)
+core plant: pad-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 3 of 35 length-prefix sites
+   P1.3 writes 1 of 35 length-prefix sites
+   P1.2 writes 3 of 35 length-prefix sites
+   P2.2 writes 17 of 35 length-prefix sites
+   after P1.1, P1.3 finds 1 site(s) reserved wider than it needs
+   after P1.2, P1.3 finds 1 site(s) reserved wider than it needs
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+  FAIL  ffi:    P1.3 after P1.1 is byte-identical to P1.3 on a virgin context
+  FAIL  ffi:    P1.3 after P1.2 is byte-identical to P1.3 on a virgin context
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 46 (native 0, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T2: every encode in sequence matched the reference
+  T3 threads together           96 iterations; distinct wrong encodes 46 (native 0, ffi 23, ffi-hosttc 23); wrong decodes 0; spurious-err 0
+  FAIL  T3: every encode in parallel matched the reference
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,   44 distinct wrong encodes (native 0, ffi 22, hosttc 22), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,   46 distinct wrong encodes (native 0, ffi 23, hosttc 23), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 184  decoder 0
+
+42 checks, 4 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 1
+  >>> ok: conc_a17_corepad exit code (non-zero: the suite saw the plant) = 1 (-ne 0)
+  >>> ok: conc_a17_corepad native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_corepad core-encoder wrong (the ffi arm CAN fail) = 184 (-gt 0)
+  >>> ok: conc_a17_corepad decoder wrong (no encode plant reaches the decoder) = 0 (-eq 0)
+
+=========== conc_a17_global 4 6   (a REFUSED design that is byte-CLEAN: must PASS) ===========
+$ ldd build/conc_a17_global | grep ak_core
+	libak_core.so => /home/user/ArmoniK.Api/ffi/poc/cpp/core-build/target-global/release/libak_core.so
+== ABI v1 obligation 12.5: the concurrency suite ==
+-std=201703  impl=target  guard=on  linkage=shared  threads=4  rounds=6
+plants: AK_CONC_PAD=0  AK_CONC_GLOBAL=1   <-- in ak::Enc: a REFUSED design from ABI v1 section 6, built on purpose
+core plant: global-widths   <-- the linked ak-core is a planted feature build
+hardware_concurrency=4
+
+-- the reference bytes, anchored to manifest.json --
+   P1.1  858 B
+   P1.3  605 B
+   P1.2  218121 B
+   P2.2  540422 B
+
+-- T0: does this shape set have a history surface at all? --
+   P1.1 writes 0 of 35 length-prefix sites
+   P1.3 writes 0 of 35 length-prefix sites
+   P1.2 writes 0 of 35 length-prefix sites
+   P2.2 writes 0 of 35 length-prefix sites
+   (AK_CONC_GLOBAL: there is no per-context table to read, so an empty
+    surface here is the plant and not a bad shape set.)
+
+-- T1: the encoder's output does not depend on its own history --
+   Sequential, one thread. The learned width survives a reset by design, so
+   this asks whether what survives can be seen on the wire. Needs two shapes.
+
+   12 pairs checked on two arms.
+
+-- T2 and T3: the same work, run in sequence and then together --
+   4 threads x 6 rounds x 4 shapes, every encode memcmp'd against the
+   reference. T2 joins each thread before starting the next, so the two
+   differ only by overlap: a defect that shows in both is not a concurrency
+   defect, and that distinction is why 12.5 asks for both.
+
+  T2 threads in sequence        96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+  T3 threads together           96 iterations; distinct wrong encodes 0 (native 0, ffi 0, ffi-hosttc 0); wrong decodes 0; spurious-err 0
+
+-- T4: a failure on one thread is not visible on another --
+   Half the threads feed truncated input and must fail; half feed the
+   reference and must succeed with err == 0. Concurrently, 24 rounds.
+
+   truncated-but-accepted 0, good-but-wrong 0, error leaked across a context 0
+
+-- T5: two threads with different histories encode the same message --
+   Every ordered pair: thread A encodes the prior and then the target,
+   thread B encodes the target alone. Both must produce the reference AND
+   agree with each other -- agreement is the half that a manifest comparison
+   alone would miss if both drifted the same way, which is exactly what a
+   process-global table does.
+
+   12 ordered pairs x 12 rounds: disagreements 0, wrong against the reference 0
+
+-- T6: one shape against two, same threads, same rounds --
+   12.5: "a suite with one shape reports zero wrong bytes with a
+   per-thread-state defect present and absent alike; two shapes find it in
+   twenty encodes out of twenty." That is a claim, so it is measured. On the
+   shipped design every row below is zero; the three planted builds are where
+   the row that matters is not.
+
+  one shape  (P1.1)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  one shape  (P1.3)                      24 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  two shapes (P1.1 + P1.3)               48 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+  four shapes (P1.1 + P1.3 + P1.2 + P2.2)   96 iterations,    0 distinct wrong encodes (native 0, ffi 0, hosttc 0), wrong decodes 0
+
+-- T7 skipped (AK_CONC_NO_T7): a timing, not a gate --
+
+whole run, distinct wrong operations: native-encoder 0  core-encoder 0  decoder 0
+
+41 checks, 0 failures
+This is a PLANTED build. A zero here would mean the suite cannot see the
+defect class it exists for, so failures above are the expected result and
+the exit code is inverted by gen/concurrency.sh, not by this binary.
+  exit 0
+  >>> ok: conc_a17_global exit code = 0 (-eq 0)
+  >>> ok: conc_a17_global native-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_global core-encoder wrong = 0 (-eq 0)
+  >>> ok: conc_a17_global links the global-widths core (grep status) = 0 (-eq 0)
+
+concurrency: 0 expectation(s) not met
