@@ -3118,3 +3118,29 @@ Xeon; the code before D26 from a worktree at 2578181f in the same session; absol
   overlapping: a fixed per-call cost is not resolved; the GCHandle lookup does not run on E0 and
   the reset work is common to P5.1, so neither is a candidate; the loop callback's changed body
   or code layout is, untested. The owner closed the measuring there (no further runs).
+
+## 87. s16: reset-on-entry in C# (2026-10-10)
+
+Owner unit s16, a measurement experiment against the core feature `reset-on-entry` (poc/codec
+30430915, default OFF) and the render option `cs_host.emit_host(reset_on_entry=True)`, both the
+Rust/core agent's (0f0164c0 for the Rust side; `logs/rust/opt/reset-on-entry/`). Logs
+`logs/csharp/opt/s16-roe/`.
+- Built: the variant cores (gen/s16_cores.sh; the default ones rebuilt from the same snapshot
+  byte-identical); the variant hosts rendered by generate.py roe_targets into GeneratedRoe*
+  folders compiled only under /p:AkRoe=true (replacing the default host) or /p:AkRoeBench=true
+  (beside it, namespace Armonik.Ffi.HarnessRoe, for one process holding both); every default
+  output and build unchanged. Added to the roe render (cs_host, default output unchanged):
+  RoeCore.Check (refuses a core without the marker export; the control shows it) and the
+  measurement switch imports.
+- Checks (gen/s16_checks.sh): passed; the variant plant (retain never armed) and the four FSM
+  plants caught. Counts: forward = default forward - removed resets on every row (-1 per
+  encode, -1 per retain or drop decode, -2 per decode-reencode; no-unknown decodes 0).
+- Timing (gen/s16_bench.sh, BenchDotNet --roebench, one process holds both paths, E with the
+  core's switch off on its contexts, an A/A control column E2; 15 processes, 5 over all 98
+  cases and 10 over the small rows): small rows resolve a saving of about 2-5 ns per op
+  (P5.1, P7.1, the U-wire rows) against an A/A within about 1 ns; a few small rows show R
+  higher by 1-3 ns (U-nested-before encode) or are unresolved (P1.1, ranges about +-20 ns);
+  large rows within the A/A spread. The resets alone: ak_enc_reset 5.3 ns, ak_dec_reset NULL
+  3.2-4.1 ns, with options 5.2-10.8 ns (34.8 for ListTasksDetailedResponse). As in the Rust
+  run, the explicit path here runs on the variant core and so carries the switch's one
+  predictable branch per entry; the default build's own path is not timed beside it.
