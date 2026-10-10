@@ -170,7 +170,7 @@ pub mod ffi {
                 unsafe { b::encoded(c.enc) }
             }
             pub fn $dec(c: &Ctx, x: &[u8]) -> $ty {
-                crate::with_toks(|t| b::$f(c.dec, x, t)).expect("core-ffi decode (fsm)")
+                b::$f(c.dec, x, &mut c.toks.borrow_mut()).expect("core-ffi decode (fsm)")
             }
             pub fn $decp(c: &Ctx, x: &[u8]) -> $ty {
                 b::$d(c.dec, x).expect("core-ffi-push decode")

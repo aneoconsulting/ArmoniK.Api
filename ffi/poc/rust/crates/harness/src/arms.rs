@@ -114,6 +114,8 @@ pub mod core_ffi_arm {
         pub enc: *mut ak_enc_ctx,
         pub dec: binding::DecCtxs,
         pub tcs: binding::Tcs,
+        /// The FSM consumer's token scratch (FIX-PLAN D26: the context's, not a thread-local's).
+        pub toks: ::std::cell::RefCell<Vec<i64>>,
     }
 
     impl Ctx {
@@ -136,7 +138,7 @@ pub mod core_ffi_arm {
             let rc = binding::ak_init_once();
             assert!(rc >= 0, "ak_init failed: rc {rc}");
             unsafe {
-                Ctx { enc: ak_enc_ctx_new(), dec: binding::DecCtxs::new(), tcs: binding::Tcs::trusted() }
+                Ctx { enc: ak_enc_ctx_new(), dec: binding::DecCtxs::new(), tcs: binding::Tcs::trusted(), toks: ::std::cell::RefCell::new(Vec::new()) }
             }
         }
         pub fn validating() -> Self {
@@ -177,7 +179,7 @@ pub mod core_ffi_arm {
     /// D24 (owner, 2026-10-09): the target decode family is the FSM (`ak_fsm_begin_<R>` then
     /// `ak_fsm_next_<R>` to the root's APPLY), unknown fields dropped.
     pub fn decode(c: &Ctx, b: &[u8]) -> ListResultsResponse {
-        crate::with_toks(|t| binding::fsm_with_list_results_response(c.dec, b, t)).expect("core-ffi decode (fsm)")
+        binding::fsm_with_list_results_response(c.dec, b, &mut c.toks.borrow_mut()).expect("core-ffi decode (fsm)")
     }
     /// D24: the push family (`ak_decode_<R>` + vtable), the labelled extra arm `core-ffi-push`.
     pub fn decode_push(c: &Ctx, b: &[u8]) -> ListResultsResponse {
@@ -361,7 +363,7 @@ pub mod core_ffi_unk {
     /// D24 (owner, 2026-10-09): the target decode family is the FSM (`ak_fsm_begin_<R>` then
     /// `ak_fsm_next_<R>` to the root's APPLY), every unknown-field position retained.
     pub fn decode(c: &Ctx, b: &[u8]) -> ListResultsResponse {
-        crate::with_toks(|t| binding::fsm_with_list_results_response_unk(c.dec, b, t)).expect("unk decode (fsm)")
+        binding::fsm_with_list_results_response_unk(c.dec, b, &mut c.toks.borrow_mut()).expect("unk decode (fsm)")
     }
     /// D24: the push family (`ak_decode_<R>` + vtable), the labelled extra arm `core-ffi-push`.
     pub fn decode_push(c: &Ctx, b: &[u8]) -> ListResultsResponse {

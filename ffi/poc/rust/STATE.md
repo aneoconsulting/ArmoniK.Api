@@ -7,13 +7,64 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; owner's amendment the same day: the op is the return value (re-checked, `checks/rust-checks-op-return.log`); section "D23". **D24** (2026-10-09, owner): the FSM is the target's decode family in this slice (core-ffi codec arm, cells C and D, the corpus's ffi arms); push is the labelled extra `core-ffi-push`; checks only; section "D24". **reset-on-entry** (2026-10-10, owner): a measurement experiment, core feature default OFF, checked and timed in the container; section "reset-on-entry". **D27** (2026-10-10, owner): reset on entry ADOPTED, the core's only behaviour; the Rust and C++ bindings make no per-operation reset; fast checks only (owner's "checks, not gates"); section "D27" |
-| **Next step** | D26 for Rust and C++ (the owner's order; not started). Latest unit (2026-10-10, owner): **D27**, reset on entry made the core's only behaviour (section "D27", `logs/rust/opt/d27-reset-on-entry/`, `logs/cpp/d27/`); fast checks only, the full gates NOT run (listed in the section). Before it the same day: the reset-on-entry experiment (section "reset-on-entry"). 2026-10-09: D24, D23. Earlier units: 2026-10-04 static decode vtables, D20, D19; 2026-10-02 the backward-encode experiment, WP12 item 1 and the TCP worker sweep. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`) |
+| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; owner's amendment the same day: the op is the return value (re-checked, `checks/rust-checks-op-return.log`); section "D23". **D24** (2026-10-09, owner): the FSM is the target's decode family in this slice (core-ffi codec arm, cells C and D, the corpus's ffi arms); push is the labelled extra `core-ffi-push`; checks only; section "D24". **reset-on-entry** (2026-10-10, owner): a measurement experiment, core feature default OFF, checked and timed in the container; section "reset-on-entry". **D27** (2026-10-10, owner): reset on entry ADOPTED, the core's only behaviour; the Rust and C++ bindings make no per-operation reset; fast checks only (owner's "checks, not gates"); section "D27". **D26** (2026-10-10, owner): no thread-local storage on a timed path, the decode host context `HostDec` per `DecCtxs`, the encode loop callbacks' state through `obj`; Rust and C++ bindings; fast checks only; section "D26" |
+| **Next step** | none assigned. Latest unit (2026-10-10, owner): **D26** (section "D26", `logs/rust/opt/d26-no-tls/`, `logs/cpp/d26/`): no thread-local storage on a timed path in the Rust and C++ bindings, gen/no_tls.py with a planted control; fast checks only, the full gates NOT run (listed in the section). Before it the same day: D27, the reset-on-entry experiment. 2026-10-09: D24, D23. Earlier units: 2026-10-04 static decode vtables, D20, D19; 2026-10-02 the backward-encode experiment, WP12 item 1 and the TCP worker sweep. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate (steps 0-12b, 11g included), both builds, passes on rustc 1.88.0 at c7b3392f with no uncommitted change in poc/rust or poc/codec and every target directory of this slice rebuilt from empty (`logs/rust/opt/d24-fsm-target/gate-floor-1.88.log`, D24). Earlier: a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42); (4) D23: pull's records of a group carry the group local's padding bytes as the stack held them (no-unknown TaskDetailed, bytes 348-351): a host reading members is unaffected, a byte-level comparison is not (the FSM differential zeroes padding on both sides) |
+
+## D26: no thread-local storage on a timed path (2026-10-10, owner; FIX-PLAN D26 as amended; Rust and C++ bindings)
+
+Logs `logs/rust/opt/d26-no-tls/` (and the C++ slice's `logs/cpp/d26/`). No timing.
+- **Before** (`before-at-head.txt`, gen/no_tls.py's scan of the committed files at 445c71fc): 13
+  thread-locals on timed paths: `UNK_LIVE`, `UNK_ENTRY_BYTES`, `ZC_IN`, `TCS` in each full binding
+  (shapes and corpus), `ZC_IN`, `TCS` in each no-unknown binding, and the harness's FSM token
+  buffer (`with_toks`, crates/harness/src/lib.rs). **After**: none; what stays is the owner's
+  allowed set: `HOST_RESETS`, `HOST_OTHER` (behind `#[cfg(feature = "count")]`), `FSM_BUMP` (the
+  FSM differential's test arena, `fsm_diff_*` only) and shapes-values' `CS` (the content set,
+  read by payload construction only, before any timed region; not in the owner's list, so stated
+  here).
+- **Decode host context** (rust_binding.py, rust_fsm.py): `HostDec { live, entry_bytes, zc }`
+  (no-unknown build: `zc` only), boxed by `DecCtxs::new` with the core contexts, freed by
+  `DecCtxs::free` after them (undelivered buffers reclaimed first), reached by `DecCtxs.host`.
+  Each root's stable retain options carry it in their `host` word, so `unk_grow(host, ...)`
+  tracks into its live set (a NULL host = untracked). The push callbacks reach it through the
+  sink (`Sink.hd`, the core's `obj`) and hand the decode helpers `Dx { ctx, hd }`; pull's replay
+  and the FSM consumer build the same sink. `unk_reclaim(ctxs)`, `unk_entry_bytes(ctxs)` take the
+  context. Z1's zero-copy input is `HostDec.zc`, set by `decode_with_*_zc` for the call and
+  cleared by a drop guard. `decode_with_*_opts` puts the host context in a NULL `host` word of
+  the caller's options for the call and restores NULL after it (a caller's own host stays).
+- **Encode**: the loop callbacks' state (the facade root and the transcoder pair, `TCS` before)
+  is an `EncObj { o, tc }` written by `encode_into_*` on its own stack for the call and handed as
+  `obj`. This differs from the C# shape (a heap host context made with the binding): Rust needs
+  no pinned memory and the core context stays the caller's `ak_enc_ctx`; no allocation per call
+  either way. Reported for the aggregating session.
+- **Harness**: the FSM decode's token buffer is the harness context's (`Ctx.toks`, a RefCell,
+  arms*.rs) instead of a thread-local. The corpus's unkctl.rs instruments `grow` with a
+  `GrowCount` whose first field is the host context it forwards to `unk_grow` (`counting_grow`,
+  `plain_grow`), so no position hands `unk_grow` a foreign host. RPC and campaign code: no
+  thread-local found (the scan covers every crate of poc/rust and poc/codec).
+- **Check**: `gen/no_tls.py --plant` (comments ignored; the allowed tallies must be behind the
+  count feature; the control appends a thread-local to a copy of a generated binding and must be
+  found). Gate step 1b (gen/gate.sh) and gen/d26_checks.sh T1; the gate itself was not run.
+- **Checks run** (`d26-checks.log`, gen/d26_checks.sh, D26 CHECKS PASSED; `d26-checks-run1.log` is
+  the same run before the `_opts` host restore, also passed): T1 no_tls with its control; T2
+  generators current (this slice, the shared core); T3 conformance, shapes, content sets (full)
+  and conformance, shapes (no-unknown); T4 the counting build's `counts` (97 lines) and
+  `pullbench` (92) IDENTICAL to the committed tree's, built in a shadow copy of HEAD; T5 crossing
+  counts identical to gen/crossings.txt (1325 lines) and gen/crossings-nounk.txt (686); T6 the
+  pre-check, full (720 checks) and no-unknown (409); T7 gen/fsm_checks.sh (F1-F6: the FSM
+  differential full, no-unknown and counting, the corpus differential both builds, six plants
+  caught, the C header); T8 gen/d27_checks.sh (roe_check both builds, two plants caught); T9
+  gen/corpus.sh (six arms, controls, decision 11's controls with "decided at entry" PASS and the
+  unk plant failing, the no-unknown build); T10 gen/concur.sh (four builds as required). Then every
+  slice's generator `poc/codec/gen/generate.py --check` (`generators-check.txt`: rust, cpp, java,
+  csharp, python current).
+- **Not run** (owner, 2026-10-10: checks, not gates): gate steps 8 (lifecycle), 9 (R-D1), 10 (R-D6),
+  11d-11f (framed path, uploads, section 9's semantics), 12's upload and RPC checks and the C
+  header variants, 12b (TCP, h2-batch); the h2-batch variant; the 1.88 floor; TSan.
 
 ## D27: reset on entry, the core's behaviour (2026-10-10, owner; FIX-PLAN D27, ABI-v1 rule 7 superseded, R-H20 amended)
 
@@ -1288,6 +1339,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 ## What is not measured
 
+- **D26's gaps**: no timing (the C# agent times; the Rust and C++ host-context paths were not timed against the thread-local ones); the full gates and the floor not run (section D26); the encode side's host state is a per-call stack object, not a host context made with the binding (C#'s shape): whether the owner wants the C# shape here is open; TSan not re-run on the host contexts.
 - **reset-on-entry's gaps**: the C# rendering is not compiled or run here (the C# agent's); the full default gate was not re-run (the default .so is byte-identical, the default bindings and counts identical, roe-checks steps 1-2, 7, 8); no A/A control column in the timing (the explicit path carries the switch's branch, the default build's own path is not timed beside it); no attribution of the rows where the two paths differ; the variant's gate steps 7-13 (concurrency, lifecycle, R-D1, R-D6, TSan, h2-batch) not run on it; the floor (1.88) not built with the feature; the campaign machine.
 - **D24's gaps**: no timing at all in D24 (the codec suite's new core-ffi and core-ffi-push rows, cells C and D with the FSM: never run); no push twin of the RPC cells; ThreadSanitizer not re-run on the FSM path (concur's decode checks now use it); the legacy harness timing bins (bench, rpcgrid, content, unknown, inlining) now reach the FSM through `core_ffi_arm::decode` under their old labels and were not run; the campaign machine.
 - **D20's gaps**: listed in section D20 above (bits set through a host, other slices' full gates, pull timed, content sets beyond P2.2, the campaign machine).
@@ -1355,6 +1407,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/d26-no-tls/` | D26: `d26-checks.log` (gen/d26_checks.sh T1-T10: D26 CHECKS PASSED), `d26-checks-run1.log` (the same before the `_opts` host restore: passed), `before-at-head.txt` (the scan of the committed pre-D26 files: 13 thread-locals), `generators-check.txt` (every slice current) |
 | `logs/rust/opt/d27-reset-on-entry/` | D27: `gate-stopped-at-11g.log` (steps 0-11f and 11g F1-F2 passed, then stopped), `d27-checks.log` (gen/d27_checks.sh: D27 CHECKS PASSED, plants caught), `fast-checks.log` (corpus FSM differential, the no-unknown checks), `generators-check.txt` |
 | `logs/rust/opt/reset-on-entry/` | reset-on-entry: `checks/roe-checks.log` (gen/roe_checks.sh: ROE CHECKS PASSED) and `checks/roe_check-*.txt` (the four builds' lines), `so-base.txt` (the base .so hashes), `crossings/` (change.txt, roe_diff.py), `csharp-render/` (the C# variant's diff), `bench/` (header, three launches, tables.md) |
 | `logs/rust/opt/d24-fsm-target/` | D24: `gate-stable.log` (the full gate, GATE PASSED, step 11g included), `gate-floor-1.88.log` (the floor), `crossings/` (change.txt, crdiff.py, crinv.py, the reference files before) |

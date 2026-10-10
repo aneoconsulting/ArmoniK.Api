@@ -4645,3 +4645,23 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
 - The full gate was started and stopped at 11g after the owner's "checks, not gates" message;
   0-11f had passed. The remaining fast checks ran instead (STATE "D27").
 - C++: see the C++ JOURNAL (the stale-address defect the corpus found in the arm-once binding).
+
+## 2026-10-10: D26 (owner): no thread-local storage on a timed path (Rust and C++)
+
+- Scan of the committed tree first (gen/no_tls.py, applied to HEAD's files): 13 thread-locals in
+  this slice (UNK_LIVE, UNK_ENTRY_BYTES, ZC_IN, TCS per binding; the harness's FSM token buffer).
+- Decode: a host context `HostDec` per `DecCtxs` (live set, map-entry bytes, Z1's input), boxed
+  with the core contexts; reached through the sink (`obj`) by the callbacks and through the
+  options' `host` word by `unk_grow`. The decode helpers take `Dx { ctx, hd }`.
+- Encode: the old comment on `TCS` said a loop callback "cannot be handed" the transcoder choice.
+  Refuted: the core hands `obj` back untouched; `encode_into_*` now passes a stack `EncObj
+  { root, transcoders }`. No allocation per call. Not C#'s heap-context shape; reported.
+- corpus unkctl.rs: the counting grow passed its own struct as `host`, which `unk_grow` now reads
+  as a HostDec: a latent misread on any position the test left on `unk_grow`. Fixed by a
+  `GrowCount` whose first field is the host context, forwarded (`counting_grow`, `plain_grow`).
+- `decode_with_*_opts` first set a NULL host word and left it set; an options struct reused with
+  another `DecCtxs` would then have tracked into the first one's live set (untimed path). Now
+  restored after the call; the checks were run before (`d26-checks-run1.log`) and after it.
+- Checks (gen/d26_checks.sh, new; no_tls also gate step 1b): all passed; counts and pullbench
+  identical to the committed tree built in a shadow copy; crossings identical. No timing.
+- C++: see the C++ JOURNAL (ASan found a wrong-root overflow in the new host context).

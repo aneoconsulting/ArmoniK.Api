@@ -65,12 +65,19 @@ fn ld(tag: u32, body: &[u8], out: &mut Vec<u8>) {
 }
 
 /// Decision 11 rule 1's host side, instrumented: a grow that counts its calls (and its
-/// FRESH calls, dst == NULL) through the ONE host pointer, then does what `unk_grow` does.
+/// FRESH calls, dst == NULL) through the ONE host pointer, then does what `unk_grow` does
+/// with the binding's decode host context (FIX-PLAN D26: `unk_grow`'s host word is that
+/// context, so this block carries it and every position of the options forwards to it).
 #[repr(C)]
-#[derive(Default)]
 struct GrowCount {
+    hd: *mut binding::HostDec,
     calls: u32,
     fresh: u32,
+}
+impl GrowCount {
+    fn new(cx: &Cx) -> GrowCount {
+        GrowCount { hd: cx.dec.host, calls: 0, fresh: 0 }
+    }
 }
 unsafe extern "C" fn counting_grow(host: *mut std::ffi::c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
     let h = &mut *(host as *mut GrowCount);
@@ -78,7 +85,11 @@ unsafe extern "C" fn counting_grow(host: *mut std::ffi::c_void, want: i32, dst: 
     if (*dst).is_null() {
         h.fresh += 1;
     }
-    binding::unk_grow(host, want, dst, cap)
+    binding::unk_grow(h.hd as *mut std::ffi::c_void, want, dst, cap)
+}
+/// The same forwarding without counting, for the other positions of those options.
+unsafe extern "C" fn plain_grow(host: *mut std::ffi::c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
+    binding::unk_grow((*(host as *mut GrowCount)).hd as *mut std::ffi::c_void, want, dst, cap)
 }
 
 const NOBUF: ak_unk_buf = ak_unk_buf { data: std::ptr::null_mut(), len: 0, cap: 0 };
@@ -123,7 +134,7 @@ fn pool_cases(cx: &Cx) -> bool {
     for (name, grow) in [("pool n=2, grow", true), ("pool n=2, no grow", false)] {
         let (p0, p1) = (alloc(64), alloc(64));
         let mut arr = [ak_unk_buf { data: p0 as _, len: 0, cap: 64 }, ak_unk_buf { data: p1 as _, len: 0, cap: 64 }];
-        let mut gc = GrowCount::default();
+        let mut gc = GrowCount::new(cx);
         let mut o = binding::unk_opts_list_results_response(Some(usize::MAX));
         o.host = &mut gc as *mut GrowCount as *mut std::ffi::c_void;
         o.self_ = ak_unk_opts { buf: NOBUF, grow: None };
@@ -252,9 +263,11 @@ fn oneof_cases(cx: &Cx) -> bool {
         }
         let mut b = Vec::new();
         ld(1, &p, &mut b);
-        let mut gc = GrowCount::default();
+        let mut gc = GrowCount::new(cx);
         let mut o = binding::unk_opts_list_probe_response(None);
         o.host = &mut gc as *mut GrowCount as *mut std::ffi::c_void;
+        o.self_.grow = Some(plain_grow);
+        o.probes.grow = Some(plain_grow);
         o.probes_body.grow = Some(counting_grow);
         let r = binding::decode_with_list_probe_response_opts(cx.dec, &b, &mut o);
         let line = match r {
@@ -283,17 +296,19 @@ fn oneof_cases(cx: &Cx) -> bool {
         p.extend_from_slice(&[0x50, 0x07]); // as_int (10) = 7
         let mut b = Vec::new();
         ld(1, &p, &mut b);
-        let mut gc = GrowCount::default();
+        let mut gc = GrowCount::new(cx);
         let mut o = binding::unk_opts_list_probe_response(None);
         o.host = &mut gc as *mut GrowCount as *mut std::ffi::c_void;
+        o.self_.grow = Some(plain_grow);
+        o.probes.grow = Some(plain_grow);
         o.probes_body.grow = Some(counting_grow);
-        binding::unk_reclaim();
+        binding::unk_reclaim(cx.dec);
         let ctx = cx.dec.list_probe_response;
         let r0 = unsafe { ak_dec_reset_ListProbeResponse(ctx, &mut o) };
         let r = binding::decode_with_list_probe_response(cx.dec, &b);
         unsafe { ak_dec_reset_ListProbeResponse(ctx, std::ptr::null_mut()) };
-        let reclaimed = binding::unk_reclaim();
-        let leaked = binding::unk_reclaim();
+        let reclaimed = binding::unk_reclaim(cx.dec);
+        let leaked = binding::unk_reclaim(cx.dec);
         let line = match r {
             Ok(v) => {
                 let body = v.probes.first().and_then(|p| p.body.clone());
@@ -366,6 +381,7 @@ fn refused_parse_keeps_records(cx: &Cx) -> bool {
 fn decided_at_entry(cx: &Cx) -> bool {
     let ctx = cx.dec.list_results_response;
     let mut o = binding::unk_opts_list_results_response(None);
+    o.host = cx.dec.host as *mut std::ffi::c_void; // D26: grow's sink, the decode host context
     o.self_.grow = None;
     o.results.grow = None;
     o.results_created_at.grow = None;
@@ -388,7 +404,7 @@ fn decided_at_entry(cx: &Cx) -> bool {
         o2.results_completed_at.grow = None;
         let r2 = binding::decode_with_list_results_response_opts(cx.dec, &b, &mut o2);
         let bag2 = r2.as_ref().map(|v| v.unknown_fields.len()).unwrap_or(usize::MAX);
-        binding::unk_reclaim();
+        binding::unk_reclaim(cx.dec);
         let pass = r0 == AK_OK && rc == 0 && bag == 3 && bag2 == 3;
         println!("  placement: {:<24} reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (want rc 0 and the bag, 3 bytes: decided at the decode's entry, D27); twin armed at reset: bag {} bytes (want 3)  {}",
                  "decided at entry", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));

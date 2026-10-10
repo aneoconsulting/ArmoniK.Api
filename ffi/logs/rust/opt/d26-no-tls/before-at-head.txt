@@ -1,0 +1,15 @@
+# gen/no_tls.py's scan applied to the committed (pre-D26) files at HEAD 445c71fc
+  crates/harness/src/generated/binding.rs:56: thread-local UNK_LIVE
+  crates/harness/src/generated/binding.rs:135: thread-local UNK_ENTRY_BYTES
+  crates/harness/src/generated/binding.rs:316: thread-local ZC_IN
+  crates/harness/src/generated/binding.rs:405: thread-local TCS
+  crates/harness/src/generated/binding_nounk.rs:168: thread-local ZC_IN
+  crates/harness/src/generated/binding_nounk.rs:257: thread-local TCS
+  corpus/crates/harness/src/generated/binding.rs:56: thread-local UNK_LIVE
+  corpus/crates/harness/src/generated/binding.rs:135: thread-local UNK_ENTRY_BYTES
+  corpus/crates/harness/src/generated/binding.rs:316: thread-local ZC_IN
+  corpus/crates/harness/src/generated/binding.rs:405: thread-local TCS
+  corpus/crates/harness/src/generated/binding_nounk.rs:168: thread-local ZC_IN
+  corpus/crates/harness/src/generated/binding_nounk.rs:257: thread-local TCS
+  crates/harness/src/lib.rs:23: thread-local T
+findings at HEAD: 13

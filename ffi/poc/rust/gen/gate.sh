@@ -4,6 +4,7 @@
 # the script stops at the first step that fails.
 #
 #   1  the generators are current (this slice's and the shared core's), and one core
+#  1b  no thread-local storage on a timed path (FIX-PLAN D26: gen/no_tls.py, with its planted control)
 #   2  the core's unit tests (ak-rt reader, ak-core transcoders)
 #   3  byte identity: every arm against ffi/schema's validated manifest, 16 payloads
 #   4  explicit presence, the oneof, the unknown-field vectors
@@ -50,6 +51,9 @@ python3 ../codec/gen/generate.py --check --core-only 2>/dev/null
 # differ (R-H12).
 python3 gen/check_direct.py | tail -8
 PYTHONPATH=../codec/gen python3 gen/facade_order.py
+
+step "1b. no thread-local storage on a timed path (FIX-PLAN D26), and its planted control"
+python3 gen/no_tls.py --plant | tail -4
 
 step "2. core unit tests (debug build: std's precondition checks on)"
 ( cd ../codec && CARGO_TARGET_DIR="$HERE/../target-codec-test" cargo test -q -p ak-core -p ak-rt 2>&1 \
