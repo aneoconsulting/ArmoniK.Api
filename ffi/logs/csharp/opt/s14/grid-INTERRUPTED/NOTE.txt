@@ -1,0 +1,1 @@
+s14 grid: cells cut by a container restart are moved here by gen/s14_grid.sh (suffix -cutN); empty when none was.
