@@ -88,8 +88,9 @@ if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
     open(os.path.join(gd, 'reference.md'), 'w').write('\n'.join(rf) + '\n')
     print('\n'.join(t))
 # ---------------------------------------------------------------- codec
-gd = os.path.join(D, 'codec')
-if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
+for gd in (os.path.join(D, 'codec'), os.path.join(D, 'codec-p22')):
+  if not (os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl'))): continue
+  if True:
     by = load(gd)
     t = ['# s15 core-ffi codec grid (the core grid core-ffi directions, encode-core-hot and decode-read; drop and retain; E0 and the FSM as today): process CPU per op (us), median over every round of every rep (3 BDN host processes per variant), new = D26 code, base = the code before D26 (same session, interleaved). CONTAINER INSTRUMENTATION.', '',
          '| payload | content | dir | mode | new | base |', '|---|---|---|---|---:|---:|']
