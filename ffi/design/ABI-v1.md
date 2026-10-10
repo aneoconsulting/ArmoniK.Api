@@ -1721,6 +1721,7 @@ Each blocks something. None is settled by a measurement that exists today.
       (`NULL` opts is drop mode); `ak_dec_reset_<Root>` accepts only a context of that
       root; decoding another root with it is refused with an error. The untyped
       `ak_dec_ctx_new()` is removed.
+   7. **Superseded by FIX-PLAN D27 (owner, 2026-10-10): the reset happens on entry.** Every decode entry re-arms from the options pointer the context keeps, and every encode entry resets the context, so no per-operation reset call is expected; `ak_dec_reset_<Root>` sets the pointer and remains an optional early release. The text below is the rule before D27.
    7. **A reset per decode** is expected whatever the unknown-field configuration; it
       is how pre-allocated buffers are re-armed. One is enough: no disarming reset is
       needed after the decode. The Rust binding makes exactly one, with its options
