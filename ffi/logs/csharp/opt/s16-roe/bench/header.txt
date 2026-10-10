@@ -1,0 +1,17 @@
+# s16_bench.sh invocation 2026-10-10T17:38:27Z, boot 2026-10-10 09:18:10, commit af13a74a; core 97ed73f02f727c8d (target-core-roe, AK_CORE_LIB); CPUs 0,1; --roebench --rounds 21 --block-ms 20 --warm-ms 1000; NFULL=5 NSMALL=10; small rows: P1.1,P5.1,P7.1,U-nested-before,U-deep-u-repeated,U-oneof-u-repeated,U-wire-ListTaskSummaryResponse-tasks-as-wt5,U-wire-UploadResultDataMessage-upload-as-wt5,U-wire-ListMetricsResponse-batches-as-wt0,U-wire-DualResponse-left-as-wt5
+# p full-1: rc=0 230 s; boot 2026-10-10 09:18:10; quiet: load1 0.12 (waited 360 s); roebench: 98 cases (0 identity failure(s)) to /home/user/Arm
+# p small-1: rc=0 89 s; boot 2026-10-10 09:18:10; quiet: load1 0.46 (waited 45 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p full-2: rc=0 232 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 98 cases (0 identity failure(s)) to /home/user/Arm
+# p small-2: rc=0 88 s; boot 2026-10-10 09:18:10; quiet: load1 0.48 (waited 65 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p full-3: rc=0 230 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 98 cases (0 identity failure(s)) to /home/user/Arm
+# p small-3: rc=0 87 s; boot 2026-10-10 09:18:10; quiet: load1 0.47 (waited 45 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p full-4: rc=0 231 s; boot 2026-10-10 09:18:10; quiet: load1 0.46 (waited 55 s); roebench: 98 cases (0 identity failure(s)) to /home/user/Arm
+# p small-4: rc=0 88 s; boot 2026-10-10 09:18:10; quiet: load1 0.48 (waited 60 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p full-5: rc=0 230 s; boot 2026-10-10 09:18:10; quiet: load1 0.48 (waited 40 s); roebench: 98 cases (0 identity failure(s)) to /home/user/Arm
+# p small-5: rc=0 88 s; boot 2026-10-10 09:18:10; quiet: load1 0.47 (waited 45 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p small-6: rc=0 88 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p small-7: rc=0 89 s; boot 2026-10-10 09:18:10; quiet: load1 0.47 (waited 40 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p small-8: rc=0 89 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p small-9: rc=0 89 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# p small-10: rc=0 89 s; boot 2026-10-10 09:18:10; quiet: load1 0.49 (waited 35 s); roebench: 38 cases (0 identity failure(s)) to /home/user/Arm
+# s16_bench.sh done 2026-10-10T18:28:33Z
