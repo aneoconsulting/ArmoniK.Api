@@ -106,7 +106,10 @@ public static class Program
         var awhy = Alloc.Mismatch();
         if (awhy != null) { Console.Error.WriteLine("allocator mode mismatch: " + awhy); return 3; }
         Environment.SetEnvironmentVariable("AK_CORPUS_DIR", Cases.CorpusDir());   // for BDN's child processes
-        int checks = Cases.Verify();
+        // s14: the measurement stub core (ak_measure_tc_stub) writes wrong UTF-16 output by design;
+        // its runs time the E1R machinery without the conversion and skip the byte checks.
+        int checks = MeasureCore.Stub ? 0 : Cases.Verify();
+        if (MeasureCore.Stub) Console.WriteLine("# correctness:    SKIPPED: the loaded core is the s14 measurement stub (tc-measure-u16stub), whose UTF-16 output is wrong by design");
         if (a.Contains("--verify")) { Console.WriteLine("verify: " + checks + " pre-timing checks passed (byte identity of every arm, every string path)"); return 0; }
         Alloc.Startup();   // once per process; the mismatch was refused above
         // Requirement 24, the tier: a process-level pre-warm before BDN starts. Every case of
@@ -137,9 +140,9 @@ public static class Program
             "# process unit:   " + (Cases.Unit ?? "all cases") + "; this launch's unit order: " + string.Join(", ", Cases.Units(launch)) + " (a seeded shuffle, seed " + Cases.UnitSeed(launch) + "; within this process the cases run in a seeded shuffle too, seed " + order.Seed + ", the 2 prime cases first; requirement 22 as amended, R-H23)",
             "# warm-up:        BenchmarkDotNet's own, per case: its jitting stage, pilot and the warm-up iterations of the job line (req 24; WP9 addendum: no hand-written pre-warm and no settle wait; the 2 prime cases below are BDN cases); the JIT tier is read back per case and a case that measured hot code at tier 0 fails the unit outside --smoke (the jit check below)",
 #if AK_NO_UNKNOWN_FIELDS
-            "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
+            "# correctness:    " + (MeasureCore.Stub ? "SKIPPED (s14 measurement stub core; wrong UTF-16 output by design) " : checks + " ") + "pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi no-unknown and host-gen no-unknown re-encode to the same DROPPED form)",
 #else
-            "# correctness:    " + checks + " pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)",
+            "# correctness:    " + (MeasureCore.Stub ? "SKIPPED (s14 measurement stub core; wrong UTF-16 output by design) " : checks + " ") + "pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)",
 #endif
             "# cases:          " + ncases + " exported, after " + nprime + " prime case(s) run first and not exported (copies of the first cases, content \"prime\"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)",
         };

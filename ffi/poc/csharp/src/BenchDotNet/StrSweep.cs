@@ -86,7 +86,7 @@ public static class StrSweep
                 {
                     Set(k);
                     if (core.EncodeInto(f, false) < 0) { Console.Error.WriteLine("encode failed " + names[k]); return 1; }
-                    if (!core.ContextBytes().AsSpan().SequenceEqual(want)) { Console.Error.WriteLine("BYTE IDENTITY FAILED: " + content + " " + n + " " + names[k]); bad++; }
+                    if (!MeasureCore.Stub && !core.ContextBytes().AsSpan().SequenceEqual(want)) { Console.Error.WriteLine("BYTE IDENTITY FAILED: " + content + " " + n + " " + names[k]); bad++; }
                 }
                 // per-op cost estimate for block sizing, then a warm-up of >= 1 s across the paths
                 long Iters(int k)
@@ -139,7 +139,7 @@ public static class StrSweep
         {
             "# D21 string-length sweep: process CPU per encode (ns), median [min-max] over " + rounds + " rounds, one process, paths interleaved and rotated per round",
             "",
-            "CONTAINER INSTRUMENTATION. One core-ffi EncodeInto of UploadResultDataMessage{upload.session_id = the string}; E0 = .NET UTF-8 into native staging + ak_tc_bytes; E1 = the string pinned (GCHandle) + ak_tc_utf16 (simdutf); E2 = the C# transcoder callback writing into the core's buffer; E3 = that callback calling the core's ak_utf16_to_utf8 (worst-case grow), E3L = sized by ak_utf16_utf8_len first; E1R = the string pinned by `fixed` in the root frame + ak_tc_utf16; E1C = a GCHandle per chunk. Environment: " + Env() + ". `pin` = GCHandle.Alloc(Pinned) + Free alone, ns. Byte identity of every path checked first: " + (bad == 0 ? "all identical" : bad + " FAILURES") + ".",
+            "CONTAINER INSTRUMENTATION. One core-ffi EncodeInto of UploadResultDataMessage{upload.session_id = the string}; E0 = .NET UTF-8 into native staging + ak_tc_bytes; E1 = the string pinned (GCHandle) + ak_tc_utf16 (simdutf); E2 = the C# transcoder callback writing into the core's buffer; E3 = that callback calling the core's ak_utf16_to_utf8 (worst-case grow), E3L = sized by ak_utf16_utf8_len first; E1R = the string pinned by `fixed` in the root frame + ak_tc_utf16; E1C = a GCHandle per chunk. Environment: " + Env() + ". `pin` = GCHandle.Alloc(Pinned) + Free alone, ns. " + (MeasureCore.Stub ? "Byte identity NOT checked: the loaded core is the s14 measurement stub (wrong UTF-16 output by design)." : "Byte identity of every path checked first: " + (bad == 0 ? "all identical" : bad + " FAILURES") + "."),
             "",
             "| content | chars | UTF-8 bytes | " + string.Join(" | ", names) + " | pin | fastest |",
             "|---|---:|---:|" + string.Concat(names.Select(_ => "---:|")) + "---:|---|",

@@ -1,0 +1,5 @@
+# s14 cores: git archive HEAD ffi/poc/codec, last core commit cde67864; rustc 1.94.1
+#   target-core-mgeneric: --features rpc,init-guard,tc-measure-generic -> 95f86dcb5370d6db (168 ak_* exports)
+#   target-core-mstub: --features rpc,init-guard,tc-measure-u16stub -> 9b193c4ccd139c11 (169 ak_* exports)
+#   target-core-s14default: --features rpc,init-guard -> 7b8ed0b888940ab7 (168 ak_* exports)
+# default build from this snapshot == target-core (byte-identical: 7b8ed0b888940ab7)

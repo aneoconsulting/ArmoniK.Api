@@ -1,0 +1,19 @@
+$ AK_CORE_LIB=target-core AK_STR_ENC=E0 BenchDotNet --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0
+$ AK_CORE_LIB=target-core AK_STR_ENC=E1R BenchDotNet --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0
+$ AK_CORE_LIB=target-core AK_STR_ENC=E1R AK_STR_NOGUARD=1 BenchDotNet --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0
+$ AK_CORE_LIB=target-core-mgeneric AK_STR_ENC=E0 BenchDotNet --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0
+$ AK_CORE_LIB=target-core-mgeneric AK_STR_ENC=E1R BenchDotNet --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0
+$ AK_CORE_LIB=target-core-mstub AK_STR_ENC=E1R BenchDotNet --verify
+# correctness:    SKIPPED: the loaded core is the s14 measurement stub (tc-measure-u16stub), whose UTF-16 output is wrong by design
+verify: 0 pre-timing checks passed (byte identity of every arm, every string path)
+exit 0

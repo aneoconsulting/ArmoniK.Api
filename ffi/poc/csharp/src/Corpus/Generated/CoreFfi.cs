@@ -115,6 +115,10 @@ public sealed unsafe class Stage : IDisposable
     /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
     /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
     [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
+    /// s14, MEASUREMENT ONLY (AK_STR_NOGUARD=1; default off): E1R's frames skip the patch
+    /// counters (Patched, RepPatched, MapPatched) and Go skips the per-encode marks == patches
+    /// check, so that guard's cost can be priced. Marked stays: it decides whether the frames run.
+    public static readonly bool NoGuard = Environment.GetEnvironmentVariable("AK_STR_NOGUARD") == "1";
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -1750,7 +1754,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -2224,7 +2228,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -2664,11 +2668,11 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     {
         fixed (char* __p0 = src.SessionId, __p1 = src.Name, __p2 = src.OwnerTaskId, __p3 = src.ResultId, __p4 = src.CreatedBy)
         {
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; Stage.Patched++; }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_ResultRaw(_run, _ctx, vt, __g);
         }
     }
@@ -2693,11 +2697,11 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     {
         fixed (char* __p0 = src.SessionId, __p1 = src.Name, __p2 = src.OwnerTaskId, __p3 = src.ResultId, __p4 = src.CreatedBy)
         {
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; Stage.Patched++; }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_ResultRaw(_run, _ctx, vt, __g);
         }
     }
@@ -2758,7 +2762,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -3233,12 +3237,12 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     {
         fixed (char* __p0 = src.PartitionId, __p1 = src.ApplicationName, __p2 = src.ApplicationVersion, __p3 = src.ApplicationNamespace, __p4 = src.ApplicationService, __p5 = src.EngineType)
         {
-            if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->application_namespace.data == Stage.PinPending) { __g->application_namespace.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->application_service.data == Stage.PinPending) { __g->application_service.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = (IntPtr)__p5; Stage.Patched++; }
+            if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_namespace.data == Stage.PinPending) { __g->application_namespace.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_service.data == Stage.PinPending) { __g->application_service.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_TaskOptions(_run, _ctx, vt, __g);
         }
     }
@@ -3264,12 +3268,12 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     {
         fixed (char* __p0 = src.PartitionId, __p1 = src.ApplicationName, __p2 = src.ApplicationVersion, __p3 = src.ApplicationNamespace, __p4 = src.ApplicationService, __p5 = src.EngineType)
         {
-            if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->application_namespace.data == Stage.PinPending) { __g->application_namespace.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->application_service.data == Stage.PinPending) { __g->application_service.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = (IntPtr)__p5; Stage.Patched++; }
+            if (__g->partition_id.data == Stage.PinPending) { __g->partition_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_name.data == Stage.PinPending) { __g->application_name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_version.data == Stage.PinPending) { __g->application_version.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_namespace.data == Stage.PinPending) { __g->application_namespace.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->application_service.data == Stage.PinPending) { __g->application_service.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->engine_type.data == Stage.PinPending) { __g->engine_type.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_TaskOptions(_run, _ctx, vt, __g);
         }
     }
@@ -3339,7 +3343,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -3835,7 +3839,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     {
         fixed (char* __p0 = src.Error)
         {
-            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_TaskOutput(_run, _ctx, vt, __g);
         }
     }
@@ -3856,7 +3860,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     {
         fixed (char* __p0 = src.Error)
         {
-            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_TaskOutput(_run, _ctx, vt, __g);
         }
     }
@@ -3913,7 +3917,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -4335,7 +4339,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_parent_task_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -4390,7 +4394,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_data_dependencies(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -4445,7 +4449,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_expected_output_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -4500,7 +4504,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_retry_of_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -4600,21 +4604,21 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         var __c8 = src.Output;
         fixed (char* __p0 = src.Id, __p1 = src.SessionId, __p2 = src.OwnerPodId, __p3 = src.StatusMessage, __p4 = __c1?.PartitionId, __p5 = __c1?.ApplicationName, __p6 = __c1?.ApplicationVersion, __p7 = __c1?.ApplicationNamespace, __p8 = __c1?.ApplicationService, __p9 = __c1?.EngineType, __p10 = __c8?.Error, __p11 = src.PodHostname, __p12 = src.InitialTaskId, __p13 = src.PayloadId, __p14 = src.CreatedBy)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; Stage.Patched++; }
-            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; Stage.Patched++; }
-            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; Stage.Patched++; }
-            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; Stage.Patched++; }
-            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; Stage.Patched++; }
-            if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; Stage.Patched++; }
-            if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; Stage.Patched++; }
-            if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; Stage.Patched++; }
-            if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; Stage.Patched++; }
-            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_TaskDetailed(_run, _ctx, vt, __g);
         }
     }
@@ -4653,21 +4657,21 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         var __c8 = src.Output;
         fixed (char* __p0 = src.Id, __p1 = src.SessionId, __p2 = src.OwnerPodId, __p3 = src.StatusMessage, __p4 = __c1?.PartitionId, __p5 = __c1?.ApplicationName, __p6 = __c1?.ApplicationVersion, __p7 = __c1?.ApplicationNamespace, __p8 = __c1?.ApplicationService, __p9 = __c1?.EngineType, __p10 = __c8?.Error, __p11 = src.PodHostname, __p12 = src.InitialTaskId, __p13 = src.PayloadId, __p14 = src.CreatedBy)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; Stage.Patched++; }
-            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; Stage.Patched++; }
-            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; Stage.Patched++; }
-            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; Stage.Patched++; }
-            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; Stage.Patched++; }
-            if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; Stage.Patched++; }
-            if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; Stage.Patched++; }
-            if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; Stage.Patched++; }
-            if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; Stage.Patched++; }
-            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_TaskDetailed(_run, _ctx, vt, __g);
         }
     }
@@ -4792,7 +4796,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -5566,16 +5570,16 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         var __c1 = src.Options;
         fixed (char* __p0 = src.Id, __p1 = src.SessionId, __p2 = __c1?.PartitionId, __p3 = __c1?.ApplicationName, __p4 = __c1?.ApplicationVersion, __p5 = __c1?.ApplicationNamespace, __p6 = __c1?.ApplicationService, __p7 = __c1?.EngineType, __p8 = src.Error, __p9 = src.StatusMessage)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; Stage.Patched++; }
-            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; Stage.Patched++; }
-            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; Stage.Patched++; }
-            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; Stage.Patched++; }
-            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_TaskSummary(_run, _ctx, vt, __g);
         }
     }
@@ -5607,16 +5611,16 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         var __c1 = src.Options;
         fixed (char* __p0 = src.Id, __p1 = src.SessionId, __p2 = __c1?.PartitionId, __p3 = __c1?.ApplicationName, __p4 = __c1?.ApplicationVersion, __p5 = __c1?.ApplicationNamespace, __p6 = __c1?.ApplicationService, __p7 = __c1?.EngineType, __p8 = src.Error, __p9 = src.StatusMessage)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; Stage.Patched++; }
-            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; Stage.Patched++; }
-            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; Stage.Patched++; }
-            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; Stage.Patched++; }
-            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; Stage.Patched++; }
-            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; Stage.Patched++; }
-            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; Stage.Patched++; }
-            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_TaskSummary(_run, _ctx, vt, __g);
         }
     }
@@ -5691,7 +5695,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -6211,9 +6215,9 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     {
         fixed (char* __p0 = src.Id, __p1 = src.OptLabel, __p2 = (src.BodyCase == ProbeBodyCase.AsText ? (src.AsText ?? "") : null))
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_Probe(_run, _ctx, vt, __g);
         }
     }
@@ -6236,9 +6240,9 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     {
         fixed (char* __p0 = src.Id, __p1 = src.OptLabel, __p2 = (src.BodyCase == ProbeBodyCase.AsText ? (src.AsText ?? "") : null))
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; Stage.Patched++; }
-            if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_Probe(_run, _ctx, vt, __g);
         }
     }
@@ -6297,7 +6301,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -6778,7 +6782,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -7218,8 +7222,8 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     {
         fixed (char* __p0 = src.SessionId, __p1 = src.ResultId)
         {
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_encode_UploadResultData(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
@@ -7241,8 +7245,8 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     {
         fixed (char* __p0 = src.SessionId, __p1 = src.ResultId)
         {
-            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_uencode_UploadResultData(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
@@ -7302,7 +7306,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -7827,7 +7831,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_MetricsBatch(_run, _ctx, vt, __g);
         }
     }
@@ -7848,7 +7852,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_MetricsBatch(_run, _ctx, vt, __g);
         }
     }
@@ -7959,7 +7963,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -8564,7 +8568,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     {
         fixed (char* __p0 = src.Key)
         {
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_Pair(_run, _ctx, vt, __g);
         }
     }
@@ -8585,7 +8589,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     {
         fixed (char* __p0 = src.Key)
         {
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_Pair(_run, _ctx, vt, __g);
         }
     }
@@ -8642,7 +8646,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -9065,20 +9069,20 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; Stage.Patched++; }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; Stage.Patched++; }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_results(ctx, run, lst, off, k, i + 1);
         }
@@ -9233,7 +9237,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -9746,40 +9750,40 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; Stage.Patched++; }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; Stage.Patched++; }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; Stage.Patched++; }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; Stage.Patched++; }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; Stage.Patched++; }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; Stage.Patched++; }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; Stage.Patched++; }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; Stage.Patched++; }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; Stage.Patched++; }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; Stage.Patched++; }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; Stage.Patched++; }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; Stage.Patched++; }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; Stage.Patched++; }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; Stage.Patched++; }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; Stage.Patched++; }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; Stage.Patched++; }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; Stage.Patched++; }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; Stage.Patched++; }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; Stage.Patched++; }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; Stage.Patched++; }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_tasks(ctx, run, lst, off, k, i + 1);
         }
@@ -9850,7 +9854,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_tasks_parent_task_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -9889,7 +9893,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_tasks_data_dependencies(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -9928,7 +9932,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_tasks_expected_output_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -9967,7 +9971,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_tasks_retry_of_ids(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -10006,8 +10010,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
             return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -10331,7 +10335,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -11171,30 +11175,30 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; Stage.Patched++; }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; Stage.Patched++; }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; Stage.Patched++; }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; Stage.Patched++; }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; Stage.Patched++; }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; Stage.Patched++; }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; Stage.Patched++; }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; Stage.Patched++; }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; Stage.Patched++; }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; Stage.Patched++; }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; Stage.Patched++; }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; Stage.Patched++; }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_tasks(ctx, run, lst, off, k, i + 1);
         }
@@ -11254,8 +11258,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
             return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -11439,7 +11443,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -11999,16 +12003,16 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; Stage.Patched++; }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_probes(ctx, run, lst, off, k, i + 1);
         }
@@ -12159,7 +12163,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -12655,12 +12659,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_batches(ctx, run, lst, off, k, i + 1);
         }
@@ -12978,7 +12982,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -13630,8 +13634,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         var __c1 = src.Upload;
         fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
         {
-            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
@@ -13655,8 +13659,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         var __c1 = src.Upload;
         fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
         {
-            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
@@ -13717,7 +13721,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -14151,12 +14155,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_left(ctx, run, lst, off, k, i + 1);
         }
@@ -14239,12 +14243,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_right(ctx, run, lst, off, k, i + 1);
         }
@@ -14403,7 +14407,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -14930,7 +14934,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     {
         fixed (char* __p0 = src.K)
         {
-            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_ChunkLeaf(_run, _ctx, vt, __g);
         }
     }
@@ -14951,7 +14955,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     {
         fixed (char* __p0 = src.K)
         {
-            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_ChunkLeaf(_run, _ctx, vt, __g);
         }
     }
@@ -15008,7 +15012,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -15448,12 +15452,12 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ChunkLeaf*)run->S_leaves + off + i;
-                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ChunkLeaf*)run->S_leaves + off + i;
-                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_leaves(ctx, run, lst, off, k, i + 1);
         }
@@ -15611,7 +15615,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -16109,7 +16113,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_labels(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -16203,12 +16207,12 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ChunkLeaf*)run->S_inner_leaves + off + i;
-                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ChunkLeaf*)run->S_inner_leaves + off + i;
-                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_inner_leaves(ctx, run, lst, off, k, i + 1);
         }
@@ -16310,7 +16314,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_ChunkElement(_run, _ctx, vt, __g);
         }
     }
@@ -16331,7 +16335,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_ChunkElement(_run, _ctx, vt, __g);
         }
     }
@@ -16430,7 +16434,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -17031,12 +17035,12 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ChunkElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ChunkElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_items(ctx, run, lst, off, k, i + 1);
         }
@@ -17077,7 +17081,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_items_labels(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -17116,8 +17120,8 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
             return RecM_items_attrs(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -17162,7 +17166,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         fixed (char* __p0 = __e.K)
         {
             var __g = arr + off + j;
-            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Rec_items_inner_leaves(ctx, arr, lst, off, k, j + 1);
         }
     }
@@ -17449,7 +17453,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -18104,12 +18108,12 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ChunkElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ChunkElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_items(ctx, run, lst, off, k, i + 1);
         }
@@ -18150,7 +18154,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_items_labels(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -18189,8 +18193,8 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; Stage.Patched++; Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; Stage.Patched++; Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
             return RecM_items_attrs(ctx, arr, m, off, k, j + 1);
         }
     }
@@ -18235,7 +18239,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         fixed (char* __p0 = __e.K)
         {
             var __g = arr + off + j;
-            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->k.data == Stage.PinPending) { __g->k.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Rec_items_inner_leaves(ctx, arr, lst, off, k, j + 1);
         }
     }
@@ -18522,7 +18526,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -19180,7 +19184,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_LeafElement(_run, _ctx, vt, __g);
         }
     }
@@ -19201,7 +19205,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     {
         fixed (char* __p0 = src.Id)
         {
-            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_LeafElement(_run, _ctx, vt, __g);
         }
     }
@@ -19258,7 +19262,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -19690,12 +19694,12 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_LeafElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_LeafElement*)run->S_items + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; Stage.Patched++; }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             }
             return Rec_items(ctx, run, lst, off, k, i + 1);
         }
@@ -19842,7 +19846,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -20331,7 +20335,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
             return RecS_texts(ctx, arr, l, off, k, j + 1);
         }
     }
@@ -20415,8 +20419,8 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         var __c1 = src.Nested;
         fixed (char* __p0 = src.Text, __p1 = __c1?.Text)
         {
-            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_Surrogate(_run, _ctx, vt, __g);
         }
     }
@@ -20440,8 +20444,8 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         var __c1 = src.Nested;
         fixed (char* __p0 = src.Text, __p1 = __c1?.Text)
         {
-            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; Stage.Patched++; }
-            if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = (IntPtr)__p1; Stage.Patched++; }
+            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->nested.text.data == Stage.PinPending) { __g->nested.text.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_Surrogate(_run, _ctx, vt, __g);
         }
     }
@@ -20519,7 +20523,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -21047,7 +21051,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     {
         fixed (char* __p0 = src.Text)
         {
-            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_SurrogateInner(_run, _ctx, vt, __g);
         }
     }
@@ -21068,7 +21072,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     {
         fixed (char* __p0 = src.Text)
         {
-            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->text.data == Stage.PinPending) { __g->text.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_SurrogateInner(_run, _ctx, vt, __g);
         }
     }
@@ -21125,7 +21129,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -21565,7 +21569,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     {
         fixed (char* __p0 = src.VString)
         {
-            if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_encode_WireZoo(_run, _ctx, vt, __g);
         }
     }
@@ -21586,7 +21590,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     {
         fixed (char* __p0 = src.VString)
         {
-            if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = (IntPtr)__p0; Stage.Patched++; }
+            if (__g->v_string.data == Stage.PinPending) { __g->v_string.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
             return Abi.ak_uencode_WireZoo(_run, _ctx, vt, __g);
         }
     }
@@ -21643,7 +21647,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             Stage.DeferNow = 0;   // the next encode on this thread starts from the default
             _pinSrc = null;
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)

@@ -570,6 +570,10 @@ public sealed unsafe class Stage : IDisposable
     /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
     /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
     [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
+    /// s14, MEASUREMENT ONLY (AK_STR_NOGUARD=1; default off): E1R's frames skip the patch
+    /// counters (Patched, RepPatched, MapPatched) and Go skips the per-encode marks == patches
+    /// check, so that guard's cost can be priced. Marked stays: it decides whether the frames run.
+    public static readonly bool NoGuard = Environment.GetEnvironmentVariable("AK_STR_NOGUARD") == "1";
     /// E1R / E1C: map strings pinned by the GCHandle fallback (counting build only).
     public static long HandlePins;
     /// E3 / E3L: calls into ak_utf16_to_utf8 / ak_utf16_utf8_len (counting build only; the ABI
@@ -1071,7 +1075,7 @@ def _pin_fields(p, mname, sv):
 def _pin_patch_r(o, ind, gp, pins, extra=""):
     """E1R: patch each marked member with its `fixed` pointer __p<i>."""
     for k, (_, path) in enumerate(pins):
-        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; Stage.Patched++;%s }" % (ind, gp, path, gp, path, k, extra)
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; if (!Stage.NoGuard) { Stage.Patched++;%s } }" % (ind, gp, path, gp, path, k, extra)
 
 
 def _pin_patch_h(o, ind, gp, pins, extra=""):
@@ -1283,7 +1287,7 @@ def _emit_pin_strs(o, name):
     o += "        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }"
     o += "        fixed (char* __p = l[off + j])"
     o += "        {"
-    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; Stage.Patched++; Stage.RepPatched++; }"
+    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }"
     o += "            return RecS_%s(ctx, arr, l, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
@@ -1648,7 +1652,7 @@ def _emit_root(o, p, root, facade_ns):
     o += "            Stage.DeferNow = 0;   // the next encode on this thread starts from the default"
     o += "            _pinSrc = null;"
     o += "            // E1R / E1C: every mark the fill left was patched by a frame before the core read it."
-    o += "            if (Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;"
+    o += "            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;"
     o += "        }"
     o += "        if (rc < 0) return (int)rc;"
     o += "        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)"
