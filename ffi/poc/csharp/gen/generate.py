@@ -120,7 +120,7 @@ def targets():
         "src/Corpus/Generated/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Dispatch.cs": cs_registry.emit_corpus_dispatch(abi, refused),
         "abi/src/main.rs": cs_layout_probe.emit(),
-    } | nounk_targets(p, full, abi, refused) | roe_targets(p, abi)
+    } | nounk_targets(p, full, abi, refused) | roe_targets(p, abi) | lazy_targets(p, abi)
 
 
 def nounk_targets(p, full, abi, refused):
@@ -174,6 +174,21 @@ def roe_targets(p, abi):
         "src/Harness/GeneratedRoeBench/CoreFfiRoe.cs": bench,
         "src/BenchDotNet/GeneratedRoeBench/RoeOps.cs": cs_roebench.emit(p),
         "src/Harness/GeneratedRoeBench/RoeTiming.cs": cs_roebench.emit_timing(p),
+    }
+
+
+def lazy_targets(p, abi):
+    """s17 (owner, 2026-10-10): the LAZY nested encode render (cs_host lazy_nested=True), a
+    generator option built as its own configuration (`/p:AkLazy=true`, with or without AkNounk /
+    AkHostCount: GeneratedLazy[Nounk]/CoreFfi.cs REPLACE the default host; output bin-lazy*/
+    obj-lazy*/), so the eager and the lazy render can be checked and timed side by side."""
+    pd = P.relower(p, p.options.with_unknown("drop"))
+    abid = P.relower(abi, abi.options.with_unknown("drop"))
+    return {
+        "src/Harness/GeneratedLazy/CoreFfi.cs": cs_host.emit_host(p, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade", lazy_nested=True),
+        "src/Harness/GeneratedLazyNounk/CoreFfi.cs": cs_host.emit_host(pd, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade", lazy_nested=True),
+        "src/Corpus/GeneratedLazy/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus", lazy_nested=True),
+        "src/Corpus/GeneratedLazyNounk/CoreFfi.cs": cs_host.emit_host(abid, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus", lazy_nested=True),
     }
 
 

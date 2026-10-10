@@ -51,6 +51,14 @@ from cs_types import BAG
 # capture, `ak_dec_ctx_new_<Root>()`. Set by emit_host from plan.unknown_compiled_out.
 _NO = False
 _ROE = False
+# s17 (owner, 2026-10-10): the LAZY nested encode render (emit_host lazy_nested=True). Go stages
+# no element group and no nested run before the core call: a top-level slot's elements are
+# staged per chunk inside Loop_<slot> into one reused chunk buffer, and an element's nested
+# repeated field or map inside Loop_<slot>_<inner>, when the core asks for that element, into
+# one reused buffer per nested slot. The facade root is reached through the encode host
+# context (D26: Run->Host, the context's one GCHandle). E1R / E1C decide per chunk / per
+# element from the marks that staging left (see _emit_root).
+_LAZY = False
 
 # The packed-run entry points, one per host array layout, read from plan.FIXED.run_types
 # (R-H15): no backend-local table.
@@ -1166,12 +1174,15 @@ def _emit_pin_frames(o, p, root, s):
     if not pins:
         return False
     lst = "System.Collections.Generic.List<%s>" % s.et
-    fwd_u = _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off") if not _NO else None
-    fwd_e = _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+    # s17 lazy: `arr` is the staged chunk (facade element `off` at arr[0]); eager: run->S_ + off.
+    base = (lambda t: "(%s*)arr" % t) if _LAZY else (lambda t: "(%s*)run->S_%s + off" % (t, s.name))
+    fwd_u = _loop_forward_u(s, "(%s)" % base(s.u_elem()), "k", "off") if not _NO else None
+    fwd_e = _loop_forward(s, "(%s)" % base(s.cs_e), "k", "off")
+    ap, aa = (", void* arr", ", arr") if _LAZY else ("", "")
     o += "    /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of"
     o += "    /// its element, patches the element's marked members, and recurses; the deepest frame"
     o += "    /// makes the element call, and unwinding releases the pins."
-    o += "    private static int Rec_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst, int off, int k, int i)" % (s.name, root, lst)
+    o += "    private static int Rec_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst%s, int off, int k, int i)" % (s.name, root, lst, ap)
     o += "    {"
     o += "#if AK_HOST_COUNT"
     o += "        st.Sp(i, (byte*)&i);"
@@ -1192,20 +1203,20 @@ def _emit_pin_frames(o, p, root, s):
     if not _NO:
         o += "            if (run->Retain != 0)"
         o += "            {"
-        o += "                var __g = (%s*)run->S_%s + off + i;" % (s.u_elem(), s.name)
+        o += "                var __g = %s + i;" % base(s.u_elem())
         _pin_patch_r(o, "                ", "__g", pins)
         o += "            }"
         o += "            else"
     o += "            {"
-    o += "                var __g = (%s*)run->S_%s + off + i;" % (s.cs_e, s.name)
+    o += "                var __g = %s + i;" % base(s.cs_e)
     _pin_patch_r(o, "                ", "__g", pins)
     o += "            }"
-    o += "            return Rec_%s(ctx, run, st, lst, off, k, i + 1);" % s.name
+    o += "            return Rec_%s(ctx, run, st, lst%s, off, k, i + 1);" % (s.name, aa)
     o += "        }"
     o += "    }"
     o += ""
     o += "    /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned."
-    o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst, int off, int k)" % (s.name, root, lst)
+    o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst%s, int off, int k)" % (s.name, root, lst, ap)
     o += "    {"
     o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int i = 0; i < k; i++)"
@@ -1216,12 +1227,12 @@ def _emit_pin_frames(o, p, root, s):
     if not _NO:
         o += "            if (run->Retain != 0)"
         o += "            {"
-        o += "                var __g = (%s*)run->S_%s + off + i;" % (s.u_elem(), s.name)
+        o += "                var __g = %s + i;" % base(s.u_elem())
         _pin_patch_h(o, "                ", "__g", pins)
         o += "            }"
         o += "            else"
     o += "            {"
-    o += "                var __g = (%s*)run->S_%s + off + i;" % (s.cs_e, s.name)
+    o += "                var __g = %s + i;" % base(s.cs_e)
     _pin_patch_h(o, "                ", "__g", pins)
     o += "            }"
     o += "        }"
@@ -1395,12 +1406,19 @@ def _root_call(o, ind, call, rpins, x, ds):
     pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76). An encode whose fill
     marked nothing takes the default path (Run->Defer 0)."""
     decls, pins = rpins
-    o += ind + "if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }"
+    if _LAZY:
+        # s17 lazy: the callbacks stage from Root whatever the mode; under E1R / E1C they decide
+        # per chunk from their own marks, so Defer is the mode, and the root's own frames run
+        # only when the root group's fill marked a string (nothing else is staged yet).
+        o += ind + "__h.Root = src;"
+        o += ind + "_run->Defer = __d;"
+    else:
+        o += ind + "if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }"
     if not pins:
         o += ind + call
         return
     args = "_run, _ctx, &vt, &fix, src%s, _st" % (", direct" if ds else "")
-    o += ind + "if (__d == 0) " + call
+    o += ind + ("if (__d == 0 || _st.Marked == 0) " if _LAZY else "if (__d == 0) ") + call
     o += ind + "else rc = __d == 1 ? RootPinR_%s(%s) : RootPinH_%s(%s);" % (x, args, x, args)
 
 
@@ -1482,6 +1500,217 @@ def _emit_enc_ctx(o, p, root, slots):
     o += ""
 
 
+def _emit_loops_eager(o, p, root, s, pinned):
+    """The loop callbacks of slot `s` over the arrays Go staged (the eager render)."""
+    o += "    %s" % UCO
+    o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % s.name
+    o += "    {"
+    o += "        CountR();"
+    o += "        try"
+    o += "        {"
+    o += "            var run = (Run_%s*)obj;" % root
+    o += "            int n = run->N_%s;" % s.name
+    o += "            if (n == 0) return 0;"
+    if s.kind == "msg":
+        o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
+        if pinned:
+            o += "            int d = run->Defer;"
+            o += "            EncCtx h = null;"
+            o += "            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }"
+        o += "            for (int off = 0; off < n; off += chunk)"
+        o += "            {"
+        o += "                int k = n - off; if (k > chunk) k = chunk;"
+        if pinned:
+            lst = _get("h.Root", p, root, s.path)
+            o += "                if (d != 0)"
+            o += "                {"
+            o += "                    int rp = d == 1 ? Rec_%s(ctx, run, h.St, %s, off, k, 0) : ChunkH_%s(ctx, run, h.St, %s, off, k);" % (s.name, lst, s.name, lst)
+            o += "                    Stage.AfterChunk();"
+            o += "                    if (rp < 0) return rp;"
+            o += "                    continue;"
+            o += "                }"
+        o += "                CountF();"
+        if _NO:
+            o += "                int rc = %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+        else:
+            o += "                int rc = run->Retain != 0"
+            o += "                    ? %s" % _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off")
+            o += "                    : %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
+        o += "                if (rc < 0) return rc;"
+        o += "            }"
+        o += "            return 0;"
+    else:
+        if s.kind == "blob" and s.f.kind == "string":
+            o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s(ctx, (ak_str*)run->S_%s, h.St, %s, n, run->Defer); }" % (s.name, s.name, _get("h.Root", p, root, s.path))
+        o += "            CountF();"
+        o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
+    o += "        }"
+    o += "        catch { return Abi.AK_ERR_HOST; }"
+    o += "    }"
+    o += ""
+    for i in s.inner:
+        o += "    %s" % UCO
+        o += "    private static int Loop_%s_%s(IntPtr ctx, void* obj, long token)" % (s.name, i.name)
+        o += "    {"
+        o += "        CountR();"
+        o += "        try"
+        o += "        {"
+        o += "            var run = (Run_%s*)obj;" % root
+        o += "            int e = (int)token;"
+        o += "            int n = run->C_%s_%s[e];" % (s.name, i.name)
+        o += "            if (n == 0) return 0;"
+        if i.kind == "blob" and i.f.kind == "string":
+            el = "%s[e]" % _get("h.Root", p, root, s.path)
+            o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
+                s.name, i.name, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
+        elif i.kind == "map":
+            el = "%s[e]" % _get("h.Root", p, root, s.path)
+            o += "            if (run->Defer != 0) { var h = Host(run); return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
+                s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
+        elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
+            el = "%s[e]" % _get("h.Root", p, root, s.path)
+            o += "            if (run->Defer != 0) { var h = Host(run); return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
+                s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
+        o += "            CountF();"
+        o += "            return %s;" % _loop_forward(
+            i, "((%s*)run->I_%s_%s + run->O_%s_%s[e])" % (i.cs_e, s.name, i.name, s.name, i.name), "n", None)
+        o += "        }"
+        o += "        catch { return Abi.AK_ERR_HOST; }"
+        o += "    }"
+        o += ""
+
+
+def _emit_loops_lazy(o, p, root, s, pinned):
+    """s17 (owner, 2026-10-10): the loop callbacks of slot `s` in the LAZY render. Go staged
+    nothing of `s`: Loop_<s> stages each chunk of the facade list (reached through the encode
+    host context's Root) into the one chunk buffer Run->S_<s> and hands it over; each
+    Loop_<s>_<inner> stages the asked element's nested run into Run->I_<s>_<inner>. Under E1R
+    / E1C a chunk (an element's run) goes through its frames only when its own staging marked a
+    string (Stage.Marked moved), in chunks of at most Stage.PinK; otherwise one call, as the
+    eager render's default path."""
+    lst_t = "System.Collections.Generic.List<%s>" % s.et
+    o += "    %s" % UCO
+    o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % s.name
+    o += "    {"
+    o += "        CountR();"
+    o += "        try"
+    o += "        {"
+    o += "            var run = (Run_%s*)obj;" % root
+    o += "            int n = run->N_%s;" % s.name
+    o += "            if (n == 0) return 0;"
+    o += "            var h = Host(run);"
+    o += "            Stage _st = h.St;"
+    o += "            var lst = %s;" % _get("h.Root", p, root, s.path)
+    if s.kind == "msg":
+        o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
+        o += "            if (chunk > n) chunk = n;"
+        o += "            Arr.Ensure(ref run->S_%s, ref run->Cap_%s, chunk, %s);" % (s.name, s.name, _elem_size(s))
+        o += "            void* arr = run->S_%s;" % s.name
+        if not _NO:
+            o += "            bool retain = run->Retain != 0;"
+        if pinned:
+            o += "            int d = run->Defer;"
+        o += "            for (int off = 0; off < n; off += chunk)"
+        o += "            {"
+        o += "                int k = n - off; if (k > chunk) k = chunk;"
+        if pinned:
+            o += "                long m0 = _st.Marked;"
+        o += "                for (int i = 0; i < k; i++)"
+        o += "                {"
+        _stage_elem(o, s, "arr", "i", "lst[off + i]", "                    ", "retain")
+        o += "                }"
+        if pinned:
+            o += "                if (d != 0 && _st.Marked != m0)"
+            o += "                {"
+            o += "                    // E1R / E1C: this chunk's staging marked strings: its frames, PinK elements each."
+            o += "                    int K = Stage.PinK;"
+            o += "                    for (int o2 = 0; o2 < k; o2 += K)"
+            o += "                    {"
+            o += "                        int k2 = k - o2; if (k2 > K) k2 = K;"
+            if _NO:
+                o += "                        void* a2 = (%s*)arr + o2;" % s.cs_e
+            else:
+                o += "                        void* a2 = retain ? (void*)((%s*)arr + o2) : (void*)((%s*)arr + o2);" % (s.u_elem(), s.cs_e)
+            o += "                        int rp = d == 1 ? Rec_%s(ctx, run, _st, lst, a2, off + o2, k2, 0) : ChunkH_%s(ctx, run, _st, lst, a2, off + o2, k2);" % (s.name, s.name)
+            o += "                        Stage.AfterChunk();"
+            o += "                        if (rp < 0) return rp;"
+            o += "                    }"
+            o += "                    continue;"
+            o += "                }"
+        o += "                CountF();"
+        if _NO:
+            o += "                int rc = %s;" % _loop_forward(s, "((%s*)arr)" % s.cs_e, "k", "off")
+        else:
+            o += "                int rc = retain"
+            o += "                    ? %s" % _loop_forward_u(s, "((%s*)arr)" % s.u_elem(), "k", "off")
+            o += "                    : %s;" % _loop_forward(s, "((%s*)arr)" % s.cs_e, "k", "off")
+        o += "                if (rc < 0) return rc;"
+        o += "            }"
+        o += "            return 0;"
+    else:
+        strs = s.kind == "blob" and s.f.kind == "string"
+        o += "            Arr.Ensure(ref run->S_%s, ref run->Cap_%s, n, %s);" % (s.name, s.name, _elem_size(s))
+        o += "            void* arr = run->S_%s;" % s.name
+        if strs:
+            o += "            long m0 = _st.Marked;"
+        if s.kind == "map":
+            # plan ENCODE RULES: entries in ascending UTF-8 key order (WP5 step 6).
+            o += "            var ord = Arr.Utf8Order(lst);"
+            o += "            for (int i = 0; i < n; i++) { var kv = lst.At(ord[i]); %s }" % _inline(_stage_elem, s, "arr", "i", "kv", "retain")
+        else:
+            o += "            for (int i = 0; i < n; i++)"
+            o += "            {"
+            _stage_elem(o, s, "arr", "i", "lst[i]", "                ", "retain")
+            o += "            }"
+        if strs:
+            o += "            if (run->Defer != 0 && _st.Marked != m0) return PinStrs_%s(ctx, (ak_str*)arr, _st, lst, n, run->Defer);" % s.name
+        o += "            CountF();"
+        o += "            return %s;" % _loop_forward(s, "arr", "n", None)
+    o += "        }"
+    o += "        catch { return Abi.AK_ERR_HOST; }"
+    o += "    }"
+    o += ""
+    for i in s.inner:
+        name = "%s_%s" % (s.name, i.name)
+        el = "%s[te]" % _get("h.Root", p, root, s.path)
+        o += "    %s" % UCO
+        o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % name
+        o += "    {"
+        o += "        CountR();"
+        o += "        try"
+        o += "        {"
+        o += "            var run = (Run_%s*)obj;" % root
+        o += "            int te = (int)token;   // the element's index in the slot (ABI v1: tok0 + i)"
+        o += "            var h = Host(run);"
+        o += "            Stage _st = h.St;"
+        o += "            var il = %s;" % _get(el, p, s.et, i.path)
+        o += "            int n = il == null ? 0 : il.Count;"
+        o += "            if (n == 0) return 0;"
+        o += "            Arr.Ensure(ref run->I_%s, ref run->Cap_%s, n, %s);" % (name, name, _elem_size(i))
+        o += "            void* arr = run->I_%s;" % name
+        pin = (("PinStrs_%s(ctx, (ak_str*)arr" % name) if (i.kind == "blob" and i.f.kind == "string")
+               else ("PinMap_%s(ctx, (%s*)arr" % (name, i.cs_e)) if i.kind == "map"
+               else ("PinElems_%s(ctx, (%s*)arr" % (name, i.cs_e)) if (i.kind == "msg" and _pin_fields(p, i.et, "__e")[1])
+               else None)
+        if pin:
+            o += "            long m0 = _st.Marked;"
+        if i.kind == "map":
+            o += "            for (int j = 0; j < n; j++) { var kv = il.At(j); %s }" % _inline(_stage_elem, i, "arr", "j", "kv", None)
+        else:
+            o += "            for (int j = 0; j < n; j++)"
+            o += "            {"
+            _stage_elem(o, i, "arr", "j", "il[j]", "                ", None)
+            o += "            }"
+        if pin:
+            o += "            if (run->Defer != 0 && _st.Marked != m0) return %s, _st, il, n, run->Defer);" % pin
+        o += "            CountF();"
+        o += "            return %s;" % _loop_forward(i, "((%s*)arr)" % i.cs_e, "n", None)
+        o += "        }"
+        o += "        catch { return Abi.AK_ERR_HOST; }"
+        o += "    }"
+        o += ""
+
+
 def _emit_root(o, p, root, facade_ns):
     slots = [Slot(p, root, path, f, True) for path, f in loop_slots(p, root)]
     ds = direct_fields(p, root)
@@ -1498,9 +1727,13 @@ def _emit_root(o, p, root, facade_ns):
     o += "    public int Retain;"
     for s in slots:
         o += "    public void* S_%s; public int N_%s;" % (s.name, s.name)
+        if _LAZY:
+            o += "    public int Cap_%s;   // s17 lazy: the chunk buffer's capacity (elements)" % s.name
         for i in s.inner:
             o += "    public void* I_%s_%s; public int* O_%s_%s; public int* C_%s_%s;" % (
                 s.name, i.name, s.name, i.name, s.name, i.name)
+            if _LAZY:
+                o += "    public int Cap_%s_%s;   // s17 lazy: one element's run buffer" % (s.name, i.name)
     o += "}"
     o += ""
     o.doc("core-ffi for `%s`: every group, slot and entry point from the plan." % root)
@@ -1550,9 +1783,10 @@ def _emit_root(o, p, root, facade_ns):
     o += "#endif"
     o += "    }"
     for s in slots:
-        o += "    private int _cap_%s;" % s.name
-        for i in s.inner:
-            o += "    private int _cap_%s_%s, _capo_%s_%s;" % (s.name, i.name, s.name, i.name)
+        if not _LAZY:   # s17 lazy: the buffers' capacities live in Run_ (the callbacks grow them)
+            o += "    private int _cap_%s;" % s.name
+            for i in s.inner:
+                o += "    private int _cap_%s_%s, _capo_%s_%s;" % (s.name, i.name, s.name, i.name)
         if s.has_evt:
             o += "    private ak_evt_%s* _evt_%s;" % (s.et, s.name)
     o += ""
@@ -1582,82 +1816,10 @@ def _emit_root(o, p, root, facade_ns):
                 _emit_pin_elems_inner(o, p, s, i)
             elif i.kind == "map":
                 _emit_pin_map_inner(o, s, i)
-        o += "    %s" % UCO
-        o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % s.name
-        o += "    {"
-        o += "        CountR();"
-        o += "        try"
-        o += "        {"
-        o += "            var run = (Run_%s*)obj;" % root
-        o += "            int n = run->N_%s;" % s.name
-        o += "            if (n == 0) return 0;"
-        if s.kind == "msg":
-            o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
-            if pinned:
-                o += "            int d = run->Defer;"
-                o += "            EncCtx h = null;"
-                o += "            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }"
-            o += "            for (int off = 0; off < n; off += chunk)"
-            o += "            {"
-            o += "                int k = n - off; if (k > chunk) k = chunk;"
-            if pinned:
-                lst = _get("h.Root", p, root, s.path)
-                o += "                if (d != 0)"
-                o += "                {"
-                o += "                    int rp = d == 1 ? Rec_%s(ctx, run, h.St, %s, off, k, 0) : ChunkH_%s(ctx, run, h.St, %s, off, k);" % (s.name, lst, s.name, lst)
-                o += "                    Stage.AfterChunk();"
-                o += "                    if (rp < 0) return rp;"
-                o += "                    continue;"
-                o += "                }"
-            o += "                CountF();"
-            if _NO:
-                o += "                int rc = %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
-            else:
-                o += "                int rc = run->Retain != 0"
-                o += "                    ? %s" % _loop_forward_u(s, "((%s*)run->S_%s + off)" % (s.u_elem(), s.name), "k", "off")
-                o += "                    : %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
-            o += "                if (rc < 0) return rc;"
-            o += "            }"
-            o += "            return 0;"
+        if _LAZY:
+            _emit_loops_lazy(o, p, root, s, pinned)
         else:
-            if s.kind == "blob" and s.f.kind == "string":
-                o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s(ctx, (ak_str*)run->S_%s, h.St, %s, n, run->Defer); }" % (s.name, s.name, _get("h.Root", p, root, s.path))
-            o += "            CountF();"
-            o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
-        o += "        }"
-        o += "        catch { return Abi.AK_ERR_HOST; }"
-        o += "    }"
-        o += ""
-        for i in s.inner:
-            o += "    %s" % UCO
-            o += "    private static int Loop_%s_%s(IntPtr ctx, void* obj, long token)" % (s.name, i.name)
-            o += "    {"
-            o += "        CountR();"
-            o += "        try"
-            o += "        {"
-            o += "            var run = (Run_%s*)obj;" % root
-            o += "            int e = (int)token;"
-            o += "            int n = run->C_%s_%s[e];" % (s.name, i.name)
-            o += "            if (n == 0) return 0;"
-            if i.kind == "blob" and i.f.kind == "string":
-                el = "%s[e]" % _get("h.Root", p, root, s.path)
-                o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
-                    s.name, i.name, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
-            elif i.kind == "map":
-                el = "%s[e]" % _get("h.Root", p, root, s.path)
-                o += "            if (run->Defer != 0) { var h = Host(run); return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
-                    s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
-            elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
-                el = "%s[e]" % _get("h.Root", p, root, s.path)
-                o += "            if (run->Defer != 0) { var h = Host(run); return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
-                    s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
-            o += "            CountF();"
-            o += "            return %s;" % _loop_forward(
-                i, "((%s*)run->I_%s_%s + run->O_%s_%s[e])" % (i.cs_e, s.name, i.name, s.name, i.name), "n", None)
-            o += "        }"
-            o += "        catch { return Abi.AK_ERR_HOST; }"
-            o += "    }"
-            o += ""
+            _emit_loops_eager(o, p, root, s, pinned)
     # ---------------- encode
     o += "    public int Fill(%s src) { Go(src, false, false, out _, out _); return 0; }" % root
     o += "    public void Encode(%s src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($\"core encode failed: {rc}\"); }" % root
@@ -1714,7 +1876,12 @@ def _emit_root(o, p, root, facade_ns):
         o += "        if (retain) throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10): no ak_uencode\");"
     else:
         o += "        _run->Retain = retain ? 1 : 0;"
-    for s in slots:
+    if _LAZY:
+        o += "        // s17 lazy: no element group and no nested run is staged here; each loop callback"
+        o += "        // stages what the core asks for (through Root, the context's facade root)."
+        for s in slots:
+            o += "        { var lst = %s; _run->N_%s = lst == null ? 0 : lst.Count; }" % (_get("src", p, root, s.path), s.name)
+    for s in ([] if _LAZY else slots):
         o += "        {"
         o += "            var lst = %s;" % _get("src", p, root, s.path)
         o += "            int n = lst == null ? 0 : lst.Count;"
@@ -1802,10 +1969,13 @@ def _emit_root(o, p, root, facade_ns):
                    else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "e", ds)
         o += "        }"
     o += "        _st.ReleasePins();   // D21 E1: the core has copied every pinned string"
+    if _LAZY:
+        o += "        __h.Root = null;   // the context does not keep the message alive"
     o += "        if (__d != 0)"
     o += "        {"
     o += "            _run->Defer = 0;   // the next call starts from the default"
-    o += "            __h.Root = null;   // the context does not keep the message alive"
+    if not _LAZY:
+        o += "            __h.Root = null;   // the context does not keep the message alive"
     o += "#if AK_HOST_COUNT"
     o += "            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;"
     o += "#endif"
@@ -2540,15 +2710,16 @@ public static unsafe class RoeCore
 '''
 
 
-def emit_host(x, ns, facade_ns, reset_on_entry=False):
+def emit_host(x, ns, facade_ns, reset_on_entry=False, lazy_nested=False):
     """`reset_on_entry` (default False: the committed C# output, unchanged): render for a core
     built with the `reset-on-entry` feature (owner, 2026-10-10; measurement experiment): no
     `ak_enc_reset` before an encode, and `ak_dec_reset_<Root>` only when the core context's
     options pointer changes (NULL <-> the stable Uo; the struct is rewritten in place and the
     core re-reads it on every decode entry). The core exports `ak_measure_reset_on_entry`
     (marker) and `ak_measure_{enc,dec}_set_roe` (per-context switch, measurement only)."""
-    global _NO, _ROE
+    global _NO, _ROE, _LAZY
     _ROE = reset_on_entry
+    _LAZY = lazy_nested
     p = as_plan(x)
     _NO = unknown_compiled_out(p)
     o = N.Head("The core-ffi host binding for every root of this message set.", p.source, "cs_host")
@@ -2572,6 +2743,13 @@ def emit_host(x, ns, facade_ns, reset_on_entry=False):
     if _ROE:
         for ln in ROECORE.strip("\n").split("\n"):
             o += ln
+    o += ""
+    o += "/// s17: which encode render this host is (cs_host lazy_nested), so a process can refuse a"
+    o += "/// child built as the other one (BDN's default toolchain rebuilds each case's child)."
+    o += "public static class HostRender"
+    o += "{"
+    o += "    public const string Name = \"%s\";" % ("lazy-nested" if _LAZY else "eager")
+    o += "}"
     o += ""
     _emit_groups(o, p)
     for root in p.roots:

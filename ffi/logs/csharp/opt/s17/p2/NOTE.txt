@@ -1,0 +1,8 @@
+s17 part 2 checks (gen/s17_checks.sh p2, net8.0, the fast checks of the change; not the gate).
+Cores: target-core* rebuilt from HEAD after D27 (9653cd87), logs/csharp/opt/s17/cores/.
+The one "CHECK: generators current FAILED" is the run's own step 0 finding the generated files
+stale (the HostRender marker had been added to cs_host.py and not regenerated before the run);
+that step regenerates them, so every build of the run compiled the current render, and the
+last step ("generated file restored": generate.py writes nothing) passed. Every other run
+passed (65 "exit status: 0"); the 5 controls failed as required (early unpin, and the four
+plants in the lazy render).

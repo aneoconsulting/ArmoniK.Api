@@ -1,0 +1,25 @@
+# core: git archive HEAD ffi/poc/codec (crates identical to the working tree); last core commit 9653cd87
+# rustc 1.94.1, cargo 1.94.1
+#   target-core: --features rpc,init-guard -> b5e67662054d6f83 (168 ak_* exports)
+#   target-core-count: --features rpc,count,init-guard -> 2f6c48d8e22b6eac (168 ak_* exports)
+#   target-core-corpus: --features corpus,init-guard -> e6a9c065b89cfa67 (365 ak_* exports)
+#   target-core-nounk: --features rpc,init-guard -> 9115620869b0e197 (147 ak_* exports)
+#   target-core-count-nounk: --features rpc,count,init-guard -> fe78a13f0adc3c1c (147 ak_* exports)
+#   target-core-corpus-nounk: --features corpus,init-guard -> 99cb373084ce6a6e (295 ak_* exports)
+#   layout probe: 119 structs (shapes), 235 structs (corpus)
+#   layout probe, no-unknown: 92 structs (shapes), 174 structs (corpus)
+#   target-core-count-h2b: --features rpc,count,init-guard -> 5a4f68b27a69f944 (168 ak_* exports)
+#   target-core-nounk-h2b: --features rpc,init-guard -> 587abcc4359a10e1 (147 ak_* exports)
+#   target-core-count-nounk-h2b: --features rpc,count,init-guard -> a7d00b519c40e5c2 (147 ak_* exports)
+#   target-core-h2b: --features rpc,init-guard via h2-batch/build.sh -> 6c4ef0d3be44a319
+#   target-core: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+#   target-core-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+#   target-core-count: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+#   target-core-count-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+#   target-core-nounk: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+#   target-core-nounk-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+#   target-core-count-nounk: h2 compiled in: h2-0.4.19/src/codec/framed_write.rs 
+#   target-core-count-nounk-h2b: h2 compiled in: h2-batch-src/src/codec/framed_write.rs 
+#   target-core: 7 ak_uencode_* exports
+#   target-core-nounk: 0 ak_uencode_* exports
+# ArmoniK.Api.Client (packages/csharp at HEAD): ArmoniK.Api.Client.dll ArmoniK.Api.Common.dll 

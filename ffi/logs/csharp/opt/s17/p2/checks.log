@@ -1,0 +1,497 @@
+# s17_checks.sh p2 at 445c71fc + uncommitted; 2026-10-10T19:42:45Z; boot 2026-10-10 09:18:10
+## 0. generators current; no thread-local storage; every build (the four codec builds, the corpus, RPC, the s16 variant builds)
+wrote src/Corpus/Generated/CoreFfi.cs (25137 lines)
+wrote src/Corpus/GeneratedLazy/CoreFfi.cs (25196 lines)
+wrote src/Corpus/GeneratedLazyNounk/CoreFfi.cs (20088 lines)
+wrote src/Corpus/GeneratedNounk/CoreFfi.cs (20070 lines)
+wrote src/Corpus/GeneratedRoe/CoreFfi.cs (25567 lines)
+wrote src/Corpus/GeneratedRoeNounk/CoreFfi.cs (20152 lines)
+wrote src/Harness/Generated/CoreFfi.cs (8028 lines)
+wrote src/Harness/GeneratedLazy/CoreFfi.cs (8019 lines)
+wrote src/Harness/GeneratedLazyNounk/CoreFfi.cs (6240 lines)
+wrote src/Harness/GeneratedNounk/CoreFfi.cs (6263 lines)
+wrote src/Harness/GeneratedRoe/CoreFfi.cs (8150 lines)
+wrote src/Harness/GeneratedRoeBench/CoreFfiRoe.cs (8151 lines)
+wrote src/Harness/GeneratedRoeNounk/CoreFfi.cs (6301 lines)
+$ bash -c ! grep -q '^wrote' '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2/gen.out'
+exit status: 1
+CHECK: generators current FAILED
+$ python3 -I gen/no_tls.py src
+no_tls: 146 C# files scanned under src; 0 thread-local site(s)
+exit status: 0
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0
+#   C# warnings: 26
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
+#   C# warnings: 26
+$ dotnet build src/Rpc/akrpc.csproj -c Release
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoe=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoe=true -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoeBench=true
+#   C# warnings: 6
+# cores: BenchDotNet/bin b5e67662054d6f83; BenchDotNet/bin-nounk 9115620869b0e197; BenchDotNet/bin-count 2f6c48d8e22b6eac; BenchDotNet/bin-count-nounk fe78a13f0adc3c1c; Harness/bin-count 2f6c48d8e22b6eac; Corpus/bin e6a9c065b89cfa67; Corpus/bin-nounk 99cb373084ce6a6e; 
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkLazy=true
+#   C# warnings: 26
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkLazy=true -p:AkNounk=true
+#   C# warnings: 26
+# lazy cores: BenchDotNet/bin-lazy b5e67662054d6f83; BenchDotNet/bin-lazy-nounk 9115620869b0e197; BenchDotNet/bin-lazy-count 2f6c48d8e22b6eac; BenchDotNet/bin-lazy-count-nounk fe78a13f0adc3c1c; Harness/bin-lazy b5e67662054d6f83; Harness/bin-lazy-count 2f6c48d8e22b6eac; Corpus/bin-lazy e6a9c065b89cfa67; Corpus/bin-lazy-nounk 99cb373084ce6a6e; 
+## 1. the lazy render is the one built: Go stages no slot (no Arr.Ensure of an S_ / I_ array outside a loop callback)
+$ bash -c python3 -I - src/Harness/GeneratedLazy/CoreFfi.cs src/Harness/Generated/CoreFfi.cs <<'PY'
+import re, sys
+def go_ensures(path):
+    s = open(path).read(); n = 0
+    for m in re.finditer(r'private int Go\(', s):
+        body = s[m.end():s.index('\n    }\n', m.end())]
+        n += body.count('Arr.Ensure(')
+    return n
+lz, eg = go_ensures(sys.argv[1]), go_ensures(sys.argv[2])
+print('Arr.Ensure calls inside Go: lazy %d, eager %d' % (lz, eg))
+sys.exit(0 if lz == 0 and eg > 0 else 1)
+PY
+Arr.Ensure calls inside Go: lazy 0, eager 40
+exit status: 0
+## 2. byte identity: Cases.Verify (every arm, every string path E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na E1R:128 E1C:16(K 3), retain and drop, every payload, content set and U-* row), both builds and the counting ones
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 3. --verify-mt (8 threads) per path, both builds; pin stress (1 thread) for the frame paths; the early-unpin control
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1C (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R:128 (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R (K 3), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1C (K 3), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1   # a CONTROL: must fail
+gen/s17_checks.sh: line 17: 32760 Segmentation fault      "$@" > "$SCRATCH/ctl.out" 2>&1
+P2.2/1 thread 0: bytes differ
+P2.2/2 thread 0: bytes differ
+exit status: 139
+control verify-mt E1C lazy, handles released before the call + compacting GC: failed, as required
+## 4. the coreffi gate on the lazy harness: element chunks of 150 (the per-chunk staging at off > 0), E0 and E1R; the crossings on the lazy counting harness
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-lazy/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E0.log' 2>&1; rc=$?; grep -E '^host tally|failed|FAIL' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E0.log' | head -n 5; exit $rc
+host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)
+host tally cannot see is a TRANSCODER call, and both string forms this
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-lazy/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E1R.log' 2>&1; rc=$?; grep -E '^host tally|failed|FAIL' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E1R.log' | head -n 5; exit $rc
+host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)
+host tally cannot see is a TRANSCODER call, and both string forms this
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-lazy/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E1C.log' 2>&1; rc=$?; grep -E '^host tally|failed|FAIL' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-chunk150-E1C.log' | head -n 5; exit $rc
+host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)
+host tally cannot see is a TRANSCODER call, and both string forms this
+exit status: 0
+$ bash -c AK_CROSSINGS_EXPECT='/home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings.txt' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-lazy-count/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-count.log' 2>&1; rc=$?; grep -E '^Crossing|^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/coreffi-lazy-count.log'; exit $rc
+Crossing counts against /home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings.txt: compared on every row, every committed row produced
+R5: the host's tally and the core's counters are compared above and equal on every row.
+exit status: 0
+## 5. the corpus (four arms, retain strict), both builds, per path; E1R / E1C K 3 under pin stress; the push arms; the unknown-field controls
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e0.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e0.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e2.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e2.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e3.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e3.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e3l.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e3l.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1r.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1r.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1c.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1c.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1r128.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-full-e1r128.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e0.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e0.log'; exit $rc
+drop strict: ffi-drop wrote the dropped form on 307 row(s), a retained form on 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e1r.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e1r.log'; exit $rc
+drop strict: ffi-drop wrote the dropped form on 307 row(s), a retained form on 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e1r128.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-nounk-e1r128.log'; exit $rc
+drop strict: ffi-drop wrote the dropped form on 307 row(s), a retained form on 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' --timeout-ms 300000 > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-pinstress-E1R.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-pinstress-E1R.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' --timeout-ms 300000 > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-pinstress-E1C.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-pinstress-E1C.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-push.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-push.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 6 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-lazy/Release/net8.0/corpus' --unk-controls > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-unk-controls.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/corpus-lazy-unk-controls.log'; exit $rc
+discard mismatches: 0 row(s); pull != push: 0 row(s); FSM != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+## 6. the counts of the lazy render (counting build) against the committed ones (the eager render's): every file
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy.txt'
+equal to counts.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-nounk.txt'
+equal to counts-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1.txt'
+equal to counts-str-e1.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1-nounk.txt'
+equal to counts-str-e1-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e2.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e2.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e2.txt'
+equal to counts-str-e2.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e2-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e2-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e2-nounk.txt'
+equal to counts-str-e2-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-eth256.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-eth256.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-eth256.txt'
+equal to counts-str-eth256.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-eth256-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-eth256-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-eth256-nounk.txt'
+equal to counts-str-eth256-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e3.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3.txt'
+equal to counts-str-e3.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e3-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3-nounk.txt'
+equal to counts-str-e3-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3l.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e3l.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3l.txt'
+equal to counts-str-e3l.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3l-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e3l-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e3l-nounk.txt'
+equal to counts-str-e3l-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r128.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1r128.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r128.txt'
+equal to counts-str-e1r128.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r128-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1r128-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r128-nounk.txt'
+equal to counts-str-e1r128-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1r.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r.txt'
+equal to counts-str-e1r.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1r-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1r-nounk.txt'
+equal to counts-str-e1r-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1c.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1c.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1c.txt'
+equal to counts-str-e1c.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1c-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1"): $(grep -c '^>' "$SCRATCH/d.txt") rows";
+        head -n 6 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p2' cmpf gen/counts-str-e1c-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p2/counts-lazy-str-e1c-nounk.txt'
+equal to counts-str-e1c-nounk.txt: 646 rows
+exit status: 0
+## 7. planted defects in the lazy render (src/Harness/GeneratedLazy/CoreFfi.cs), each must fail --verify (or the chunked coreffi gate)
+planted 6 site(s)
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s17_checks.sh: line 17: 20991 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+   at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 325
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 131
+exit status: 134
+control an element's nested run read from element 0 (the token ignored): failed, as required
+planted 14 site(s)
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s17_checks.sh: line 17: 21106 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+   at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 371
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 131
+exit status: 134
+control a frame sub-chunk staged at the chunk's start (E1R / E1C, K 3): failed, as required
+planted 14 site(s)
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-lazy/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
+
+9 failure(s)
+exit status: 9
+control a chunk's elements read from the list's start (off ignored; chunks of 150): failed, as required
+planted 14 site(s)
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s17_checks.sh: line 17: 21397 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+   at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 325
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 131
+exit status: 134
+control Root not set (the callbacks read a null root): failed, as required
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+$ bash -c python3 gen/generate.py | grep -c '^wrote' | grep -qx 0
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-lazy/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+
+S17 p2 CHECKS: 1 FAILED

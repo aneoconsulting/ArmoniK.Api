@@ -30,6 +30,19 @@ public static class Program
 
     public static bool Grouped;
 
+    /// The MSBuild properties of this build, for the children BDN's default toolchain rebuilds.
+    private static BenchmarkDotNet.Jobs.Argument[] ChildBuildArgs()
+    {
+        var l = new System.Collections.Generic.List<BenchmarkDotNet.Jobs.Argument>();
+#if AK_NO_UNKNOWN_FIELDS
+        l.Add(new BenchmarkDotNet.Jobs.MsBuildArgument("/p:AkNounk=true"));
+#endif
+#if AK_LAZY
+        l.Add(new BenchmarkDotNet.Jobs.MsBuildArgument("/p:AkLazy=true"));
+#endif
+        return l.ToArray();
+    }
+
     public static int Main(string[] a)
     {
         Alloc.Probe();   // req 25 / D9: the allocator readback, before the runtime frees any large block
@@ -135,7 +148,7 @@ public static class Program
             "# allocator:      " + Alloc.Label + " (readback at process start: a 16 MiB malloc came from the " + Alloc.Probe() + " (mallinfo2; the block kept, never freed); no heap pre-grow (owner, 2026-10-03): BDN's warm-up runs the real call path, and minflt per row shows whether it sufficed; under the default toolchain each child probes once, on its case's first row as alloc_probe; GLIBC_TUNABLES=" + (Alloc.Tunables ?? "unset") + "; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (" + Alloc.Pinned + ") is a labelled diagnostic; every row carries `alloc` and `minflt`, the process's minor page faults over the iteration (getrusage, read by the job's clock beside the CPU clock), so faults per call = minflt / iters)",
             "# runtime:        " + RuntimeInformation.FrameworkDescription + "; TieredCompilation=" + Env("DOTNET_TieredCompilation") + " TieredPGO=" + Env("DOTNET_TieredPGO") + " (net8.0 defaults unless set); GC server=" + GCSettings.IsServerGC + ", concurrent (default)",
             "# incumbent:      Google.Protobuf " + Ver(typeof(Google.Protobuf.MessageParser)),
-            "# build:          " + Armonik.Ffi.Harness.AbiVariant.Name + " (WP5 step 10; the loaded core checked to be the same variant by its u-family exports)",
+            "# build:          " + Armonik.Ffi.Harness.AbiVariant.Name + " (WP5 step 10; the loaded core checked to be the same variant by its u-family exports); host encode render " + Armonik.Ffi.Harness.HostRender.Name + " (s17; every BDN child checked to be the same render)",
             "# managed codec:  plan utf8=" + Armonik.Ffi.Facade.Codec.Utf8Policy + " unknown=" + Armonik.Ffi.Facade.Codec.UnknownMode,
             string.Format(CultureInfo.InvariantCulture, "# job:            launch {0}; {1} actual iterations (rounds) per case, {2} warm-up iterations (the same for every case) after BDN's jitting stage (1 overhead + 1 workload jitting invocation per case, logged by BDN in the .bdn.log, not exported) and pilot, iteration time {3} ms (the pilot picks the invocation count per case), strategy Throughput, EvaluateOverhead=false (no overhead subtraction anywhere)", launch, rounds, warm, itMs),
             "# clocks:         per iteration (every row with round >= 1): wall (Stopwatch) AND process CPU (CLOCK_PROCESS_CPUTIME_ID of this process: every thread, GC and JIT included; CAMPAIGN req 21 as amended, R-H25), both read by the job's clock (CpuClock, Job.WithClock) at the start and end of the same iteration window, exported RAW (no outlier removal, no overhead subtraction); BDN's forced GCs between iterations are outside the window; the round-0 row of each case is a summary of the whole actual stage (span_cpu_ns, span_wall_ns), not a sample",
@@ -168,11 +181,10 @@ public static class Program
             .WithEvaluateOverhead(false)
             .WithClock(CpuClock.Instance)
             .WithId("campaign")
-#if AK_NO_UNKNOWN_FIELDS
             // JOURNAL 74: the default toolchain rebuilds each child from the project; without
             // this the no-unknown host's children were the FULL build (BuildCheck now refuses it).
-            .WithArguments(new BenchmarkDotNet.Jobs.Argument[] { new BenchmarkDotNet.Jobs.MsBuildArgument("/p:AkNounk=true") })
-#endif
+            // s17: likewise the lazy render's (/p:AkLazy=true; BuildCheck compares HostRender).
+            .WithArguments(ChildBuildArgs())
             ;
         var config = ManualConfig.CreateEmpty()
             .AddJob(job)

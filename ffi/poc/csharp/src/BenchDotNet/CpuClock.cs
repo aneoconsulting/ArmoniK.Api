@@ -170,6 +170,11 @@ public static class Alloc
         var want = Environment.GetEnvironmentVariable("AK_BDN_BUILD");
         if (string.IsNullOrEmpty(want)) Environment.SetEnvironmentVariable("AK_BDN_BUILD", mine);
         else if (want != mine) throw new InvalidOperationException("build mismatch: the host is the " + want + " build, this process the " + mine + " build (a BDN child built without the host's MSBuild properties)");
+        // s17: the encode render (eager / lazy-nested) likewise.
+        var rmine = Armonik.Ffi.Harness.HostRender.Name;
+        var rwant = Environment.GetEnvironmentVariable("AK_BDN_RENDER");
+        if (string.IsNullOrEmpty(rwant)) Environment.SetEnvironmentVariable("AK_BDN_RENDER", rmine);
+        else if (rwant != rmine) throw new InvalidOperationException("render mismatch: the host is the " + rwant + " render, this process the " + rmine + " render (a BDN child built without the host's MSBuild properties)");
         var why = Armonik.Ffi.Harness.AbiVariant.CheckLoadedCore();
         if (why != null) throw new InvalidOperationException("core variant mismatch in this process: " + why);
     }

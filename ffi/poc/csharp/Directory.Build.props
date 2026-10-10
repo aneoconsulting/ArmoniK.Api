@@ -26,7 +26,7 @@
        codec (FIX-PLAN WP5 step 4, R-E7). obj-strict/bin-strict stay excluded so an
        old tree cannot be globbed. -->
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**;obj-count/**;bin-count/**;obj-count-nounk/**;bin-count-nounk/**;obj-roe/**;bin-roe/**;obj-roe-nounk/**;bin-roe-nounk/**;obj-roe-count/**;bin-roe-count/**;obj-roe-count-nounk/**;bin-roe-count-nounk/**;obj-roebench/**;bin-roebench/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**;obj-count/**;bin-count/**;obj-count-nounk/**;bin-count-nounk/**;obj-roe/**;bin-roe/**;obj-roe-nounk/**;bin-roe-nounk/**;obj-roe-count/**;bin-roe-count/**;obj-roe-count-nounk/**;bin-roe-count-nounk/**;obj-roebench/**;bin-roebench/**;obj-lazy/**;bin-lazy/**;obj-lazy-nounk/**;bin-lazy-nounk/**;obj-lazy-count/**;bin-lazy-count/**;obj-lazy-count-nounk/**;bin-lazy-count-nounk/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- FIX-PLAN WP5 step 10: the NO-UNKNOWN build, `dotnet build /p:AkNounk=true`. Unknown
@@ -94,6 +94,37 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(AkRoeBench)' != 'true'">
     <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedRoeBench/**;RoeBench/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- s17 (owner, 2026-10-10): the LAZY nested encode render (gen/generate.py lazy_targets,
+       cs_host lazy_nested=True), a generator option built as its own configuration so both
+       renders can be checked and timed. Default builds compile none of these files.
+       `/p:AkLazy=true` (with or without AkNounk / AkHostCount): GeneratedLazy[Nounk]/CoreFfi.cs
+       REPLACES the default host; its own output directories bin-lazy*/ obj-lazy*/. -->
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' != 'true' And '$(AkHostCount)' != 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-lazy/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-lazy/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' == 'true' And '$(AkHostCount)' != 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-lazy-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-lazy-nounk/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' != 'true' And '$(AkHostCount)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-lazy-count/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-lazy-count/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' == 'true' And '$(AkHostCount)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-lazy-count-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-lazy-count-nounk/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedLazy/**;GeneratedLazyNounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);Generated/CoreFfi.cs;GeneratedLazyNounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkLazy)' == 'true' And '$(AkNounk)' == 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedNounk/CoreFfi.cs;GeneratedLazy/**</DefaultItemExcludes>
   </PropertyGroup>
 
 </Project>

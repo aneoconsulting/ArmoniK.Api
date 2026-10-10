@@ -680,6 +680,13 @@ public static unsafe class RoeCore
     }
 }
 
+/// s17: which encode render this host is (cs_host lazy_nested), so a process can refuse a
+/// child built as the other one (BDN's default toolchain rebuilds each case's child).
+public static class HostRender
+{
+    public const string Name = "eager";
+}
+
 public static unsafe class G
 {
     /// A CEILING for ABI v1 decision 13, not an implementation: set, a decode
