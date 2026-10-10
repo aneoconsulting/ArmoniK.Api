@@ -1,0 +1,13 @@
+# cpp D27 checks: conformance (60afe577 + uncommitted changes in poc/cpp or poc/codec; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25))
+== conformance_a17_shared
+  wrong root: decode -8, parse -8, reset -8, binding decode -8, binding armed decode -8 (AK_ERR_INVALID_STATE -8); own root 0
+  retain round trip: decode 0, encode 30, bytes identical 1; drop decode keeps none 1
+
+608 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_a17_shared
+== conformance_nounk_a17
+-- ABI v1 decision 11: unknown-field options, pools, oneof, root-bound contexts --
+  no-unknown build: wrong root decode -8, parse -8, binding decode -8 (AK_ERR_INVALID_STATE -8); own root 0, unknowns dropped 1
+
+478 checks, 0 failures, 1 payloads with two valid encodings
+>>> ok: conformance_nounk_a17

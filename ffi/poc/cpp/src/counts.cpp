@@ -21,13 +21,13 @@ struct Counts { uint64_t fwd, rev, tc; double per_elem_fwd, per_elem_rev; };
 // CAMPAIGN req 19 (amended 2026-09-26, R-H31): every exported entry point the timed loop
 // calls, resets included. `core` is what the core's own counters see (the codec entry
 // points, their loops and reverse calls); `host` is what they cannot see, counted by the
-// binding in this build (AK_HOST_CALL): ak_enc_reset inside every encode_into_*, BEFORE
-// the encode entry point, and the ONE ak_dec_reset_<Root> of a retain decode, BEFORE the
-// decode (arms the options; decision 11 rule 7, WP8: no disarming reset, the context stays
-// armed with options at a stable per-thread address); `take` is the timed loop's own
-// ak_enc_take after an encode. forward = core + host + take. A drop-mode decode resets
-// nothing (its context is bound in drop mode once, outside the loop, and here it runs
-// before the retain decode on the same context, so it is never armed).
+// binding in this build (AK_HOST_CALL): since FIX-PLAN D27 (the core resets every context
+// in the first call of an operation) no ak_enc_reset, and ak_dec_reset_<Root> only where the
+// options pointer is set or changed (a retain decode after a drop one arms the context once
+// and leaves it armed; a drop decode after a retain one disarms it); every decode count is
+// taken warm (the same decode once before on the same context), so a steady loop's resets,
+// none, are what is counted; plus ak_dec_err after a decode; `take` is the timed loop's own
+// ak_enc_take after an encode. forward = core + host + take.
 static void show(const char *id, const char *what, const AkCounters &c, uint64_t host, int take,
                  double elems) {
   unsigned long long fwd = (unsigned long long)(c.forward + host + (uint64_t)take);
@@ -59,6 +59,11 @@ static void count_dec(const char *id, const char *what, ak_dec_ctx *dctx,
                       int32_t (*dec)(ak_dec_ctx *, const uint8_t *, size_t, F *), const std::string &b,
                       double elems, F *out) {
   AkCounters c;
+  // FIX-PLAN D27: the count is taken WARM, as the timed loop runs (the same decode once
+  // before on the same context): the binding arms a context once and the core re-arms on
+  // every decode entry, so a retain decode in the loop makes no reset; the arming is the
+  // warm call's.
+  { F warm; dec(dctx, (const uint8_t *)b.data(), b.size(), &warm); }
   ak_dec_counters_reset(dctx);
   shapes::ffi::host_calls_take();
   dec(dctx, (const uint8_t *)b.data(), b.size(), out);
@@ -87,6 +92,7 @@ static void count_pull(const char *id, const char *what, ak_dec_ctx *dctx,
                        uint64_t want_records) {
   AkCounters c;
   F out;
+  { F warm; pull(dctx, (const uint8_t *)b.data(), b.size(), &warm); }  // D27: warm, as count_dec
   ak_dec_counters_reset(dctx);
   shapes::ffi::host_calls_take();
   shapes::ffi::pull_records_take();
@@ -281,8 +287,8 @@ static void grid_row(const std::string &id, const std::string &v,
 }
 static int grid_main(const std::string &corpus) {
   std::printf("counting build (D18 core grid), linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
-  std::printf("One row per timed core-ffi row of CAMPAIGN 4.0's grid. forward = core + host + take: host = ak_enc_reset\n"
-              "(encode) and the one ak_dec_reset_<Root> of a retain decode; take = ak_enc_take_owned + ak_bytes_free\n"
+  std::printf("One row per timed core-ffi row of CAMPAIGN 4.0's grid. forward = core + host + take: host = the binding's\n"
+              "calls the core does not count (D27: no ak_enc_reset, no per-decode reset; counted warm); take = ak_enc_take_owned + ak_bytes_free\n"
               "(the transport-ready encode), from the core's RPC counters.\n\n");
   static const ak::values::ContentSet sets[3] = {ak::values::kAscii, ak::values::kLatin1, ak::values::kWide};
   static const char *setname[3] = {"", "/latin1", "/wide"};
@@ -341,8 +347,8 @@ int main(int argc, char **argv) {
 #endif
   std::printf("counting build, linkage=%s, -std=%ld\n", AK_LINKAGE, (long)__cplusplus);
   std::printf("Per-element columns are forward / reverse. forward = core + host + take (req 19):\n"
-              "host = ak_enc_reset inside each encode_into_* (before the encode entry point) and the\n"
-              "one ak_dec_reset_<Root> of a retain decode (before it; rule 7); take = the timed loop's\n"
+              "host = the binding's calls the core does not count (D27: no ak_enc_reset, no per-decode\n"
+              "reset; counted warm); take = the timed loop's\n"
               "ak_enc_take after an encode. Retain: no pre-placed buffer, geometric grow (rule 8).\n\n");
 #define X(id, Root, sroot, pfx, sha, nbytes)                                        \
   run_case<shapes::Root, ns::Root>(                                                 \

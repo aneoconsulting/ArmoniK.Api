@@ -2340,3 +2340,16 @@ changes.
 - h2-batch at 506a6623a: exit 0, 28 min, census ok. The stock build was reused; 730a75f0d..506a6623a touches only those two scripts and poc/rust.
 - Both: 530 count rows equal to counts-baseline, 49 + 49 core-grid rows equal, and the RPC plants (length, abort-after, c-len/d-sha/d-count) abort as required.
 - Logs: logs/cpp/gate-20261003/{stock,h2-batch,h2-batch-first}/, RESULT.txt. wp5-*.log at logs/cpp/ refreshed from the stock pass.
+
+## 2026-10-10: D27 reset on entry (done by the Rust slice agent on the coordinator's order)
+
+- cpp_binding.py: no ak_enc_reset per encode; retain decodes and pulls arm the context once.
+- First corpus run after it: ffi-pull-retain wrote the dropped form on 22 Chunk* rows. Cause: the
+  binding's per-thread armed list held a context freed by corpus_harness.h with a raw
+  ak_dec_ctx_free; the next arm's new context got the same address, was taken as armed, kept the
+  NULL pointer and dropped every unknown field. Before D27 the binding reset every decode, so the
+  stale entry never mattered. Fixed by forgetting a context in bound_ctx_new_* and bound_reset_*.
+- counts.cpp counted decodes cold (the retain row right after the drop row on the same context),
+  so the first regeneration showed retain decode rows UNCHANGED: the arm was being counted. Made
+  the decode counts warm, as the timed loop runs; then every retain row drops by 1.
+- Fast checks only (owner's rule): conformance, corpus, controls, counts (gen/d27_checks.sh).

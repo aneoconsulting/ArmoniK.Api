@@ -33,8 +33,9 @@ Tcs tcs_host();      // string as a CALL: a transcoder in the host binary
 int32_t ak_init_once();
 
 // CAMPAIGN req 19 (R-H31): exported entry points this binding calls that the core's
-// counters do not see (ak_enc_reset inside every encode_into_*, the two
-// ak_dec_reset_<Root> of an armed decode). Counted in the counting build
+// counters do not see (ak_dec_reset_<Root> where the options pointer is set or
+// changed: since FIX-PLAN D27 the core resets every context in the first call of an
+// operation, so no ak_enc_reset and no per-decode reset). Counted in the counting build
 // (AK_COUNTING) only; returns the count since the last call and restarts it.
 uint64_t host_calls_take();
 // X-2, counting build: the pull records the replay dispatched since the last call.
@@ -205,12 +206,32 @@ size_t unk_entry_bytes();
 // Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the
 // root's context constructor, reset, options and decodes, for code generic over T.
 template <class T> struct DecRoot;
+// FIX-PLAN D27: a bound context created through the binding. The binding arms a context
+// ONCE (the core re-arms on every decode entry) and remembers the contexts it armed; a
+// context released with a raw ak_dec_ctx_free stays in that list, so a new context at the
+// same address is forgotten here, before it can be taken for an armed one.
+ak_dec_ctx *bound_ctx_new_list_results_response(struct ak_dec_ListResultsResponse_opts *o);
+ak_dec_ctx *bound_ctx_new_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o);
+ak_dec_ctx *bound_ctx_new_list_probe_response(struct ak_dec_ListProbeResponse_opts *o);
+ak_dec_ctx *bound_ctx_new_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o);
+ak_dec_ctx *bound_ctx_new_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o);
+ak_dec_ctx *bound_ctx_new_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o);
+ak_dec_ctx *bound_ctx_new_dual_response(struct ak_dec_DualResponse_opts *o);
+// The same for a reset through DecRoot<T>::reset: the context then points at the caller's
+// options, so the binding forgets it as armed with its own.
+int32_t bound_reset_list_results_response(ak_dec_ctx *c, struct ak_dec_ListResultsResponse_opts *o);
+int32_t bound_reset_list_tasks_detailed_response(ak_dec_ctx *c, struct ak_dec_ListTasksDetailedResponse_opts *o);
+int32_t bound_reset_list_probe_response(ak_dec_ctx *c, struct ak_dec_ListProbeResponse_opts *o);
+int32_t bound_reset_list_task_summary_response(ak_dec_ctx *c, struct ak_dec_ListTaskSummaryResponse_opts *o);
+int32_t bound_reset_upload_result_data_message(ak_dec_ctx *c, struct ak_dec_UploadResultDataMessage_opts *o);
+int32_t bound_reset_list_metrics_response(ak_dec_ctx *c, struct ak_dec_ListMetricsResponse_opts *o);
+int32_t bound_reset_dual_response(ak_dec_ctx *c, struct ak_dec_DualResponse_opts *o);
 template <> struct DecRoot<ListResultsResponse> {
   typedef struct ak_dec_ListResultsResponse_opts Opts;
   enum { kPositions = 4, kIndex = 0 };
   static const char *name() { return "ListResultsResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListResultsResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListResultsResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_results_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_results_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_results_response(o, zero); }
   static void clear(ListResultsResponse &v, int pos) { unk_clear_list_results_response(v, pos); }
   static bool is_entry(int pos) {
@@ -243,8 +264,8 @@ template <> struct DecRoot<ListTasksDetailedResponse> {
   typedef struct ak_dec_ListTasksDetailedResponse_opts Opts;
   enum { kPositions = 18, kIndex = 1 };
   static const char *name() { return "ListTasksDetailedResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTasksDetailedResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTasksDetailedResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_tasks_detailed_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_tasks_detailed_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_tasks_detailed_response(o, zero); }
   static void clear(ListTasksDetailedResponse &v, int pos) { unk_clear_list_tasks_detailed_response(v, pos); }
   static bool is_entry(int pos) {
@@ -277,8 +298,8 @@ template <> struct DecRoot<ListProbeResponse> {
   typedef struct ak_dec_ListProbeResponse_opts Opts;
   enum { kPositions = 3, kIndex = 2 };
   static const char *name() { return "ListProbeResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListProbeResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListProbeResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_probe_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_probe_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_probe_response(o, zero); }
   static void clear(ListProbeResponse &v, int pos) { unk_clear_list_probe_response(v, pos); }
   static bool is_entry(int pos) {
@@ -311,8 +332,8 @@ template <> struct DecRoot<ListTaskSummaryResponse> {
   typedef struct ak_dec_ListTaskSummaryResponse_opts Opts;
   enum { kPositions = 6, kIndex = 3 };
   static const char *name() { return "ListTaskSummaryResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListTaskSummaryResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListTaskSummaryResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_task_summary_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_task_summary_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_task_summary_response(o, zero); }
   static void clear(ListTaskSummaryResponse &v, int pos) { unk_clear_list_task_summary_response(v, pos); }
   static bool is_entry(int pos) {
@@ -345,8 +366,8 @@ template <> struct DecRoot<UploadResultDataMessage> {
   typedef struct ak_dec_UploadResultDataMessage_opts Opts;
   enum { kPositions = 2, kIndex = 4 };
   static const char *name() { return "UploadResultDataMessage"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_UploadResultDataMessage(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_UploadResultDataMessage(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_upload_result_data_message(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_upload_result_data_message(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_upload_result_data_message(o, zero); }
   static void clear(UploadResultDataMessage &v, int pos) { unk_clear_upload_result_data_message(v, pos); }
   static bool is_entry(int pos) {
@@ -379,8 +400,8 @@ template <> struct DecRoot<ListMetricsResponse> {
   typedef struct ak_dec_ListMetricsResponse_opts Opts;
   enum { kPositions = 2, kIndex = 5 };
   static const char *name() { return "ListMetricsResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_ListMetricsResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_ListMetricsResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_list_metrics_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_list_metrics_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_list_metrics_response(o, zero); }
   static void clear(ListMetricsResponse &v, int pos) { unk_clear_list_metrics_response(v, pos); }
   static bool is_entry(int pos) {
@@ -413,8 +434,8 @@ template <> struct DecRoot<DualResponse> {
   typedef struct ak_dec_DualResponse_opts Opts;
   enum { kPositions = 3, kIndex = 6 };
   static const char *name() { return "DualResponse"; }
-  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_DualResponse(o); }
-  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_DualResponse(c, o); }
+  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_dual_response(o); }
+  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_dual_response(c, o); }
   static void opts(Opts *o, int zero) { unk_opts_dual_response(o, zero); }
   static void clear(DualResponse &v, int pos) { unk_clear_dual_response(v, pos); }
   static bool is_entry(int pos) {
@@ -456,13 +477,13 @@ void dec_ctx_free(ak_dec_ctx *ctx);
 struct DecCtxs {
   ak_dec_ctx *c[7];
   DecCtxs() {
-    c[0] = ak_dec_ctx_new_ListResultsResponse(NULL);
-    c[1] = ak_dec_ctx_new_ListTasksDetailedResponse(NULL);
-    c[2] = ak_dec_ctx_new_ListProbeResponse(NULL);
-    c[3] = ak_dec_ctx_new_ListTaskSummaryResponse(NULL);
-    c[4] = ak_dec_ctx_new_UploadResultDataMessage(NULL);
-    c[5] = ak_dec_ctx_new_ListMetricsResponse(NULL);
-    c[6] = ak_dec_ctx_new_DualResponse(NULL);
+    c[0] = bound_ctx_new_list_results_response(NULL);
+    c[1] = bound_ctx_new_list_tasks_detailed_response(NULL);
+    c[2] = bound_ctx_new_list_probe_response(NULL);
+    c[3] = bound_ctx_new_list_task_summary_response(NULL);
+    c[4] = bound_ctx_new_upload_result_data_message(NULL);
+    c[5] = bound_ctx_new_list_metrics_response(NULL);
+    c[6] = bound_ctx_new_dual_response(NULL);
   }
   ~DecCtxs() {
     for (int i = 0; i < 7; ++i) dec_ctx_free(c[i]);

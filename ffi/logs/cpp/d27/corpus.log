@@ -1,0 +1,47 @@
+# cpp D27 checks: corpus (60afe577 + uncommitted changes in poc/cpp or poc/codec; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25))
+== corpus_all_a17 (six arms)
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+## ffi-pull-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-pull-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-retain retention gaps outside {U-map-entry}: 0
+## native-retain retention gaps outside {U-map-entry}: 0
+## ffi-pull-retain retention gaps outside {U-map-entry}: 0
+CORPUS PASSES on every built arm
+>>> ok
+== corpus_all_a17 --unk-controls
+# decision 11 controls through the C ABI binding (corpus_all --unk), 702 rows
+   rows through the C ABI 686 (not in the ABI 16); refused by every mode alike 143
+   positions checked 2290; position-rows where zeroing changes the value 315; rows with unknowns 307
+   rows whose map entries carried unknown bytes (delivered, freed: U-map-entry) 1
+   pool buffers refilled in place across all rows 75
+UNK CONTROLS PASS: 0 failing row(s)
+>>> ok
+== control: --unk-controls --plant clear (must FAIL)
+UNK CONTROLS FAIL: 307 failing row(s)
+>>> ok: the plant failed (exit 1)
+== corpus_nounk_a17
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-retain
+   pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+## native-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0  arm not built 0
+## native-retain
+   pass 0  fail 0  disputed (excluded) 0  not in the C ABI 0  arm not built 702
+## ffi-pull-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16  arm not built 0
+## ffi-pull-retain
+   pass 0  fail 0  disputed (excluded) 0  not in the C ABI 16  arm not built 686
+## ffi-drop unknown rows NOT written in the dropped form: 0
+## ffi-pull-drop unknown rows NOT written in the dropped form: 0
+CORPUS PASSES on every built arm
+>>> ok

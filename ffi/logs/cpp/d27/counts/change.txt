@@ -1,0 +1,109 @@
+=== counts-baseline.log (before: d27/counts/before/counts-baseline.log)
+rows: old 518, new 518, same keys True
+(row label, delta forward/reverse/core/host/take): rows
+  decode pull drained                (0, 0, 0, 0, 0)              15
+  decode pull retain                 (-1, 0, 0, -1, 0)            15
+  decode pull                        (0, 0, 0, 0, 0)              15
+  decode retain                      (-1, 0, 0, -1, 0)           107
+  decode                             (0, 0, 0, 0, 0)             107
+  encode UNBATCHED                   (-1, 0, 0, -1, 0)            15
+  encode host transcoder             (-1, 0, 0, -1, 0)            15
+  encode retain                      (-1, 0, 0, -1, 0)           107
+  encode zeroed-fill                 (-1, 0, 0, -1, 0)            15
+  encode                             (-1, 0, 0, -1, 0)           107
+reverse and core unchanged on every row, forward changes only by the host calls: True
+=== counts-nounk-baseline.log (before: d27/counts/before/counts-nounk-baseline.log)
+rows: old 289, new 289, same keys True
+(row label, delta forward/reverse/core/host/take): rows
+  decode pull drained                (0, 0, 0, 0, 0)              15
+  decode pull                        (0, 0, 0, 0, 0)              15
+  decode                             (0, 0, 0, 0, 0)             107
+  encode UNBATCHED                   (-1, 0, 0, -1, 0)            15
+  encode host transcoder             (-1, 0, 0, -1, 0)            15
+  encode zeroed-fill                 (-1, 0, 0, -1, 0)            15
+  encode                             (-1, 0, 0, -1, 0)           107
+reverse and core unchanged on every row, forward changes only by the host calls: True
+=== counts-grid.log (before: d27/counts/before/counts-grid.log)
+rows: old 49, new 49, same keys True
+(row label, delta forward/reverse/core/host/take): rows
+  decode retain                      (-1, 0, 0, -1, 0)            25
+  encode retain transport            (-1, 0, 0, -1, 0)            24
+reverse and core unchanged on every row, forward changes only by the host calls: True
+=== counts-grid-nounk.log (before: d27/counts/before/counts-grid-nounk.log)
+rows: old 49, new 49, same keys True
+(row label, delta forward/reverse/core/host/take): rows
+  decode                             (0, 0, 0, 0, 0)              25
+  encode transport                   (-1, 0, 0, -1, 0)            24
+reverse and core unchanged on every row, forward changes only by the host calls: True
+=== rpc-counts.log
+rows: old 132, new 132, same keys True
+  B      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  B      b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  B      c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  B      d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Bf     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Bf     b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Bf     c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Bf     d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  C      a    d(forward, reverse, host)=(-0.75, 0.0, -0.75)      1
+  C      a    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        1
+  C      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  C      b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        4
+  C      c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        8
+  C      d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        4
+  C      d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        4
+  Cf     a    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        2
+  Cf     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Cf     b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        4
+  Cf     c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        8
+  Cf     d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        4
+  Cf     d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        4
+  D      a    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        1
+  D      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          1
+  D      b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        2
+  D      c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        4
+  D      d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        2
+  D      d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        2
+  E      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  E      b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  E      c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          8
+  E      d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          8
+  Ef     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Ef     b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Ef     c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          8
+  Ef     d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          8
+reverse unchanged and forward changes only by the host calls on every row: True
+=== rpc-counts-nounk.log
+rows: old 78, new 78, same keys True
+  B      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  B      b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  B      c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  B      d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Bf     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Bf     b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Bf     c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Bf     d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  C      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  C      b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        2
+  C      c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        4
+  C      d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        2
+  C      d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        2
+  Cf     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Cf     b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        2
+  Cf     c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        4
+  Cf     d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        2
+  Cf     d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        2
+  D      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          1
+  D      b    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        1
+  D      c    d(forward, reverse, host)=(-1.0, 0.0, -1.0)        2
+  D      d    d(forward, reverse, host)=(-2.0, 0.0, -2.0)        1
+  D      d    d(forward, reverse, host)=(-8.0, 0.0, -8.0)        1
+  E      a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  E      b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  E      c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  E      d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Ef     a    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Ef     b    d(forward, reverse, host)=(0.0, 0.0, 0.0)          2
+  Ef     c    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+  Ef     d    d(forward, reverse, host)=(0.0, 0.0, 0.0)          4
+reverse unchanged and forward changes only by the host calls on every row: True

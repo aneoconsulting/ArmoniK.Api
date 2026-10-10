@@ -1,0 +1,7 @@
+# cpp D27 checks: crossing counts (60afe577 + uncommitted changes in poc/cpp or poc/codec; g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0; rustc 1.94.1 (e408947bf 2026-03-25))
+>>> ok: 530 rows identical to counts-baseline.log
+>>> ok: 301 rows identical to counts-nounk-baseline.log
+>>> ok: 49 rows identical to counts-grid.log
+>>> ok: 49 rows identical to counts-grid-nounk.log
+>>> ok: 132 RPC rows identical to rpc-counts.log
+>>> ok: 78 RPC rows identical to rpc-counts-nounk.log

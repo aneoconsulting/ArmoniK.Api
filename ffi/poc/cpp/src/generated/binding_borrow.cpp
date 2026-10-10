@@ -1179,7 +1179,7 @@ static int32_t loop_list_results_response_results(ak_enc_ctx *ctx, const void *o
 
 intptr_t encode_into_list_results_response(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1238,7 +1238,7 @@ static int32_t loop_list_results_response_results_zeroed(ak_enc_ctx *ctx, const 
 
 intptr_t encode_into_list_results_response_zeroed(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1283,7 +1283,7 @@ static int32_t loop_list_results_response_results_nobatch(ak_enc_ctx *ctx, const
 
 intptr_t encode_into_list_results_response_nobatch(ak_enc_ctx *ctx, const ListResultsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListResultsResponse h;
   h.o = &o;
   h.t = t;
@@ -1492,7 +1492,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks 
 
 intptr_t encode_into_list_tasks_detailed_response(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1718,7 +1718,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_zeroed(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1930,7 +1930,7 @@ static const struct ak_evt_TaskDetailed kElemVt_ListTasksDetailedResponse_tasks_
 
 intptr_t encode_into_list_tasks_detailed_response_nobatch(ak_enc_ctx *ctx, const ListTasksDetailedResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTasksDetailedResponse h;
   h.o = &o;
   h.t = t;
@@ -1974,7 +1974,7 @@ static int32_t loop_list_probe_response_probes(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_list_probe_response(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -2033,7 +2033,7 @@ static int32_t loop_list_probe_response_probes_zeroed(ak_enc_ctx *ctx, const voi
 
 intptr_t encode_into_list_probe_response_zeroed(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -2078,7 +2078,7 @@ static int32_t loop_list_probe_response_probes_nobatch(ak_enc_ctx *ctx, const vo
 
 intptr_t encode_into_list_probe_response_nobatch(ak_enc_ctx *ctx, const ListProbeResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListProbeResponse h;
   h.o = &o;
   h.t = t;
@@ -2159,7 +2159,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks = {
 
 intptr_t encode_into_list_task_summary_response(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2257,7 +2257,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_zer
 
 intptr_t encode_into_list_task_summary_response_zeroed(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2341,7 +2341,7 @@ static const struct ak_evt_TaskSummary kElemVt_ListTaskSummaryResponse_tasks_nob
 
 intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const ListTaskSummaryResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListTaskSummaryResponse h;
   h.o = &o;
   h.t = t;
@@ -2355,7 +2355,7 @@ intptr_t encode_into_list_task_summary_response_nobatch(ak_enc_ctx *ctx, const L
 
 intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2369,7 +2369,7 @@ intptr_t encode_into_upload_result_data_message(ak_enc_ctx *ctx, const UploadRes
 
 intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2385,7 +2385,7 @@ intptr_t encode_into_upload_result_data_message_zeroed(ak_enc_ctx *ctx, const Up
 
 intptr_t encode_into_upload_result_data_message_nobatch(ak_enc_ctx *ctx, const UploadResultDataMessage &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_UploadResultDataMessage h;
   h.o = &o;
   h.t = t;
@@ -2503,7 +2503,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches = {
 
 intptr_t encode_into_list_metrics_response(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2637,7 +2637,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_zero
 
 intptr_t encode_into_list_metrics_response_zeroed(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2757,7 +2757,7 @@ static const struct ak_evt_MetricsBatch kElemVt_ListMetricsResponse_batches_noba
 
 intptr_t encode_into_list_metrics_response_nobatch(ak_enc_ctx *ctx, const ListMetricsResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_ListMetricsResponse h;
   h.o = &o;
   h.t = t;
@@ -2831,7 +2831,7 @@ static int32_t loop_dual_response_right(ak_enc_ctx *ctx, const void *obj, int64_
 
 intptr_t encode_into_dual_response(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -2937,7 +2937,7 @@ static int32_t loop_dual_response_right_zeroed(ak_enc_ctx *ctx, const void *obj,
 
 intptr_t encode_into_dual_response_zeroed(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -3013,7 +3013,7 @@ static int32_t loop_dual_response_right_nobatch(ak_enc_ctx *ctx, const void *obj
 
 intptr_t encode_into_dual_response_nobatch(ak_enc_ctx *ctx, const DualResponse &o, const Tcs &t) {
   AK_INIT_OR_RETURN();
-  AK_HOST_CALL(); ak_enc_reset(ctx);
+  // D27: the core's encode entry resets the context (no ak_enc_reset).
   EncObj_DualResponse h;
   h.o = &o;
   h.t = t;
@@ -3088,6 +3088,37 @@ static inline bool unk_armed_forget_list_results_response(ak_dec_ctx *ctx) {
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_list_results_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_list_results_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_list_results_response(struct ak_dec_ListResultsResponse_opts *opts);
+static inline int32_t unk_arm_once_list_results_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_list_results_response(ctx)) return AK_OK;
+  struct ak_dec_ListResultsResponse_opts *opts = &t_unk_opts_list_results_response;
+  unk_opts_list_results_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_list_results_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_results_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_list_results_response(struct ak_dec_ListResultsResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListResultsResponse(o);
+  if (c != NULL) unk_armed_forget_list_results_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_list_results_response(ak_dec_ctx *c, struct ak_dec_ListResultsResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_list_results_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_ListResultsResponse(c, o);
+}
 static inline void unk_disarm_list_results_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_list_results_response.empty() && unk_armed_forget_list_results_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_ListResultsResponse(ctx, NULL);
@@ -3151,21 +3182,15 @@ int32_t decode_with_list_results_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_list_results_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_list_results_response` disarms it first.
 int32_t decode_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListResultsResponse_opts *opts = &t_unk_opts_list_results_response;
-  unk_opts_list_results_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_list_results_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_results_response(ctx);
+  int32_t rc = unk_arm_once_list_results_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_list_results_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_list_results_response(opts);
   unk_reclaim();
@@ -3300,19 +3325,14 @@ int32_t pull_drain_with_list_results_response(ak_dec_ctx *ctx, const uint8_t *b,
   return pull_impl_list_results_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_list_results_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_list_results_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_list_results_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListResultsResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListResultsResponse_opts *opts = &t_unk_opts_list_results_response;
-  unk_opts_list_results_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListResultsResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_list_results_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_results_response(ctx);
+  int32_t rc = unk_arm_once_list_results_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_list_results_response(ctx, b, n, out, false);
   unk_untrack_opts_list_results_response(opts);
   unk_reclaim();
@@ -3488,6 +3508,37 @@ static inline bool unk_armed_forget_list_tasks_detailed_response(ak_dec_ctx *ctx
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_list_tasks_detailed_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_list_tasks_detailed_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *opts);
+static inline int32_t unk_arm_once_list_tasks_detailed_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_list_tasks_detailed_response(ctx)) return AK_OK;
+  struct ak_dec_ListTasksDetailedResponse_opts *opts = &t_unk_opts_list_tasks_detailed_response;
+  unk_opts_list_tasks_detailed_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_list_tasks_detailed_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_tasks_detailed_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_list_tasks_detailed_response(struct ak_dec_ListTasksDetailedResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListTasksDetailedResponse(o);
+  if (c != NULL) unk_armed_forget_list_tasks_detailed_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_list_tasks_detailed_response(ak_dec_ctx *c, struct ak_dec_ListTasksDetailedResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_list_tasks_detailed_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_ListTasksDetailedResponse(c, o);
+}
 static inline void unk_disarm_list_tasks_detailed_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_list_tasks_detailed_response.empty() && unk_armed_forget_list_tasks_detailed_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_ListTasksDetailedResponse(ctx, NULL);
@@ -3593,21 +3644,15 @@ int32_t decode_with_list_tasks_detailed_response_opts(ak_dec_ctx *ctx, const uin
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_list_tasks_detailed_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_list_tasks_detailed_response` disarms it first.
 int32_t decode_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListTasksDetailedResponse_opts *opts = &t_unk_opts_list_tasks_detailed_response;
-  unk_opts_list_tasks_detailed_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_list_tasks_detailed_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_tasks_detailed_response(ctx);
+  int32_t rc = unk_arm_once_list_tasks_detailed_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_list_tasks_detailed_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_list_tasks_detailed_response(opts);
   unk_reclaim();
@@ -3816,19 +3861,14 @@ int32_t pull_drain_with_list_tasks_detailed_response(ak_dec_ctx *ctx, const uint
   return pull_impl_list_tasks_detailed_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_list_tasks_detailed_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_list_tasks_detailed_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_list_tasks_detailed_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTasksDetailedResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListTasksDetailedResponse_opts *opts = &t_unk_opts_list_tasks_detailed_response;
-  unk_opts_list_tasks_detailed_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTasksDetailedResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_list_tasks_detailed_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_tasks_detailed_response(ctx);
+  int32_t rc = unk_arm_once_list_tasks_detailed_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_list_tasks_detailed_response(ctx, b, n, out, false);
   unk_untrack_opts_list_tasks_detailed_response(opts);
   unk_reclaim();
@@ -3896,6 +3936,37 @@ static inline bool unk_armed_forget_list_probe_response(ak_dec_ctx *ctx) {
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_list_probe_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_list_probe_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_list_probe_response(struct ak_dec_ListProbeResponse_opts *opts);
+static inline int32_t unk_arm_once_list_probe_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_list_probe_response(ctx)) return AK_OK;
+  struct ak_dec_ListProbeResponse_opts *opts = &t_unk_opts_list_probe_response;
+  unk_opts_list_probe_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_list_probe_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_probe_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_list_probe_response(struct ak_dec_ListProbeResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListProbeResponse(o);
+  if (c != NULL) unk_armed_forget_list_probe_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_list_probe_response(ak_dec_ctx *c, struct ak_dec_ListProbeResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_list_probe_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_ListProbeResponse(c, o);
+}
 static inline void unk_disarm_list_probe_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_list_probe_response.empty() && unk_armed_forget_list_probe_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_ListProbeResponse(ctx, NULL);
@@ -3956,21 +4027,15 @@ int32_t decode_with_list_probe_response_opts(ak_dec_ctx *ctx, const uint8_t *b, 
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_list_probe_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_list_probe_response` disarms it first.
 int32_t decode_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListProbeResponse_opts *opts = &t_unk_opts_list_probe_response;
-  unk_opts_list_probe_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_list_probe_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_probe_response(ctx);
+  int32_t rc = unk_arm_once_list_probe_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_list_probe_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_list_probe_response(opts);
   unk_reclaim();
@@ -4101,19 +4166,14 @@ int32_t pull_drain_with_list_probe_response(ak_dec_ctx *ctx, const uint8_t *b, s
   return pull_impl_list_probe_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_list_probe_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_list_probe_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_list_probe_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListProbeResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListProbeResponse_opts *opts = &t_unk_opts_list_probe_response;
-  unk_opts_list_probe_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListProbeResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_list_probe_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_probe_response(ctx);
+  int32_t rc = unk_arm_once_list_probe_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_list_probe_response(ctx, b, n, out, false);
   unk_untrack_opts_list_probe_response(opts);
   unk_reclaim();
@@ -4215,6 +4275,37 @@ static inline bool unk_armed_forget_list_task_summary_response(ak_dec_ctx *ctx) 
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_list_task_summary_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_list_task_summary_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *opts);
+static inline int32_t unk_arm_once_list_task_summary_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_list_task_summary_response(ctx)) return AK_OK;
+  struct ak_dec_ListTaskSummaryResponse_opts *opts = &t_unk_opts_list_task_summary_response;
+  unk_opts_list_task_summary_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_list_task_summary_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_task_summary_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_list_task_summary_response(struct ak_dec_ListTaskSummaryResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListTaskSummaryResponse(o);
+  if (c != NULL) unk_armed_forget_list_task_summary_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_list_task_summary_response(ak_dec_ctx *c, struct ak_dec_ListTaskSummaryResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_list_task_summary_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_ListTaskSummaryResponse(c, o);
+}
 static inline void unk_disarm_list_task_summary_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_list_task_summary_response.empty() && unk_armed_forget_list_task_summary_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_ListTaskSummaryResponse(ctx, NULL);
@@ -4284,21 +4375,15 @@ int32_t decode_with_list_task_summary_response_opts(ak_dec_ctx *ctx, const uint8
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_list_task_summary_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_list_task_summary_response` disarms it first.
 int32_t decode_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListTaskSummaryResponse_opts *opts = &t_unk_opts_list_task_summary_response;
-  unk_opts_list_task_summary_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_list_task_summary_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_task_summary_response(ctx);
+  int32_t rc = unk_arm_once_list_task_summary_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_list_task_summary_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_list_task_summary_response(opts);
   unk_reclaim();
@@ -4447,19 +4532,14 @@ int32_t pull_drain_with_list_task_summary_response(ak_dec_ctx *ctx, const uint8_
   return pull_impl_list_task_summary_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_list_task_summary_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_list_task_summary_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_list_task_summary_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListTaskSummaryResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListTaskSummaryResponse_opts *opts = &t_unk_opts_list_task_summary_response;
-  unk_opts_list_task_summary_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListTaskSummaryResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_list_task_summary_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_task_summary_response(ctx);
+  int32_t rc = unk_arm_once_list_task_summary_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_list_task_summary_response(ctx, b, n, out, false);
   unk_untrack_opts_list_task_summary_response(opts);
   unk_reclaim();
@@ -4515,6 +4595,37 @@ static inline bool unk_armed_forget_upload_result_data_message(ak_dec_ctx *ctx) 
   for (size_t i = 0; i < a.size(); ++i)
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
+}
+static inline bool unk_armed_has_upload_result_data_message(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_upload_result_data_message;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *opts);
+static inline int32_t unk_arm_once_upload_result_data_message(ak_dec_ctx *ctx) {
+  if (unk_armed_has_upload_result_data_message(ctx)) return AK_OK;
+  struct ak_dec_UploadResultDataMessage_opts *opts = &t_unk_opts_upload_result_data_message;
+  unk_opts_upload_result_data_message(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_upload_result_data_message(opts);
+    return rc;
+  }
+  unk_armed_note_upload_result_data_message(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_upload_result_data_message(struct ak_dec_UploadResultDataMessage_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_UploadResultDataMessage(o);
+  if (c != NULL) unk_armed_forget_upload_result_data_message(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_upload_result_data_message(ak_dec_ctx *c, struct ak_dec_UploadResultDataMessage_opts *o) {
+  if (c != NULL) unk_armed_forget_upload_result_data_message(c);
+  AK_HOST_CALL(); return ak_dec_reset_UploadResultDataMessage(c, o);
 }
 static inline void unk_disarm_upload_result_data_message(ak_dec_ctx *ctx) {
   if (!t_unk_armed_upload_result_data_message.empty() && unk_armed_forget_upload_result_data_message(ctx)) {
@@ -4572,21 +4683,15 @@ int32_t decode_with_upload_result_data_message_opts(ak_dec_ctx *ctx, const uint8
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_upload_result_data_message` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_upload_result_data_message` disarms it first.
 int32_t decode_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_UploadResultDataMessage_opts *opts = &t_unk_opts_upload_result_data_message;
-  unk_opts_upload_result_data_message(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_upload_result_data_message(opts);
-    return rc;
-  }
-  unk_armed_note_upload_result_data_message(ctx);
+  int32_t rc = unk_arm_once_upload_result_data_message(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_upload_result_data_message(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_upload_result_data_message(opts);
   unk_reclaim();
@@ -4710,19 +4815,14 @@ int32_t pull_drain_with_upload_result_data_message(ak_dec_ctx *ctx, const uint8_
   return pull_impl_upload_result_data_message(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_upload_result_data_message_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_upload_result_data_message_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_upload_result_data_message_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, UploadResultDataMessage *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_UploadResultDataMessage_opts *opts = &t_unk_opts_upload_result_data_message;
-  unk_opts_upload_result_data_message(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_UploadResultDataMessage(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_upload_result_data_message(opts);
-    return rc;
-  }
-  unk_armed_note_upload_result_data_message(ctx);
+  int32_t rc = unk_arm_once_upload_result_data_message(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_upload_result_data_message(ctx, b, n, out, false);
   unk_untrack_opts_upload_result_data_message(opts);
   unk_reclaim();
@@ -4860,6 +4960,37 @@ static inline bool unk_armed_forget_list_metrics_response(ak_dec_ctx *ctx) {
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_list_metrics_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_list_metrics_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *opts);
+static inline int32_t unk_arm_once_list_metrics_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_list_metrics_response(ctx)) return AK_OK;
+  struct ak_dec_ListMetricsResponse_opts *opts = &t_unk_opts_list_metrics_response;
+  unk_opts_list_metrics_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_list_metrics_response(opts);
+    return rc;
+  }
+  unk_armed_note_list_metrics_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_list_metrics_response(struct ak_dec_ListMetricsResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_ListMetricsResponse(o);
+  if (c != NULL) unk_armed_forget_list_metrics_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_list_metrics_response(ak_dec_ctx *c, struct ak_dec_ListMetricsResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_list_metrics_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_ListMetricsResponse(c, o);
+}
 static inline void unk_disarm_list_metrics_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_list_metrics_response.empty() && unk_armed_forget_list_metrics_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_ListMetricsResponse(ctx, NULL);
@@ -4917,21 +5048,15 @@ int32_t decode_with_list_metrics_response_opts(ak_dec_ctx *ctx, const uint8_t *b
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_list_metrics_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_list_metrics_response` disarms it first.
 int32_t decode_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListMetricsResponse_opts *opts = &t_unk_opts_list_metrics_response;
-  unk_opts_list_metrics_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_list_metrics_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_metrics_response(ctx);
+  int32_t rc = unk_arm_once_list_metrics_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_list_metrics_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_list_metrics_response(opts);
   unk_reclaim();
@@ -5076,19 +5201,14 @@ int32_t pull_drain_with_list_metrics_response(ak_dec_ctx *ctx, const uint8_t *b,
   return pull_impl_list_metrics_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_list_metrics_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_list_metrics_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_list_metrics_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, ListMetricsResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_ListMetricsResponse_opts *opts = &t_unk_opts_list_metrics_response;
-  unk_opts_list_metrics_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_ListMetricsResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_list_metrics_response(opts);
-    return rc;
-  }
-  unk_armed_note_list_metrics_response(ctx);
+  int32_t rc = unk_arm_once_list_metrics_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_list_metrics_response(ctx, b, n, out, false);
   unk_untrack_opts_list_metrics_response(opts);
   unk_reclaim();
@@ -5169,6 +5289,37 @@ static inline bool unk_armed_forget_dual_response(ak_dec_ctx *ctx) {
     if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }
   return false;
 }
+static inline bool unk_armed_has_dual_response(ak_dec_ctx *ctx) {
+  const std::vector<ak_dec_ctx *> &a = t_unk_armed_dual_response;
+  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;
+  return false;
+}
+// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable
+// address and the core re-reads them on every decode entry); a reset only sets the
+// pointer. Returns AK_OK or the refusal.
+static void unk_untrack_opts_dual_response(struct ak_dec_DualResponse_opts *opts);
+static inline int32_t unk_arm_once_dual_response(ak_dec_ctx *ctx) {
+  if (unk_armed_has_dual_response(ctx)) return AK_OK;
+  struct ak_dec_DualResponse_opts *opts = &t_unk_opts_dual_response;
+  unk_opts_dual_response(opts, -1);
+  AK_HOST_CALL(); int32_t rc = ak_dec_reset_DualResponse(ctx, opts);
+  if (rc != AK_OK) {
+    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).
+    unk_untrack_opts_dual_response(opts);
+    return rc;
+  }
+  unk_armed_note_dual_response(ctx);
+  return AK_OK;
+}
+ak_dec_ctx *bound_ctx_new_dual_response(struct ak_dec_DualResponse_opts *o) {
+  ak_dec_ctx *c = ak_dec_ctx_new_DualResponse(o);
+  if (c != NULL) unk_armed_forget_dual_response(c);  // D27: a stale entry at a reused address
+  return c;
+}
+int32_t bound_reset_dual_response(ak_dec_ctx *c, struct ak_dec_DualResponse_opts *o) {
+  if (c != NULL) unk_armed_forget_dual_response(c);
+  AK_HOST_CALL(); return ak_dec_reset_DualResponse(c, o);
+}
 static inline void unk_disarm_dual_response(ak_dec_ctx *ctx) {
   if (!t_unk_armed_dual_response.empty() && unk_armed_forget_dual_response(ctx)) {
     AK_HOST_CALL(); (void)ak_dec_reset_DualResponse(ctx, NULL);
@@ -5229,21 +5380,15 @@ int32_t decode_with_dual_response_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t
   return rc;
 }
 
-// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset
-// per decode. The options live at a stable per-thread address, so the context is
-// left armed after the decode (no disarming reset); a drop decode through
-// `decode_with_dual_response` disarms it first.
+// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the
+// options live at a stable per-thread address and the core re-reads them on every
+// decode entry, so the context is armed ONCE and left armed (no reset per decode); a
+// drop decode through `decode_with_dual_response` disarms it first.
 int32_t decode_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_DualResponse_opts *opts = &t_unk_opts_dual_response;
-  unk_opts_dual_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_DualResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    // Refused: nothing consumed, the context's state is unchanged (R-H7).
-    unk_untrack_opts_dual_response(opts);
-    return rc;
-  }
-  unk_armed_note_dual_response(ctx);
+  int32_t rc = unk_arm_once_dual_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = decode_impl_dual_response(ctx, b, n, out, NULL, NULL);
   unk_untrack_opts_dual_response(opts);
   unk_reclaim();
@@ -5376,19 +5521,14 @@ int32_t pull_drain_with_dual_response(ak_dec_ctx *ctx, const uint8_t *b, size_t 
   return pull_impl_dual_response(ctx, b, n, out, true);
 }
 
-// Decision 11 on the pull family: armed as decode_with_dual_response_unk arms (one reset,
-// left armed, rule 7); the unknown buffers ride in the records' groups and are
-// delivered by the same host functions.
+// Decision 11 on the pull family: armed as decode_with_dual_response_unk arms (once, left
+// armed, D27); the unknown buffers ride in the records' groups and are delivered by
+// the same host functions.
 int32_t pull_with_dual_response_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, DualResponse *out) {
   AK_INIT_OR_RETURN();
   struct ak_dec_DualResponse_opts *opts = &t_unk_opts_dual_response;
-  unk_opts_dual_response(opts, -1);
-  AK_HOST_CALL(); int32_t rc = ak_dec_reset_DualResponse(ctx, opts);  // the one reset: arms
-  if (rc != AK_OK) {
-    unk_untrack_opts_dual_response(opts);
-    return rc;
-  }
-  unk_armed_note_dual_response(ctx);
+  int32_t rc = unk_arm_once_dual_response(ctx);
+  if (rc != AK_OK) return rc;
   rc = pull_impl_dual_response(ctx, b, n, out, false);
   unk_untrack_opts_dual_response(opts);
   unk_reclaim();

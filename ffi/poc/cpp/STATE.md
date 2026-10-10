@@ -12,7 +12,7 @@ defect. What this file reports as results are correctness outcomes and crossing 
 
 | | |
 |---|---|
-| **Status** | 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
+| **Status** | 2026-10-10: **D27** (reset on entry) in this slice's binding, counts regenerated, fast checks passed, full gates not run: section "D27". Before it: 2026-09-29/30, on the PHYSICAL campaign machine (i9-7900X, NixOS, kernel 6.18.54; turbo off, 3.3 GHz locked, no isolation: taskset only), phase 1 of the physical probe: step 0 done and checked (`logs/cpp/opt/physical-probe/checks/`, at `f79e034d`), the probe driver `gen/physical_probe.sh` written and smoke-run (smoke not kept); main segment TIMED 2026-09-29 (`logs/cpp/opt/physical-probe/main/`, `--grpc-cpus 8`, 254 s of benchmark wall; physical-machine figures, not container instrumentation); var4 segment TIMED the same day (`logs/cpp/opt/physical-probe/var4/`, 4-worker server, core 4 workers, `--grpc-cpus 4`, 146 s). Later units on the same machine: step 4a, patches p1-p7, the Cf-q investigation, the stability campaign, UDS against TCP, the TCP inversion attribution (2026-10-01, `tcp-attrib/`; the harness now records softirq time, which the process clock misses on this kernel), and h2 PR #903 against p4 (2026-10-01, `h2-pr903/`). Before that: the optimisation unit (2026-09-28, container) complete, section "Optimisation unit" below |
 | **WP12 (2026-10-02, container)** | WP12's done criterion for this slice: the full C++ gates run twice in this container at `1bdbaa07` (= `0f75213f` plus this unit's script commits: the core-swap call sites, inert when AK_CORE_SWAP is unset, deliv_checks' CPU sets from the environment, the WP12 driver; no C++ source, core, generator or CMake change), from a private worktree: **stock** and **h2-batch** each pass wp5_gate (C++17 target and floor, C++14, C++11, static), d11_asan, the campaign gate (Unix sockets), deliv_checks over TCP 127.0.0.1 and q_checks; 0 failures in every step on both. Section "WP12 gates" below; logs `logs/cpp/opt/wp12-gates/`. The Rust slice's gate step of the final-gate driver was not run here (the Rust agent runs it in parallel) |
 | **Physical machine build** | `nix-shell gen/shell.nix` (the system's nixpkgs): g++ 15.3.0, cmake 4.1.6, protobuf 34.1 (C++ version 7.34.1), grpc++ 1.80.0 (the "current" incumbent of CAMPAIGN section 3; ArmoniK's v1.54.0 is not on this machine), abseil 20260107; rustc 1.95.0 (ambient); Google Benchmark v1.8.3 Release (gbench_release, now installed with `CMAKE_INSTALL_LIBDIR=lib`). Changes this build needed: `shapes_pb` at C++17 when protobuf is 22 or later, plus utf8_range and protobuf.pc's abseil libraries; rt.cpp's protobuf UTF-8 ceiling through `utf8_range::IsStructurallyValid` there; `Arena::Create` for `CreateMessage` (removed); every cargo invocation's `CARGO_BUILD_BUILD_DIR` = its `CARGO_TARGET_DIR` (the machine's `~/.cargo/config.toml` sets one shared `build.build-dir`); grpc++ channels set `GRPC_ARG_DEFAULT_AUTHORITY` = "localhost" (below). Only the C++17 targets were built here; the C++11 / C++14 floor targets include protobuf headers, which need C++17 from protobuf 22 on, and were not attempted |
 | **Core** | the shared one at `ffi/poc/codec/crates/ak-core` (R0). CMake builds it with cargo, `init-guard` in every configuration. Full-build flavours: plain, `count`, `corpus`, `rpc`, `rpc,count`, and three planted cores (`pad-widths`, `global-widths`, both). No-unknown flavours: `--no-default-features` plus `init-guard` alone, `count`, `corpus` or `rpc`. Each flavour has its own target dir under `core-build/` |
@@ -20,6 +20,46 @@ defect. What this file reports as results are correctness outcomes and crossing 
 | **Floor / target** | C++11 floor, C++17 target, both builds. C++14 also builds and is gated (full build) |
 | **Incumbent** | protobuf C++ 3.21.12 and grpc++ 1.51.1, apt's, the only versions in this container (2026-09-28: the container came up without them; reinstalled from apt, libprotobuf-dev 3.21.12-8.2ubuntu0.3, libgrpc++-dev 1.51.1-4.1build5, protobuf-compiler, protobuf-compiler-grpc). `packages/cpp` pins neither. The runner builds against gRPC v1.54.0 and a current version through AK_INCUMBENT_PREFIX, one run per prefix (section 3); neither prefix exists here (checklist row 3) |
 | **Compiler** | g++ 13.3.0, `-O2 -g -DNDEBUG`; rustc 1.94.1 |
+
+## D27: reset on entry (2026-10-10, owner; done by the Rust slice agent on the coordinator's order; fast checks only)
+
+FIX-PLAN D27: the shared core resets every context in the first call of an operation (encode
+entries as `ak_enc_reset` does; decode entries re-arm from the stored options pointer).
+Logs `logs/cpp/d27/`.
+- **Binding** (`poc/codec/gen/cpp_binding.py`): no `ak_enc_reset` in any `encode_into_*`;
+  `decode_with_<root>_unk` and `pull_with_<root>_unk` arm a context ONCE (`unk_arm_once_<root>`:
+  the per-thread options at their stable address, written once; `ak_dec_reset_<Root>` only to set
+  the pointer; the drop decodes disarm to NULL as before). `decode_with_<root>_opts` keeps its two
+  resets (set the caller's pointer, then NULL: the caller's options may not outlive the call).
+- **Defect found and fixed in this unit**: with arm-once, the binding's per-thread list of armed
+  contexts can hold a context freed with a raw `ak_dec_ctx_free` (corpus_harness.h does that); a
+  new context at the same address was then taken for an armed one and its decode dropped every
+  unknown field. The corpus showed it (ffi-pull-retain wrote the dropped form on 22 Chunk* rows).
+  Fix: `DecRoot<T>::ctx_new` and `DecCtxs` create through `bound_ctx_new_<root>`, and
+  `DecRoot<T>::reset` goes through `bound_reset_<root>`, each forgetting the context first. Still
+  exposed: a context made with a raw `ak_dec_ctx_new_<Root>` at a reused address (only conformance
+  tests do that, drop mode); the list itself goes with D26.
+- **counts.cpp**: every decode count is now taken WARM (the same decode once before on the same
+  context, as the timed loop runs), so a retain decode's steady state (no reset) is what is counted.
+- **Counts regenerated** (`logs/cpp/d27/counts/change.txt`, before-files in `d27/counts/before/`):
+  counts-baseline (530 rows), counts-nounk-baseline (301), counts-grid (49), counts-grid-nounk
+  (49): every encode row and every retain decode / pull-retain row 1 forward lower (host 1 -> 0),
+  reverse and core unchanged on every row, no other row changed. rpc-counts (132) and
+  rpc-counts-nounk (78): every C/Cf/D/Df row that encodes or decodes retained 1 host call per
+  message lower (d: 2 and 8), rpc / codec / reverse unchanged; C-retain a reads host 0.250 (those
+  counts are 4 cold calls, the first arms).
+- **Checks run** (`gen/d27_checks.sh build`: 0 failures; `conformance.log`, `corpus.log`,
+  `counts.log`): conformance_a17_shared 608/0 and conformance_nounk_a17 478/0; the corpus six arms
+  (ffi-drop, ffi-retain, native-drop, native-retain, ffi-pull-drop, ffi-pull-retain) pass with no
+  retention gap outside U-map-entry, the decision 11 controls pass and their plant fails, the
+  no-unknown corpus passes; every count file above identical to a fresh run (codec, grid, RPC per
+  call against the shared serve.sh server). Built in `build/` (-DAK_RPC=ON, google benchmark from
+  build-campaign/gbench-v1.8.3-release), the targets of those checks only; `poc/codec/gen/generate.py
+  --check` current for this slice.
+- **Not run** (owner, 2026-10-10: checks, not gates): wp5_gate and nounk_gate as a whole (C++17
+  floor, C++14, C++11, static, noinit, probe, bytes audit, boundary, groupskip, concurrency, ODR,
+  bench gates, content sets, counts_a17_static), d11_asan, the campaign gate, deliv_checks,
+  q_checks, both h2 variants.
 
 ## Physical-machine probe (2026-09-29/30): step 0 and the driver
 
