@@ -1,0 +1,45 @@
+# s15_checks.sh at d3b658fb + uncommitted; 2026-10-10T09:40:56Z; boot 2026-10-10 09:18:10
+## 1. no thread-local storage
+$ python3 -I gen/no_tls.py src
+no_tls: 78 C# files scanned under src; 0 thread-local site(s)
+exit status: 0
+$ python3 -I gen/no_tls.py /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/tlsplant   # a CONTROL: must fail
+THREAD-LOCAL /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/tlsplant/Planted.cs:2: ThreadStatic
+no_tls: 1 C# files scanned under /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/tlsplant; 1 thread-local site(s)
+exit status: 1
+control planted [ThreadStatic]: failed, as required
+## 2. gen/s7_checks.sh (log: s7-checks.log)
+$ bash -c gen/s7_checks.sh > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/checks/s7-checks.log' 2>&1; rc=$?; grep -E 'FAILED|DID NOT FAIL|PASSED' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/checks/s7-checks.log' | tail -5; exit $rc
+CHECK: corpus E1R K 3, pin stress FAILED
+CHECK: corpus E1C K 3, pin stress FAILED
+S7 CHECKS: 2 FAILED
+exit status: 2
+CHECK: s7_checks FAILED
+## 3. the other count files; --verify-mt under E0
+$ bash -c AK_STR_ENC=E1 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1.txt' > /dev/null && diff -q gen/counts-str-e1.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1-nounk.txt' > /dev/null && diff -q gen/counts-str-e1-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E2 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e2.txt' > /dev/null && diff -q gen/counts-str-e2.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e2.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E2 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e2-nounk.txt' > /dev/null && diff -q gen/counts-str-e2-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e2-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=ETH:256 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-eth256.txt' > /dev/null && diff -q gen/counts-str-eth256.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-eth256.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=ETH:256 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-eth256-nounk.txt' > /dev/null && diff -q gen/counts-str-eth256-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-eth256-nounk.txt'
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e0n.txt' > /dev/null && diff -q gen/counts-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e0n.txt'
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+## 4. gen/s10_checks.sh (log: s10/)
+$ bash -c gen/s10_checks.sh '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/checks/s10' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/checks/s10-checks.log' 2>&1; rc=$?; grep -E 'FAILED|NOT CAUGHT|PASSED' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/checks/s10-checks.log' | tail -5; exit $rc
+UNK CONTROLS PASSED
+S10 CHECKS PASSED (net8.0; not the gate)
+exit status: 0
+
+S15 CHECKS: 1 FAILED

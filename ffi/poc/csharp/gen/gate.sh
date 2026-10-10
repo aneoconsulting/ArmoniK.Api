@@ -92,6 +92,11 @@ rm -rf "$SCRATCH/cg"; mkdir -p "$SCRATCH/cg"
 ( cd "$REPO" && git archive HEAD ffi/poc/codec ffi/schema ffi/corpus | tar -x -C "$SCRATCH/cg" )
 AK_CODECGEN="$SCRATCH/cg/ffi/poc/codec/gen" run "generate --check" python3 -S gen/generate.py --check
 
+step "1b. no thread-local storage (D26, owner 2026-10-10): sources and generated code, comments excluded"
+run "no [ThreadStatic], ThreadLocal, AsyncLocal or ConcurrentBag under src/" python3 -I gen/no_tls.py src
+mkdir -p "$SCRATCH/tlsplant" && printf 'class Planted {\n    [ThreadStatic] private static int _x;\n}\n' > "$SCRATCH/tlsplant/Planted.cs"
+control "a planted [ThreadStatic]" python3 -I gen/no_tls.py "$SCRATCH/tlsplant"
+
 step "2. the core (every build with init-guard) and the layout probe"
 if [ "$LEVELS" != "8 6" ] && [ "${AK_GATE_KEEP_CORE:-0}" = 1 ]; then
   echo "# AK_GATE_KEEP_CORE=1 (quick checks only): the cores already built are used, not rebuilt"
@@ -314,7 +319,7 @@ plant_fsm() {  # name from to: plant into the generated FSM consumer, rebuild, t
   control "FSM plant: $1" dotnet "$B8/BenchDotNet.dll" --verify-fsm --variants 8
   cp "$SCRATCH/CoreFfi.orig" "$GEN"
 }
-plant_fsm "token ignored (every element group applied to element 0)" "[(int)ev->token], b); return;" "[0], b); return;"
+plant_fsm "token ignored (every element group applied to element 0)" "[(int)ev->token], b" "[0], b"
 plant_fsm "a run's last element lost" "int n = (int)ev->n;" "int n = (int)ev->n - (ev->n > 1 ? 1 : 0);"
 plant_fsm "the root group not applied" "// The root group: always the last event, the end." "if (len >= 0) break;"
 plant_fsm "an error read as the end" "rc = op < 0 ? op : 0;" "rc = 0;"

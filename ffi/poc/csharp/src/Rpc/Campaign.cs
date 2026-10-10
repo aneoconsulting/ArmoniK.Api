@@ -194,21 +194,14 @@ public static class CampaignMain
 
     private static byte[] _wire;
     private static long _sink;
-    [ThreadStatic] private static CoreFfi_ListTasksDetailedResponse _core;
-    [ThreadStatic] private static byte[] _buf;
-    [ThreadStatic] private static Enc _he;
-    private static CoreFfi_ListTasksDetailedResponse Core => _core ??= new CoreFfi_ListTasksDetailedResponse();
-    /// Cell D's marshaller runs on whichever thread-pool thread Grpc.Net uses, so it takes a
-    /// core-ffi context from this pool and gives it back (no per-thread context to create when
-    /// a new pool thread appears; the pool grows to the calls in flight during the warm-up).
-    private static readonly System.Collections.Concurrent.ConcurrentBag<CoreFfi_ListTasksDetailedResponse> _cores = new System.Collections.Concurrent.ConcurrentBag<CoreFfi_ListTasksDetailedResponse>();
-    private static CoreFfi_ListTasksDetailedResponse RentCore() => _cores.TryTake(out var c) ? c : new CoreFfi_ListTasksDetailedResponse();
-    private static byte[] Buf(int n) => (_buf == null || _buf.Length < n) ? (_buf = new byte[Math.Max(n, 1 << 20)]) : _buf;
-
-    private static byte[] Flatten(ReadOnlySequence<byte> s, out int n)
+    // D26 (s15): the caches that were thread-static are the fields of the caller's object
+    // (Caller.cs), passed to every call; cells D and F's marshallers rent one per call (they
+    // run on whichever thread-pool thread Grpc.Net uses; the queue grows to the calls in flight
+    // during the warm-up, so no binding is created in a timed call).
+    private static byte[] Flatten(Caller cl, ReadOnlySequence<byte> s, out int n)
     {
         n = checked((int)s.Length);
-        var b = Buf(n);
+        var b = cl.Buf(n);
         s.CopyTo(b);
         return b;
     }
@@ -295,14 +288,15 @@ public static class CampaignMain
     internal sealed class Cell
     {
         public string Name, Dir, Mode, Channel, Payload = "P2.2";
-        public Action One;
-        public Func<Task> OneAsync;
+        /// D26: every call gets its caller's object (Caller.cs) explicitly.
+        public Action<Caller> One;
+        public Func<Caller, Task> OneAsync;
         /// Directions c and d (req 14 as amended): run at 1 and 8 in flight only, with this many
         /// times fewer calls per sample; `Check` is the pre-timing check (d: count and digest
         /// through StreamCheck; c: one accepted call).
         public int CallDiv = 1;
-        public Action Check;
-        public Func<Task> CheckAsync;
+        public Action<Caller> Check;
+        public Func<Caller, Task> CheckAsync;
         /// D7: the delivery cell's channel (its queue's pop count in the counting run).
         public DeliveryChannel Dc;
         public bool Upload => Dir == "c" || Dir == "d";
@@ -351,7 +345,7 @@ public static class CampaignMain
 
         // --- B, C, E: the core's BLOCKING delivery (requirement 16); codec 0 = incumbent,
         //     1 = core-ffi, 2 = host-gen.
-        unsafe void CoreDown(CoreChannel ch, string cell, int codec, bool retain, bool read)
+        unsafe void CoreDown(Caller cl, CoreChannel ch, string cell, int codec, bool retain, bool read)
         {
             ak_bytes r = default;
             int rc;
@@ -369,13 +363,13 @@ public static class CampaignMain
                 }
                 // The managed decoders take a managed buffer: the response is copied once
                 // (charged to the cell).
-                var b = Buf((int)r.len);
+                var b = cl.Buf((int)r.len);
                 new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
                 ListTasksDetailedResponse fm;
                 if (codec == 1)
                 {
                     // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
-                    int dr = Core.TryFsm(b, (int)r.len, retain, out fm);
+                    int dr = cl.Core.TryFsm(b, (int)r.len, retain, out fm);
                     if (dr < 0) throw new Abort(cell + ": core FSM decode " + dr + (dr == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
                 }
                 else fm = HostDecode(b, (int)r.len, retain, cell);
@@ -383,7 +377,7 @@ public static class CampaignMain
             }
             finally { AkRpc.ak_bytes_free(&r); }
         }
-        unsafe void CoreUp(CoreChannel ch, string cell, int codec, bool retain)
+        unsafe void CoreUp(Caller cl, CoreChannel ch, string cell, int codec, bool retain)
         {
             byte* q;
             int n;
@@ -391,18 +385,18 @@ public static class CampaignMain
             if (codec == 0)
             {
                 n = g22.CalculateSize();
-                pinnedArr = Buf(n);
+                pinnedArr = cl.Buf(n);
                 g22.WriteTo(new Span<byte>(pinnedArr, 0, n));
             }
             else if (codec == 1)
             {
                 // C, the MOVE path (ABI v1 section 9, WP8 parity): the encode stays in the core's
                 // context and ak_call_unary_enc moves that buffer into the request, no copy.
-                int er = Core.EncodeInto(f22, retain);
+                int er = cl.Core.EncodeInto(f22, retain);
                 if (er < 0) throw new Abort(cell + ": core encode " + er);
                 ak_bytes r = default;
                 int rc, gs = -1;
-                fixed (byte* p = upPath) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)upPath.Length, Core.EncContext, &r, &gs);
+                fixed (byte* p = upPath) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)upPath.Length, cl.Core.EncContext, &r, &gs);
                 try { if (rc != AkRpc.AK_OK) throw new Abort(cell + " up: status " + rc + " grpc " + gs); CheckLen((int)r.len, 0, cell + " up"); }
                 finally { AkRpc.ak_bytes_free(&r); }
                 return;
@@ -411,19 +405,18 @@ public static class CampaignMain
             {
                 // Cc, the COPY path (a labelled extra): the core's buffer taken, then copied into
                 // the request by ak_call_unary.
-                int er = Core.TryEncode(f22, retain, out q, out n);
+                int er = cl.Core.TryEncode(f22, retain, out q, out n);
                 if (er < 0) throw new Abort(cell + ": core encode " + er);
                 Send(q, n);
                 return;
             }
             else
             {
-                if (_he.Buf == null) _he = Enc.New(Armonik.Ffi.Facade.Codec.Sites, 1 << 16);
-                _he.Reset();
-                if (retain) HostR.WriteListTasksDetailedResponse(ref _he, f22); else Armonik.Ffi.Facade.Codec.WriteListTasksDetailedResponse(ref _he, f22);
-                if (_he.Err != 0) throw new Abort(cell + ": managed encode " + _he.Err);
-                n = _he.Pos;
-                pinnedArr = _he.Buf;
+                ref var he = ref cl.HostEnc();
+                if (retain) HostR.WriteListTasksDetailedResponse(ref he, f22); else Armonik.Ffi.Facade.Codec.WriteListTasksDetailedResponse(ref he, f22);
+                if (he.Err != 0) throw new Abort(cell + ": managed encode " + he.Err);
+                n = he.Pos;
+                pinnedArr = he.Buf;
             }
             fixed (byte* pp = pinnedArr) Send(pp, n);
 
@@ -441,9 +434,9 @@ public static class CampaignMain
         {
             if (!keep(name)) return;
             var ch = CoreCh(name);
-            cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), One = () => CoreDown(ch, name, codec, retain, false) });
-            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), One = () => CoreDown(ch, name, codec, retain, true) });
-            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), One = () => CoreUp(ch, name, codec, retain) });
+            cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), One = cl => CoreDown(cl, ch, name, codec, retain, false) });
+            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), One = cl => CoreDown(cl, ch, name, codec, retain, true) });
+            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), One = cl => CoreUp(cl, ch, name, codec, retain) });
         }
         // Direction b only: the framed twins (Bf, Cf-*, Ef-*: the core's second send path beside
         // its reference, req 14) and C's copy path (Cc-*); a has an empty request, so its send path
@@ -453,7 +446,7 @@ public static class CampaignMain
             if (!keep(name)) return;
             var ch = CoreCh(name + " (b)");
             if (ch != null && AkRpc.ak_client_set_framed(ch.Client, framed ? 1 : 0) != AkRpc.AK_OK) throw new InvalidOperationException("ak_client_set_framed");
-            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), Channel = name + " (b)", One = () => CoreUp(ch, name, codec, retain) });
+            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), Channel = name + " (b)", One = cl => CoreUp(cl, ch, name, codec, retain) });
         }
 
         // --- A, D, F: Grpc.Net, the idiomatic `await` of an AsyncUnaryCall (requirement 16 as
@@ -465,36 +458,46 @@ public static class CampaignMain
         {
             if (!keep(name)) return;
             var inv = GrpcCh(name);
-            cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), OneAsync = async () => { await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); } });
-            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), OneAsync = async () => { var m = await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); _sink += touch(m); } });
-            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), OneAsync = async () => { var r = await inv.AsyncUnaryCall(up, null, new CallOptions(), req); CheckLen(r.Length, 0, name + " up"); } });
+            cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), OneAsync = async cl => { await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); } });
+            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), OneAsync = async cl => { var m = await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); _sink += touch(m); } });
+            cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), OneAsync = async cl => { var r = await inv.AsyncUnaryCall(up, null, new CallOptions(), req); CheckLen(r.Length, 0, name + " up"); } });
         }
         var aDown = DownMethod(c => { CheckLen(c.PayloadLength, want, "A"); return Gp.ListTasksDetailedResponse.Parser.ParseFrom(c.PayloadAsReadOnlySequence()); });
         var aUp = UpMethod<Gp.ListTasksDetailedResponse>(Ops_ListTasksDetailedResponse.SerInc);
         Method<byte[], ListTasksDetailedResponse> DDown(bool retain) => DownMethod(c =>
         {
             CheckLen(c.PayloadLength, want, "D");
-            var b = Flatten(c.PayloadAsReadOnlySequence(), out int n);
-            var core = RentCore();
-            // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
-            int rc = core.TryFsm(b, n, retain, out var m);
-            _cores.Add(core);
+            var cl = Caller.Rent();
+            int rc;
+            ListTasksDetailedResponse m;
+            try
+            {
+                var b = Flatten(cl, c.PayloadAsReadOnlySequence(), out int n);
+                // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
+                rc = cl.Core.TryFsm(b, n, retain, out m);
+            }
+            finally { Caller.Return(cl); }
             if (rc < 0) throw new Abort("D: core FSM decode " + rc + (rc == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
             return m;
         });
         Method<ListTasksDetailedResponse, byte[]> DUp(bool retain) => UpMethod<ListTasksDetailedResponse>((m, c) =>
         {
-            var core = RentCore();
-            try { Ops_ListTasksDetailedResponse.SerFfi(core, m, retain, c); }
-            finally { _cores.Add(core); }
+            var cl = Caller.Rent();
+            try { Ops_ListTasksDetailedResponse.SerFfi(cl.Core, m, retain, c); }
+            finally { Caller.Return(cl); }
         });
         Method<byte[], ListTasksDetailedResponse> FDown(bool retain) => DownMethod(c =>
         {
             CheckLen(c.PayloadLength, want, "F");
-            var b = Flatten(c.PayloadAsReadOnlySequence(), out int n);
-            return HostDecode(b, n, retain, "F");
+            var cl = Caller.Rent();
+            try
+            {
+                var b = Flatten(cl, c.PayloadAsReadOnlySequence(), out int n);
+                return HostDecode(b, n, retain, "F");
+            }
+            finally { Caller.Return(cl); }
         });
-        Method<ListTasksDetailedResponse, byte[]> FUp(bool retain) => UpMethod<ListTasksDetailedResponse>((m, c) => Ops_ListTasksDetailedResponse.SerHost(m, retain, c));
+        Method<ListTasksDetailedResponse, byte[]> FUp(bool retain) => UpMethod<ListTasksDetailedResponse>((m, c) => { var sb = SerBuf.Rent(); try { Ops_ListTasksDetailedResponse.SerHost(sb, m, retain, c); } finally { SerBuf.Return(sb); } });
         Func<Gp.ListTasksDetailedResponse, long> tg = Touch.G_ListTasksDetailedResponse;
         Func<ListTasksDetailedResponse, long> tf = Touch.F_ListTasksDetailedResponse;
 
@@ -534,26 +537,26 @@ public static class CampaignMain
             if (!extras) break;
             if (!keep(name)) continue;
             var ch = CoreCh(name, queue);
-            async Task Down(bool read)
+            async Task Down(Caller cl, bool read)
             {
                 var r = queue ? await ch.CallQAsync(downPath, Array.Empty<byte>()) : await ch.CallCbAsync(downPath, Array.Empty<byte>());
                 try
                 {
                     CheckLen((int)r.len, want, name);
-                    long h = Decode(r, core, read);
+                    long h = Decode(cl, r, core, read);
                     if (read) _sink += h;
                 }
                 finally { CoreChannel.Release(ref r); }
             }
-            async Task Up()
+            async Task Up(Caller cl)
             {
-                var body = core ? Core.EncodeToArray(f22) : gUpBytes;
+                var body = core ? cl.Core.EncodeToArray(f22) : gUpBytes;
                 var r = queue ? await ch.CallQAsync(upPath, body) : await ch.CallCbAsync(upPath, body);
                 try { CheckLen((int)r.len, 0, name + " up"); }
                 finally { CoreChannel.Release(ref r); }
             }
-            cells.Add(new Cell { Name = name, Dir = "a", Mode = core ? "drop" : "default", OneAsync = () => Down(false) });
-            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = core ? "drop" : "default", OneAsync = () => Down(true) });
+            cells.Add(new Cell { Name = name, Dir = "a", Mode = core ? "drop" : "default", OneAsync = cl => Down(cl, false) });
+            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = core ? "drop" : "default", OneAsync = cl => Down(cl, true) });
             cells.Add(new Cell { Name = name, Dir = "b", Mode = core ? "drop" : "default", OneAsync = Up });
         }
 #endif
@@ -581,8 +584,8 @@ public static class CampaignMain
                         owned.Insert(0, dc);   // disposed before its channel
                     }
                     int cd = codec; bool rt2 = retain; string nm = name;
-                    cells.Add(new Cell { Name = name, Dir = "a+read", Mode = mode, Dc = dc, OneAsync = () => DownD(dc, downPath, cd, rt2, want, nm) });
-                    cells.Add(new Cell { Name = name, Dir = "b", Mode = mode, Dc = dc, OneAsync = () => UpD(dc, upPath, cd, rt2, g22, f22, nm) });
+                    cells.Add(new Cell { Name = name, Dir = "a+read", Mode = mode, Dc = dc, OneAsync = cl => DownD(cl, dc, downPath, cd, rt2, want, nm) });
+                    cells.Add(new Cell { Name = name, Dir = "b", Mode = mode, Dc = dc, OneAsync = cl => UpD(cl, dc, upPath, cd, rt2, g22, f22, nm) });
                     AddUploadDeliveryCells(cells, dc, name, codec, retain, mode);
                 }
         }
@@ -593,39 +596,39 @@ public static class CampaignMain
 
     // ====================================================== D7: the delivery cells' flows
 
-    private static async Task DownD(DeliveryChannel dc, byte[] path, int codec, bool retain, int want, string cell)
+    private static async Task DownD(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, int want, string cell)
     {
         var d = await DeliveryFlows.Unary(dc, (u, t) => dc.StartUnary(path, Array.Empty<byte>(), 0, u, t), cell).ConfigureAwait(false);
         try
         {
             if (d.Status != AkRpc.AK_OK) throw new Abort(cell + ": status " + d.Status + " grpc " + d.Grpc);
-            _sink += DecodeRead(d.Bytes, codec, retain, want, cell);
+            _sink += DecodeRead(cl, d.Bytes, codec, retain, want, cell);
         }
         finally { DeliveryChannel.Free(d.Bytes); }
     }
 
     /// The blocking cells' decode of the P2.2 response (CoreDown), then every field read.
-    private static unsafe long DecodeRead(ak_bytes r, int codec, bool retain, int want, string cell)
+    private static unsafe long DecodeRead(Caller cl, ak_bytes r, int codec, bool retain, int want, string cell)
     {
         CheckLen((int)r.len, want, cell);
         if (codec == 0)
             return Touch.G_ListTasksDetailedResponse(Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len)));
-        var b = Buf((int)r.len);
+        var b = cl.Buf((int)r.len);
         new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
         ListTasksDetailedResponse fm;
         if (codec == 1)
         {
             // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
-            int dr = Core.TryFsm(b, (int)r.len, retain, out fm);
+            int dr = cl.Core.TryFsm(b, (int)r.len, retain, out fm);
             if (dr < 0) throw new Abort(cell + ": core FSM decode " + dr);
         }
         else fm = HostDecode(b, (int)r.len, retain, cell);
         return Touch.F_ListTasksDetailedResponse(fm);
     }
 
-    private static async Task UpD(DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, string cell)
+    private static async Task UpD(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, string cell)
     {
-        var d = await DeliveryFlows.Unary(dc, (u, t) => StartUp(dc, path, codec, retain, g, f, u, t, cell), cell).ConfigureAwait(false);
+        var d = await DeliveryFlows.Unary(dc, (u, t) => StartUp(cl, dc, path, codec, retain, g, f, u, t, cell), cell).ConfigureAwait(false);
         try
         {
             if (d.Status != AkRpc.AK_OK) throw new Abort(cell + " up: status " + d.Status + " grpc " + d.Grpc);
@@ -637,26 +640,25 @@ public static class CampaignMain
     /// Direction b's encode and start, as the blocking cells encode (CoreUp): incumbent into a
     /// buffer then copied by the core; core-ffi into its context, MOVED (the _enc entries);
     /// host-gen into its Enc, copied by the core.
-    private static unsafe IntPtr StartUp(DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, IntPtr user, ulong tag, string cell)
+    private static unsafe IntPtr StartUp(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, Gp.ListTasksDetailedResponse g, ListTasksDetailedResponse f, IntPtr user, ulong tag, string cell)
     {
         if (codec == 1)
         {
-            int er = Core.EncodeInto(f, retain);
+            int er = cl.Core.EncodeInto(f, retain);
             if (er < 0) throw new Abort(cell + ": core encode " + er);
-            return dc.StartUnaryEnc(path, Core.EncContext, user, tag);
+            return dc.StartUnaryEnc(path, cl.Core.EncContext, user, tag);
         }
         if (codec == 0)
         {
             int n = g.CalculateSize();
-            var a = Buf(n);
+            var a = cl.Buf(n);
             g.WriteTo(new Span<byte>(a, 0, n));
             return dc.StartUnary(path, a, n, user, tag);
         }
-        if (_he.Buf == null) _he = Enc.New(Armonik.Ffi.Facade.Codec.Sites, 1 << 16);
-        _he.Reset();
-        if (retain) HostR.WriteListTasksDetailedResponse(ref _he, f); else Armonik.Ffi.Facade.Codec.WriteListTasksDetailedResponse(ref _he, f);
-        if (_he.Err != 0) throw new Abort(cell + ": managed encode " + _he.Err);
-        return dc.StartUnary(path, _he.Buf, _he.Pos, user, tag);
+        ref var he = ref cl.HostEnc();
+        if (retain) HostR.WriteListTasksDetailedResponse(ref he, f); else Armonik.Ffi.Facade.Codec.WriteListTasksDetailedResponse(ref he, f);
+        if (he.Err != 0) throw new Abort(cell + ": managed encode " + he.Err);
+        return dc.StartUnary(path, he.Buf, he.Pos, user, tag);
     }
 
     private static void AddUploadDeliveryCells(List<Cell> cells, DeliveryChannel dc, string name, int codec, bool retain, string mode)
@@ -669,17 +671,17 @@ public static class CampaignMain
             var uu = u;
             if (!u.Stream)
                 cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = mode, CallDiv = 4, Channel = name, Dc = dc,
-                    OneAsync = () => UploadD(dc, upload, codec, retain, uu, name), CheckAsync = () => UploadD(dc, upload, codec, retain, uu, name) });
+                    OneAsync = cl => UploadD(cl, dc, upload, codec, retain, uu, name), CheckAsync = cl => UploadD(cl, dc, upload, codec, retain, uu, name) });
             else
                 cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = mode, CallDiv = 8, Channel = name, Dc = dc,
-                    OneAsync = async () => Uploads.CheckStreamResponse(await StreamD(dc, stream, codec, retain, uu, name), uu, false, 0, null, name),
-                    CheckAsync = async () => Uploads.CheckStreamResponse(await StreamD(dc, streamCheck, codec, retain, uu, name), uu, true, 0, null, name) });
+                    OneAsync = async cl => Uploads.CheckStreamResponse(await StreamD(cl, dc, stream, codec, retain, uu, name), uu, false, 0, null, name),
+                    CheckAsync = async cl => Uploads.CheckStreamResponse(await StreamD(cl, dc, streamCheck, codec, retain, uu, name), uu, true, 0, null, name) });
         }
     }
 
-    private static async Task UploadD(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
+    private static async Task UploadD(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
     {
-        var d = await DeliveryFlows.Unary(dc, (us, t) => Uploads.StartUpload(dc, path, codec, retain, u, us, t, cell), cell).ConfigureAwait(false);
+        var d = await DeliveryFlows.Unary(dc, (us, t) => Uploads.StartUpload(cl, dc, path, codec, retain, u, us, t, cell), cell).ConfigureAwait(false);
         try
         {
             if (d.Status != AkRpc.AK_OK) throw new CampaignAbort(cell + " c: status " + d.Status + " grpc " + d.Grpc);
@@ -688,9 +690,9 @@ public static class CampaignMain
         finally { DeliveryChannel.Free(d.Bytes); }
     }
 
-    private static async Task<byte[]> StreamD(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
+    private static async Task<byte[]> StreamD(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, string cell)
     {
-        var d = await DeliveryFlows.Stream(dc, path, u.G.Length, (h, i, us, t) => Uploads.StartSend(dc, h, codec, retain, u, i, us, t, cell), cell).ConfigureAwait(false);
+        var d = await DeliveryFlows.Stream(dc, path, u.G.Length, (h, i, us, t) => Uploads.StartSend(cl, dc, h, codec, retain, u, i, us, t, cell), cell).ConfigureAwait(false);
         try
         {
             if (d.Status != AkRpc.AK_OK) throw new CampaignAbort(cell + " d: recv status " + d.Status + " grpc " + d.Grpc);
@@ -738,12 +740,12 @@ public static class CampaignMain
                 var uu = u;
                 if (!u.Stream)
                     cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = mode, CallDiv = CDiv, Channel = name,
-                        One = () => Uploads.CoreUnary(ch, upload, codec, retain, uu, cWant, name),
-                        Check = () => Uploads.CoreUnary(ch, upload, codec, retain, uu, cWant, name) });
+                        One = cl => Uploads.CoreUnary(cl, ch, upload, codec, retain, uu, cWant, name),
+                        Check = cl => Uploads.CoreUnary(cl, ch, upload, codec, retain, uu, cWant, name) });
                 else
                     cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = mode, CallDiv = DDiv, Channel = name,
-                        One = () => Uploads.CheckStreamResponse(Uploads.CoreStream(ch, stream, codec, retain, uu, name), uu, false, dPlant, null, name),
-                        Check = () => Uploads.CheckStreamResponse(Uploads.CoreStream(ch, streamCheck, codec, retain, uu, name), uu, true, dPlant, PlantSha(uu), name) });
+                        One = cl => Uploads.CheckStreamResponse(Uploads.CoreStream(cl, ch, stream, codec, retain, uu, name), uu, false, dPlant, null, name),
+                        Check = cl => Uploads.CheckStreamResponse(Uploads.CoreStream(cl, ch, streamCheck, codec, retain, uu, name), uu, true, dPlant, PlantSha(uu), name) });
             }
         }
         // A, D, F: Grpc.Net, AsyncUnaryCall and AsyncClientStreamingCall.
@@ -760,12 +762,12 @@ public static class CampaignMain
                 var ms = msgs(u);
                 if (!u.Stream)
                     cells.Add(new Cell { Name = name, Dir = "c", Payload = u.Payload, Mode = modeOf(name), CallDiv = CDiv, Channel = name + " (c, d)",
-                        OneAsync = () => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name),
-                        CheckAsync = () => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name) });
+                        OneAsync = cl => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name),
+                        CheckAsync = cl => Uploads.GrpcUnary(inv, mc, ms[0], cWant, name) });
                 else
                     cells.Add(new Cell { Name = name, Dir = "d", Payload = u.Payload, Mode = modeOf(name), CallDiv = DDiv, Channel = name + " (c, d)",
-                        OneAsync = async () => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, md, ms), uu, false, dPlant, null, name),
-                        CheckAsync = async () => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, mk, ms), uu, true, dPlant, PlantSha(uu), name) });
+                        OneAsync = async cl => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, md, ms), uu, false, dPlant, null, name),
+                        CheckAsync = async cl => Uploads.CheckStreamResponse(await Uploads.GrpcStream(inv, mk, ms), uu, true, dPlant, PlantSha(uu), name) });
             }
         }
         Grpc("A", Uploads.MInc, u => u.G);
@@ -788,14 +790,14 @@ public static class CampaignMain
 #endif
     }
 
-    private static unsafe long Decode(ak_bytes r, bool core, bool read)
+    private static unsafe long Decode(Caller cl, ak_bytes r, bool core, bool read)
     {
         if (core)
         {
-            var b = Buf((int)r.len);
+            var b = cl.Buf((int)r.len);
             new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len).CopyTo(b);
             // D24 (owner, 2026-10-09): the core decodes the response with the FSM, the target family.
-            if (Core.TryFsm(b, (int)r.len, false, out var fm) < 0) throw new Abort("core FSM decode");
+            if (cl.Core.TryFsm(b, (int)r.len, false, out var fm) < 0) throw new Abort("core FSM decode");
             return read ? Touch.F_ListTasksDetailedResponse(fm) : 0;
         }
         var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len));
@@ -812,7 +814,8 @@ public static class CampaignMain
         for (int i = 0; i < k; i++)
         {
             int cnt = n / k + (i < n % k ? 1 : 0);
-            ts[i] = Task.Run(async () => { for (int j = 0; j < cnt; j++) await c.OneAsync(); });
+            var cl = pool.AsyncCaller(i);   // D26: async loop i's own caller object, kept by the pool
+            ts[i] = Task.Run(async () => { for (int j = 0; j < cnt; j++) await c.OneAsync(cl); });
         }
         await Task.WhenAll(ts);
     }
@@ -871,11 +874,12 @@ public static class CampaignMain
     private static async Task<int> UploadCheck(List<Cell> cells)
     {
         int n = 0;
+        using var main = new Caller();   // D26: this run's one caller
         try
         {
             foreach (var c in cells.Where(x => x.Upload))
             {
-                if (c.Check != null) c.Check(); else await c.CheckAsync();
+                if (c.Check != null) c.Check(main); else await c.CheckAsync(main);
                 Console.WriteLine("  ok  {0,-10} {1} {2,-13} {3}", c.Name, c.Dir, c.Payload, c.Mode);
                 n++;
             }
@@ -913,13 +917,14 @@ public static class CampaignMain
             DeliveryCounts ? "# D7 (AK_RPC_COUNT_DELIVERIES=1): the delivery cells only (<cell>.callback, .callback-inline, .queue, and the older B/C extras); a queue cell's drainer pops (ak_queue_next) are counted by name; one call = one awaited call of the cell, after one untimed call"
                 : "# the extras (.callback, .queue) are not counted here (labelled extra rows; not built in this run, so their queue drainer cannot enter a count); D's marshaller takes a core-ffi context from a pool, so no context is created inside a counted call",
         };
+        using var main = new Caller();   // D26: the counting run's one caller, its bindings reused by every cell
         foreach (var c in cells)
         {
             if (c.Name.Contains('.') != DeliveryCounts) continue;
-            void Call() { if (c.One != null) c.One(); else c.OneAsync().GetAwaiter().GetResult(); }
+            void Call() { if (c.One != null) c.One(main); else c.OneAsync(main).GetAwaiter().GetResult(); }
             Call();
-            _ = Core;   // the counting thread's own context exists before the counters are zeroed
-            Abi.EntryReset(); AkRpc.EntryReset(); Core.CallsReset();
+            _ = main.Core;   // the counting caller's own context exists before the counters are zeroed
+            Abi.EntryReset(); AkRpc.EntryReset(); main.Core.CallsReset();
 #if !AK_NO_UNKNOWN_FIELDS
             UnkHost.Grows = 0;
             long Grows() => UnkHost.Grows;
@@ -944,8 +949,8 @@ public static class CampaignMain
                 e = e.OrderBy(x => x.Name, StringComparer.Ordinal).ToList();
             }
             long fwd = e.Sum(x => x.Calls), resets = e.Where(x => x.Name.StartsWith("ak_dec_reset_", StringComparison.Ordinal)).Sum(x => x.Calls);
-            if (resets != Core.ResetCalls) { Console.Error.WriteLine("reset tally mismatch on " + c.Name + " " + c.Dir); return 1; }
-            o.Add(string.Format(CultureInfo.InvariantCulture, "RPC {0} {1} {8} {2} | fwd {3} rev {4} grow {5} reset {6} | {7}", c.Name, c.Dir, c.Mode, fwd, Core.ReverseCalls, Grows(), resets,
+            if (resets != main.Core.ResetCalls) { Console.Error.WriteLine("reset tally mismatch on " + c.Name + " " + c.Dir); return 1; }
+            o.Add(string.Format(CultureInfo.InvariantCulture, "RPC {0} {1} {8} {2} | fwd {3} rev {4} grow {5} reset {6} | {7}", c.Name, c.Dir, c.Mode, fwd, main.Core.ReverseCalls, Grows(), resets,
                 string.Join(" ", e.Select(x => x.Name + "=" + x.Calls)), c.Payload));
         }
         File.WriteAllLines(path, o);
@@ -973,7 +978,10 @@ internal sealed class CallerPool : IDisposable
     private readonly SemaphoreSlim[] _go;
     private readonly int[] _count;
     private readonly CountdownEvent _done = new CountdownEvent(1);
-    private Action _work;
+    /// D26 (s15): caller i's object (Caller.cs), one per caller thread, created with the pool and
+    /// passed to every call that thread makes; and one per async loop of RunCell (_async).
+    private readonly Caller[] _callers, _async;
+    private Action<Caller> _work;
     private Exception _err;
     private volatile bool _stop;
 
@@ -982,6 +990,9 @@ internal sealed class CallerPool : IDisposable
         _t = new Thread[n];
         _go = new SemaphoreSlim[n];
         _count = new int[n];
+        _callers = new Caller[n];
+        _async = new Caller[n];
+        for (int i = 0; i < n; i++) { _callers[i] = new Caller(); _async[i] = new Caller(); }
         for (int i = 0; i < n; i++)
         {
             _go[i] = new SemaphoreSlim(0);
@@ -997,13 +1008,19 @@ internal sealed class CallerPool : IDisposable
         {
             _go[i].Wait();
             if (_stop) return;
-            try { var w = _work; for (int k = 0; k < _count[i]; k++) w(); }
+            try { var w = _work; var cl = _callers[i]; for (int k = 0; k < _count[i]; k++) w(cl); }
             catch (Exception e) { Interlocked.CompareExchange(ref _err, e, null); }
             _done.Signal();
         }
     }
 
-    public void Run(Action one, int n, int k)
+    /// Async loop i's caller object (RunCell).
+    public Caller AsyncCaller(int i) => _async[i];
+    /// The object of setup and check calls made outside the timed loops (the BDN case's setup).
+    public Caller Main => _main ??= new Caller();
+    private Caller _main;
+
+    public void Run(Action<Caller> one, int n, int k)
     {
         if (k > _t.Length) throw new ArgumentOutOfRangeException(nameof(k));
         _work = one;
@@ -1019,5 +1036,9 @@ internal sealed class CallerPool : IDisposable
     {
         _stop = true;
         foreach (var g in _go) g.Release();
+        foreach (var t in _t) t.Join();
+        foreach (var c in _callers) c.Dispose();
+        foreach (var c in _async) c.Dispose();
+        _main?.Dispose();
     }
 }

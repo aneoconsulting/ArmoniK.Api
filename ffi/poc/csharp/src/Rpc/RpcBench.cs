@@ -220,7 +220,7 @@ internal static class RpcCtx
         if (!c.Upload) return;
         var id = c.Name + "|" + c.Dir + "|" + c.Payload;
         if (!_checked.Add(id)) return;
-        if (c.Check != null) c.Check(); else c.CheckAsync().GetAwaiter().GetResult();
+        if (c.Check != null) c.Check(Pool.Main); else c.CheckAsync(Pool.Main).GetAwaiter().GetResult();
         UploadChecks++;
     }
 
@@ -256,7 +256,7 @@ public abstract class RpcBase
         // without it fails the case, so every exported sample ran with Nagle off.
         if (CampaignMain.IsTcp(RpcCtx.Sock))
         {
-            if (_c.One != null) _c.One(); else _c.OneAsync().GetAwaiter().GetResult();
+            if (_c.One != null) _c.One(RpcCtx.Pool.Main); else _c.OneAsync(RpcCtx.Pool.Main).GetAwaiter().GetResult();
             var (found, nd) = NoDelay.Check(CampaignMain.TcpPort(RpcCtx.Sock));
             if (found == 0 || nd != found) throw new InvalidOperationException("TCP_NODELAY read back: " + nd + " of " + found + " sockets to the server");
             RpcCtx.NoDelaySeen = (found, nd);

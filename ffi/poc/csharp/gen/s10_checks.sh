@@ -80,7 +80,7 @@ PY
   control "$name" dotnet "$B/BenchDotNet.dll" --verify-fsm --variants 8
   cp "$SCRATCH/CoreFfi.orig" "$G"
 }
-plant "token ignored (every element group applied to element 0)" "[(int)ev->token], b); return;" "[0], b); return;"
+plant "token ignored (every element group applied to element 0)" "[(int)ev->token], b" "[0], b"
 plant "a run's last element lost" "int n = (int)ev->n;" "int n = (int)ev->n - (ev->n > 1 ? 1 : 0);"
 plant "the root group not applied" "// The root group: always the last event, the end." "if (len >= 0) break;"
 plant "an error read as the end" "rc = op < 0 ? op : 0;" "rc = 0;"

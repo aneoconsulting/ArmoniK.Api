@@ -91,8 +91,8 @@ public static class CountRun
             Armonik.Ffi.Harness.Stage.TcCalls = 0;   // D21 E2: the C# transcoder's reverse calls
             Armonik.Ffi.Harness.Stage.PinCalls = 0;  // D21 E1 / ETH: the strings handed pinned
             Armonik.Ffi.Harness.Stage.U16Calls = 0; Armonik.Ffi.Harness.Stage.U16LenCalls = 0;
-            Armonik.Ffi.Harness.Stage.Marked = 0; Armonik.Ffi.Harness.Stage.Patched = 0;
-            Armonik.Ffi.Harness.Stage.RepPatched = 0; Armonik.Ffi.Harness.Stage.MapPatched = 0;
+            Armonik.Ffi.Harness.Stage.CountMarked = 0; Armonik.Ffi.Harness.Stage.CountPatched = 0;
+            Armonik.Ffi.Harness.Stage.CountRepPatched = 0; Armonik.Ffi.Harness.Stage.CountMapPatched = 0;
             Armonik.Ffi.Harness.Stage.HandlePins = 0; Armonik.Ffi.Harness.Stage.FrameBytes = 0;
 #if !AK_NO_UNKNOWN_FIELDS
             Armonik.Ffi.Harness.UnkHost.Grows = 0;
@@ -112,13 +112,13 @@ public static class CountRun
                 string.Join(" ", entries.Select(e => e.Name + "=" + e.Calls)), e2 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls
                 : pinm ? " pin " + Armonik.Ffi.Harness.Stage.PinCalls
                 : e3 ? " tc " + Armonik.Ffi.Harness.Stage.TcCalls + " u16 " + Armonik.Ffi.Harness.Stage.U16Calls + (M == Armonik.Ffi.Harness.Stage.E3L ? " u16len " + Armonik.Ffi.Harness.Stage.U16LenCalls : "")
-                : defer ? " mark " + Armonik.Ffi.Harness.Stage.Marked + " patch " + Armonik.Ffi.Harness.Stage.Patched + " rstr " + Armonik.Ffi.Harness.Stage.RepPatched + " mstr " + Armonik.Ffi.Harness.Stage.MapPatched + " hpin " + Armonik.Ffi.Harness.Stage.HandlePins
+                : defer ? " mark " + Armonik.Ffi.Harness.Stage.CountMarked + " patch " + Armonik.Ffi.Harness.Stage.CountPatched + " rstr " + Armonik.Ffi.Harness.Stage.CountRepPatched + " mstr " + Armonik.Ffi.Harness.Stage.CountMapPatched + " hpin " + Armonik.Ffi.Harness.Stage.HandlePins
 
                 : ""));
             if (!pinm && !defer && Armonik.Ffi.Harness.Stage.PinCalls != 0) { Console.Error.WriteLine("string pinned outside E1 / ETH / the E1R-E1C map fallback on " + k); return 1; }
             if (!e2 && !e3 && Armonik.Ffi.Harness.Stage.TcCalls != 0) { Console.Error.WriteLine("C# transcoder called outside E2 / E3 on " + k); return 1; }
             if (M == Armonik.Ffi.Harness.Stage.E1R) frames.Add(c.Payload + " " + c.Content + " " + c.Dir + " " + c.Mode + " frame " + Armonik.Ffi.Harness.Stage.FrameBytes);
-            if (Armonik.Ffi.Harness.Stage.Marked != Armonik.Ffi.Harness.Stage.Patched) { Console.Error.WriteLine("E1R/E1C: " + Armonik.Ffi.Harness.Stage.Marked + " marked, " + Armonik.Ffi.Harness.Stage.Patched + " patched on " + k); return 1; }
+            if (Armonik.Ffi.Harness.Stage.CountMarked != Armonik.Ffi.Harness.Stage.CountPatched) { Console.Error.WriteLine("E1R/E1C: " + Armonik.Ffi.Harness.Stage.CountMarked + " marked, " + Armonik.Ffi.Harness.Stage.CountPatched + " patched on " + k); return 1; }
             n++;
         }
         File.WriteAllLines(path, o);

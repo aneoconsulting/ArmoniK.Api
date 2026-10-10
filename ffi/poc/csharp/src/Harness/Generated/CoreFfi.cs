@@ -13,6 +13,28 @@ using System.Text;
 using Armonik.Ffi.Facade;
 
 namespace Armonik.Ffi.Harness;
+/// D26 (s15): the base of every root's ENCODE host context (CoreFfi_<Root>.EncCtx): the
+/// staging, and the ONE GCHandle to the context, allocated with it and freed in Dispose (never
+/// per call). The loop callbacks reach the context through it (Run_<Root>.Host); E2's
+/// transcoders through the copy each E2 string's record carries (Stage.HostHandle).
+public abstract class EncHost : IDisposable
+{
+    public readonly Stage St;
+    private GCHandle _self;
+    protected EncHost(bool utf16)
+    {
+        St = new Stage(utf16);
+        _self = GCHandle.Alloc(this);
+        St.HostHandle = GCHandle.ToIntPtr(_self);
+    }
+    public IntPtr Handle => GCHandle.ToIntPtr(_self);
+    public virtual void Dispose()
+    {
+        St.Dispose();
+        if (_self.IsAllocated) _self.Free();
+    }
+}
+
 /// Staging for strings, bytes and unknown-field bags handed to the core as data. Blocks
 /// are allocated as needed and never moved or freed before Dispose, so a pointer handed out
 /// stays valid until Reset (optimisation step a1, 2026-10-04): every block is KEPT across
@@ -85,10 +107,10 @@ public sealed unsafe class Stage : IDisposable
     };
     /// E1R / E1C: 1 or 2 when the generated frames pin (the fill marks), 0 otherwise.
     public static int Defer => Mode == E1R ? 1 : Mode == E1C ? 2 : 0;
-    /// The frames of the encode running on this thread: Defer, or 0 when its fill marked no
-    /// string (under a threshold, an encode with no long string takes the default path whole:
-    /// no frame per element). Set by Go before the root call; read by the loop callbacks.
-    [ThreadStatic] public static int DeferNow;
+    // D26 (s15): the frames' mode of the CALL is the encode host context's (Run_<Root>.Defer):
+    // Defer, or 0 when its fill marked no string (under a threshold, an encode with no long
+    // string takes the default path whole: no frame per element). Set by Go before the root
+    // call; read by the loop callbacks through `obj`.
     /// E1R / E1C: the marker the fill leaves in ak_str.data until a frame patches it; never a small
     /// value (ABI v1 section 8 reserves those) and never read by the core (patched before the call).
     public static readonly IntPtr PinPending = (IntPtr)0x30000;
@@ -110,10 +132,16 @@ public sealed unsafe class Stage : IDisposable
     }
     /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
     /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
-    /// keys and values (one frame per entry). PER THREAD: the per-encode check compares this
-    /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
-    /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
-    [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
+    /// keys and values (one frame per entry). PER CALL (D26): fields of this staging, i.e. of the
+    /// encode host context, zeroed by Reset; encodes run concurrently on the RPC callers, each
+    /// with its own context (a process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
+    public long Marked, Patched, RepPatched, MapPatched;
+    /// The counting build's totals over calls (AK_HOST_COUNT; Go adds each call's counts):
+    /// process-wide, read by the single-threaded counting run only.
+    public static long CountMarked, CountPatched, CountRepPatched, CountMapPatched;
+    /// D26: the ONE GCHandle of the encode host context that owns this staging (EncHost), as
+    /// written into each E2 string's record for the transcoder callbacks.
+    internal IntPtr HostHandle;
     /// s14, MEASUREMENT ONLY (AK_STR_NOGUARD=1; default off): E1R's frames skip the patch
     /// counters (Patched, RepPatched, MapPatched) and Go skips the per-encode marks == patches
     /// check, so that guard's cost can be priced. Marked stays: it decides whether the frames run.
@@ -126,30 +154,30 @@ public sealed unsafe class Stage : IDisposable
     /// Stack bytes per recursion frame: the largest (address at depth 0 - address at depth d) / d
     /// seen by the counting build (AK_HOST_COUNT).
     public static long FrameBytes;
-    [ThreadStatic] private static byte* _sp0;
-    public static void Sp(int depth, byte* sp)
+    private byte* _sp0;   // the counting build's stack probe of the call (D26: per context)
+    public void Sp(int depth, byte* sp)
     {
         if (depth == 0) { _sp0 = sp; return; }
         long b = (_sp0 - sp) / depth;
         if (b > FrameBytes) FrameBytes = b;
     }
-    [ThreadStatic] private static System.Collections.Generic.List<GCHandle> _chunkPins;
+    /// E1C: the call's chunk handles (D26: this context's list; cleared, its storage kept).
+    private readonly System.Collections.Generic.List<GCHandle> _chunkPins = new System.Collections.Generic.List<GCHandle>();
     /// E1C: a GCHandle pin held until ReleaseChunk (after the chunk's call).
-    public static IntPtr PinChunk(string s)
+    public IntPtr PinChunk(string s)
     {
         Patched++;
         var h = GCHandle.Alloc(s, GCHandleType.Pinned);
-        (_chunkPins ??= new System.Collections.Generic.List<GCHandle>()).Add(h);
+        _chunkPins.Add(h);
         return h.AddrOfPinnedObject();
     }
-    /// The handles taken so far on this thread: a chunk releases only what it added (a map or a
+    /// The handles taken so far in this call: a chunk releases only what it added (a map or a
     /// repeated field's chunk runs INSIDE an element chunk's call, whose handles must outlive it:
     /// releasing them all there let the core read moved strings (JOURNAL 76)).
-    public static int ChunkMark() => _chunkPins?.Count ?? 0;
-    public static void ReleaseChunk(int from = 0)
+    public int ChunkMark() => _chunkPins.Count;
+    public void ReleaseChunk(int from = 0)
     {
         var l = _chunkPins;
-        if (l == null) return;
         for (int i = from; i < l.Count; i++) l[i].Free();
         l.RemoveRange(from, l.Count - from);
     }
@@ -166,7 +194,7 @@ public sealed unsafe class Stage : IDisposable
     /// are no longer pinned; under it the byte checks must fail (the stress check can see a
     /// string read after its release).
     internal static readonly bool PlantEarlyUnpin = Environment.GetEnvironmentVariable("AK_GATE_PLANT_EARLY_UNPIN") == "1";
-    public static void BeforeChunkCall(int from)
+    public void BeforeChunkCall(int from)
     {
         if (!PlantEarlyUnpin) return;
         ReleaseChunk(from);
@@ -178,9 +206,10 @@ public sealed unsafe class Stage : IDisposable
     private static extern int ak_utf16_utf8_len(char* src, nuint len);
     private readonly System.Collections.Generic.List<GCHandle> _pins = new System.Collections.Generic.List<GCHandle>();
     private static IntPtr _tcU16;
-    /// E2's table: the strings of the encode running on this thread (the core calls the
-    /// transcoder on the encoding thread, inside the codec call).
-    [ThreadStatic] private static System.Collections.Generic.List<string> _tab;
+    /// E2's table: the strings of the call (D26: this context's list, cleared by Reset with its
+    /// storage kept). Each E2 string's `data` points at a 16-byte record in this staging: the
+    /// encode host context's GCHandle and the string's index (the transcoder's `src`).
+    private readonly System.Collections.Generic.List<string> _tab = new System.Collections.Generic.List<string>();
     /// Reverse calls into TcManaged (E2), counted in the counting build only (AK_HOST_COUNT).
     public static long TcCalls;
     /// Strings handed by E1's pin (E1, or ETH at or above the threshold), counting build only.
@@ -209,7 +238,7 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); if (Mode == E1C) ReleaseChunk(); }
+    public void Reset() { Use(0); ReleasePins(); _tab.Clear(); if (Mode == E1C) ReleaseChunk(); Marked = 0; Patched = 0; RepPatched = 0; MapPatched = 0; }
 
     /// E1: the pins of the last codec call, released once it has returned (the core copied
     /// the strings into its own buffer during the call).
@@ -234,17 +263,26 @@ public sealed unsafe class Stage : IDisposable
         return new ak_str { data = h.AddrOfPinnedObject(), len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
     }
 
-    private const nint TabBase = 0x10000;
-    private static ak_str Tab(string s, int m)
+    private ak_str Tab(string s, int m)
     {
-        var t = _tab ??= new System.Collections.Generic.List<string>();
+        var t = _tab;
         t.Add(s);
-        // data = TabBase + index: never a small value (ABI v1 section 8 reserves small ak_str.data
-        // values as sentinels: 1 is AK_STR_DIRECT; a first attempt with index + 1 was taken for it).
+        // data = a record in this staging (never a small value: ABI v1 section 8 reserves small
+        // ak_str.data values as sentinels): [0] the host context's handle, [1] the index.
+        var rec = (IntPtr*)Take(2 * sizeof(IntPtr));
+        rec[0] = HostHandle;
+        rec[1] = (IntPtr)(t.Count - 1);
         IntPtr tc = m == E3 ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCore
             : m == E3L ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCoreLen
             : (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcManaged;
-        return new ak_str { data = (IntPtr)(TabBase + t.Count - 1), len = (nuint)s.Length, tc = tc };
+        return new ak_str { data = (IntPtr)rec, len = (nuint)s.Length, tc = tc };
+    }
+
+    /// D26: an E2 / E3 string from its record: the host context's staging, through its handle.
+    private static string TabString(void* src)
+    {
+        var rec = (IntPtr*)src;
+        return ((EncHost)GCHandle.FromIntPtr(rec[0]).Target).St._tab[(int)rec[1]];
     }
 
     /// E3: ak_transcode_fn. As TcManaged, but the UTF-16 is pinned with `fixed` and converted by the
@@ -258,7 +296,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++; U16Calls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             long worst = (long)s.Length * 3;
             if (cap < worst)
             {
@@ -281,7 +319,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++; U16Calls++; U16LenCalls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             int w;
             fixed (char* c = s)
             {
@@ -299,7 +337,7 @@ public sealed unsafe class Stage : IDisposable
         catch { return Abi.AK_ERR_HOST; }
     }
 
-    /// E2: ak_transcode_fn. `src` is TabBase + the string's index in this thread's table; writes the
+    /// E2: ak_transcode_fn. `src` is the string's record (TabString); writes the
     /// string's UTF-8 at `dst` (a lone surrogate becomes EF BF BD, as ak_tc_utf16 writes it),
     /// asking `grow` for the exact size when the worst case does not fit.
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -310,7 +348,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             if ((long)cap < (long)s.Length * 3)
             {
                 int need = Encoding.UTF8.GetByteCount(s);
@@ -500,9 +538,10 @@ public static unsafe class Arr
 /// Decision 11: the one grow callback every position of every root's options names
 /// (`ak_grow_fn`, i32 sizes). `*dst` NULL with `*cap` 0 is a fresh buffer, otherwise the
 /// first `*cap` bytes are preserved (realloc semantics; it may move). Step a2 (iv,
-/// 2026-10-04): the memory is the running decode's ARENA (`G.Arena`, geometric chunks kept
-/// across decodes; a grow of the arena's last allocation extends it in place), not
-/// malloc/realloc/free per buffer; the arena counts what it hands out (UNDELIVERED check).
+/// 2026-10-04): the memory is the running decode's ARENA, not malloc/realloc/free per
+/// buffer; the arena counts what it hands out (UNDELIVERED check). D26 (s15): `sink` IS the
+/// arena: the options' `host` word, which the core hands to grow, points at the arena of the
+/// decode host context that armed them (native memory, no managed state, no thread-local).
 public static unsafe class UnkHost
 {
     public static long Grows;
@@ -520,9 +559,9 @@ public static unsafe class UnkHost
             int c = *cap;
             long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
             if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
-            var a = G.Arena;
+            var a = (UnkArena*)sink;
             if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
-            *dst = a.Grow(*dst, c, (int)nc);
+            *dst = a->Grow(*dst, c, (int)nc);
             *cap = (int)nc;
             Grows++;
             return 0;
@@ -533,34 +572,53 @@ public static unsafe class UnkHost
     public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
 }
 
-/// Step a2 (iv): the native arena of one decode context's retained decodes. Chunks are kept
-/// for the context's life and reused in order (the first 64 KiB; a new chunk is max(need, 2 x
-/// the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and never
-/// moves until the next Begin, except that growing the LAST allocation extends it in place
-/// when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and not yet
-/// given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
-public sealed unsafe class UnkArena : IDisposable
+/// Step a2 (iv): the native arena of one decode host context's retained decodes. Chunks are
+/// kept for the context's life and reused in order (the first 64 KiB; a new chunk is max(need,
+/// 2 x the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and
+/// never moves until the next Begin, except that growing the LAST allocation extends it in
+/// place when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and
+/// not yet given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
+/// D26 (s15): a NATIVE struct (its chunk table too), so grow's `sink` can point at it.
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct UnkArena
 {
-    private readonly System.Collections.Generic.List<IntPtr> _chunks = new System.Collections.Generic.List<IntPtr>();
-    private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
-    private int _ci = -1;
+    private IntPtr* _chunks;
+    private int* _caps;
+    private int _n, _room;
+    private int _ci;
     private byte* _cur, _last;
     private int _cap, _at;
     public int Outstanding;
+
+    public static UnkArena* Create()
+    {
+        var a = (UnkArena*)NativeMemory.AllocZeroed((nuint)sizeof(UnkArena));
+        a->Begin();
+        return a;
+    }
 
     public void Begin() { _ci = -1; _cur = null; _cap = 0; _at = 0; _last = null; Outstanding = 0; }
 
     private void Next(int n)
     {
         int i = _ci + 1;
-        if (i >= _chunks.Count || _caps[i] < n)
+        if (i >= _n || _caps[i] < n)
         {
             int big = 1 << 15;
-            foreach (var c in _caps) big = Math.Max(big, c);
+            for (int j = 0; j < _n; j++) big = Math.Max(big, _caps[j]);
             long size = Math.Max((long)n, 2L * big);
             if (size > int.MaxValue) size = Math.Max(n, int.MaxValue - 4095);
-            _chunks.Insert(i, (IntPtr)NativeMemory.Alloc((nuint)size));
-            _caps.Insert(i, (int)size);
+            if (_n == _room)
+            {
+                int r = _room == 0 ? 4 : 2 * _room;
+                _chunks = (IntPtr*)NativeMemory.Realloc(_chunks, (nuint)(r * sizeof(IntPtr)));
+                _caps = (int*)NativeMemory.Realloc(_caps, (nuint)(r * sizeof(int)));
+                _room = r;
+            }
+            for (int j = _n; j > i; j--) { _chunks[j] = _chunks[j - 1]; _caps[j] = _caps[j - 1]; }   // inserted at i
+            _chunks[i] = (IntPtr)NativeMemory.Alloc((nuint)size);
+            _caps[i] = (int)size;
+            _n++;
         }
         _ci = i; _cur = (byte*)_chunks[i]; _cap = _caps[i]; _at = 0;
     }
@@ -585,10 +643,13 @@ public sealed unsafe class UnkArena : IDisposable
         return p;
     }
 
-    public void Dispose()
+    public static void Destroy(UnkArena* a)
     {
-        foreach (var c in _chunks) NativeMemory.Free((void*)c);
-        _chunks.Clear(); _caps.Clear(); Begin();
+        if (a == null) return;
+        for (int j = 0; j < a->_n; j++) NativeMemory.Free((void*)a->_chunks[j]);
+        NativeMemory.Free(a->_chunks);
+        NativeMemory.Free(a->_caps);
+        NativeMemory.Free(a);
     }
 }
 
@@ -636,12 +697,9 @@ public static unsafe class G
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Str(byte* b, ak_span s) => s.len == 0 || SkipStrings ? "" : (PlantLossy ? Encoding.UTF8 : Strict).GetString(b + s.off, (int)s.len);
 
-    /// Decision 11: the arena of the RETAINED decode running on this thread (null in drop
-    /// mode): every buffer grow hands out comes from it, and it counts the buffers handed
-    /// out and not yet taken back (step a2 iv, 2026-10-04: replaced a HashSet of malloc'd
-    /// buffers). Thread-static: the core calls grow on the decoding thread.
-    [ThreadStatic] internal static UnkArena Arena;
-
+    /// Decision 11: `a` below is the arena of the RETAINED decode (null in drop mode), held by
+    /// the decode's host context (D26: passed down, never thread-local); every buffer grow
+    /// hands out comes from it, and it counts the buffers handed out and not yet taken back.
     /// A delivered message's buffer into its facade bag (null when none or empty); the
     /// buffer is given back to the arena's count (its memory is the arena's) and the slot cleared.
     /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the
@@ -649,22 +707,22 @@ public static unsafe class G
     /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it).
     internal static readonly bool PlantSkipRelease = Environment.GetEnvironmentVariable("AK_GATE_PLANT_SKIP_RELEASE") == "1";
 
-    internal static byte[] Take(ref ak_unk_buf u)
+    internal static byte[] Take(ref ak_unk_buf u, UnkArena* a)
     {
         if (u.data == IntPtr.Zero) return null;
         byte[] r = null;
         if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }
         if (PlantSkipRelease) { u = default; return r; }
-        var a = Arena; if (a != null) a.Outstanding--;
+        if (a != null) a->Outstanding--;
         u = default;
         return r;
     }
 
     /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): given back.
-    internal static void Drop(ref ak_unk_buf u)
+    internal static void Drop(ref ak_unk_buf u, UnkArena* a)
     {
         if (u.data == IntPtr.Zero) return;
-        var a = Arena; if (a != null) a.Outstanding--;
+        if (a != null) a->Outstanding--;
         u = default;
     }
 
@@ -692,16 +750,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_Timestamp(ref ak_dfix_Timestamp d, Timestamp t, byte* b)
+    internal static void D_Timestamp(ref ak_dfix_Timestamp d, Timestamp t, byte* b, UnkArena* a)
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_Timestamp(ref ak_dfix_Timestamp d)
+    internal static void F_Timestamp(ref ak_dfix_Timestamp d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_Duration(ref ak_efix_Duration g, Duration s, Stage st)
@@ -719,16 +777,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_Duration(ref ak_dfix_Duration d, Duration t, byte* b)
+    internal static void D_Duration(ref ak_dfix_Duration d, Duration t, byte* b, UnkArena* a)
     {
         t.Seconds = d.seconds;
         t.Nanos = d.nanos;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_Duration(ref ak_dfix_Duration d)
+    internal static void F_Duration(ref ak_dfix_Duration d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ResultRaw(ref ak_efix_ResultRaw g, ResultRaw s, Stage st)
@@ -764,27 +822,27 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ResultRaw(ref ak_dfix_ResultRaw d, ResultRaw t, byte* b)
+    internal static void D_ResultRaw(ref ak_dfix_ResultRaw d, ResultRaw t, byte* b, UnkArena* a)
     {
         t.SessionId = Str(b, d.session_id);
         t.Name = Str(b, d.name);
         t.OwnerTaskId = Str(b, d.owner_task_id);
         t.Status = (ResultStatus)d.status;
-        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
-        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b); else F_Timestamp(ref d.completed_at);
+        if ((d.presence & AkPresent.ResultRaw_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.created_at, a);
+        if ((d.presence & AkPresent.ResultRaw_completed_at) != 0) D_Timestamp(ref d.completed_at, t.CompletedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.completed_at, a);
         t.ResultId = Str(b, d.result_id);
         t.Size = d.size;
         t.CreatedBy = Str(b, d.created_by);
         t.OpaqueId = Bytes(b, d.opaque_id);
         t.ManualDeletion = (d.manual_deletion != 0);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ResultRaw(ref ak_dfix_ResultRaw d)
+    internal static void F_ResultRaw(ref ak_dfix_ResultRaw d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_Timestamp(ref d.created_at);
-        F_Timestamp(ref d.completed_at);
+        Drop(ref d.unknown, a);
+        F_Timestamp(ref d.created_at, a);
+        F_Timestamp(ref d.completed_at, a);
     }
 
     internal static void E_TaskOptions(ref ak_efix_TaskOptions g, TaskOptions s, Stage st)
@@ -816,9 +874,9 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_TaskOptions(ref ak_dfix_TaskOptions d, TaskOptions t, byte* b)
+    internal static void D_TaskOptions(ref ak_dfix_TaskOptions d, TaskOptions t, byte* b, UnkArena* a)
     {
-        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b); else F_Duration(ref d.max_duration);
+        if ((d.presence & AkPresent.TaskOptions_max_duration) != 0) D_Duration(ref d.max_duration, t.MaxDuration ??= new Duration(), b, a); else F_Duration(ref d.max_duration, a);
         t.MaxRetries = d.max_retries;
         t.Priority = d.priority;
         t.PartitionId = Str(b, d.partition_id);
@@ -827,13 +885,13 @@ public static unsafe class G
         t.ApplicationNamespace = Str(b, d.application_namespace);
         t.ApplicationService = Str(b, d.application_service);
         t.EngineType = Str(b, d.engine_type);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_TaskOptions(ref ak_dfix_TaskOptions d)
+    internal static void F_TaskOptions(ref ak_dfix_TaskOptions d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_Duration(ref d.max_duration);
+        Drop(ref d.unknown, a);
+        F_Duration(ref d.max_duration, a);
     }
 
     internal static void E_TaskOutput(ref ak_efix_TaskOutput g, TaskOutput s, Stage st)
@@ -851,16 +909,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_TaskOutput(ref ak_dfix_TaskOutput d, TaskOutput t, byte* b)
+    internal static void D_TaskOutput(ref ak_dfix_TaskOutput d, TaskOutput t, byte* b, UnkArena* a)
     {
         t.Success = (d.success != 0);
         t.Error = Str(b, d.error);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_TaskOutput(ref ak_dfix_TaskOutput d)
+    internal static void F_TaskOutput(ref ak_dfix_TaskOutput d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_TaskDetailed(ref ak_efix_TaskDetailed g, TaskDetailed s, Stage st)
@@ -920,51 +978,51 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_TaskDetailed(ref ak_dfix_TaskDetailed d, TaskDetailed t, byte* b)
+    internal static void D_TaskDetailed(ref ak_dfix_TaskDetailed d, TaskDetailed t, byte* b, UnkArena* a)
     {
         t.Id = Str(b, d.id);
         t.SessionId = Str(b, d.session_id);
         t.OwnerPodId = Str(b, d.owner_pod_id);
         t.Status = (TaskStatus)d.status;
         t.StatusMessage = Str(b, d.status_message);
-        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
-        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
-        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b); else F_Timestamp(ref d.submitted_at);
-        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b); else F_Timestamp(ref d.started_at);
-        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b); else F_Timestamp(ref d.ended_at);
-        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b); else F_Timestamp(ref d.pod_ttl);
-        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b); else F_TaskOutput(ref d.output);
+        if ((d.presence & AkPresent.TaskDetailed_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b, a); else F_TaskOptions(ref d.options, a);
+        if ((d.presence & AkPresent.TaskDetailed_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.created_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_submitted_at) != 0) D_Timestamp(ref d.submitted_at, t.SubmittedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.submitted_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_started_at) != 0) D_Timestamp(ref d.started_at, t.StartedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.started_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_ended_at) != 0) D_Timestamp(ref d.ended_at, t.EndedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.ended_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_pod_ttl) != 0) D_Timestamp(ref d.pod_ttl, t.PodTtl ??= new Timestamp(), b, a); else F_Timestamp(ref d.pod_ttl, a);
+        if ((d.presence & AkPresent.TaskDetailed_output) != 0) D_TaskOutput(ref d.output, t.Output ??= new TaskOutput(), b, a); else F_TaskOutput(ref d.output, a);
         t.PodHostname = Str(b, d.pod_hostname);
-        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b); else F_Timestamp(ref d.received_at);
-        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b); else F_Timestamp(ref d.acquired_at);
-        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b); else F_Duration(ref d.creation_to_end_duration);
-        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b); else F_Duration(ref d.processing_to_end_duration);
+        if ((d.presence & AkPresent.TaskDetailed_received_at) != 0) D_Timestamp(ref d.received_at, t.ReceivedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.received_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_acquired_at) != 0) D_Timestamp(ref d.acquired_at, t.AcquiredAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.acquired_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_creation_to_end_duration) != 0) D_Duration(ref d.creation_to_end_duration, t.CreationToEndDuration ??= new Duration(), b, a); else F_Duration(ref d.creation_to_end_duration, a);
+        if ((d.presence & AkPresent.TaskDetailed_processing_to_end_duration) != 0) D_Duration(ref d.processing_to_end_duration, t.ProcessingToEndDuration ??= new Duration(), b, a); else F_Duration(ref d.processing_to_end_duration, a);
         t.InitialTaskId = Str(b, d.initial_task_id);
-        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b); else F_Duration(ref d.received_to_end_duration);
-        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b); else F_Timestamp(ref d.processed_at);
-        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b); else F_Timestamp(ref d.fetched_at);
+        if ((d.presence & AkPresent.TaskDetailed_received_to_end_duration) != 0) D_Duration(ref d.received_to_end_duration, t.ReceivedToEndDuration ??= new Duration(), b, a); else F_Duration(ref d.received_to_end_duration, a);
+        if ((d.presence & AkPresent.TaskDetailed_processed_at) != 0) D_Timestamp(ref d.processed_at, t.ProcessedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.processed_at, a);
+        if ((d.presence & AkPresent.TaskDetailed_fetched_at) != 0) D_Timestamp(ref d.fetched_at, t.FetchedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.fetched_at, a);
         t.PayloadId = Str(b, d.payload_id);
         t.CreatedBy = Str(b, d.created_by);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_TaskDetailed(ref ak_dfix_TaskDetailed d)
+    internal static void F_TaskDetailed(ref ak_dfix_TaskDetailed d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_TaskOptions(ref d.options);
-        F_Timestamp(ref d.created_at);
-        F_Timestamp(ref d.submitted_at);
-        F_Timestamp(ref d.started_at);
-        F_Timestamp(ref d.ended_at);
-        F_Timestamp(ref d.pod_ttl);
-        F_TaskOutput(ref d.output);
-        F_Timestamp(ref d.received_at);
-        F_Timestamp(ref d.acquired_at);
-        F_Duration(ref d.creation_to_end_duration);
-        F_Duration(ref d.processing_to_end_duration);
-        F_Duration(ref d.received_to_end_duration);
-        F_Timestamp(ref d.processed_at);
-        F_Timestamp(ref d.fetched_at);
+        Drop(ref d.unknown, a);
+        F_TaskOptions(ref d.options, a);
+        F_Timestamp(ref d.created_at, a);
+        F_Timestamp(ref d.submitted_at, a);
+        F_Timestamp(ref d.started_at, a);
+        F_Timestamp(ref d.ended_at, a);
+        F_Timestamp(ref d.pod_ttl, a);
+        F_TaskOutput(ref d.output, a);
+        F_Timestamp(ref d.received_at, a);
+        F_Timestamp(ref d.acquired_at, a);
+        F_Duration(ref d.creation_to_end_duration, a);
+        F_Duration(ref d.processing_to_end_duration, a);
+        F_Duration(ref d.received_to_end_duration, a);
+        F_Timestamp(ref d.processed_at, a);
+        F_Timestamp(ref d.fetched_at, a);
     }
 
     internal static void E_TaskSummary(ref ak_efix_TaskSummary g, TaskSummary s, Stage st)
@@ -994,24 +1052,24 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_TaskSummary(ref ak_dfix_TaskSummary d, TaskSummary t, byte* b)
+    internal static void D_TaskSummary(ref ak_dfix_TaskSummary d, TaskSummary t, byte* b, UnkArena* a)
     {
         t.Id = Str(b, d.id);
         t.SessionId = Str(b, d.session_id);
-        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b); else F_TaskOptions(ref d.options);
+        if ((d.presence & AkPresent.TaskSummary_options) != 0) D_TaskOptions(ref d.options, t.Options ??= new TaskOptions(), b, a); else F_TaskOptions(ref d.options, a);
         t.Status = (TaskStatus)d.status;
-        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b); else F_Timestamp(ref d.created_at);
+        if ((d.presence & AkPresent.TaskSummary_created_at) != 0) D_Timestamp(ref d.created_at, t.CreatedAt ??= new Timestamp(), b, a); else F_Timestamp(ref d.created_at, a);
         t.Error = Str(b, d.error);
         t.StatusMessage = Str(b, d.status_message);
         t.CountDataDependencies = d.count_data_dependencies;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_TaskSummary(ref ak_dfix_TaskSummary d)
+    internal static void F_TaskSummary(ref ak_dfix_TaskSummary d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_TaskOptions(ref d.options);
-        F_Timestamp(ref d.created_at);
+        Drop(ref d.unknown, a);
+        F_TaskOptions(ref d.options, a);
+        F_Timestamp(ref d.created_at, a);
     }
 
     internal static void E_Probe(ref ak_efix_Probe g, Probe s, Stage st)
@@ -1065,14 +1123,14 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_Probe(ref ak_dfix_Probe d, Probe t, byte* b)
+    internal static void D_Probe(ref ak_dfix_Probe d, Probe t, byte* b, UnkArena* a)
     {
         t.Id = Str(b, d.id);
         t.OptCount = (d.presence & AkPresent.Probe_opt_count) != 0 ? d.opt_count : null;
         t.OptLabel = (d.presence & AkPresent.Probe_opt_label) != 0 ? Str(b, d.opt_label) : null;
         t.OptFlag = (d.presence & AkPresent.Probe_opt_flag) != 0 ? (d.opt_flag != 0) : null;
-        if (d.body_case != 13) F_Timestamp(ref d.body_as_stamp);
-        if (d.body_case != 14) F_Empty(ref d.body_as_nothing);
+        if (d.body_case != 13) F_Timestamp(ref d.body_as_stamp, a);
+        if (d.body_case != 14) F_Empty(ref d.body_as_nothing, a);
         t.BodyCase = (ProbeBodyCase)d.body_case;
         switch (d.body_case)
         {
@@ -1083,19 +1141,19 @@ public static unsafe class G
             case 12:
                 t.AsBlob = Bytes(b, d.body_as_blob); break;
             case 13:
-                t.AsStamp = new Timestamp(); D_Timestamp(ref d.body_as_stamp, t.AsStamp, b); break;
+                t.AsStamp = new Timestamp(); D_Timestamp(ref d.body_as_stamp, t.AsStamp, b, a); break;
             case 14:
-                t.AsNothing = new Empty(); D_Empty(ref d.body_as_nothing, t.AsNothing, b); break;
+                t.AsNothing = new Empty(); D_Empty(ref d.body_as_nothing, t.AsNothing, b, a); break;
             default: break;
         }
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_Probe(ref ak_dfix_Probe d)
+    internal static void F_Probe(ref ak_dfix_Probe d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_Timestamp(ref d.body_as_stamp);
-        F_Empty(ref d.body_as_nothing);
+        Drop(ref d.unknown, a);
+        F_Timestamp(ref d.body_as_stamp, a);
+        F_Empty(ref d.body_as_nothing, a);
     }
 
     internal static void E_Empty(ref ak_efix_Empty g, Empty s, Stage st)
@@ -1109,14 +1167,14 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_Empty(ref ak_dfix_Empty d, Empty t, byte* b)
+    internal static void D_Empty(ref ak_dfix_Empty d, Empty t, byte* b, UnkArena* a)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_Empty(ref ak_dfix_Empty d)
+    internal static void F_Empty(ref ak_dfix_Empty d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_UploadResultData(ref ak_efix_UploadResultData g, UploadResultData s, Stage st)
@@ -1138,17 +1196,17 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_UploadResultData(ref ak_dfix_UploadResultData d, UploadResultData t, byte* b)
+    internal static void D_UploadResultData(ref ak_dfix_UploadResultData d, UploadResultData t, byte* b, UnkArena* a)
     {
         t.SessionId = Str(b, d.session_id);
         t.ResultId = Str(b, d.result_id);
         t.DataChunk = Bytes(b, d.data_chunk);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_UploadResultData(ref ak_dfix_UploadResultData d)
+    internal static void F_UploadResultData(ref ak_dfix_UploadResultData d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_MetricsBatch(ref ak_efix_MetricsBatch g, MetricsBatch s, Stage st)
@@ -1164,15 +1222,15 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_MetricsBatch(ref ak_dfix_MetricsBatch d, MetricsBatch t, byte* b)
+    internal static void D_MetricsBatch(ref ak_dfix_MetricsBatch d, MetricsBatch t, byte* b, UnkArena* a)
     {
         t.Id = Str(b, d.id);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_MetricsBatch(ref ak_dfix_MetricsBatch d)
+    internal static void F_MetricsBatch(ref ak_dfix_MetricsBatch d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_Pair(ref ak_efix_Pair g, Pair s, Stage st)
@@ -1190,16 +1248,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_Pair(ref ak_dfix_Pair d, Pair t, byte* b)
+    internal static void D_Pair(ref ak_dfix_Pair d, Pair t, byte* b, UnkArena* a)
     {
         t.Key = Str(b, d.key);
         t.Value = d.value;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_Pair(ref ak_dfix_Pair d)
+    internal static void F_Pair(ref ak_dfix_Pair d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ListResultsResponse(ref ak_efix_ListResultsResponse g, ListResultsResponse s, Stage st)
@@ -1217,16 +1275,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ListResultsResponse(ref ak_dfix_ListResultsResponse d, ListResultsResponse t, byte* b)
+    internal static void D_ListResultsResponse(ref ak_dfix_ListResultsResponse d, ListResultsResponse t, byte* b, UnkArena* a)
     {
         t.Page = d.page;
         t.Total = d.total;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ListResultsResponse(ref ak_dfix_ListResultsResponse d)
+    internal static void F_ListResultsResponse(ref ak_dfix_ListResultsResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ListTasksDetailedResponse(ref ak_efix_ListTasksDetailedResponse g, ListTasksDetailedResponse s, Stage st)
@@ -1244,16 +1302,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d, ListTasksDetailedResponse t, byte* b)
+    internal static void D_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d, ListTasksDetailedResponse t, byte* b, UnkArena* a)
     {
         t.Page = d.page;
         t.Total = d.total;
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d)
+    internal static void F_ListTasksDetailedResponse(ref ak_dfix_ListTasksDetailedResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ListTaskSummaryResponse(ref ak_efix_ListTaskSummaryResponse g, ListTaskSummaryResponse s, Stage st)
@@ -1267,14 +1325,14 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d, ListTaskSummaryResponse t, byte* b)
+    internal static void D_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d, ListTaskSummaryResponse t, byte* b, UnkArena* a)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d)
+    internal static void F_ListTaskSummaryResponse(ref ak_dfix_ListTaskSummaryResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ListProbeResponse(ref ak_efix_ListProbeResponse g, ListProbeResponse s, Stage st)
@@ -1288,14 +1346,14 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ListProbeResponse(ref ak_dfix_ListProbeResponse d, ListProbeResponse t, byte* b)
+    internal static void D_ListProbeResponse(ref ak_dfix_ListProbeResponse d, ListProbeResponse t, byte* b, UnkArena* a)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ListProbeResponse(ref ak_dfix_ListProbeResponse d)
+    internal static void F_ListProbeResponse(ref ak_dfix_ListProbeResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_ListMetricsResponse(ref ak_efix_ListMetricsResponse g, ListMetricsResponse s, Stage st)
@@ -1309,14 +1367,14 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d, ListMetricsResponse t, byte* b)
+    internal static void D_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d, ListMetricsResponse t, byte* b, UnkArena* a)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d)
+    internal static void F_ListMetricsResponse(ref ak_dfix_ListMetricsResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
     internal static void E_UploadResultDataMessage(ref ak_efix_UploadResultDataMessage g, UploadResultDataMessage s, Stage st)
@@ -1332,16 +1390,16 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d, UploadResultDataMessage t, byte* b)
+    internal static void D_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d, UploadResultDataMessage t, byte* b, UnkArena* a)
     {
-        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b); else F_UploadResultData(ref d.upload);
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        if ((d.presence & AkPresent.UploadResultDataMessage_upload) != 0) D_UploadResultData(ref d.upload, t.Upload ??= new UploadResultData(), b, a); else F_UploadResultData(ref d.upload, a);
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d)
+    internal static void F_UploadResultDataMessage(ref ak_dfix_UploadResultDataMessage d, UnkArena* a)
     {
-        Drop(ref d.unknown);
-        F_UploadResultData(ref d.upload);
+        Drop(ref d.unknown, a);
+        F_UploadResultData(ref d.upload, a);
     }
 
     internal static void E_DualResponse(ref ak_efix_DualResponse g, DualResponse s, Stage st)
@@ -1355,21 +1413,26 @@ public static unsafe class G
         g.unknown = st.Blob(s.UnknownFields);
     }
 
-    internal static void D_DualResponse(ref ak_dfix_DualResponse d, DualResponse t, byte* b)
+    internal static void D_DualResponse(ref ak_dfix_DualResponse d, DualResponse t, byte* b, UnkArena* a)
     {
-        t.UnknownFields = Take(ref d.unknown);   // decision 11: this message's own buffer
+        t.UnknownFields = Take(ref d.unknown, a);   // decision 11: this message's own buffer
     }
 
-    internal static void F_DualResponse(ref ak_dfix_DualResponse d)
+    internal static void F_DualResponse(ref ak_dfix_DualResponse d, UnkArena* a)
     {
-        Drop(ref d.unknown);
+        Drop(ref d.unknown, a);
     }
 
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_ListResultsResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_ListResultsResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_results; public int N_results;
@@ -1378,13 +1441,15 @@ public unsafe struct Run_ListResultsResponse
 /// core-ffi for `ListResultsResponse`: every group, slot and entry point from the plan.
 public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_ListResultsResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -1393,23 +1458,51 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 
     public CoreFfi_ListResultsResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListResultsResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static ListResultsResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_ListResultsResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_ListResultsResponse* Run;
+        public ListResultsResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListResultsResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_results);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_ListResultsResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_results(IntPtr ctx, Run_ListResultsResponse* run, System.Collections.Generic.List<ResultRaw> lst, int off, int k, int i)
+    private static int Rec_results(IntPtr ctx, Run_ListResultsResponse* run, Stage st, System.Collections.Generic.List<ResultRaw> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -1422,55 +1515,55 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_results(ctx, run, lst, off, k, i + 1);
+            return Rec_results(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_results(IntPtr ctx, Run_ListResultsResponse* run, System.Collections.Generic.List<ResultRaw> lst, int off, int k)
+    private static int ChunkH_results(IntPtr ctx, Run_ListResultsResponse* run, Stage st, System.Collections.Generic.List<ResultRaw> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = Stage.PinChunk(__e.Name); }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = Stage.PinChunk(__e.OwnerTaskId); }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = Stage.PinChunk(__e.ResultId); }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = st.PinChunk(__e.Name); }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = st.PinChunk(__e.OwnerTaskId); }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = st.PinChunk(__e.ResultId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = st.PinChunk(__e.CreatedBy); }
             }
             else
             {
                 var __g = (ak_efix_ResultRaw*)run->S_results + off + i;
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->name.data == Stage.PinPending) { __g->name.data = Stage.PinChunk(__e.Name); }
-                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = Stage.PinChunk(__e.OwnerTaskId); }
-                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = Stage.PinChunk(__e.ResultId); }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->name.data == Stage.PinPending) { __g->name.data = st.PinChunk(__e.Name); }
+                if (__g->owner_task_id.data == Stage.PinPending) { __g->owner_task_id.data = st.PinChunk(__e.OwnerTaskId); }
+                if (__g->result_id.data == Stage.PinPending) { __g->result_id.data = st.PinChunk(__e.ResultId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = st.PinChunk(__e.CreatedBy); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k) : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
@@ -1484,14 +1577,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             int n = run->N_results;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_results(ctx, run, _pinSrc.Results, off, k, 0) : ChunkH_results(ctx, run, _pinSrc.Results, off, k);
+                    int rp = d == 1 ? Rec_results(ctx, run, h.St, h.Root.Results, off, k, 0) : ChunkH_results(ctx, run, h.St, h.Root.Results, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -1543,11 +1637,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private int Go(ListResultsResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_ListResultsResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -1572,7 +1670,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             G.U_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -1581,16 +1679,19 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             G.E_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -1601,16 +1702,59 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static ListResultsResponse Tgt(void* obj) => (ListResultsResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_ListResultsResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_ListResultsResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public ListResultsResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_ListResultsResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_ListResultsResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListResultsResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_ListResultsResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListResultsResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_ListResultsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListResultsResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static ListResultsResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListResultsResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -1622,9 +1766,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var lst = Tgt(obj).Results;
             lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
-            for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
+            for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b, a); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -1639,29 +1784,15 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_ListResultsResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListResultsResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListResultsResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_ListResultsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListResultsResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_ListResultsResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListResultsResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -1670,16 +1801,18 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_ListResultsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListResultsResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->results.grow = g;
-        if (zero != 2) _uo->results_created_at.grow = g;
-        if (zero != 3) _uo->results_completed_at.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->results.grow = g;
+        if (zero != 2) uo->results_created_at.grow = g;
+        if (zero != 3) uo->results_completed_at.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -1687,23 +1820,23 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListResultsResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_ListResultsResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -1781,7 +1914,6 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_ListResultsResponse* Pvt = MakePvt();
     private static ak_pvt_ListResultsResponse* MakePvt() { var v = (ak_pvt_ListResultsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListResultsResponse)); v->utf8_skip = AkUtf8Skip.ListResultsResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListResultsResponse result)
     {
         result = null;
@@ -1792,9 +1924,10 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListResultsResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -1803,13 +1936,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_ListResultsResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -1837,15 +1969,14 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_ListResultsResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_ListResultsResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -1859,7 +1990,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_ListResultsResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_ListResultsResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -1885,13 +2016,13 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_ListResultsResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_ListResultsResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -1902,7 +2033,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(ListResultsResponse t, byte* b, byte* p, int len)
+    private static void Replay(ListResultsResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -1913,12 +2044,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)body, t, b); break;
+                case OP_APPLY: G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)body, t, b, a); break;
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_ResultRaw*)body; var lst = t.Results;
                     lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
-                    for (int i = 0; i < (int)r.n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
+                    for (int i = 0; i < (int)r.n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b, a); lst.Add(x); }
                     break;
                 }
                 default: break;
@@ -1956,7 +2087,8 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_ListResultsResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_ListResultsResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -1964,12 +2096,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b);
+                            G.D_ListResultsResponse(ref *(ak_dfix_ListResultsResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_ListResultsResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListResultsResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -1985,7 +2117,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListResultsResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListResultsResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -1997,7 +2129,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                     {
                         var xs = (ak_dfix_ResultRaw*)d; var lst = t.Results; int n = (int)ev->n;
                         lst.EnsureCapacity(lst.Count + n);
-                        for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b); lst.Add(x); }
+                        for (int i = 0; i < n; i++) { var x = new ResultRaw(); G.D_ResultRaw(ref xs[i], x, b, a); lst.Add(x); }
                         return;
                     }
                 }
@@ -2005,32 +2137,27 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_results);
-            NativeMemory.Free(_run); _run = null;
-        }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_ListTasksDetailedResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_ListTasksDetailedResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_tasks; public int N_tasks;
@@ -2045,13 +2172,15 @@ public unsafe struct Run_ListTasksDetailedResponse
 /// plan.
 public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_ListTasksDetailedResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -2066,10 +2195,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     public CoreFfi_ListTasksDetailedResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListTasksDetailedResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
         _evt_tasks = (ak_evt_TaskDetailed*)NativeMemory.AllocZeroed((nuint)sizeof(ak_evt_TaskDetailed));
         _evt_tasks->loop_parent_task_ids = &Loop_tasks_parent_task_ids;
         _evt_tasks->loop_data_dependencies = &Loop_tasks_data_dependencies;
@@ -2078,17 +2204,53 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         _evt_tasks->loop_options_options = &Loop_tasks_options_options;
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static ListTasksDetailedResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_ListTasksDetailedResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_ListTasksDetailedResponse* Run;
+        public ListTasksDetailedResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListTasksDetailedResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_tasks);
+                NativeMemory.Free(Run->I_tasks_parent_task_ids); NativeMemory.Free(Run->O_tasks_parent_task_ids); NativeMemory.Free(Run->C_tasks_parent_task_ids);
+                NativeMemory.Free(Run->I_tasks_data_dependencies); NativeMemory.Free(Run->O_tasks_data_dependencies); NativeMemory.Free(Run->C_tasks_data_dependencies);
+                NativeMemory.Free(Run->I_tasks_expected_output_ids); NativeMemory.Free(Run->O_tasks_expected_output_ids); NativeMemory.Free(Run->C_tasks_expected_output_ids);
+                NativeMemory.Free(Run->I_tasks_retry_of_ids); NativeMemory.Free(Run->O_tasks_retry_of_ids); NativeMemory.Free(Run->C_tasks_retry_of_ids);
+                NativeMemory.Free(Run->I_tasks_options_options); NativeMemory.Free(Run->O_tasks_options_options); NativeMemory.Free(Run->C_tasks_options_options);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_ListTasksDetailedResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_tasks(IntPtr ctx, Run_ListTasksDetailedResponse* run, System.Collections.Generic.List<TaskDetailed> lst, int off, int k, int i)
+    private static int Rec_tasks(IntPtr ctx, Run_ListTasksDetailedResponse* run, Stage st, System.Collections.Generic.List<TaskDetailed> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -2103,49 +2265,49 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p5; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p6; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p7; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p8; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p9; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = (IntPtr)__p10; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = (IntPtr)__p11; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = (IntPtr)__p12; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = (IntPtr)__p13; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = (IntPtr)__p14; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_tasks(ctx, run, lst, off, k, i + 1);
+            return Rec_tasks(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_tasks(IntPtr ctx, Run_ListTasksDetailedResponse* run, System.Collections.Generic.List<TaskDetailed> lst, int off, int k)
+    private static int ChunkH_tasks(IntPtr ctx, Run_ListTasksDetailedResponse* run, Stage st, System.Collections.Generic.List<TaskDetailed> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -2154,82 +2316,82 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = Stage.PinChunk(__e.OwnerPodId); }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = Stage.PinChunk(__c8?.Error); }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = Stage.PinChunk(__e.PodHostname); }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = Stage.PinChunk(__e.InitialTaskId); }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = Stage.PinChunk(__e.PayloadId); }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = st.PinChunk(__e.OwnerPodId); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = st.PinChunk(__e.StatusMessage); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = st.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = st.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = st.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = st.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = st.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = st.PinChunk(__c1?.EngineType); }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = st.PinChunk(__c8?.Error); }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = st.PinChunk(__e.PodHostname); }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = st.PinChunk(__e.InitialTaskId); }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = st.PinChunk(__e.PayloadId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = st.PinChunk(__e.CreatedBy); }
             }
             else
             {
                 var __g = (ak_efix_TaskDetailed*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = Stage.PinChunk(__e.OwnerPodId); }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
-                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = Stage.PinChunk(__c8?.Error); }
-                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = Stage.PinChunk(__e.PodHostname); }
-                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = Stage.PinChunk(__e.InitialTaskId); }
-                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = Stage.PinChunk(__e.PayloadId); }
-                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = Stage.PinChunk(__e.CreatedBy); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->owner_pod_id.data == Stage.PinPending) { __g->owner_pod_id.data = st.PinChunk(__e.OwnerPodId); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = st.PinChunk(__e.StatusMessage); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = st.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = st.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = st.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = st.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = st.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = st.PinChunk(__c1?.EngineType); }
+                if (__g->output.error.data == Stage.PinPending) { __g->output.error.data = st.PinChunk(__c8?.Error); }
+                if (__g->pod_hostname.data == Stage.PinPending) { __g->pod_hostname.data = st.PinChunk(__e.PodHostname); }
+                if (__g->initial_task_id.data == Stage.PinPending) { __g->initial_task_id.data = st.PinChunk(__e.InitialTaskId); }
+                if (__g->payload_id.data == Stage.PinPending) { __g->payload_id.data = st.PinChunk(__e.PayloadId); }
+                if (__g->created_by.data == Stage.PinPending) { __g->created_by.data = st.PinChunk(__e.CreatedBy); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
     /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest
     /// frame makes the chunk's ak_blob_run.
-    private static int RecS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)
+    private static int RecS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
-            return RecS_tasks_parent_task_ids(ctx, arr, l, off, k, j + 1);
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
+            return RecS_tasks_parent_task_ids(ctx, arr, st, l, off, k, j + 1);
         }
     }
 
-    private static int ChunkHS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
+    private static int ChunkHS_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall(__h);
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinStrs_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
+    private static int PinStrs_tasks_parent_task_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecS_tasks_parent_task_ids(ctx, arr, l, off, k, 0) : ChunkHS_tasks_parent_task_ids(ctx, arr, l, off, k);
+            int rc = d == 1 ? RecS_tasks_parent_task_ids(ctx, arr, st, l, off, k, 0) : ChunkHS_tasks_parent_task_ids(ctx, arr, st, l, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
@@ -2238,37 +2400,37 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest
     /// frame makes the chunk's ak_blob_run.
-    private static int RecS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)
+    private static int RecS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
-            return RecS_tasks_data_dependencies(ctx, arr, l, off, k, j + 1);
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
+            return RecS_tasks_data_dependencies(ctx, arr, st, l, off, k, j + 1);
         }
     }
 
-    private static int ChunkHS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
+    private static int ChunkHS_tasks_data_dependencies(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall(__h);
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinStrs_tasks_data_dependencies(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
+    private static int PinStrs_tasks_data_dependencies(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecS_tasks_data_dependencies(ctx, arr, l, off, k, 0) : ChunkHS_tasks_data_dependencies(ctx, arr, l, off, k);
+            int rc = d == 1 ? RecS_tasks_data_dependencies(ctx, arr, st, l, off, k, 0) : ChunkHS_tasks_data_dependencies(ctx, arr, st, l, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
@@ -2277,37 +2439,37 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest
     /// frame makes the chunk's ak_blob_run.
-    private static int RecS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)
+    private static int RecS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
-            return RecS_tasks_expected_output_ids(ctx, arr, l, off, k, j + 1);
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
+            return RecS_tasks_expected_output_ids(ctx, arr, st, l, off, k, j + 1);
         }
     }
 
-    private static int ChunkHS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
+    private static int ChunkHS_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall(__h);
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinStrs_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
+    private static int PinStrs_tasks_expected_output_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecS_tasks_expected_output_ids(ctx, arr, l, off, k, 0) : ChunkHS_tasks_expected_output_ids(ctx, arr, l, off, k);
+            int rc = d == 1 ? RecS_tasks_expected_output_ids(ctx, arr, st, l, off, k, 0) : ChunkHS_tasks_expected_output_ids(ctx, arr, st, l, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
@@ -2316,83 +2478,83 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 
     /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest
     /// frame makes the chunk's ak_blob_run.
-    private static int RecS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)
+    private static int RecS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
-            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }
-            return RecS_tasks_retry_of_ids(ctx, arr, l, off, k, j + 1);
+            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
+            return RecS_tasks_retry_of_ids(ctx, arr, st, l, off, k, j + 1);
         }
     }
 
-    private static int ChunkHS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)
+    private static int ChunkHS_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
-        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }
-        Stage.BeforeChunkCall(__h);
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
+        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinStrs_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)
+    private static int PinStrs_tasks_retry_of_ids(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecS_tasks_retry_of_ids(ctx, arr, l, off, k, 0) : ChunkHS_tasks_retry_of_ids(ctx, arr, l, off, k);
+            int rc = d == 1 ? RecS_tasks_retry_of_ids(ctx, arr, st, l, off, k, 0) : ChunkHS_tasks_retry_of_ids(ctx, arr, st, l, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
         return 0;
     }
 
-    private static int RecM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k, int j)
+    private static int RecM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
-            return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; st.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; st.MapPatched++; } }
+            return RecM_tasks_options_options(ctx, arr, st, m, off, k, j + 1);
         }
     }
 
-    private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k)
+    private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(kv.Key); st.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int n)
+    private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecM_tasks_options_options(ctx, arr, m, off, k, 0) : ChunkHM_tasks_options_options(ctx, arr, m, off, k);
+            int rc = d == 1 ? RecM_tasks_options_options(ctx, arr, st, m, off, k, 0) : ChunkHM_tasks_options_options(ctx, arr, st, m, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
@@ -2409,14 +2571,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->N_tasks;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_tasks(ctx, run, _pinSrc.Tasks, off, k, 0) : ChunkH_tasks(ctx, run, _pinSrc.Tasks, off, k);
+                    int rp = d == 1 ? Rec_tasks(ctx, run, h.St, h.Root.Tasks, off, k, 0) : ChunkH_tasks(ctx, run, h.St, h.Root.Tasks, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -2442,7 +2605,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_parent_task_ids[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinStrs_tasks_parent_task_ids(ctx, (ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e], _pinSrc.Tasks[e].ParentTaskIds, n);
+            if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_parent_task_ids(ctx, (ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e], h.St, h.Root.Tasks[e].ParentTaskIds, n, run->Defer); }
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e]), n);
         }
@@ -2459,7 +2622,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_data_dependencies[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinStrs_tasks_data_dependencies(ctx, (ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e], _pinSrc.Tasks[e].DataDependencies, n);
+            if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_data_dependencies(ctx, (ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e], h.St, h.Root.Tasks[e].DataDependencies, n, run->Defer); }
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e]), n);
         }
@@ -2476,7 +2639,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_expected_output_ids[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinStrs_tasks_expected_output_ids(ctx, (ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e], _pinSrc.Tasks[e].ExpectedOutputIds, n);
+            if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_expected_output_ids(ctx, (ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e], h.St, h.Root.Tasks[e].ExpectedOutputIds, n, run->Defer); }
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e]), n);
         }
@@ -2493,7 +2656,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_retry_of_ids[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinStrs_tasks_retry_of_ids(ctx, (ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e], _pinSrc.Tasks[e].RetryOfIds, n);
+            if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_retry_of_ids(ctx, (ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e], h.St, h.Root.Tasks[e].RetryOfIds, n, run->Defer); }
             _fwd++;
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e]), n);
         }
@@ -2510,7 +2673,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
+            if (run->Defer != 0) { var h = Host(run); return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], h.St, h.Root.Tasks[e].Options?.Options, n, run->Defer); }
             _fwd++;
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
@@ -2553,11 +2716,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private int Go(ListTasksDetailedResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_ListTasksDetailedResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -2670,7 +2837,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             G.U_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -2679,16 +2846,19 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -2699,16 +2869,59 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static ListTasksDetailedResponse Tgt(void* obj) => (ListTasksDetailedResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_ListTasksDetailedResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_ListTasksDetailedResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public ListTasksDetailedResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTasksDetailedResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_ListTasksDetailedResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTasksDetailedResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_ListTasksDetailedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTasksDetailedResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static ListTasksDetailedResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTasksDetailedResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2724,7 +2937,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private static void Apply_tasks(IntPtr ctx, void* obj, long token, ak_dfix_TaskDetailed* fix)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; G.D_TaskDetailed(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
+        try { var lst = Tgt(obj).Tasks; G.D_TaskDetailed(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -2735,6 +2948,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.ParentTaskIds;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -2750,6 +2964,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.DataDependencies;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -2765,6 +2980,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.ExpectedOutputIds;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -2780,6 +2996,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = e.RetryOfIds;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -2795,12 +3012,13 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
             // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -2815,29 +3033,15 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_ListTasksDetailedResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListTasksDetailedResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTasksDetailedResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_ListTasksDetailedResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTasksDetailedResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_ListTasksDetailedResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTasksDetailedResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -2846,30 +3050,32 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_ListTasksDetailedResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTasksDetailedResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->tasks.grow = g;
-        if (zero != 2) _uo->tasks_options.grow = g;
-        if (zero != 3) _uo->tasks_options_options.grow = g;
-        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
-        if (zero != 5) _uo->tasks_created_at.grow = g;
-        if (zero != 6) _uo->tasks_submitted_at.grow = g;
-        if (zero != 7) _uo->tasks_started_at.grow = g;
-        if (zero != 8) _uo->tasks_ended_at.grow = g;
-        if (zero != 9) _uo->tasks_pod_ttl.grow = g;
-        if (zero != 10) _uo->tasks_output.grow = g;
-        if (zero != 11) _uo->tasks_received_at.grow = g;
-        if (zero != 12) _uo->tasks_acquired_at.grow = g;
-        if (zero != 13) _uo->tasks_creation_to_end_duration.grow = g;
-        if (zero != 14) _uo->tasks_processing_to_end_duration.grow = g;
-        if (zero != 15) _uo->tasks_received_to_end_duration.grow = g;
-        if (zero != 16) _uo->tasks_processed_at.grow = g;
-        if (zero != 17) _uo->tasks_fetched_at.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->tasks.grow = g;
+        if (zero != 2) uo->tasks_options.grow = g;
+        if (zero != 3) uo->tasks_options_options.grow = g;
+        if (zero != 4) uo->tasks_options_max_duration.grow = g;
+        if (zero != 5) uo->tasks_created_at.grow = g;
+        if (zero != 6) uo->tasks_submitted_at.grow = g;
+        if (zero != 7) uo->tasks_started_at.grow = g;
+        if (zero != 8) uo->tasks_ended_at.grow = g;
+        if (zero != 9) uo->tasks_pod_ttl.grow = g;
+        if (zero != 10) uo->tasks_output.grow = g;
+        if (zero != 11) uo->tasks_received_at.grow = g;
+        if (zero != 12) uo->tasks_acquired_at.grow = g;
+        if (zero != 13) uo->tasks_creation_to_end_duration.grow = g;
+        if (zero != 14) uo->tasks_processing_to_end_duration.grow = g;
+        if (zero != 15) uo->tasks_received_to_end_duration.grow = g;
+        if (zero != 16) uo->tasks_processed_at.grow = g;
+        if (zero != 17) uo->tasks_fetched_at.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -2877,23 +3083,23 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_ListTasksDetailedResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -3134,7 +3340,6 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_ListTasksDetailedResponse* Pvt = MakePvt();
     private static ak_pvt_ListTasksDetailedResponse* MakePvt() { var v = (ak_pvt_ListTasksDetailedResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTasksDetailedResponse)); v->utf8_skip = AkUtf8Skip.ListTasksDetailedResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTasksDetailedResponse result)
     {
         result = null;
@@ -3145,9 +3350,10 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTasksDetailedResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -3156,13 +3362,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_ListTasksDetailedResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -3196,15 +3401,14 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_ListTasksDetailedResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_ListTasksDetailedResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -3218,7 +3422,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_ListTasksDetailedResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -3244,13 +3448,13 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_ListTasksDetailedResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_ListTasksDetailedResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -3261,7 +3465,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(ListTasksDetailedResponse t, byte* b, byte* p, int len)
+    private static void Replay(ListTasksDetailedResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -3272,9 +3476,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)body, t, b); break;
+                case OP_APPLY: G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)body, t, b, a); break;
                 case OP_NEW when outer == 1: t.Tasks.Add(new TaskDetailed()); break;
-                case OP_APPLY_ELEM when outer == 1: G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)body, t.Tasks[(int)r.token], b); break;
+                case OP_APPLY_ELEM when outer == 1: G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)body, t.Tasks[(int)r.token], b, a); break;
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_span*)body; var e = t.Tasks[(int)r.token]; var il = e.ParentTaskIds;
@@ -3309,7 +3513,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                     il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value. The facade map has no bag:
                     // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
                     break;
                 }
                 default: break;
@@ -3348,7 +3552,8 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -3356,12 +3561,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b);
+                            G.D_ListTasksDetailedResponse(ref *(ak_dfix_ListTasksDetailedResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -3377,7 +3582,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListTasksDetailedResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListTasksDetailedResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -3391,7 +3596,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             case Abi.AK_BDR_APPLY_ELEM:
                 switch (ev->slot >> 16)
                 {
-                    case 1: G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)d, t.Tasks[(int)ev->token], b); return;
+                    case 1: G.D_TaskDetailed(ref *(ak_dfix_TaskDetailed*)d, t.Tasks[(int)ev->token], b, a); return;
                 }
                 return;
             case Abi.AK_BDR_ADD:
@@ -3429,7 +3634,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                     {
                         var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var e = t.Tasks[(int)ev->token]; var il = (e.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
                         il.EnsureCapacity(il.Count + n);
-                        for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                        for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
                         return;
                     }
                 }
@@ -3437,38 +3642,28 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_tasks);
-            NativeMemory.Free(_run->I_tasks_parent_task_ids); NativeMemory.Free(_run->O_tasks_parent_task_ids); NativeMemory.Free(_run->C_tasks_parent_task_ids);
-            NativeMemory.Free(_run->I_tasks_data_dependencies); NativeMemory.Free(_run->O_tasks_data_dependencies); NativeMemory.Free(_run->C_tasks_data_dependencies);
-            NativeMemory.Free(_run->I_tasks_expected_output_ids); NativeMemory.Free(_run->O_tasks_expected_output_ids); NativeMemory.Free(_run->C_tasks_expected_output_ids);
-            NativeMemory.Free(_run->I_tasks_retry_of_ids); NativeMemory.Free(_run->O_tasks_retry_of_ids); NativeMemory.Free(_run->C_tasks_retry_of_ids);
-            NativeMemory.Free(_run->I_tasks_options_options); NativeMemory.Free(_run->O_tasks_options_options); NativeMemory.Free(_run->C_tasks_options_options);
-            NativeMemory.Free(_run); _run = null;
-        }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_ListProbeResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_ListProbeResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_probes; public int N_probes;
@@ -3477,13 +3672,15 @@ public unsafe struct Run_ListProbeResponse
 /// core-ffi for `ListProbeResponse`: every group, slot and entry point from the plan.
 public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_ListProbeResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -3492,23 +3689,51 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 
     public CoreFfi_ListProbeResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListProbeResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static ListProbeResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_ListProbeResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_ListProbeResponse* Run;
+        public ListProbeResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListProbeResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_probes);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_ListProbeResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_probes(IntPtr ctx, Run_ListProbeResponse* run, System.Collections.Generic.List<Probe> lst, int off, int k, int i)
+    private static int Rec_probes(IntPtr ctx, Run_ListProbeResponse* run, Stage st, System.Collections.Generic.List<Probe> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -3521,47 +3746,47 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_probes(ctx, run, lst, off, k, i + 1);
+            return Rec_probes(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_probes(IntPtr ctx, Run_ListProbeResponse* run, System.Collections.Generic.List<Probe> lst, int off, int k)
+    private static int ChunkH_probes(IntPtr ctx, Run_ListProbeResponse* run, Stage st, System.Collections.Generic.List<Probe> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = Stage.PinChunk(__e.OptLabel); }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = st.PinChunk(__e.OptLabel); }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = st.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
             }
             else
             {
                 var __g = (ak_efix_Probe*)run->S_probes + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = Stage.PinChunk(__e.OptLabel); }
-                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = Stage.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->opt_label.data == Stage.PinPending) { __g->opt_label.data = st.PinChunk(__e.OptLabel); }
+                if (__g->body_as_text.data == Stage.PinPending) { __g->body_as_text.data = st.PinChunk((__e.BodyCase == ProbeBodyCase.AsText ? (__e.AsText ?? "") : null)); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k) : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
@@ -3575,14 +3800,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             int n = run->N_probes;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_probes(ctx, run, _pinSrc.Probes, off, k, 0) : ChunkH_probes(ctx, run, _pinSrc.Probes, off, k);
+                    int rp = d == 1 ? Rec_probes(ctx, run, h.St, h.Root.Probes, off, k, 0) : ChunkH_probes(ctx, run, h.St, h.Root.Probes, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -3634,11 +3860,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private int Go(ListProbeResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_ListProbeResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -3663,7 +3893,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             G.U_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -3672,16 +3902,19 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             G.E_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -3692,16 +3925,59 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static ListProbeResponse Tgt(void* obj) => (ListProbeResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_ListProbeResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_ListProbeResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public ListProbeResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_ListProbeResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_ListProbeResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListProbeResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_ListProbeResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListProbeResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_ListProbeResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListProbeResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static ListProbeResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListProbeResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -3713,9 +3989,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var lst = Tgt(obj).Probes;
             lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
-            for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
+            for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b, a); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -3730,29 +4007,15 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_ListProbeResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListProbeResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListProbeResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_ListProbeResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListProbeResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_ListProbeResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListProbeResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -3761,15 +4024,17 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_ListProbeResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListProbeResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->probes.grow = g;
-        if (zero != 2) _uo->probes_body.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->probes.grow = g;
+        if (zero != 2) uo->probes_body.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -3777,23 +4042,23 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListProbeResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_ListProbeResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -3858,7 +4123,6 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_ListProbeResponse* Pvt = MakePvt();
     private static ak_pvt_ListProbeResponse* MakePvt() { var v = (ak_pvt_ListProbeResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListProbeResponse)); v->utf8_skip = AkUtf8Skip.ListProbeResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListProbeResponse result)
     {
         result = null;
@@ -3869,9 +4133,10 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListProbeResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -3880,13 +4145,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_ListProbeResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -3914,15 +4178,14 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_ListProbeResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_ListProbeResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -3936,7 +4199,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_ListProbeResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_ListProbeResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -3962,13 +4225,13 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_ListProbeResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_ListProbeResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -3979,7 +4242,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(ListProbeResponse t, byte* b, byte* p, int len)
+    private static void Replay(ListProbeResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -3990,12 +4253,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)body, t, b); break;
+                case OP_APPLY: G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)body, t, b, a); break;
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_Probe*)body; var lst = t.Probes;
                     lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
-                    for (int i = 0; i < (int)r.n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
+                    for (int i = 0; i < (int)r.n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b, a); lst.Add(x); }
                     break;
                 }
                 default: break;
@@ -4033,7 +4296,8 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_ListProbeResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_ListProbeResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -4041,12 +4305,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b);
+                            G.D_ListProbeResponse(ref *(ak_dfix_ListProbeResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_ListProbeResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListProbeResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -4062,7 +4326,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListProbeResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListProbeResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -4074,7 +4338,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                     {
                         var xs = (ak_dfix_Probe*)d; var lst = t.Probes; int n = (int)ev->n;
                         lst.EnsureCapacity(lst.Count + n);
-                        for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b); lst.Add(x); }
+                        for (int i = 0; i < n; i++) { var x = new Probe(); G.D_Probe(ref xs[i], x, b, a); lst.Add(x); }
                         return;
                     }
                 }
@@ -4082,32 +4346,27 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_probes);
-            NativeMemory.Free(_run); _run = null;
-        }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_ListTaskSummaryResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_ListTaskSummaryResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_tasks; public int N_tasks;
@@ -4118,13 +4377,15 @@ public unsafe struct Run_ListTaskSummaryResponse
 /// plan.
 public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_ListTaskSummaryResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -4135,25 +4396,54 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 
     public CoreFfi_ListTaskSummaryResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListTaskSummaryResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
         _evt_tasks = (ak_evt_TaskSummary*)NativeMemory.AllocZeroed((nuint)sizeof(ak_evt_TaskSummary));
         _evt_tasks->loop_options_options = &Loop_tasks_options_options;
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static ListTaskSummaryResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_ListTaskSummaryResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_ListTaskSummaryResponse* Run;
+        public ListTaskSummaryResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListTaskSummaryResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_tasks);
+                NativeMemory.Free(Run->I_tasks_options_options); NativeMemory.Free(Run->O_tasks_options_options); NativeMemory.Free(Run->C_tasks_options_options);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_ListTaskSummaryResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_tasks(IntPtr ctx, Run_ListTaskSummaryResponse* run, System.Collections.Generic.List<TaskSummary> lst, int off, int k, int i)
+    private static int Rec_tasks(IntPtr ctx, Run_ListTaskSummaryResponse* run, Stage st, System.Collections.Generic.List<TaskSummary> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -4167,39 +4457,39 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { Stage.Patched++; } }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = (IntPtr)__p2; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = (IntPtr)__p3; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = (IntPtr)__p4; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = (IntPtr)__p5; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = (IntPtr)__p6; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = (IntPtr)__p7; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = (IntPtr)__p8; if (!Stage.NoGuard) { st.Patched++; } }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = (IntPtr)__p9; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_tasks(ctx, run, lst, off, k, i + 1);
+            return Rec_tasks(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_tasks(IntPtr ctx, Run_ListTaskSummaryResponse* run, System.Collections.Generic.List<TaskSummary> lst, int off, int k)
+    private static int ChunkH_tasks(IntPtr ctx, Run_ListTaskSummaryResponse* run, Stage st, System.Collections.Generic.List<TaskSummary> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
@@ -4207,79 +4497,79 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = Stage.PinChunk(__e.Error); }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = st.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = st.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = st.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = st.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = st.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = st.PinChunk(__c1?.EngineType); }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = st.PinChunk(__e.Error); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = st.PinChunk(__e.StatusMessage); }
             }
             else
             {
                 var __g = (ak_efix_TaskSummary*)run->S_tasks + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
-                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = Stage.PinChunk(__e.SessionId); }
-                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = Stage.PinChunk(__c1?.PartitionId); }
-                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = Stage.PinChunk(__c1?.ApplicationName); }
-                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = Stage.PinChunk(__c1?.ApplicationVersion); }
-                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = Stage.PinChunk(__c1?.ApplicationNamespace); }
-                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = Stage.PinChunk(__c1?.ApplicationService); }
-                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = Stage.PinChunk(__c1?.EngineType); }
-                if (__g->error.data == Stage.PinPending) { __g->error.data = Stage.PinChunk(__e.Error); }
-                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = Stage.PinChunk(__e.StatusMessage); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
+                if (__g->session_id.data == Stage.PinPending) { __g->session_id.data = st.PinChunk(__e.SessionId); }
+                if (__g->options.partition_id.data == Stage.PinPending) { __g->options.partition_id.data = st.PinChunk(__c1?.PartitionId); }
+                if (__g->options.application_name.data == Stage.PinPending) { __g->options.application_name.data = st.PinChunk(__c1?.ApplicationName); }
+                if (__g->options.application_version.data == Stage.PinPending) { __g->options.application_version.data = st.PinChunk(__c1?.ApplicationVersion); }
+                if (__g->options.application_namespace.data == Stage.PinPending) { __g->options.application_namespace.data = st.PinChunk(__c1?.ApplicationNamespace); }
+                if (__g->options.application_service.data == Stage.PinPending) { __g->options.application_service.data = st.PinChunk(__c1?.ApplicationService); }
+                if (__g->options.engine_type.data == Stage.PinPending) { __g->options.engine_type.data = st.PinChunk(__c1?.EngineType); }
+                if (__g->error.data == Stage.PinPending) { __g->error.data = st.PinChunk(__e.Error); }
+                if (__g->status_message.data == Stage.PinPending) { __g->status_message.data = st.PinChunk(__e.StatusMessage); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int RecM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k, int j)
+    private static int RecM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int off, int k, int j)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(j, (byte*)&j);
+        st.Sp(j, (byte*)&j);
 #endif
         if (j == k) { _fwd++; return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; Stage.MapPatched++; } }
-            return RecM_tasks_options_options(ctx, arr, m, off, k, j + 1);
+            if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; st.MapPatched++; } }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; st.MapPatched++; } }
+            return RecM_tasks_options_options(ctx, arr, st, m, off, k, j + 1);
         }
     }
 
-    private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int off, int k)
+    private static int ChunkHM_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++)
         {
             var kv = m.At(off + j);
             var __g = arr + off + j;
-            if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(kv.Key); Stage.MapPatched++; }
-            if (__g->value.data == Stage.PinPending) { __g->value.data = Stage.PinChunk(kv.Value); Stage.MapPatched++; }
+            if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(kv.Key); st.MapPatched++; }
+            if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
-    private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, OrderedMap<string, string> m, int n)
+    private static int PinMap_tasks_options_options(IntPtr ctx, ak_efix_TaskOptionsOptionsEntry* arr, Stage st, OrderedMap<string, string> m, int n, int d)
     {
-        int K = Stage.PinK, d = Stage.DeferNow;
+        int K = Stage.PinK;
         for (int off = 0; off < n; off += K)
         {
             int k = n - off; if (k > K) k = K;
-            int rc = d == 1 ? RecM_tasks_options_options(ctx, arr, m, off, k, 0) : ChunkHM_tasks_options_options(ctx, arr, m, off, k);
+            int rc = d == 1 ? RecM_tasks_options_options(ctx, arr, st, m, off, k, 0) : ChunkHM_tasks_options_options(ctx, arr, st, m, off, k);
             Stage.AfterChunk();
             if (rc < 0) return rc;
         }
@@ -4296,14 +4586,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             int n = run->N_tasks;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_tasks(ctx, run, _pinSrc.Tasks, off, k, 0) : ChunkH_tasks(ctx, run, _pinSrc.Tasks, off, k);
+                    int rp = d == 1 ? Rec_tasks(ctx, run, h.St, h.Root.Tasks, off, k, 0) : ChunkH_tasks(ctx, run, h.St, h.Root.Tasks, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -4329,7 +4620,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             int e = (int)token;
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
-            if (Stage.DeferNow != 0) return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], _pinSrc.Tasks[e].Options?.Options, n);
+            if (run->Defer != 0) { var h = Host(run); return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], h.St, h.Root.Tasks[e].Options?.Options, n, run->Defer); }
             _fwd++;
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
@@ -4372,11 +4663,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private int Go(ListTaskSummaryResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_ListTaskSummaryResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -4417,7 +4712,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             G.U_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -4426,16 +4721,19 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -4446,16 +4744,59 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static ListTaskSummaryResponse Tgt(void* obj) => (ListTaskSummaryResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_ListTaskSummaryResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_ListTaskSummaryResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public ListTaskSummaryResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTaskSummaryResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_ListTaskSummaryResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTaskSummaryResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_ListTaskSummaryResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTaskSummaryResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static ListTaskSummaryResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTaskSummaryResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -4471,7 +4812,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private static void Apply_tasks(IntPtr ctx, void* obj, long token, ak_dfix_TaskSummary* fix)
     {
         _rev++;
-        try { var lst = Tgt(obj).Tasks; G.D_TaskSummary(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
+        try { var lst = Tgt(obj).Tasks; G.D_TaskSummary(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -4482,12 +4823,13 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Tasks[(int)token];
             var il = (e.Options ??= new TaskOptions()).Options;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
             // plan: a duplicate key replaces the earlier value. The facade map has no bag:
             // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+            for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -4502,29 +4844,15 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_ListTaskSummaryResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListTaskSummaryResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListTaskSummaryResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_ListTaskSummaryResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListTaskSummaryResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_ListTaskSummaryResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListTaskSummaryResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -4533,18 +4861,20 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_ListTaskSummaryResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListTaskSummaryResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->tasks.grow = g;
-        if (zero != 2) _uo->tasks_options.grow = g;
-        if (zero != 3) _uo->tasks_options_options.grow = g;
-        if (zero != 4) _uo->tasks_options_max_duration.grow = g;
-        if (zero != 5) _uo->tasks_created_at.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->tasks.grow = g;
+        if (zero != 2) uo->tasks_options.grow = g;
+        if (zero != 3) uo->tasks_options_options.grow = g;
+        if (zero != 4) uo->tasks_options_max_duration.grow = g;
+        if (zero != 5) uo->tasks_created_at.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -4552,23 +4882,23 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_ListTaskSummaryResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -4673,7 +5003,6 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_ListTaskSummaryResponse* Pvt = MakePvt();
     private static ak_pvt_ListTaskSummaryResponse* MakePvt() { var v = (ak_pvt_ListTaskSummaryResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListTaskSummaryResponse)); v->utf8_skip = AkUtf8Skip.ListTaskSummaryResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListTaskSummaryResponse result)
     {
         result = null;
@@ -4684,9 +5013,10 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListTaskSummaryResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -4695,13 +5025,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_ListTaskSummaryResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -4731,15 +5060,14 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_ListTaskSummaryResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_ListTaskSummaryResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -4753,7 +5081,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_ListTaskSummaryResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_ListTaskSummaryResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -4779,13 +5107,13 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_ListTaskSummaryResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_ListTaskSummaryResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -4796,7 +5124,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(ListTaskSummaryResponse t, byte* b, byte* p, int len)
+    private static void Replay(ListTaskSummaryResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -4807,16 +5135,16 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)body, t, b); break;
+                case OP_APPLY: G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)body, t, b, a); break;
                 case OP_NEW when outer == 1: t.Tasks.Add(new TaskSummary()); break;
-                case OP_APPLY_ELEM when outer == 1: G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)body, t.Tasks[(int)r.token], b); break;
+                case OP_APPLY_ELEM when outer == 1: G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)body, t.Tasks[(int)r.token], b, a); break;
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (ak_dfix_TaskOptionsOptionsEntry*)body; var e = t.Tasks[(int)r.token]; var il = (e.Options ??= new TaskOptions()).Options;
                     il.EnsureCapacity(il.Count + (int)r.n);   // step 9a: the run's count is known
                     // plan: a duplicate key replaces the earlier value. The facade map has no bag:
                     // an entry's unknown-field buffer (decision 11) is freed (U-map-entry).
-                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                    for (int k = 0; k < (int)r.n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
                     break;
                 }
                 default: break;
@@ -4854,7 +5182,8 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -4862,12 +5191,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b);
+                            G.D_ListTaskSummaryResponse(ref *(ak_dfix_ListTaskSummaryResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -4883,7 +5212,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListTaskSummaryResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListTaskSummaryResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -4897,7 +5226,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             case Abi.AK_BDR_APPLY_ELEM:
                 switch (ev->slot >> 16)
                 {
-                    case 1: G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)d, t.Tasks[(int)ev->token], b); return;
+                    case 1: G.D_TaskSummary(ref *(ak_dfix_TaskSummary*)d, t.Tasks[(int)ev->token], b, a); return;
                 }
                 return;
             case Abi.AK_BDR_ADD:
@@ -4907,7 +5236,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                     {
                         var xs = (ak_dfix_TaskOptionsOptionsEntry*)d; var e = t.Tasks[(int)ev->token]; var il = (e.Options ??= new TaskOptions()).Options; int n = (int)ev->n;
                         il.EnsureCapacity(il.Count + n);
-                        for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown); }
+                        for (int k = 0; k < n; k++) { il[G.Str(b, xs[k].key)] = G.Str(b, xs[k].value); G.Drop(ref xs[k].unknown, a); }
                         return;
                     }
                 }
@@ -4915,34 +5244,28 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_tasks);
-            NativeMemory.Free(_run->I_tasks_options_options); NativeMemory.Free(_run->O_tasks_options_options); NativeMemory.Free(_run->C_tasks_options_options);
-            NativeMemory.Free(_run); _run = null;
-        }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
         if (_evt_tasks != null) { NativeMemory.Free(_evt_tasks); _evt_tasks = null; }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_UploadResultDataMessage.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_UploadResultDataMessage
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
 }
@@ -4951,13 +5274,15 @@ public unsafe struct Run_UploadResultDataMessage
 /// plan.
 public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_UploadResultDataMessage* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -4965,15 +5290,42 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
 
     public CoreFfi_UploadResultDataMessage(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(Run_UploadResultDataMessage));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static UploadResultDataMessage _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_UploadResultDataMessage (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_UploadResultDataMessage* Run;
+        public UploadResultDataMessage Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(Run_UploadResultDataMessage));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_UploadResultDataMessage* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     public int Fill(UploadResultDataMessage src) { Go(src, false, false, out _, out _); return 0; }
     public void Encode(UploadResultDataMessage src, out byte* p, out int len) { int rc = Go(src, false, true, out p, out len); if (rc < 0) throw new InvalidOperationException($"core encode failed: {rc}"); }
@@ -5009,63 +5361,67 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static nint RootPinR_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    private static nint RootPinR_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct, Stage st)
     {
         var __c1 = src.Upload;
         fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
         {
-            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static nint RootPinH_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    private static nint RootPinH_e(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_efix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct, Stage st)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Upload;
-        if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId); }
-        if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId); }
+        if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = st.PinChunk(__c1?.SessionId); }
+        if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = st.PinChunk(__c1?.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static nint RootPinR_u(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    private static nint RootPinR_u(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct, Stage st)
     {
         var __c1 = src.Upload;
         fixed (char* __p0 = __c1?.SessionId, __p1 = __c1?.ResultId)
         {
-            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
-            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { Stage.Patched++; } }
+            if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
+            if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = (IntPtr)__p1; if (!Stage.NoGuard) { st.Patched++; } }
             fixed (byte* dp = direct) return Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
         }
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static nint RootPinH_u(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct)
+    private static nint RootPinH_u(Run_UploadResultDataMessage* _run, IntPtr _ctx, ak_evt_UploadResultDataMessage* vt, ak_ufix_UploadResultDataMessage* __g, UploadResultDataMessage src, byte[] direct, Stage st)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         var __c1 = src.Upload;
-        if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = Stage.PinChunk(__c1?.SessionId); }
-        if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = Stage.PinChunk(__c1?.ResultId); }
+        if (__g->upload.session_id.data == Stage.PinPending) { __g->upload.session_id.data = st.PinChunk(__c1?.SessionId); }
+        if (__g->upload.result_id.data == Stage.PinPending) { __g->upload.result_id.data = st.PinChunk(__c1?.ResultId); }
         nint rc;
         fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, vt, __g, dp, (nuint)direct.Length);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
     private int Go(UploadResultDataMessage src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_UploadResultDataMessage* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         var vt = new ak_evt_UploadResultDataMessage
@@ -5081,9 +5437,9 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             G.U_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
-            else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct);
+            else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct, _st);
         }
         else
         {
@@ -5091,17 +5447,20 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             G.E_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
-            else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct);
+            else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct, _st);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -5112,16 +5471,59 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static UploadResultDataMessage Tgt(void* obj) => (UploadResultDataMessage)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_UploadResultDataMessage, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_UploadResultDataMessage_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public UploadResultDataMessage Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_UploadResultDataMessage(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_UploadResultDataMessage: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_UploadResultDataMessage(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultDataMessage: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_UploadResultDataMessage_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultDataMessage_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static UploadResultDataMessage Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultDataMessage* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5135,29 +5537,15 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_UploadResultDataMessage_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_UploadResultDataMessage(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_UploadResultDataMessage returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_UploadResultDataMessage(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_UploadResultDataMessage: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_UploadResultDataMessage(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_UploadResultDataMessage: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -5166,14 +5554,16 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_UploadResultDataMessage_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_UploadResultDataMessage_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->upload.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->upload.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -5181,23 +5571,23 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_UploadResultDataMessage(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -5252,7 +5642,6 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_UploadResultDataMessage* Pvt = MakePvt();
     private static ak_pvt_UploadResultDataMessage* MakePvt() { var v = (ak_pvt_UploadResultDataMessage*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_UploadResultDataMessage)); v->utf8_skip = AkUtf8Skip.UploadResultDataMessage_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out UploadResultDataMessage result)
     {
         result = null;
@@ -5263,9 +5652,10 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new UploadResultDataMessage();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -5274,13 +5664,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_UploadResultDataMessage(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -5307,15 +5696,14 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_UploadResultDataMessage(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_UploadResultDataMessage(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -5329,7 +5717,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_UploadResultDataMessage(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_UploadResultDataMessage(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -5355,13 +5743,13 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_UploadResultDataMessage(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_UploadResultDataMessage(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -5372,7 +5760,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(UploadResultDataMessage t, byte* b, byte* p, int len)
+    private static void Replay(UploadResultDataMessage t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -5383,7 +5771,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)body, t, b); break;
+                case OP_APPLY: G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)body, t, b, a); break;
                 default: break;
             }
         }
@@ -5419,7 +5807,8 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_UploadResultDataMessage(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_UploadResultDataMessage(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -5427,12 +5816,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b);
+                            G.D_UploadResultDataMessage(ref *(ak_dfix_UploadResultDataMessage*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_UploadResultDataMessage(_dctx, &ev);
+                        op = Abi.ak_fsm_next_UploadResultDataMessage(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -5448,7 +5837,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(UploadResultDataMessage t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(UploadResultDataMessage t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -5456,31 +5845,27 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run); _run = null;
-        }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_ListMetricsResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_ListMetricsResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_batches; public int N_batches;
@@ -5494,13 +5879,15 @@ public unsafe struct Run_ListMetricsResponse
 /// core-ffi for `ListMetricsResponse`: every group, slot and entry point from the plan.
 public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_ListMetricsResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -5515,10 +5902,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 
     public CoreFfi_ListMetricsResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListMetricsResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
         _evt_batches = (ak_evt_MetricsBatch*)NativeMemory.AllocZeroed((nuint)sizeof(ak_evt_MetricsBatch));
         _evt_batches->loop_ticks = &Loop_batches_ticks;
         _evt_batches->loop_values = &Loop_batches_values;
@@ -5527,17 +5911,53 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         _evt_batches->loop_statuses = &Loop_batches_statuses;
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static ListMetricsResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_ListMetricsResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_ListMetricsResponse* Run;
+        public ListMetricsResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_ListMetricsResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_batches);
+                NativeMemory.Free(Run->I_batches_ticks); NativeMemory.Free(Run->O_batches_ticks); NativeMemory.Free(Run->C_batches_ticks);
+                NativeMemory.Free(Run->I_batches_values); NativeMemory.Free(Run->O_batches_values); NativeMemory.Free(Run->C_batches_values);
+                NativeMemory.Free(Run->I_batches_codes); NativeMemory.Free(Run->O_batches_codes); NativeMemory.Free(Run->C_batches_codes);
+                NativeMemory.Free(Run->I_batches_flags); NativeMemory.Free(Run->O_batches_flags); NativeMemory.Free(Run->C_batches_flags);
+                NativeMemory.Free(Run->I_batches_statuses); NativeMemory.Free(Run->O_batches_statuses); NativeMemory.Free(Run->C_batches_statuses);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_ListMetricsResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_batches(IntPtr ctx, Run_ListMetricsResponse* run, System.Collections.Generic.List<MetricsBatch> lst, int off, int k, int i)
+    private static int Rec_batches(IntPtr ctx, Run_ListMetricsResponse* run, Stage st, System.Collections.Generic.List<MetricsBatch> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -5550,39 +5970,39 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_batches(ctx, run, lst, off, k, i + 1);
+            return Rec_batches(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_batches(IntPtr ctx, Run_ListMetricsResponse* run, System.Collections.Generic.List<MetricsBatch> lst, int off, int k)
+    private static int ChunkH_batches(IntPtr ctx, Run_ListMetricsResponse* run, Stage st, System.Collections.Generic.List<MetricsBatch> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
             }
             else
             {
                 var __g = (ak_efix_MetricsBatch*)run->S_batches + off + i;
-                if (__g->id.data == Stage.PinPending) { __g->id.data = Stage.PinChunk(__e.Id); }
+                if (__g->id.data == Stage.PinPending) { __g->id.data = st.PinChunk(__e.Id); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off) : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
@@ -5596,14 +6016,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             int n = run->N_batches;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_batches(ctx, run, _pinSrc.Batches, off, k, 0) : ChunkH_batches(ctx, run, _pinSrc.Batches, off, k);
+                    int rp = d == 1 ? Rec_batches(ctx, run, h.St, h.Root.Batches, off, k, 0) : ChunkH_batches(ctx, run, h.St, h.Root.Batches, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -5735,11 +6156,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private int Go(ListMetricsResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_ListMetricsResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -5855,7 +6280,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             G.U_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -5864,16 +6289,19 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             G.E_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -5884,16 +6312,59 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static ListMetricsResponse Tgt(void* obj) => (ListMetricsResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_ListMetricsResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_ListMetricsResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public ListMetricsResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_ListMetricsResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListMetricsResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_ListMetricsResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListMetricsResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_ListMetricsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListMetricsResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static ListMetricsResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListMetricsResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5909,7 +6380,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private static void Apply_batches(IntPtr ctx, void* obj, long token, ak_dfix_MetricsBatch* fix)
     {
         _rev++;
-        try { var lst = Tgt(obj).Batches; G.D_MetricsBatch(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }
+        try { var lst = Tgt(obj).Batches; G.D_MetricsBatch(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -5920,6 +6391,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Ticks;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -5935,6 +6407,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Values;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -5950,6 +6423,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Codes;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -5965,6 +6439,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Flags;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -5980,6 +6455,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var e = Tgt(obj).Batches[(int)token];
             var il = e.Statuses;
             il.EnsureCapacity(il.Count + n);   // step 9a: the run's count is known
@@ -5998,29 +6474,15 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_ListMetricsResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_ListMetricsResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_ListMetricsResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_ListMetricsResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_ListMetricsResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_ListMetricsResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_ListMetricsResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -6029,14 +6491,16 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_ListMetricsResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_ListMetricsResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->batches.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->batches.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -6044,23 +6508,23 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_ListMetricsResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -6122,7 +6586,6 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_ListMetricsResponse* Pvt = MakePvt();
     private static ak_pvt_ListMetricsResponse* MakePvt() { var v = (ak_pvt_ListMetricsResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_ListMetricsResponse)); v->utf8_skip = AkUtf8Skip.ListMetricsResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out ListMetricsResponse result)
     {
         result = null;
@@ -6133,9 +6596,10 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new ListMetricsResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -6144,13 +6608,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_ListMetricsResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -6184,15 +6647,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_ListMetricsResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_ListMetricsResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -6206,7 +6668,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_ListMetricsResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_ListMetricsResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -6232,13 +6694,13 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_ListMetricsResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_ListMetricsResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -6249,7 +6711,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(ListMetricsResponse t, byte* b, byte* p, int len)
+    private static void Replay(ListMetricsResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -6260,9 +6722,9 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)body, t, b); break;
+                case OP_APPLY: G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)body, t, b, a); break;
                 case OP_NEW when outer == 1: t.Batches.Add(new MetricsBatch()); break;
-                case OP_APPLY_ELEM when outer == 1: G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)body, t.Batches[(int)r.token], b); break;
+                case OP_APPLY_ELEM when outer == 1: G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)body, t.Batches[(int)r.token], b, a); break;
                 case OP_ADD when outer == 1 && inner == 1:
                 {
                     var xs = (long*)body; var e = t.Batches[(int)r.token]; var il = e.Ticks;
@@ -6333,7 +6795,8 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_ListMetricsResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_ListMetricsResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -6341,12 +6804,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b);
+                            G.D_ListMetricsResponse(ref *(ak_dfix_ListMetricsResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_ListMetricsResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_ListMetricsResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -6362,7 +6825,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(ListMetricsResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(ListMetricsResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -6376,7 +6839,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             case Abi.AK_BDR_APPLY_ELEM:
                 switch (ev->slot >> 16)
                 {
-                    case 1: G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)d, t.Batches[(int)ev->token], b); return;
+                    case 1: G.D_MetricsBatch(ref *(ak_dfix_MetricsBatch*)d, t.Batches[(int)ev->token], b, a); return;
                 }
                 return;
             case Abi.AK_BDR_ADD:
@@ -6422,38 +6885,28 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_batches);
-            NativeMemory.Free(_run->I_batches_ticks); NativeMemory.Free(_run->O_batches_ticks); NativeMemory.Free(_run->C_batches_ticks);
-            NativeMemory.Free(_run->I_batches_values); NativeMemory.Free(_run->O_batches_values); NativeMemory.Free(_run->C_batches_values);
-            NativeMemory.Free(_run->I_batches_codes); NativeMemory.Free(_run->O_batches_codes); NativeMemory.Free(_run->C_batches_codes);
-            NativeMemory.Free(_run->I_batches_flags); NativeMemory.Free(_run->O_batches_flags); NativeMemory.Free(_run->C_batches_flags);
-            NativeMemory.Free(_run->I_batches_statuses); NativeMemory.Free(_run->O_batches_statuses); NativeMemory.Free(_run->C_batches_statuses);
-            NativeMemory.Free(_run); _run = null;
-        }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
         if (_evt_batches != null) { NativeMemory.Free(_evt_batches); _evt_batches = null; }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
     }
 }
 
 [StructLayout(LayoutKind.Sequential)]
+/// The encode host context's native block (D26: CoreFfi_DualResponse.EncCtx owns it), the loop
+/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's
+/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays.
 public unsafe struct Run_DualResponse
 {
+    public IntPtr Host;
+    public int Defer;
     public int Chunk;
     public int Retain;
     public void* S_left; public int N_left;
@@ -6463,13 +6916,15 @@ public unsafe struct Run_DualResponse
 /// core-ffi for `DualResponse`: every group, slot and entry point from the plan.
 public sealed unsafe class CoreFfi_DualResponse : IDisposable
 {
-    private IntPtr _ctx, _dctx;
-    private readonly Stage _st;
-    private Run_DualResponse* _run;
-    private DecRun* _drun;
+    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core
+    /// encode context; _dh, created on the first decode, owns the core decode context.
+    private readonly EncCtx _eh;
+    private DecCtx _dh;
+    private IntPtr _ctx => _eh.Ctx;
+    private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]
-    /// callback cannot reach an instance; one arm at a time.
+    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
+    /// context): one arm at a time.
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
@@ -6479,23 +6934,52 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 
     public CoreFfi_DualResponse(bool utf16 = false)
     {
-        _ctx = Abi.ak_enc_ctx_new();
-        if (_ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
-        _st = new Stage(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
-        _run = (Run_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_DualResponse));
+        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable("AK_UTF16") == "1");
     }
 
-    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the
-    /// frames inside the loop callbacks to pin its strings.
-    [ThreadStatic] private static DualResponse _pinSrc;
+    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:
+    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_DualResponse (the loop
+    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's
+    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes
+    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per
+    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and
+    /// Run->Defer are set for the call and cleared after it. Freed in Dispose.
+    private sealed class EncCtx : EncHost
+    {
+        public IntPtr Ctx;
+        public Run_DualResponse* Run;
+        public DualResponse Root;
+        public EncCtx(bool utf16) : base(utf16)
+        {
+            Ctx = Abi.ak_enc_ctx_new();
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_enc_ctx_new returned null");
+            Run = (Run_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(Run_DualResponse));
+            Run->Host = Handle;
+        }
+        public override void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (Run != null)
+            {
+                NativeMemory.Free(Run->S_left);
+                NativeMemory.Free(Run->S_right);
+                NativeMemory.Free(Run); Run = null;
+            }
+            Root = null;
+            base.Dispose();
+        }
+    }
+
+    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block).
+    private static EncCtx Host(Run_DualResponse* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;
 
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_left(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k, int i)
+    private static int Rec_left(IntPtr ctx, Run_DualResponse* run, Stage st, System.Collections.Generic.List<Pair> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -6508,39 +6992,39 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_left(ctx, run, lst, off, k, i + 1);
+            return Rec_left(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_left(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k)
+    private static int ChunkH_left(IntPtr ctx, Run_DualResponse* run, Stage st, System.Collections.Generic.List<Pair> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(__e.Key); }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_left + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(__e.Key); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6554,14 +7038,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             int n = run->N_left;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_left(ctx, run, _pinSrc.Left, off, k, 0) : ChunkH_left(ctx, run, _pinSrc.Left, off, k);
+                    int rp = d == 1 ? Rec_left(ctx, run, h.St, h.Root.Left, off, k, 0) : ChunkH_left(ctx, run, h.St, h.Root.Left, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -6580,10 +7065,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of
     /// its element, patches the element's marked members, and recurses; the deepest frame
     /// makes the element call, and unwinding releases the pins.
-    private static int Rec_right(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k, int i)
+    private static int Rec_right(IntPtr ctx, Run_DualResponse* run, Stage st, System.Collections.Generic.List<Pair> lst, int off, int k, int i)
     {
 #if AK_HOST_COUNT
-        Stage.Sp(i, (byte*)&i);
+        st.Sp(i, (byte*)&i);
 #endif
         if (i == k)
         {
@@ -6596,39 +7081,39 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { Stage.Patched++; } }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = (IntPtr)__p0; if (!Stage.NoGuard) { st.Patched++; } }
             }
-            return Rec_right(ctx, run, lst, off, k, i + 1);
+            return Rec_right(ctx, run, st, lst, off, k, i + 1);
         }
     }
 
     /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned.
-    private static int ChunkH_right(IntPtr ctx, Run_DualResponse* run, System.Collections.Generic.List<Pair> lst, int off, int k)
+    private static int ChunkH_right(IntPtr ctx, Run_DualResponse* run, Stage st, System.Collections.Generic.List<Pair> lst, int off, int k)
     {
-        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds
+        int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int i = 0; i < k; i++)
         {
             var __e = lst[off + i];
             if (run->Retain != 0)
             {
                 var __g = (ak_ufix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(__e.Key); }
             }
             else
             {
                 var __g = (ak_efix_Pair*)run->S_right + off + i;
-                if (__g->key.data == Stage.PinPending) { __g->key.data = Stage.PinChunk(__e.Key); }
+                if (__g->key.data == Stage.PinPending) { __g->key.data = st.PinChunk(__e.Key); }
             }
         }
-        Stage.BeforeChunkCall(__h);
+        st.BeforeChunkCall(__h);
         _fwd++;
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
-        Stage.ReleaseChunk(__h);
+        st.ReleaseChunk(__h);
         return rc;
     }
 
@@ -6642,14 +7127,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             int n = run->N_right;
             if (n == 0) return 0;
             int chunk = run->Chunk <= 0 ? n : run->Chunk;
-            int d = Stage.DeferNow;
-            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;
+            int d = run->Defer;
+            EncCtx h = null;
+            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }
             for (int off = 0; off < n; off += chunk)
             {
                 int k = n - off; if (k > chunk) k = chunk;
                 if (d != 0)
                 {
-                    int rp = d == 1 ? Rec_right(ctx, run, _pinSrc.Right, off, k, 0) : ChunkH_right(ctx, run, _pinSrc.Right, off, k);
+                    int rp = d == 1 ? Rec_right(ctx, run, h.St, h.Root.Right, off, k, 0) : ChunkH_right(ctx, run, h.St, h.Root.Right, off, k);
                     Stage.AfterChunk();
                     if (rp < 0) return rp;
                     continue;
@@ -6701,11 +7187,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private int Go(DualResponse src, bool retain, bool call, out byte* outPtr, out int outLen)
     {
         outPtr = null; outLen = 0;
+        // D26: the call's state is the encode host context's, reset here (the core context
+        // with it), reused across calls.
+        var __h = _eh;
+        IntPtr _ctx = __h.Ctx;
+        Stage _st = __h.St;
+        Run_DualResponse* _run = __h.Run;
         Abi.ak_enc_reset(_ctx);
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
-        long __mk0 = 0, __pt0 = 0;
-        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches
         _run->Chunk = Chunk;
         _run->Retain = retain ? 1 : 0;
         {
@@ -6742,7 +7232,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             G.U_DualResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_DualResponse(_run, _ctx, &vt, &fix);
         }
         else
@@ -6751,16 +7241,19 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             G.E_DualResponse(ref fix, src, _st);
             if (!call) return 0;
             _fwd++;
-            if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }
+            if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
         _st.ReleasePins();   // D21 E1: the core has copied every pinned string
         if (__d != 0)
         {
-            Stage.DeferNow = 0;   // the next encode on this thread starts from the default
-            _pinSrc = null;
+            _run->Defer = 0;   // the next call starts from the default
+            __h.Root = null;   // the context does not keep the message alive
+#if AK_HOST_COUNT
+            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;
+#endif
             // E1R / E1C: every mark the fill left was patched by a frame before the core read it.
-            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;
+            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;
         }
         if (rc < 0) return (int)rc;
         if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)
@@ -6771,16 +7264,59 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         return 0;
     }
 
+    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the
+    /// ONE GCHandle to the managed DecCtx, Buf the call's input, Arena the call's arena (null in drop mode).
     [StructLayout(LayoutKind.Sequential)]
-    private struct DecRun { public IntPtr Target; public byte* Buf; }
+    private struct DecRun { public IntPtr Host; public byte* Buf; public UnkArena* Arena; }
 
-    private static DualResponse Tgt(void* obj) => (DualResponse)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;
+    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its
+    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_DualResponse, with its pvt
+    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,
+    /// allocated here (never per call), the native unknown-field options (`host` = the arena, grow's `sink`) and the arena. Per call: Begin sets Root (and Arena),
+    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose.
+    private sealed class DecCtx : IDisposable
+    {
+        public IntPtr Ctx;
+        public DecRun* Run;
+        public UnkArena* Arena;
+        public ak_dec_DualResponse_opts* Uo;
+        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public DualResponse Root;
+        private GCHandle _self;
+        public DecCtx()
+        {
+            Ctx = Abi.ak_dec_ctx_new_DualResponse(null);   // rule 6: bound to this root, drop mode
+            if (Ctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
+            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
+            int sp = Abi.ak_dec_set_pvt_DualResponse(Ctx, Pvt);   // step 5b: the root's one native pvt
+            if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_DualResponse: " + sp);
+            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created.
+            int fp = Abi.ak_fsm_set_pvt_DualResponse(Ctx, FsmPvt);
+            if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_DualResponse: " + fp);
+            _self = GCHandle.Alloc(this);
+            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
+            Run->Host = GCHandle.ToIntPtr(_self);
+            Arena = UnkArena.Create();
+            Uo = (ak_dec_DualResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_DualResponse_opts));
+        }
+        public void Dispose()
+        {
+            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }
+            if (_self.IsAllocated) _self.Free();
+            if (Run != null) { NativeMemory.Free(Run); Run = null; }
+            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }
+            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }
+            Root = null;
+        }
+    }
+
+    private static DualResponse Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;
 
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_DualResponse* fix)
     {
         _rev++;
-        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }
+        try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
 
@@ -6792,9 +7328,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var lst = Tgt(obj).Left;
             lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
-            for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+            for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -6807,9 +7344,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
             byte* b = ((DecRun*)obj)->Buf;
+            UnkArena* a = ((DecRun*)obj)->Arena;
             var lst = Tgt(obj).Right;
             lst.EnsureCapacity(lst.Count + n);   // step 9a: the run's count is known
-            for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+            for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
         }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -6824,29 +7362,15 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    private ak_dec_DualResponse_opts* _uo;
-    private UnkArena _arena;
-    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
     private static long _resets;
     public long ResetCalls => _resets;
     public const bool UnknownCompiledOut = false;
 
-    private void EnsureDec()
-    {
-        if (_dctx != IntPtr.Zero) return;
-        _dctx = Abi.ak_dec_ctx_new_DualResponse(null);   // rule 6: bound to this root, drop mode
-        if (_dctx == IntPtr.Zero) throw new InvalidOperationException("ak_dec_ctx_new_DualResponse returned NULL");
-        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates).
-        int sp = Abi.ak_dec_set_pvt_DualResponse(_dctx, Pvt);   // step 5b: the root's one native pvt
-        if (sp != 0) throw new InvalidOperationException("ak_dec_set_pvt_DualResponse: " + sp);
-        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set
-        // lazily on the first FSM decode, it made one count row depend on which thread decoded).
-        int fp = Abi.ak_fsm_set_pvt_DualResponse(_dctx, FsmPvt);
-        if (fp != 0) throw new InvalidOperationException("ak_fsm_set_pvt_DualResponse: " + fp);
-        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));
-    }
+    /// D26: the decode host context (and with it the core decode context) is created on the
+    /// first decode and kept for the binding's life.
+    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }
 
     /// The options, rewritten before every retained decode: every entry names the one
     /// grow and holds no pre-allocated buffer (all from grow, so the core never needs
@@ -6855,15 +7379,17 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         // Step a2 (iii): rewritten only when the mode changed. The core never writes a
         // grow-only entry (it takes and clears pre-placed buffers only, and there are none).
-        if (_uo != null && _armed == zero) return _uo;
-        if (_uo == null) _uo = (ak_dec_DualResponse_opts*)NativeMemory.AllocZeroed((nuint)sizeof(ak_dec_DualResponse_opts));
-        *_uo = default;
-        _armed = zero;
+        var h = _dh;
+        if (h.Armed == zero) return h.Uo;
+        var uo = h.Uo;
+        *uo = default;
+        h.Armed = zero;
+        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena
         var g = UnkHost.Fn;
-        if (zero != 0) _uo->self.grow = g;
-        if (zero != 1) _uo->left.grow = g;
-        if (zero != 2) _uo->right.grow = g;
-        return _uo;
+        if (zero != 0) uo->self.grow = g;
+        if (zero != 1) uo->left.grow = g;
+        if (zero != 2) uo->right.grow = g;
+        return uo;
     }
 
     /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k.
@@ -6871,23 +7397,23 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     {
         Undelivered = 0;
         _resets++;
-        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_DualResponse(_dctx, null); }
-        _arena ??= new UnkArena();
-        _arena.Begin();
-        G.Arena = _arena;
-        return Abi.ak_dec_reset_DualResponse(_dctx, Arm(mode));
+        var h = _dh;
+        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_DualResponse(h.Ctx, null); }
+        h.Arena->Begin();
+        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
+        return Abi.ak_dec_reset_DualResponse(h.Ctx, Arm(mode));
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
     /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
     /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (_uo) until the next decode's reset rewrites them.
+    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
     private int Disarm(int rc)
     {
-        var a = G.Arena;
-        G.Arena = null;
-        if (a == null || a.Outstanding == 0) return rc;
-        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin
+        var a = _dh.Run->Arena;
+        _dh.Run->Arena = null;
+        if (a == null || a->Outstanding == 0) return rc;
+        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin
         if (rc < 0) return rc;
         Undelivered = left;
         return UNDELIVERED;
@@ -6952,7 +7478,6 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them).
     private static readonly ak_pvt_DualResponse* Pvt = MakePvt();
     private static ak_pvt_DualResponse* MakePvt() { var v = (ak_pvt_DualResponse*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_DualResponse)); v->utf8_skip = AkUtf8Skip.DualResponse_ALL; return v; }
-    private GCHandle _th;
     private int DecodeArmed(byte[] src, int len, int mode, out DualResponse result)
     {
         result = null;
@@ -6963,9 +7488,10 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         int ar = ArmFor(mode);
         if (ar != 0) { Disarm(ar); return ar; }
         var target = new DualResponse();
-        // Step a2 (ii): one GCHandle per instance, its Target set for this decode.
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
-        _th.Target = target;
+        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the
+        // call's root is set on it here and cleared after the call.
+        var h = _dh;
+        h.Root = target;
         int rc = Abi.AK_ERR_HOST;
         try
         {
@@ -6974,13 +7500,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
-                _drun->Target = GCHandle.ToIntPtr(_th);
-                _drun->Buf = b;
+                h.Run->Buf = b;
                 _fwd++;
-                rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, Vt);
+                rc = Abi.ak_decode_DualResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
-        finally { _th.Target = null; rc = Disarm(rc); }
+        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }
         if (rc < 0) return rc;
         result = target;
         return 0;
@@ -7009,15 +7534,14 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         EnsureDec();
         int ar = ArmFor(retain ? -1 : -2);
         if (ar != 0) { Disarm(ar); return ar; }
-        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
         {
             byte* b = len == 0 ? one : b0;
-            _drun->Target = GCHandle.ToIntPtr(_th);
-            _drun->Buf = b;
-            rc = Abi.ak_decode_DualResponse(_dctx, _drun, b, (nuint)len, vt);
+            _dh.Run->Buf = b;
+            rc = Abi.ak_decode_DualResponse(_dh.Ctx, _dh.Run, b, (nuint)len, vt);
+            _dh.Run->Buf = null;
         }
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
@@ -7031,7 +7555,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         int rc;
         fixed (byte* b0 = src)
         fixed (byte* one = One)
-            rc = Abi.ak_parse_DualResponse(_dctx, len == 0 ? one : b0, (nuint)len);
+            rc = Abi.ak_parse_DualResponse(_dh.Ctx, len == 0 ? one : b0, (nuint)len);
         rc = Disarm(rc);
         return rc == UNDELIVERED ? 0 : rc;
     }
@@ -7057,13 +7581,13 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 _fwd++;
-                rc = Abi.ak_parse_DualResponse(_dctx, b, (nuint)len);
+                rc = Abi.ak_parse_DualResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
                     _fwd++;
-                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);
-                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
+                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
+                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
             }
         }
@@ -7074,7 +7598,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     }
 
     private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op
-    private static void Replay(DualResponse t, byte* b, byte* p, int len)
+    private static void Replay(DualResponse t, byte* b, byte* p, int len, UnkArena* a)
     {
         int at = 0;
         while (len - at >= sizeof(ak_bdr_rec))
@@ -7085,19 +7609,19 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;
             switch (r.op)
             {
-                case OP_APPLY: G.D_DualResponse(ref *(ak_dfix_DualResponse*)body, t, b); break;
+                case OP_APPLY: G.D_DualResponse(ref *(ak_dfix_DualResponse*)body, t, b, a); break;
                 case OP_ADD when outer == 0 && inner == 1:   // a root-level run
                 {
                     var xs = (ak_dfix_Pair*)body; var lst = t.Left;
                     lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
-                    for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                    for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
                     break;
                 }
                 case OP_ADD when outer == 0 && inner == 2:   // a root-level run
                 {
                     var xs = (ak_dfix_Pair*)body; var lst = t.Right;
                     lst.EnsureCapacity(lst.Count + (int)r.n);   // step 9a: the run's count is known
-                    for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                    for (int i = 0; i < (int)r.n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
                     break;
                 }
                 default: break;
@@ -7135,7 +7659,8 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
                 _fwd++;
-                int op = Abi.ak_fsm_begin_DualResponse(_dctx, b, (nuint)len, &ev);
+                UnkArena* a = _dh.Run->Arena;
+                int op = Abi.ak_fsm_begin_DualResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
                 {
                     while (op > 0)
@@ -7143,12 +7668,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                         if (op == (int)Abi.AK_BDR_APPLY)
                         {
                             // The root group: always the last event, the end.
-                            G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b);
+                            G.D_DualResponse(ref *(ak_dfix_DualResponse*)ev.data, t, b, a);
                             break;
                         }
-                        FsmDispatch(t, b, (uint)op, &ev);
+                        FsmDispatch(t, b, (uint)op, &ev, a);
                         _fwd++;
-                        op = Abi.ak_fsm_next_DualResponse(_dctx, &ev);
+                        op = Abi.ak_fsm_next_DualResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
                 }
@@ -7164,7 +7689,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,
     /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run
     /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner).
-    private static void FsmDispatch(DualResponse t, byte* b, uint op, ak_fsm_ev* ev)
+    private static void FsmDispatch(DualResponse t, byte* b, uint op, ak_fsm_ev* ev, UnkArena* a)
     {
         byte* d = (byte*)ev->data;
         switch (op)
@@ -7176,14 +7701,14 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                     {
                         var xs = (ak_dfix_Pair*)d; var lst = t.Left; int n = (int)ev->n;
                         lst.EnsureCapacity(lst.Count + n);
-                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
                         return;
                     }
                     case 2u:   // a root-level run
                     {
                         var xs = (ak_dfix_Pair*)d; var lst = t.Right; int n = (int)ev->n;
                         lst.EnsureCapacity(lst.Count + n);
-                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b); lst.Add(x); }
+                        for (int i = 0; i < n; i++) { var x = new Pair(); G.D_Pair(ref xs[i], x, b, a); lst.Add(x); }
                         return;
                     }
                 }
@@ -7191,27 +7716,16 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         }
     }
 
-    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);
+    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);
     public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }
     public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);
-    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }
-    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }
+    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }
+    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }
 
     public void Dispose()
     {
-        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }
-        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }
-        if (_th.IsAllocated) _th.Free();
-        _arena?.Dispose();
-        _st.Dispose();
-        if (_run != null)
-        {
-            NativeMemory.Free(_run->S_left);
-            NativeMemory.Free(_run->S_right);
-            NativeMemory.Free(_run); _run = null;
-        }
-        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }
-        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }
+        _eh.Dispose();
+        _dh?.Dispose(); _dh = null;
     }
 }
 

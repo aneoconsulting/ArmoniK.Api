@@ -123,21 +123,17 @@ internal static class Uploads
         core.Dispose();
     }
 
-    [ThreadStatic] private static CoreFfi_UploadResultDataMessage _core;
-    [ThreadStatic] private static byte[] _buf;
-    [ThreadStatic] private static Enc _he;
-    private static CoreFfi_UploadResultDataMessage Core => _core ??= new CoreFfi_UploadResultDataMessage();
-    private static byte[] Buf(int n) => (_buf == null || _buf.Length < n) ? (_buf = new byte[Math.Max(n, 1 << 20)]) : _buf;
-    private static readonly System.Collections.Concurrent.ConcurrentBag<CoreFfi_UploadResultDataMessage> _cores = new System.Collections.Concurrent.ConcurrentBag<CoreFfi_UploadResultDataMessage>();
+    // D26 (s15): the caches that were thread-static are the caller's object's (Caller.cs: UCore,
+    // Buf, HostEnc), passed to every call; Grpc.Net's marshallers rent one per call.
 
     /// Encode message i with the cell's codec (0 incumbent, 1 core-ffi, 2 host-gen) and hand
     /// the bytes to `send`, which runs while they are pinned.
     private unsafe delegate int Sender(byte* body, int len);
-    private static unsafe int EncodeAndSend(int codec, bool retain, UpData u, int i, Sender send, string cell)
+    private static unsafe int EncodeAndSend(Caller cl, int codec, bool retain, UpData u, int i, Sender send, string cell)
     {
         if (codec == 3)   // Cc, the copy path
         {
-            int rc = Core.TryEncode(u.F[i], retain, out byte* p, out int n);
+            int rc = cl.UCore.TryEncode(u.F[i], retain, out byte* p, out int n);
             if (rc < 0) throw new CampaignAbort(cell + ": core encode " + rc);
             return send(p, n);
         }
@@ -146,59 +142,58 @@ internal static class Uploads
         if (codec == 0)
         {
             len = u.G[i].CalculateSize();
-            arr = Buf(len);
+            arr = cl.Buf(len);
             u.G[i].WriteTo(new Span<byte>(arr, 0, len));
         }
         else
         {
-            if (_he.Buf == null) _he = Enc.New(Armonik.Ffi.Facade.Codec.Sites, 1 << 16);
-            _he.Reset();
-            if (retain) HostR.WriteUploadResultDataMessage(ref _he, u.F[i]); else Armonik.Ffi.Facade.Codec.WriteUploadResultDataMessage(ref _he, u.F[i]);
-            if (_he.Err != 0) throw new CampaignAbort(cell + ": managed encode " + _he.Err);
-            len = _he.Pos;
-            arr = _he.Buf;
+            ref var he = ref cl.HostEnc();
+            if (retain) HostR.WriteUploadResultDataMessage(ref he, u.F[i]); else Armonik.Ffi.Facade.Codec.WriteUploadResultDataMessage(ref he, u.F[i]);
+            if (he.Err != 0) throw new CampaignAbort(cell + ": managed encode " + he.Err);
+            len = he.Pos;
+            arr = he.Buf;
         }
         fixed (byte* q = arr) return send(q, len);
     }
 
     /// D7: direction c's encode and start for a delivery cell (as CoreUnary encodes).
-    public static unsafe IntPtr StartUpload(DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, IntPtr user, ulong tag, string cell)
+    public static unsafe IntPtr StartUpload(Caller cl, DeliveryChannel dc, byte[] path, int codec, bool retain, UpData u, IntPtr user, ulong tag, string cell)
     {
         if (codec == 1)
         {
-            int er = Core.EncodeInto(u.F[0], retain);
+            int er = cl.UCore.EncodeInto(u.F[0], retain);
             if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
-            return dc.StartUnaryEnc(path, Core.EncContext, user, tag);
+            return dc.StartUnaryEnc(path, cl.UCore.EncContext, user, tag);
         }
         IntPtr call = IntPtr.Zero;
-        EncodeAndSend(codec, retain, u, 0, (body, len) => { call = dc.StartUnary(path, body, len, user, tag); return 0; }, cell);
+        EncodeAndSend(cl, codec, retain, u, 0, (body, len) => { call = dc.StartUnary(path, body, len, user, tag); return 0; }, cell);
         return call;
     }
 
     /// D7: direction d's message i, encoded and its send started (as CoreStream encodes).
-    public static unsafe int StartSend(DeliveryChannel dc, IntPtr h, int codec, bool retain, UpData u, int i, IntPtr user, ulong tag, string cell)
+    public static unsafe int StartSend(Caller cl, DeliveryChannel dc, IntPtr h, int codec, bool retain, UpData u, int i, IntPtr user, ulong tag, string cell)
     {
         int last = i == u.G.Length - 1 ? 1 : 0;
         if (codec == 1)
         {
-            int er = Core.EncodeInto(u.F[i], retain);
+            int er = cl.UCore.EncodeInto(u.F[i], retain);
             if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
-            return dc.StartSendEnc(h, Core.EncContext, last, user, tag);
+            return dc.StartSendEnc(h, cl.UCore.EncContext, last, user, tag);
         }
-        return EncodeAndSend(codec, retain, u, i, (body, len) => dc.StartSend(h, body, len, last, user, tag), cell);
+        return EncodeAndSend(cl, codec, retain, u, i, (body, len) => dc.StartSend(h, body, len, last, user, tag), cell);
     }
 
     /// Direction c through the core's transport: one blocking ak_call_unary.
-    public static unsafe void CoreUnary(CoreChannel ch, byte[] path, int codec, bool retain, UpData u, int wantLen, string cell)
+    public static unsafe void CoreUnary(Caller cl, CoreChannel ch, byte[] path, int codec, bool retain, UpData u, int wantLen, string cell)
     {
         if (codec == 1)
         {
             // C, the MOVE path (WP8 parity): encode into the core's context, ak_call_unary_enc moves it.
-            int er = Core.EncodeInto(u.F[0], retain);
+            int er = cl.UCore.EncodeInto(u.F[0], retain);
             if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
             ak_bytes r = default;
             int rc, gs = -1;
-            fixed (byte* p = path) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)path.Length, Core.EncContext, &r, &gs);
+            fixed (byte* p = path) rc = AkRpc.ak_call_unary_enc(ch.Client, p, (nuint)path.Length, cl.UCore.EncContext, &r, &gs);
             try
             {
                 if (rc != AkRpc.AK_OK) throw new CampaignAbort(cell + " c: status " + rc + " grpc " + gs);
@@ -207,7 +202,7 @@ internal static class Uploads
             finally { AkRpc.ak_bytes_free(&r); }
             return;
         }
-        EncodeAndSend(codec, retain, u, 0, (body, len) =>
+        EncodeAndSend(cl, codec, retain, u, 0, (body, len) =>
         {
             ak_bytes r = default;
             int rc, gs = -1;
@@ -224,7 +219,7 @@ internal static class Uploads
 
     /// Direction d through the core's client streaming; returns the response bytes (checked
     /// by the caller: the count, and in the pre-timing check the digest).
-    public static unsafe byte[] CoreStream(CoreChannel ch, byte[] path, int codec, bool retain, UpData u, string cell)
+    public static unsafe byte[] CoreStream(Caller cl, CoreChannel ch, byte[] path, int codec, bool retain, UpData u, string cell)
     {
         IntPtr h;
         fixed (byte* p = path) h = AkRpc.ak_call_open(ch.Client, p, (nuint)path.Length, AkRpc.AK_CALL_CLIENT_STREAM, null);
@@ -238,11 +233,11 @@ internal static class Uploads
                 if (codec == 1)
                 {
                     // C, the MOVE path: each message encoded into the context, ak_call_send_enc moves it.
-                    int er = Core.EncodeInto(u.F[i], retain);
+                    int er = cl.UCore.EncodeInto(u.F[i], retain);
                     if (er < 0) throw new CampaignAbort(cell + ": core encode " + er);
-                    rc = AkRpc.ak_call_send_enc(h, Core.EncContext, last);
+                    rc = AkRpc.ak_call_send_enc(h, cl.UCore.EncContext, last);
                 }
-                else rc = EncodeAndSend(codec, retain, u, i, (body, len) => AkRpc.ak_call_send(h, body, (nuint)len, last), cell);
+                else rc = EncodeAndSend(cl, codec, retain, u, i, (body, len) => AkRpc.ak_call_send(h, body, (nuint)len, last), cell);
                 if (rc != AkRpc.AK_OK) throw new CampaignAbort(cell + " d: ak_call_send " + rc + " (message " + i + ")");
             }
             ak_bytes r = default;
@@ -288,13 +283,13 @@ internal static class Uploads
     // ---- Grpc.Net (A, D, F): the marshallers, and the calls
 
     public static Marshaller<Gp.UploadResultDataMessage> MInc => Ops_UploadResultDataMessage.MInc;
-    public static Marshaller<UploadResultDataMessage> MHost(bool retain) => retain ? Ops_UploadResultDataMessage.MHostRetain : Ops_UploadResultDataMessage.MHostDrop;
-    /// core-ffi's serializer, on whichever thread Grpc.Net runs it: a context from a pool.
+    public static Marshaller<UploadResultDataMessage> MHost(bool retain) => Ops_UploadResultDataMessage.MHost(retain);
+    /// core-ffi's serializer, on whichever thread Grpc.Net runs it: a caller object rented per call.
     public static Marshaller<UploadResultDataMessage> MFfi(bool retain) => Marshallers.Create<UploadResultDataMessage>((m, c) =>
     {
-        var core = _cores.TryTake(out var x) ? x : new CoreFfi_UploadResultDataMessage();
-        try { Ops_UploadResultDataMessage.SerFfi(core, m, retain, c); }
-        finally { _cores.Add(core); }
+        var cl = Caller.Rent();
+        try { Ops_UploadResultDataMessage.SerFfi(cl.UCore, m, retain, c); }
+        finally { Caller.Return(cl); }
     }, c => throw new NotSupportedException());
 
     public static async Task GrpcUnary<T>(CallInvoker inv, Method<T, byte[]> m, T req, int wantLen, string cell) where T : class

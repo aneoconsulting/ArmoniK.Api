@@ -1,0 +1,9 @@
+ 10:45:02 up  1:26,  0 user,  load average: 0.90, 1.12, 1.15
+E1R C-elemu-512 base: rc=0 74.784 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1R C-elemu-512 new: rc=0 73.448 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1R C-leaf-2048 base: rc=0 25.716 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1R C-leaf-2048 new: rc=0 26.314 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1C C-elemu-512 base: rc=0 71.358 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1C C-elemu-512 new: rc=0 70.996 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1C C-leaf-2048 base: rc=0 25.927 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+E1C C-leaf-2048 new: rc=0 25.786 s; 0 FAIL lines; retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row

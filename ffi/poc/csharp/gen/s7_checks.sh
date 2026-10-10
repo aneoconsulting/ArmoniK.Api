@@ -41,8 +41,11 @@ for m in E3 E3L E1R E1C E1R:128 "$@"; do
   AK_CORPUS_RETAIN_STRICT=1 AK_STR_ENC=$m run "corpus $m" "$C"
   AK_STR_ENC=$m run "corpus nounk $m" "$CN"
 done
-AK_CORPUS_RETAIN_STRICT=1 AK_STR_PINK=3 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1R run "corpus E1R K 3, pin stress" "$C"
-AK_CORPUS_RETAIN_STRICT=1 AK_STR_PINK=3 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1C run "corpus E1C K 3, pin stress" "$C"
+# s15: the per-row limit raised from the corpus's 20 s to 300 s for the stress runs only: on the
+# container's 2.10 GHz CPU (since 2026-10-10) C-elemu-512 takes about 71-75 s and C-leaf-2048
+# about 26 s under a GC per 3 strings, the same before and after D26 (logs/csharp/opt/s15/checks/pinstress-rows.log).
+AK_CORPUS_RETAIN_STRICT=1 AK_STR_PINK=3 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1R run "corpus E1R K 3, pin stress" "$C" --timeout-ms 300000
+AK_CORPUS_RETAIN_STRICT=1 AK_STR_PINK=3 AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1C run "corpus E1C K 3, pin stress" "$C" --timeout-ms 300000
 echo "## 3. controls: each path live (a planted short string), the stress check live (handles released before the call)"
 for m in E3 E3L E1R E1C; do AK_GATE_PLANT_STR=1 AK_STR_ENC=$m control "corpus $m planted short" "$C" --only "S-"; done
 AK_GATE_PLANT_EARLY_UNPIN=1 AK_STR_PINK=3 AK_STR_ENC=E1C control "corpus E1C K 3, handles released before the call + compacting GC" "$C" --only "S-"

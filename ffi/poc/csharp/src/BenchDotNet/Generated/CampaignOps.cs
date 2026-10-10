@@ -440,6 +440,17 @@ public static class Touch
         return h;
     }
 }
+/// D26 (s15): host-gen's serializer state (SerHost), passed explicitly. One per codec-suite Ops
+/// instance; the RPC grid's marshallers rent one per call from a shared queue (no thread-keyed
+/// store: ConcurrentQueue, not ConcurrentBag, whose per-thread lists are thread-local storage).
+public sealed class SerBuf
+{
+    public Enc E;
+    private static readonly System.Collections.Concurrent.ConcurrentQueue<SerBuf> _free = new System.Collections.Concurrent.ConcurrentQueue<SerBuf>();
+    public static SerBuf Rent() => _free.TryDequeue(out var s) ? s : new SerBuf();
+    public static void Return(SerBuf s) => _free.Enqueue(s);
+}
+
 /// One root's calls, per arm. `F`/`G` hold the built graphs (null for a corpus row, which
 /// is only decoded and re-encoded). Every method returns something the caller sinks.
 public abstract unsafe class RootOps
@@ -568,17 +579,17 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListResultsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(ListResultsResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, ListResultsResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteListResultsResponse(ref _se, m); else Codec.WriteListResultsResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteListResultsResponse(ref e, m); else Codec.WriteListResultsResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -593,10 +604,18 @@ public sealed unsafe class Ops_ListResultsResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.ListResultsResponse> MInc = Marshallers.Create<Gp.ListResultsResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<ListResultsResponse> MHostDrop = Marshallers.Create<ListResultsResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<ListResultsResponse> MHostRetain = Marshallers.Create<ListResultsResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<ListResultsResponse> MHost(bool retain) => Marshallers.Create<ListResultsResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<ListResultsResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<ListResultsResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<ListResultsResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<ListResultsResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -726,17 +745,17 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListTasksDetailedResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(ListTasksDetailedResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, ListTasksDetailedResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteListTasksDetailedResponse(ref _se, m); else Codec.WriteListTasksDetailedResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteListTasksDetailedResponse(ref e, m); else Codec.WriteListTasksDetailedResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -751,10 +770,18 @@ public sealed unsafe class Ops_ListTasksDetailedResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.ListTasksDetailedResponse> MInc = Marshallers.Create<Gp.ListTasksDetailedResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<ListTasksDetailedResponse> MHostDrop = Marshallers.Create<ListTasksDetailedResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<ListTasksDetailedResponse> MHostRetain = Marshallers.Create<ListTasksDetailedResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<ListTasksDetailedResponse> MHost(bool retain) => Marshallers.Create<ListTasksDetailedResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<ListTasksDetailedResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<ListTasksDetailedResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<ListTasksDetailedResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<ListTasksDetailedResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -884,17 +911,17 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListProbeResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(ListProbeResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, ListProbeResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteListProbeResponse(ref _se, m); else Codec.WriteListProbeResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteListProbeResponse(ref e, m); else Codec.WriteListProbeResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -909,10 +936,18 @@ public sealed unsafe class Ops_ListProbeResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.ListProbeResponse> MInc = Marshallers.Create<Gp.ListProbeResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<ListProbeResponse> MHostDrop = Marshallers.Create<ListProbeResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<ListProbeResponse> MHostRetain = Marshallers.Create<ListProbeResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<ListProbeResponse> MHost(bool retain) => Marshallers.Create<ListProbeResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<ListProbeResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<ListProbeResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<ListProbeResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<ListProbeResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -1042,17 +1077,17 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListTaskSummaryResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(ListTaskSummaryResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, ListTaskSummaryResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteListTaskSummaryResponse(ref _se, m); else Codec.WriteListTaskSummaryResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteListTaskSummaryResponse(ref e, m); else Codec.WriteListTaskSummaryResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -1067,10 +1102,18 @@ public sealed unsafe class Ops_ListTaskSummaryResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.ListTaskSummaryResponse> MInc = Marshallers.Create<Gp.ListTaskSummaryResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<ListTaskSummaryResponse> MHostDrop = Marshallers.Create<ListTaskSummaryResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<ListTaskSummaryResponse> MHostRetain = Marshallers.Create<ListTaskSummaryResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<ListTaskSummaryResponse> MHost(bool retain) => Marshallers.Create<ListTaskSummaryResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<ListTaskSummaryResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<ListTaskSummaryResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<ListTaskSummaryResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<ListTaskSummaryResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -1200,17 +1243,17 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.UploadResultDataMessage m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(UploadResultDataMessage m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, UploadResultDataMessage m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteUploadResultDataMessage(ref _se, m); else Codec.WriteUploadResultDataMessage(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteUploadResultDataMessage(ref e, m); else Codec.WriteUploadResultDataMessage(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -1225,10 +1268,18 @@ public sealed unsafe class Ops_UploadResultDataMessage : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.UploadResultDataMessage> MInc = Marshallers.Create<Gp.UploadResultDataMessage>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<UploadResultDataMessage> MHostDrop = Marshallers.Create<UploadResultDataMessage>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<UploadResultDataMessage> MHostRetain = Marshallers.Create<UploadResultDataMessage>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<UploadResultDataMessage> MHost(bool retain) => Marshallers.Create<UploadResultDataMessage>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<UploadResultDataMessage> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<UploadResultDataMessage>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<UploadResultDataMessage>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<UploadResultDataMessage> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -1358,17 +1409,17 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.ListMetricsResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(ListMetricsResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, ListMetricsResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteListMetricsResponse(ref _se, m); else Codec.WriteListMetricsResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteListMetricsResponse(ref e, m); else Codec.WriteListMetricsResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -1383,10 +1434,18 @@ public sealed unsafe class Ops_ListMetricsResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.ListMetricsResponse> MInc = Marshallers.Create<Gp.ListMetricsResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<ListMetricsResponse> MHostDrop = Marshallers.Create<ListMetricsResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<ListMetricsResponse> MHostRetain = Marshallers.Create<ListMetricsResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<ListMetricsResponse> MHost(bool retain) => Marshallers.Create<ListMetricsResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<ListMetricsResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<ListMetricsResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<ListMetricsResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<ListMetricsResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {
@@ -1516,17 +1575,17 @@ public sealed unsafe class Ops_DualResponse : RootOps
     public override int EncFfiCore(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return rc; }
     public override byte[] EncFfiCoreBytes(bool retain) { int rc = _c.EncodeInto(_f, retain); if (rc < 0) throw new InvalidOperationException("core encode " + rc); return _c.ContextBytes(); }
     public static void SerInc(Gp.DualResponse m, SerializationContext c) { c.SetPayloadLength(m.CalculateSize()); m.WriteTo(c.GetBufferWriter()); c.Complete(); }
-    [ThreadStatic] private static Enc _se;
-    public static void SerHost(DualResponse m, bool retain, SerializationContext c)
+    public static void SerHost(SerBuf s, DualResponse m, bool retain, SerializationContext c)
     {
-        if (_se.Buf == null) _se = Enc.New(Codec.Sites, 1 << 16);
-        _se.Reset();
-        if (retain) HostR.WriteDualResponse(ref _se, m); else Codec.WriteDualResponse(ref _se, m);
-        if (_se.Err != 0) throw new InvalidOperationException("managed encode " + _se.Err);
-        int n = _se.Pos;
+        ref var e = ref s.E;
+        if (e.Buf == null) e = Enc.New(Codec.Sites, 1 << 16);
+        e.Reset();
+        if (retain) HostR.WriteDualResponse(ref e, m); else Codec.WriteDualResponse(ref e, m);
+        if (e.Err != 0) throw new InvalidOperationException("managed encode " + e.Err);
+        int n = e.Pos;
         c.SetPayloadLength(n);
         var w = c.GetBufferWriter();
-        new ReadOnlySpan<byte>(_se.Buf, 0, n).CopyTo(w.GetSpan(n));
+        new ReadOnlySpan<byte>(e.Buf, 0, n).CopyTo(w.GetSpan(n));
         w.Advance(n);
         c.Complete();
     }
@@ -1541,10 +1600,18 @@ public sealed unsafe class Ops_DualResponse : RootOps
         c.Complete();
     }
     public static readonly Marshaller<Gp.DualResponse> MInc = Marshallers.Create<Gp.DualResponse>(SerInc, c => throw new NotSupportedException());
-    public static readonly Marshaller<DualResponse> MHostDrop = Marshallers.Create<DualResponse>((m, c) => SerHost(m, false, c), c => throw new NotSupportedException());
-    public static readonly Marshaller<DualResponse> MHostRetain = Marshallers.Create<DualResponse>((m, c) => SerHost(m, true, c), c => throw new NotSupportedException());
+    /// The RPC grid's host-gen marshaller: a SerBuf rented per call from a shared queue (a
+    /// Grpc.Net serializer runs on whichever thread the call runs on and gets no caller state).
+    public static Marshaller<DualResponse> MHost(bool retain) => Marshallers.Create<DualResponse>((m, c) => { var s = SerBuf.Rent(); try { SerHost(s, m, retain, c); } finally { SerBuf.Return(s); } }, c => throw new NotSupportedException());
     public override int EncIncTransport(GrpcFrame c) { MInc.ContextualSerializer(_g, c); int n = c.WrittenCount; c.Release(); return n; }
-    public override int EncHostTransport(bool retain, GrpcFrame c) { (retain ? MHostRetain : MHostDrop).ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n; }
+    private readonly SerBuf _sb = new SerBuf();
+    private Marshaller<DualResponse> _mhd, _mhr;
+    public override int EncHostTransport(bool retain, GrpcFrame c)
+    {
+        var mm = retain ? (_mhr ??= Marshallers.Create<DualResponse>((m, x) => SerHost(_sb, m, true, x), x => throw new NotSupportedException()))
+                        : (_mhd ??= Marshallers.Create<DualResponse>((m, x) => SerHost(_sb, m, false, x), x => throw new NotSupportedException()));
+        mm.ContextualSerializer(_f, c); int n = c.WrittenCount; c.Release(); return n;
+    }
     private Marshaller<DualResponse> _mfd, _mfr;
     public override int EncFfiTransport(bool retain, GrpcFrame c)
     {

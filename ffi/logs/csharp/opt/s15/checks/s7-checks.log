@@ -1,0 +1,1961 @@
+# s7_checks.sh at d3b658fb + uncommitted; 2026-10-10T09:41:27Z
+# cores: 7b8ed0b888940ab7 (full) 17dbc6ebe8b31736 (nounk) 44c28bac239c673c (corpus) e3c5817010ba5cba (corpus nounk)
+## 1. Cases.Verify (every payload, content set and U-* row under E0 E1 E2 ETH:16 E3 E3L E1R E1R(K 3) E1C(K 3) E1R:16 E1R:16:na E3:16:na E1R:128 E1C:16(K 3))
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 1b. concurrent byte identity (--verify-mt, 8 threads, as the RPC callers encode), both builds; and single-thread
+##     under a compacting GC after every chunk (AK_GATE_PIN_STRESS) for the frame paths
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1C (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+## 2. the corpus under each path (full and no-unknown); E1R and E1C with K 3 under a compacting GC
+##    after every chunk (AK_GATE_PIN_STRESS: a string the core read after its frame's release would be
+##    read moved; on the corpus only: on the shapes it is a GC per 3 strings, tens of thousands per encode)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## managed-retain
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      391  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+## ffi-retain
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      378  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+## managed-drop
+   pass 696  fail 0  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      190  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+
+## ffi-drop
+   pass 680  fail 0  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    8  fail   0
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      183  as committed
+        5  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 304 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+!! C-elemu-512: TIMEOUT after 20000 ms
+!! C-leaf-2048: TIMEOUT after 20000 ms
+## managed-drop
+   pass 694  fail 2  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      189  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## managed-retain
+   pass 694  fail 2  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      390  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## ffi-drop
+   pass 678  fail 2  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      182  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## ffi-retain
+   pass 678  fail 2  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      377  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 302 rows have no incumbent root.
+
+# rows that hung or crashed a child: 2
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS FAILS: 8 arm-row failure(s), 2 hang/crash row(s)
+exit status: 1
+CHECK: corpus E1R K 3, pin stress FAILED
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus
+# the conformance corpus through the C# codecs, unknown fields dropped and retained
+#   manifest   /home/user/ArmoniK.Api/ffi/corpus/generated/manifest.json (702 rows run of 702)
+#   runtime    .NET 8.0.31
+#   managed    poc/codec/gen/cs_managed.py over the corpus READER plan; utf8=reject unknown=drop limit=100
+#   core-ffi   poc/codec/gen/cs_binding.py + cs_host.py, against libak_core.so built with
+#              --features corpus,init-guard (the core generated for the reader schema)
+#   NOT IN THE C ABI: Nest: REFUSED: Nest reaches Nest again through Nest.child. ABI v1 section 6 inlines every singular child into its parent's group, so a recursive message has no finite group and cannot cross the C ABI.
+#   each row in a child process, timeout 20000 ms
+#   error codes: the managed runtime's equal plan.FIXED's (malformed -2, truncated -3, depth -4, transcode -6)
+
+!! C-elemu-512: TIMEOUT after 20000 ms
+!! C-leaf-2048: TIMEOUT after 20000 ms
+## managed-drop
+   pass 694  fail 2  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      189  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      162  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## managed-retain
+   pass 694  fail 2  disputed (excluded) 6  not in the C ABI 0
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  110  fail   0
+     shape      pass  170  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  317  fail   0
+   forms written (C3):
+      390  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       35  managed -2 (malformed)
+       73  managed -3 (truncated)
+        2  managed -4 (depth)
+       31  managed -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (managed -2 (malformed))
+   disputed: X-field-over-max: refused (managed -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (managed -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (managed -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (managed -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## ffi-drop
+   pass 678  fail 2  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      182  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+       46  unknown-dropped
+       24  unknown-dropped / unknown-dropped, map values always written
+      156  unknown-dropped: the known field as it was, the foreign-typed one gone
+       81  unknown-dropped: the known field as it was, the foreign-typed one gone / unknown-dropped, map values always written
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+## ffi-retain
+   pass 678  fail 2  disputed (excluded) 6  not in the C ABI 16
+     baseline   pass    8  fail   0
+     chunking   pass    6  fail   2
+     empty      pass   30  fail   0
+     malformed  pass  107  fail   0
+     shape      pass  163  fail   0
+     transcode  pass   53  fail   0
+     unknown    pass  311  fail   0
+   forms written (C3):
+      377  as committed
+        4  as committed / map values always written
+       18  as committed / map values always written (protobuf C++, upb, protobuf-java)
+      105  as committed / unknown-retained, map values always written
+        7  as committed in ffi/schema/generated
+        1  as upb writes it: the same message in a different field ORDER
+        1  as upb writes it: the same message, encoded differently
+        5  canonical
+        1  canonical: ascending by tag / key and value always written
+        1  canonical: each repeated field contiguous
+        1  canonical: entries ascending by UTF-8 key
+        3  canonical: omitted
+        1  canonical: one entry, the last value
+        1  canonical: one member
+        1  canonical: one run
+        2  canonical: packed
+        3  canonical: ten-byte sign-extended
+        1  canonical: the empty value omitted
+        1  canonical: the zero leaves omitted
+        6  unknown-retained, appended in tag order
+   refusals by code (C4):
+       34  core -2 (malformed)
+       73  core -3 (truncated)
+       31  core -6 (transcode)
+   disputed: U-map-entry: accepted, reads as: protobuf 7.36.2 (pure-python backend)
+   disputed: X-field-2p32-plus-2: refused (core -2 (malformed))
+   disputed: X-field-over-max: refused (core -2 (malformed))
+   disputed: X-field-over-max-in-group: refused (core -2 (malformed))
+   disputed: X-tag-zero-Empty: refused (core -2 (malformed))
+   disputed: X-tag-zero-nested-Empty: refused (core -2 (malformed))
+   FAIL C-elemu-512: TIMEOUT after 20000 ms
+   FAIL C-leaf-2048: TIMEOUT after 20000 ms
+
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 398, differs on 0, 302 rows have no incumbent root.
+
+# rows that hung or crashed a child: 2
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS FAILS: 8 arm-row failure(s), 2 hang/crash row(s)
+exit status: 1
+CHECK: corpus E1C K 3, pin stress FAILED
+## 3. controls: each path live (a planted short string), the stress check live (handles released before the call)
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-   # a CONTROL: must fail
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control corpus E3 planted short: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-   # a CONTROL: must fail
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control corpus E3L planted short: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-   # a CONTROL: must fail
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control corpus E1R planted short: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-   # a CONTROL: must fail
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 162 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control corpus E1C planted short: failed, as required
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --only S-   # a CONTROL: must fail
+Google.Protobuf as a second oracle (accept/reject, managed-drop arm): agrees on 82, differs on 0, 88 rows have no incumbent root.
+
+# rows that hung or crashed a child: 0
+CORPUS FAILS: 4 arm-row failure(s), 0 hang/crash row(s)
+exit status: 1
+control corpus E1C K 3, handles released before the call + compacting GC: failed, as required
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1   # a CONTROL: must fail
+gen/s7_checks.sh: line 12:  8236 Segmentation fault      "$@" > "${SCRATCH:-/tmp}/ctl.out" 2>&1
+P2.2/0 thread 0: bytes differ
+P2.2/1 thread 0: bytes differ
+P2.2/2 thread 0: bytes differ
+exit status: 139
+control verify-mt E1C 1 thread, handles released before the call + compacting GC: failed, as required
+## 4. K bound: a K above Stage.MaxPinK is refused
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s7_checks.sh: line 12:  8259 Aborted                 "$@" > "${SCRATCH:-/tmp}/ctl.out" 2>&1
+   at Armonik.Ffi.Harness.CoreFfi_ListResultsResponse.EncodeToArray(ListResultsResponse src, Boolean retain) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/Generated/CoreFfi.cs:line 1630
+   at Armonik.Ffi.Campaign.Ops_ListResultsResponse.EncFfiBytes(Boolean retain) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Generated/CampaignOps.cs:line 578
+   at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 325
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 111
+exit status: 134
+control K 257 refused: failed, as required
+## 5. counts per path (= gen/counts-str-<path>[-nounk].txt)
+$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3.txt' > /dev/null && diff -q gen/counts-str-e3.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E3 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3-nounk.txt' > /dev/null && diff -q gen/counts-str-e3-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3l.txt' > /dev/null && diff -q gen/counts-str-e3l.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3l.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E3L dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3l-nounk.txt' > /dev/null && diff -q gen/counts-str-e3l-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e3l-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r.txt' > /dev/null && diff -q gen/counts-str-e1r.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1R dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r-nounk.txt' > /dev/null && diff -q gen/counts-str-e1r-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1c.txt' > /dev/null && diff -q gen/counts-str-e1c.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1c.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1C dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1c-nounk.txt' > /dev/null && diff -q gen/counts-str-e1c-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1c-nounk.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1R:128 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r128.txt' > /dev/null && diff -q gen/counts-str-e1r128.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r128.txt'
+exit status: 0
+$ bash -c AK_STR_ENC=E1R:128 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r128-nounk.txt' > /dev/null && diff -q gen/counts-str-e1r128-nounk.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e1r128-nounk.txt'
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e0.txt' > /dev/null && diff -q gen/counts.txt '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s15chk/c-e0.txt'
+exit status: 0
+
+S7 CHECKS: 2 FAILED

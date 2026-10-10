@@ -202,13 +202,20 @@ def _emit_groups(o, p):
     o += ""
 
 
+def _ap():
+    """D26: the decode functions' arena parameter (none in the no-unknown build)."""
+    return "" if _NO else ", UnkArena* a"
+
+
+def _aa():
+    """D26: the decode functions' arena argument (none in the no-unknown build)."""
+    return "" if _NO else ", a"
+
+
 def _emit_unk_helpers(o):
-    o += "    /// Decision 11: the arena of the RETAINED decode running on this thread (null in drop"
-    o += "    /// mode): every buffer grow hands out comes from it, and it counts the buffers handed"
-    o += "    /// out and not yet taken back (step a2 iv, 2026-10-04: replaced a HashSet of malloc'd"
-    o += "    /// buffers). Thread-static: the core calls grow on the decoding thread."
-    o += "    [ThreadStatic] internal static UnkArena Arena;"
-    o += ""
+    o += "    /// Decision 11: `a` below is the arena of the RETAINED decode (null in drop mode), held by"
+    o += "    /// the decode's host context (D26: passed down, never thread-local); every buffer grow"
+    o += "    /// hands out comes from it, and it counts the buffers handed out and not yet taken back."
     o += "    /// A delivered message's buffer into its facade bag (null when none or empty); the"
     o += "    /// buffer is given back to the arena's count (its memory is the arena's) and the slot cleared."
     o += "    /// A GATE CONTROL, not a feature (R-H9): set, Take copies the bag but skips the"
@@ -216,22 +223,22 @@ def _emit_unk_helpers(o):
     o += "    /// retained decode must fail (Disarm finds the buffer outstanding, frees it, reports it)."
     o += "    internal static readonly bool PlantSkipRelease = Environment.GetEnvironmentVariable(\"AK_GATE_PLANT_SKIP_RELEASE\") == \"1\";"
     o += ""
-    o += "    internal static byte[] Take(ref ak_unk_buf u)"
+    o += "    internal static byte[] Take(ref ak_unk_buf u, UnkArena* a)"
     o += "    {"
     o += "        if (u.data == IntPtr.Zero) return null;"
     o += "        byte[] r = null;"
     o += "        if (u.len != 0) { r = new byte[u.len]; new ReadOnlySpan<byte>((void*)u.data, (int)u.len).CopyTo(r); }"
     o += "        if (PlantSkipRelease) { u = default; return r; }"
-    o += "        var a = Arena; if (a != null) a.Outstanding--;"
+    o += "        if (a != null) a->Outstanding--;"
     o += "        u = default;"
     o += "        return r;"
     o += "    }"
     o += ""
     o += "    /// A non-NULL slot the facade has no place for (inactive, absent, a map entry): given back."
-    o += "    internal static void Drop(ref ak_unk_buf u)"
+    o += "    internal static void Drop(ref ak_unk_buf u, UnkArena* a)"
     o += "    {"
     o += "        if (u.data == IntPtr.Zero) return;"
-    o += "        var a = Arena; if (a != null) a.Outstanding--;"
+    o += "        if (a != null) a->Outstanding--;"
     o += "        u = default;"
     o += "    }"
     o += ""
@@ -295,7 +302,7 @@ def _emit_fill(o, p, m, u):
 
 
 def _emit_unfill(o, p, m):
-    o += "    internal static void D_%s(ref ak_dfix_%s d, %s t, byte* b)" % (m.name, m.name, m.name)
+    o += "    internal static void D_%s(ref ak_dfix_%s d, %s t, byte* b%s)" % (m.name, m.name, m.name, _ap())
     o += "    {"
     bits = presence_bits(m)
     for f in m.plain:
@@ -309,9 +316,9 @@ def _emit_unfill(o, p, m):
             # In place: a run for a slot on this child may already have created it. An
             # absent child's slots are freed (every non-NULL slot is the host's, rule 3).
             if _NO:
-                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b);" % (present, f.of, mem, acc, f.of)
+                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b);" % (present, f.of, mem, acc, f.of)   # _NO: no arena
             else:
-                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b); else F_%s(ref %s);" % (present, f.of, mem, acc, f.of, f.of, mem)
+                o += "        if (%s) D_%s(ref %s, %s ??= new %s(), b, a); else F_%s(ref %s, a);" % (present, f.of, mem, acc, f.of, f.of, mem)
         elif f.explicit:
             val = ("Str(b, %s)" % mem if f.kind == "string" else "Bytes(b, %s)" % mem
                    if f.kind == "bytes" else _dec(f, mem))
@@ -329,7 +336,7 @@ def _emit_unfill(o, p, m):
         # member's. Every slot but the active member's is freed.
         for gm in members:
             if gm.kind == "message" and not _NO:
-                o += "        if (d.%s_case != %d) F_%s(ref d.%s_%s);" % (oname, gm.tag, gm.of, oname, gm.name)
+                o += "        if (d.%s_case != %d) F_%s(ref d.%s_%s, a);" % (oname, gm.tag, gm.of, oname, gm.name)
         o += "        t.%s = (%s)d.%s_case;" % (N.oneof_case_field(oname), ct, oname)
         o += "        switch (d.%s_case)" % oname
         o += "        {"
@@ -342,29 +349,29 @@ def _emit_unfill(o, p, m):
             elif gm.kind == "bytes":
                 o += "                %s = Bytes(b, %s); break;" % (acc, mem)
             elif gm.kind == "message":
-                o += "                %s = new %s(); D_%s(ref %s, %s, b); break;" % (acc, gm.of, gm.of, mem, acc)
+                o += "                %s = new %s(); D_%s(ref %s, %s, b%s); break;" % (acc, gm.of, gm.of, mem, acc, _aa())
             else:
                 o += "                %s = %s; break;" % (acc, _dec(gm, mem))
         o += "            default: break;"
         o += "        }"
     if not _NO:
-        o += "        t.%s = Take(ref d.unknown);   // decision 11: this message's own buffer" % BAG
+        o += "        t.%s = Take(ref d.unknown, a);   // decision 11: this message's own buffer" % BAG
     o += "    }"
     o += ""
 
 
 def _emit_free(o, p, m):
     """F_M: free every non-NULL unknown-field slot of a group the facade does not take."""
-    o += "    internal static void F_%s(ref ak_dfix_%s d)" % (m.name, m.name)
+    o += "    internal static void F_%s(ref ak_dfix_%s d, UnkArena* a)" % (m.name, m.name)
     o += "    {"
-    o += "        Drop(ref d.unknown);"
+    o += "        Drop(ref d.unknown, a);"
     for f in m.plain:
         if f.card == "singular" and f.kind == "message":
-            o += "        F_%s(ref d.%s);" % (f.of, f.name)
+            o += "        F_%s(ref d.%s, a);" % (f.of, f.name)
     for oname, members in m.oneofs.items():
         for gm in members:
             if gm.kind == "message":
-                o += "        F_%s(ref d.%s_%s);" % (gm.of, oname, gm.name)
+                o += "        F_%s(ref d.%s_%s, a);" % (gm.of, oname, gm.name)
     o += "    }"
     o += ""
 
@@ -373,9 +380,10 @@ UNKHOST = r'''
 /// Decision 11: the one grow callback every position of every root's options names
 /// (`ak_grow_fn`, i32 sizes). `*dst` NULL with `*cap` 0 is a fresh buffer, otherwise the
 /// first `*cap` bytes are preserved (realloc semantics; it may move). Step a2 (iv,
-/// 2026-10-04): the memory is the running decode's ARENA (`G.Arena`, geometric chunks kept
-/// across decodes; a grow of the arena's last allocation extends it in place), not
-/// malloc/realloc/free per buffer; the arena counts what it hands out (UNDELIVERED check).
+/// 2026-10-04): the memory is the running decode's ARENA, not malloc/realloc/free per
+/// buffer; the arena counts what it hands out (UNDELIVERED check). D26 (s15): `sink` IS the
+/// arena: the options' `host` word, which the core hands to grow, points at the arena of the
+/// decode host context that armed them (native memory, no managed state, no thread-local).
 public static unsafe class UnkHost
 {
     public static long Grows;
@@ -393,9 +401,9 @@ public static unsafe class UnkHost
             int c = *cap;
             long nc = Exact ? want : Math.Max((long)want, Math.Max(64L, 2L * c));   // geometric (rule 8), clamped below
             if (nc > int.MaxValue) nc = int.MaxValue;   // rule 8: clamped to INT32_MAX (want <= INT32_MAX)
-            var a = G.Arena;
+            var a = (UnkArena*)sink;
             if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
-            *dst = a.Grow(*dst, c, (int)nc);
+            *dst = a->Grow(*dst, c, (int)nc);
             *cap = (int)nc;
             Grows++;
             return 0;
@@ -406,34 +414,53 @@ public static unsafe class UnkHost
     public static IntPtr Fn => (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, int, byte**, int*, int>)&Grow;
 }
 
-/// Step a2 (iv): the native arena of one decode context's retained decodes. Chunks are kept
-/// for the context's life and reused in order (the first 64 KiB; a new chunk is max(need, 2 x
-/// the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and never
-/// moves until the next Begin, except that growing the LAST allocation extends it in place
-/// when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and not yet
-/// given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
-public sealed unsafe class UnkArena : IDisposable
+/// Step a2 (iv): the native arena of one decode host context's retained decodes. Chunks are
+/// kept for the context's life and reused in order (the first 64 KiB; a new chunk is max(need,
+/// 2 x the largest)); Begin rewinds it before each decode. Every allocation is 8-aligned and
+/// never moves until the next Begin, except that growing the LAST allocation extends it in
+/// place when the chunk has room. `Outstanding` counts buffers handed out (a fresh grow) and
+/// not yet given back (G.Take / G.Drop): non-zero after a successful decode is UNDELIVERED.
+/// D26 (s15): a NATIVE struct (its chunk table too), so grow's `sink` can point at it.
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct UnkArena
 {
-    private readonly System.Collections.Generic.List<IntPtr> _chunks = new System.Collections.Generic.List<IntPtr>();
-    private readonly System.Collections.Generic.List<int> _caps = new System.Collections.Generic.List<int>();
-    private int _ci = -1;
+    private IntPtr* _chunks;
+    private int* _caps;
+    private int _n, _room;
+    private int _ci;
     private byte* _cur, _last;
     private int _cap, _at;
     public int Outstanding;
+
+    public static UnkArena* Create()
+    {
+        var a = (UnkArena*)NativeMemory.AllocZeroed((nuint)sizeof(UnkArena));
+        a->Begin();
+        return a;
+    }
 
     public void Begin() { _ci = -1; _cur = null; _cap = 0; _at = 0; _last = null; Outstanding = 0; }
 
     private void Next(int n)
     {
         int i = _ci + 1;
-        if (i >= _chunks.Count || _caps[i] < n)
+        if (i >= _n || _caps[i] < n)
         {
             int big = 1 << 15;
-            foreach (var c in _caps) big = Math.Max(big, c);
+            for (int j = 0; j < _n; j++) big = Math.Max(big, _caps[j]);
             long size = Math.Max((long)n, 2L * big);
             if (size > int.MaxValue) size = Math.Max(n, int.MaxValue - 4095);
-            _chunks.Insert(i, (IntPtr)NativeMemory.Alloc((nuint)size));
-            _caps.Insert(i, (int)size);
+            if (_n == _room)
+            {
+                int r = _room == 0 ? 4 : 2 * _room;
+                _chunks = (IntPtr*)NativeMemory.Realloc(_chunks, (nuint)(r * sizeof(IntPtr)));
+                _caps = (int*)NativeMemory.Realloc(_caps, (nuint)(r * sizeof(int)));
+                _room = r;
+            }
+            for (int j = _n; j > i; j--) { _chunks[j] = _chunks[j - 1]; _caps[j] = _caps[j - 1]; }   // inserted at i
+            _chunks[i] = (IntPtr)NativeMemory.Alloc((nuint)size);
+            _caps[i] = (int)size;
+            _n++;
         }
         _ci = i; _cur = (byte*)_chunks[i]; _cap = _caps[i]; _at = 0;
     }
@@ -458,10 +485,13 @@ public sealed unsafe class UnkArena : IDisposable
         return p;
     }
 
-    public void Dispose()
+    public static void Destroy(UnkArena* a)
     {
-        foreach (var c in _chunks) NativeMemory.Free((void*)c);
-        _chunks.Clear(); _caps.Clear(); Begin();
+        if (a == null) return;
+        for (int j = 0; j < a->_n; j++) NativeMemory.Free((void*)a->_chunks[j]);
+        NativeMemory.Free(a->_chunks);
+        NativeMemory.Free(a->_caps);
+        NativeMemory.Free(a);
     }
 }
 
@@ -469,6 +499,28 @@ public sealed unsafe class UnkArena : IDisposable
 
 
 STAGE = r'''
+/// D26 (s15): the base of every root's ENCODE host context (CoreFfi_<Root>.EncCtx): the
+/// staging, and the ONE GCHandle to the context, allocated with it and freed in Dispose (never
+/// per call). The loop callbacks reach the context through it (Run_<Root>.Host); E2's
+/// transcoders through the copy each E2 string's record carries (Stage.HostHandle).
+public abstract class EncHost : IDisposable
+{
+    public readonly Stage St;
+    private GCHandle _self;
+    protected EncHost(bool utf16)
+    {
+        St = new Stage(utf16);
+        _self = GCHandle.Alloc(this);
+        St.HostHandle = GCHandle.ToIntPtr(_self);
+    }
+    public IntPtr Handle => GCHandle.ToIntPtr(_self);
+    public virtual void Dispose()
+    {
+        St.Dispose();
+        if (_self.IsAllocated) _self.Free();
+    }
+}
+
 /// Staging for strings, bytes and unknown-field bags handed to the core as data. Blocks
 /// are allocated as needed and never moved or freed before Dispose, so a pointer handed out
 /// stays valid until Reset (optimisation step a1, 2026-10-04): every block is KEPT across
@@ -541,10 +593,10 @@ public sealed unsafe class Stage : IDisposable
     };
     /// E1R / E1C: 1 or 2 when the generated frames pin (the fill marks), 0 otherwise.
     public static int Defer => Mode == E1R ? 1 : Mode == E1C ? 2 : 0;
-    /// The frames of the encode running on this thread: Defer, or 0 when its fill marked no
-    /// string (under a threshold, an encode with no long string takes the default path whole:
-    /// no frame per element). Set by Go before the root call; read by the loop callbacks.
-    [ThreadStatic] public static int DeferNow;
+    // D26 (s15): the frames' mode of the CALL is the encode host context's (Run_<Root>.Defer):
+    // Defer, or 0 when its fill marked no string (under a threshold, an encode with no long
+    // string takes the default path whole: no frame per element). Set by Go before the root
+    // call; read by the loop callbacks through `obj`.
     /// E1R / E1C: the marker the fill leaves in ak_str.data until a frame patches it; never a small
     /// value (ABI v1 section 8 reserves those) and never read by the core (patched before the call).
     public static readonly IntPtr PinPending = (IntPtr)0x30000;
@@ -566,10 +618,16 @@ public sealed unsafe class Stage : IDisposable
     }
     /// E1R / E1C: marks left by the fill and marks patched by a frame (equal after every call);
     /// of the patches, those of repeated string fields (one frame per string) and of nested maps'
-    /// keys and values (one frame per entry). PER THREAD: the per-encode check compares this
-    /// thread's marks with its patches, and encodes run concurrently on the RPC callers (a
-    /// process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
-    [ThreadStatic] public static long Marked, Patched, RepPatched, MapPatched;
+    /// keys and values (one frame per entry). PER CALL (D26): fields of this staging, i.e. of the
+    /// encode host context, zeroed by Reset; encodes run concurrently on the RPC callers, each
+    /// with its own context (a process-wide counter made a k = 8 caller fail its check: JOURNAL 76).
+    public long Marked, Patched, RepPatched, MapPatched;
+    /// The counting build's totals over calls (AK_HOST_COUNT; Go adds each call's counts):
+    /// process-wide, read by the single-threaded counting run only.
+    public static long CountMarked, CountPatched, CountRepPatched, CountMapPatched;
+    /// D26: the ONE GCHandle of the encode host context that owns this staging (EncHost), as
+    /// written into each E2 string's record for the transcoder callbacks.
+    internal IntPtr HostHandle;
     /// s14, MEASUREMENT ONLY (AK_STR_NOGUARD=1; default off): E1R's frames skip the patch
     /// counters (Patched, RepPatched, MapPatched) and Go skips the per-encode marks == patches
     /// check, so that guard's cost can be priced. Marked stays: it decides whether the frames run.
@@ -582,30 +640,30 @@ public sealed unsafe class Stage : IDisposable
     /// Stack bytes per recursion frame: the largest (address at depth 0 - address at depth d) / d
     /// seen by the counting build (AK_HOST_COUNT).
     public static long FrameBytes;
-    [ThreadStatic] private static byte* _sp0;
-    public static void Sp(int depth, byte* sp)
+    private byte* _sp0;   // the counting build's stack probe of the call (D26: per context)
+    public void Sp(int depth, byte* sp)
     {
         if (depth == 0) { _sp0 = sp; return; }
         long b = (_sp0 - sp) / depth;
         if (b > FrameBytes) FrameBytes = b;
     }
-    [ThreadStatic] private static System.Collections.Generic.List<GCHandle> _chunkPins;
+    /// E1C: the call's chunk handles (D26: this context's list; cleared, its storage kept).
+    private readonly System.Collections.Generic.List<GCHandle> _chunkPins = new System.Collections.Generic.List<GCHandle>();
     /// E1C: a GCHandle pin held until ReleaseChunk (after the chunk's call).
-    public static IntPtr PinChunk(string s)
+    public IntPtr PinChunk(string s)
     {
         Patched++;
         var h = GCHandle.Alloc(s, GCHandleType.Pinned);
-        (_chunkPins ??= new System.Collections.Generic.List<GCHandle>()).Add(h);
+        _chunkPins.Add(h);
         return h.AddrOfPinnedObject();
     }
-    /// The handles taken so far on this thread: a chunk releases only what it added (a map or a
+    /// The handles taken so far in this call: a chunk releases only what it added (a map or a
     /// repeated field's chunk runs INSIDE an element chunk's call, whose handles must outlive it:
     /// releasing them all there let the core read moved strings (JOURNAL 76)).
-    public static int ChunkMark() => _chunkPins?.Count ?? 0;
-    public static void ReleaseChunk(int from = 0)
+    public int ChunkMark() => _chunkPins.Count;
+    public void ReleaseChunk(int from = 0)
     {
         var l = _chunkPins;
-        if (l == null) return;
         for (int i = from; i < l.Count; i++) l[i].Free();
         l.RemoveRange(from, l.Count - from);
     }
@@ -622,7 +680,7 @@ public sealed unsafe class Stage : IDisposable
     /// are no longer pinned; under it the byte checks must fail (the stress check can see a
     /// string read after its release).
     internal static readonly bool PlantEarlyUnpin = Environment.GetEnvironmentVariable("AK_GATE_PLANT_EARLY_UNPIN") == "1";
-    public static void BeforeChunkCall(int from)
+    public void BeforeChunkCall(int from)
     {
         if (!PlantEarlyUnpin) return;
         ReleaseChunk(from);
@@ -634,9 +692,10 @@ public sealed unsafe class Stage : IDisposable
     private static extern int ak_utf16_utf8_len(char* src, nuint len);
     private readonly System.Collections.Generic.List<GCHandle> _pins = new System.Collections.Generic.List<GCHandle>();
     private static IntPtr _tcU16;
-    /// E2's table: the strings of the encode running on this thread (the core calls the
-    /// transcoder on the encoding thread, inside the codec call).
-    [ThreadStatic] private static System.Collections.Generic.List<string> _tab;
+    /// E2's table: the strings of the call (D26: this context's list, cleared by Reset with its
+    /// storage kept). Each E2 string's `data` points at a 16-byte record in this staging: the
+    /// encode host context's GCHandle and the string's index (the transcoder's `src`).
+    private readonly System.Collections.Generic.List<string> _tab = new System.Collections.Generic.List<string>();
     /// Reverse calls into TcManaged (E2), counted in the counting build only (AK_HOST_COUNT).
     public static long TcCalls;
     /// Strings handed by E1's pin (E1, or ETH at or above the threshold), counting build only.
@@ -665,7 +724,7 @@ public sealed unsafe class Stage : IDisposable
     }
 
     /// Every block is kept: the next encode starts again at the first.
-    public void Reset() { Use(0); ReleasePins(); _tab?.Clear(); if (Mode == E1C) ReleaseChunk(); }
+    public void Reset() { Use(0); ReleasePins(); _tab.Clear(); if (Mode == E1C) ReleaseChunk(); Marked = 0; Patched = 0; RepPatched = 0; MapPatched = 0; }
 
     /// E1: the pins of the last codec call, released once it has returned (the core copied
     /// the strings into its own buffer during the call).
@@ -690,17 +749,26 @@ public sealed unsafe class Stage : IDisposable
         return new ak_str { data = h.AddrOfPinnedObject(), len = (nuint)(PlantStr ? s.Length - 1 : s.Length), tc = _tcU16 };
     }
 
-    private const nint TabBase = 0x10000;
-    private static ak_str Tab(string s, int m)
+    private ak_str Tab(string s, int m)
     {
-        var t = _tab ??= new System.Collections.Generic.List<string>();
+        var t = _tab;
         t.Add(s);
-        // data = TabBase + index: never a small value (ABI v1 section 8 reserves small ak_str.data
-        // values as sentinels: 1 is AK_STR_DIRECT; a first attempt with index + 1 was taken for it).
+        // data = a record in this staging (never a small value: ABI v1 section 8 reserves small
+        // ak_str.data values as sentinels): [0] the host context's handle, [1] the index.
+        var rec = (IntPtr*)Take(2 * sizeof(IntPtr));
+        rec[0] = HostHandle;
+        rec[1] = (IntPtr)(t.Count - 1);
         IntPtr tc = m == E3 ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCore
             : m == E3L ? (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcCoreLen
             : (IntPtr)(delegate* unmanaged[Cdecl]<void*, nuint, byte*, int, IntPtr, IntPtr, int>)&TcManaged;
-        return new ak_str { data = (IntPtr)(TabBase + t.Count - 1), len = (nuint)s.Length, tc = tc };
+        return new ak_str { data = (IntPtr)rec, len = (nuint)s.Length, tc = tc };
+    }
+
+    /// D26: an E2 / E3 string from its record: the host context's staging, through its handle.
+    private static string TabString(void* src)
+    {
+        var rec = (IntPtr*)src;
+        return ((EncHost)GCHandle.FromIntPtr(rec[0]).Target).St._tab[(int)rec[1]];
     }
 
     /// E3: ak_transcode_fn. As TcManaged, but the UTF-16 is pinned with `fixed` and converted by the
@@ -714,7 +782,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++; U16Calls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             long worst = (long)s.Length * 3;
             if (cap < worst)
             {
@@ -737,7 +805,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++; U16Calls++; U16LenCalls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             int w;
             fixed (char* c = s)
             {
@@ -755,7 +823,7 @@ public sealed unsafe class Stage : IDisposable
         catch { return Abi.AK_ERR_HOST; }
     }
 
-    /// E2: ak_transcode_fn. `src` is TabBase + the string's index in this thread's table; writes the
+    /// E2: ak_transcode_fn. `src` is the string's record (TabString); writes the
     /// string's UTF-8 at `dst` (a lone surrogate becomes EF BF BD, as ak_tc_utf16 writes it),
     /// asking `grow` for the exact size when the worst case does not fit.
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -766,7 +834,7 @@ public sealed unsafe class Stage : IDisposable
 #if AK_HOST_COUNT
             TcCalls++;
 #endif
-            var s = _tab[(int)((nint)src - TabBase)];
+            var s = TabString(src);
             if ((long)cap < (long)s.Length * 3)
             {
                 int need = Encoding.UTF8.GetByteCount(s);
@@ -1020,11 +1088,11 @@ def _add_body(o, s, lst, xs, n, ind, var="i"):
         else:
             o += "%s// plan: a duplicate key replaces the earlier value. The facade map has no bag:" % ind
             o += "%s// an entry's unknown-field buffer (decision 11) is freed (U-map-entry)." % ind
-            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
+            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown, a); }" % (
                 ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
     else:
-        o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b); %s.Add(x); }" % (
-            ind, var, var, n, var, s.et, s.et, xs, var, lst)
+        o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b%s); %s.Add(x); }" % (
+            ind, var, var, n, var, s.et, s.et, xs, var, _aa(), lst)
 
 
 # ---------------------------------------------------------------- D21 step 7: E1R / E1C frames
@@ -1075,13 +1143,13 @@ def _pin_fields(p, mname, sv):
 def _pin_patch_r(o, ind, gp, pins, extra=""):
     """E1R: patch each marked member with its `fixed` pointer __p<i>."""
     for k, (_, path) in enumerate(pins):
-        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; if (!Stage.NoGuard) { Stage.Patched++;%s } }" % (ind, gp, path, gp, path, k, extra)
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = (IntPtr)__p%d; if (!Stage.NoGuard) { st.Patched++;%s } }" % (ind, gp, path, gp, path, k, extra)
 
 
 def _pin_patch_h(o, ind, gp, pins, extra=""):
     """E1C: patch each marked member with a chunk-lived GCHandle pin."""
     for expr, path in pins:
-        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = Stage.PinChunk(%s);%s }" % (ind, gp, path, gp, path, expr, extra)
+        o += "%sif (%s->%s.data == Stage.PinPending) { %s->%s.data = st.PinChunk(%s);%s }" % (ind, gp, path, gp, path, expr, extra)
 
 
 def _fixed_open(pins):
@@ -1100,10 +1168,10 @@ def _emit_pin_frames(o, p, root, s):
     o += "    /// E1R: one frame per element of the chunk [off, off + k); each `fixed`s every string of"
     o += "    /// its element, patches the element's marked members, and recurses; the deepest frame"
     o += "    /// makes the element call, and unwinding releases the pins."
-    o += "    private static int Rec_%s(IntPtr ctx, Run_%s* run, %s lst, int off, int k, int i)" % (s.name, root, lst)
+    o += "    private static int Rec_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst, int off, int k, int i)" % (s.name, root, lst)
     o += "    {"
     o += "#if AK_HOST_COUNT"
-    o += "        Stage.Sp(i, (byte*)&i);"
+    o += "        st.Sp(i, (byte*)&i);"
     o += "#endif"
     o += "        if (i == k)"
     o += "        {"
@@ -1129,14 +1197,14 @@ def _emit_pin_frames(o, p, root, s):
     o += "                var __g = (%s*)run->S_%s + off + i;" % (s.cs_e, s.name)
     _pin_patch_r(o, "                ", "__g", pins)
     o += "            }"
-    o += "            return Rec_%s(ctx, run, lst, off, k, i + 1);" % s.name
+    o += "            return Rec_%s(ctx, run, st, lst, off, k, i + 1);" % s.name
     o += "        }"
     o += "    }"
     o += ""
     o += "    /// E1C: the chunk's strings pinned by GCHandles, freed once its element call has returned."
-    o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, %s lst, int off, int k)" % (s.name, root, lst)
+    o += "    private static int ChunkH_%s(IntPtr ctx, Run_%s* run, Stage st, %s lst, int off, int k)" % (s.name, root, lst)
     o += "    {"
-    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
+    o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int i = 0; i < k; i++)"
     o += "        {"
     o += "            var __e = lst[off + i];"
@@ -1154,13 +1222,13 @@ def _emit_pin_frames(o, p, root, s):
     _pin_patch_h(o, "                ", "__g", pins)
     o += "            }"
     o += "        }"
-    o += "        Stage.BeforeChunkCall(__h);"
+    o += "        st.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     if _NO:
         o += "        int rc = %s;" % fwd_e
     else:
         o += "        int rc = run->Retain != 0 ? %s : %s;" % (fwd_u, fwd_e)
-    o += "        Stage.ReleaseChunk(__h);"
+    o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
@@ -1173,10 +1241,10 @@ def _emit_pin_elems_inner(o, p, s, i):
     decls, pins = _pin_fields(p, i.et, "__e")
     name = "%s_%s" % (s.name, i.name)
     lst = "System.Collections.Generic.List<%s>" % i.et
-    o += "    private static int Rec_%s(IntPtr ctx, %s* arr, %s lst, int off, int k, int j)" % (name, i.cs_e, lst)
+    o += "    private static int Rec_%s(IntPtr ctx, %s* arr, Stage st, %s lst, int off, int k, int j)" % (name, i.cs_e, lst)
     o += "    {"
     o += "#if AK_HOST_COUNT"
-    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
     o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        var __e = lst[off + j];"
@@ -1186,13 +1254,13 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += "        {"
     o += "            var __g = arr + off + j;"
     _pin_patch_r(o, "            ", "__g", pins)
-    o += "            return Rec_%s(ctx, arr, lst, off, k, j + 1);" % name
+    o += "            return Rec_%s(ctx, arr, st, lst, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
     o += ""
-    o += "    private static int ChunkH_%s(IntPtr ctx, %s* arr, %s lst, int off, int k)" % (name, i.cs_e, lst)
+    o += "    private static int ChunkH_%s(IntPtr ctx, %s* arr, Stage st, %s lst, int off, int k)" % (name, i.cs_e, lst)
     o += "    {"
-    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
+    o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++)"
     o += "        {"
     o += "            var __e = lst[off + j];"
@@ -1201,20 +1269,20 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += "            var __g = arr + off + j;"
     _pin_patch_h(o, "            ", "__g", pins)
     o += "        }"
-    o += "        Stage.BeforeChunkCall(__h);"
+    o += "        st.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
-    o += "        Stage.ReleaseChunk(__h);"
+    o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
-    o += "    private static int PinElems_%s(IntPtr ctx, %s* arr, %s lst, int n)" % (name, i.cs_e, lst)
+    o += "    private static int PinElems_%s(IntPtr ctx, %s* arr, Stage st, %s lst, int n, int d)" % (name, i.cs_e, lst)
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
+    o += "        int K = Stage.PinK;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
-    o += "            int rc = d == 1 ? Rec_%s(ctx, arr, lst, off, k, 0) : ChunkH_%s(ctx, arr, lst, off, k);" % (name, name)
+    o += "            int rc = d == 1 ? Rec_%s(ctx, arr, st, lst, off, k, 0) : ChunkH_%s(ctx, arr, st, lst, off, k);" % (name, name)
     o += "            Stage.AfterChunk();"
     o += "            if (rc < 0) return rc;"
     o += "        }"
@@ -1228,44 +1296,44 @@ def _emit_pin_map_inner(o, s, i):
     in one `fixed`), chunks of at most Stage.PinK entries, each one ak_elem_<Entry> call."""
     name = "%s_%s" % (s.name, i.name)
     m = "OrderedMap<string, string>"
-    o += "    private static int RecM_%s(IntPtr ctx, %s* arr, %s m, int off, int k, int j)" % (name, i.cs_e, m)
+    o += "    private static int RecM_%s(IntPtr ctx, %s* arr, Stage st, %s m, int off, int k, int j)" % (name, i.cs_e, m)
     o += "    {"
     o += "#if AK_HOST_COUNT"
-    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
     o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        var kv = m.At(off + j);"
     o += "        fixed (char* __p0 = kv.Key, __p1 = kv.Value)"
     o += "        {"
     o += "            var __g = arr + off + j;"
-    _pin_patch_r(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " Stage.MapPatched++;")
-    o += "            return RecM_%s(ctx, arr, m, off, k, j + 1);" % name
+    _pin_patch_r(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " st.MapPatched++;")
+    o += "            return RecM_%s(ctx, arr, st, m, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
     o += ""
-    o += "    private static int ChunkHM_%s(IntPtr ctx, %s* arr, %s m, int off, int k)" % (name, i.cs_e, m)
+    o += "    private static int ChunkHM_%s(IntPtr ctx, %s* arr, Stage st, %s m, int off, int k)" % (name, i.cs_e, m)
     o += "    {"
-    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
+    o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++)"
     o += "        {"
     o += "            var kv = m.At(off + j);"
     o += "            var __g = arr + off + j;"
-    _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " Stage.MapPatched++;")
+    _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " st.MapPatched++;")
     o += "        }"
-    o += "        Stage.BeforeChunkCall(__h);"
+    o += "        st.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
-    o += "        Stage.ReleaseChunk(__h);"
+    o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
-    o += "    private static int PinMap_%s(IntPtr ctx, %s* arr, %s m, int n)" % (name, i.cs_e, m)
+    o += "    private static int PinMap_%s(IntPtr ctx, %s* arr, Stage st, %s m, int n, int d)" % (name, i.cs_e, m)
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
+    o += "        int K = Stage.PinK;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
-    o += "            int rc = d == 1 ? RecM_%s(ctx, arr, m, off, k, 0) : ChunkHM_%s(ctx, arr, m, off, k);" % (name, name)
+    o += "            int rc = d == 1 ? RecM_%s(ctx, arr, st, m, off, k, 0) : ChunkHM_%s(ctx, arr, st, m, off, k);" % (name, name)
     o += "            Stage.AfterChunk();"
     o += "            if (rc < 0) return rc;"
     o += "        }"
@@ -1279,37 +1347,37 @@ def _emit_pin_strs(o, name):
     (E1C), each chunk one ak_blob_run of at most Stage.PinK strings."""
     o += "    /// E1R: one frame per string of [off, off + k) of a repeated string field; the deepest"
     o += "    /// frame makes the chunk's ak_blob_run."
-    o += "    private static int RecS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k, int j)" % name
+    o += "    private static int RecS_%s(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k, int j)" % name
     o += "    {"
     o += "#if AK_HOST_COUNT"
-    o += "        Stage.Sp(j, (byte*)&j);"
+    o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
     o += "        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }"
     o += "        fixed (char* __p = l[off + j])"
     o += "        {"
-    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { Stage.Patched++; Stage.RepPatched++; } }"
-    o += "            return RecS_%s(ctx, arr, l, off, k, j + 1);" % name
+    o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }"
+    o += "            return RecS_%s(ctx, arr, st, l, off, k, j + 1);" % name
     o += "        }"
     o += "    }"
     o += ""
-    o += "    private static int ChunkHS_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int off, int k)" % name
+    o += "    private static int ChunkHS_%s(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int off, int k)" % name
     o += "    {"
-    o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
-    o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = Stage.PinChunk(l[off + j]); Stage.RepPatched++; }"
-    o += "        Stage.BeforeChunkCall(__h);"
+    o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
+    o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }"
+    o += "        st.BeforeChunkCall(__h);"
     o += "        _fwd++;"
     o += "        int rc = Abi.ak_blob_run(ctx, arr + off, k);"
-    o += "        Stage.ReleaseChunk(__h);"
+    o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
     o += "    }"
     o += ""
-    o += "    private static int PinStrs_%s(IntPtr ctx, ak_str* arr, System.Collections.Generic.List<string> l, int n)" % name
+    o += "    private static int PinStrs_%s(IntPtr ctx, ak_str* arr, Stage st, System.Collections.Generic.List<string> l, int n, int d)" % name
     o += "    {"
-    o += "        int K = Stage.PinK, d = Stage.DeferNow;"
+    o += "        int K = Stage.PinK;"
     o += "        for (int off = 0; off < n; off += K)"
     o += "        {"
     o += "            int k = n - off; if (k > K) k = K;"
-    o += "            int rc = d == 1 ? RecS_%s(ctx, arr, l, off, k, 0) : ChunkHS_%s(ctx, arr, l, off, k);" % (name, name)
+    o += "            int rc = d == 1 ? RecS_%s(ctx, arr, st, l, off, k, 0) : ChunkHS_%s(ctx, arr, st, l, off, k);" % (name, name)
     o += "            Stage.AfterChunk();"
     o += "            if (rc < 0) return rc;"
     o += "        }"
@@ -1322,13 +1390,13 @@ def _root_call(o, ind, call, rpins, x, ds):
     """The root encode call; under E1R / E1C a call to the root's pin method (RootPinR_/H_<x>),
     kept out of Go so the default path's code is not the frame's (the `fixed` scope and its
     pinned locals in Go cost the E0 encode about 15 ns: JOURNAL 76). An encode whose fill
-    marked nothing takes the default path (DeferNow 0)."""
+    marked nothing takes the default path (Run->Defer 0)."""
     decls, pins = rpins
-    o += ind + "if (__d != 0) { if (Stage.Marked == __mk0) __d = 0; else { _pinSrc = src; Stage.DeferNow = __d; } }"
+    o += ind + "if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }"
     if not pins:
         o += ind + call
         return
-    args = "_run, _ctx, &vt, &fix, src%s" % (", direct" if ds else "")
+    args = "_run, _ctx, &vt, &fix, src%s, _st" % (", direct" if ds else "")
     o += ind + "if (__d == 0) " + call
     o += ind + "else rc = __d == 1 ? RootPinR_%s(%s) : RootPinH_%s(%s);" % (x, args, x, args)
 
@@ -1340,7 +1408,7 @@ def _emit_root_pins(o, p, root, ds, rpins):
     if not pins:
         return
     for x, fix, fn in ([("e", "ak_efix", "ak_encode")] + ([] if _NO else [("u", "ak_ufix", "ak_uencode")])):
-        sig = "Run_%s* _run, IntPtr _ctx, ak_evt_%s* vt, %s_%s* __g, %s src%s" % (root, root, fix, root, root, ", byte[] direct" if ds else "")
+        sig = "Run_%s* _run, IntPtr _ctx, ak_evt_%s* vt, %s_%s* __g, %s src%s, Stage st" % (root, root, fix, root, root, ", byte[] direct" if ds else "")
         call = "Abi.%s_%s(_run, _ctx, vt, __g%s)" % (fn, root, ", dp, (nuint)direct.Length" if ds else "")
         o += "    [MethodImpl(MethodImplOptions.NoInlining)]"
         o += "    private static nint RootPinR_%s(%s)" % (x, sig)
@@ -1357,16 +1425,56 @@ def _emit_root_pins(o, p, root, ds, rpins):
         o += "    [MethodImpl(MethodImplOptions.NoInlining)]"
         o += "    private static nint RootPinH_%s(%s)" % (x, sig)
         o += "    {"
-        o += "        int __h = Stage.ChunkMark();   // this chunk releases only the handles it adds"
+        o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
         for d in decls:
             o += "        " + d
         _pin_patch_h(o, "        ", "__g", pins)
         o += "        nint rc;"
         o += "        %src = %s;" % ("fixed (byte* dp = direct) " if ds else "", call)
-        o += "        Stage.ReleaseChunk(__h);"
+        o += "        st.ReleaseChunk(__h);"
         o += "        return rc;"
         o += "    }"
         o += ""
+
+
+def _emit_enc_ctx(o, p, root, slots):
+    """D26 (s15): the host's ENCODE context for `root`: it owns the core encode context."""
+    o += "    /// D26 (s15): the host's explicit ENCODE context, one per binding instance, created with it:"
+    o += "    /// it OWNS the core encode context (ak_enc_ctx), the native block Run_%s (the loop" % root
+    o += "    /// callbacks' `obj`: its Host word is the ONE GCHandle to this object, allocated in EncHost's"
+    o += "    /// constructor, never per call) and, through EncHost, the staging Stage (string and bytes"
+    o += "    /// staging, E2's string table, E1C's handle list, the guard counters, the stack probe). Per"
+    o += "    /// call (Go): the core context and the staging are reset; under E1R / E1C, Root and"
+    o += "    /// Run->Defer are set for the call and cleared after it. Freed in Dispose."
+    o += "    private sealed class EncCtx : EncHost"
+    o += "    {"
+    o += "        public IntPtr Ctx;"
+    o += "        public Run_%s* Run;" % root
+    o += "        public %s Root;" % root
+    o += "        public EncCtx(bool utf16) : base(utf16)"
+    o += "        {"
+    o += "            Ctx = Abi.ak_enc_ctx_new();"
+    o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_enc_ctx_new returned null\");"
+    o += "            Run = (Run_%s*)NativeMemory.AllocZeroed((nuint)sizeof(Run_%s));" % (root, root)
+    o += "            Run->Host = Handle;"
+    o += "        }"
+    o += "        public override void Dispose()"
+    o += "        {"
+    o += "            if (Ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(Ctx); Ctx = IntPtr.Zero; }"
+    o += "            if (Run != null)"
+    o += "            {"
+    for s in slots:
+        o += "                NativeMemory.Free(Run->S_%s);" % s.name
+        for i in s.inner:
+            o += "                NativeMemory.Free(Run->I_%s_%s); NativeMemory.Free(Run->O_%s_%s); NativeMemory.Free(Run->C_%s_%s);" % (
+                s.name, i.name, s.name, i.name, s.name, i.name)
+    o += "                NativeMemory.Free(Run); Run = null;"
+    o += "            }"
+    o += "            Root = null;"
+    o += "            base.Dispose();"
+    o += "        }"
+    o += "    }"
+    o += ""
 
 
 def _emit_root(o, p, root, facade_ns):
@@ -1374,8 +1482,13 @@ def _emit_root(o, p, root, facade_ns):
     ds = direct_fields(p, root)
     cls = "CoreFfi_%s" % root
     o += "[StructLayout(LayoutKind.Sequential)]"
+    o += "/// The encode host context's native block (D26: CoreFfi_%s.EncCtx owns it), the loop" % root
+    o += "/// callbacks' `obj`: Host is the ONE GCHandle to the managed context, Defer the call's"
+    o += "/// E1R / E1C mode (0 when the frames do not run), then the staged element arrays."
     o += "public unsafe struct Run_%s" % root
     o += "{"
+    o += "    public IntPtr Host;"
+    o += "    public int Defer;"
     o += "    public int Chunk;"
     o += "    public int Retain;"
     for s in slots:
@@ -1388,13 +1501,15 @@ def _emit_root(o, p, root, facade_ns):
     o.doc("core-ffi for `%s`: every group, slot and entry point from the plan." % root)
     o += "public sealed unsafe class %s : IDisposable" % cls
     o += "{"
-    o += "    private IntPtr _ctx, _dctx;"
-    o += "    private readonly Stage _st;"
-    o += "    private Run_%s* _run;" % root
-    o += "    private DecRun* _drun;"
+    o += "    /// D26 (s15): the host's explicit contexts. _eh, created with the binding, owns the core"
+    o += "    /// encode context; _dh, created on the first decode, owns the core decode context."
+    o += "    private readonly EncCtx _eh;"
+    o += "    private DecCtx _dh;"
+    o += "    private IntPtr _ctx => _eh.Ctx;"
+    o += "    private Stage _st => _eh.St;"
     o += "    public int Chunk;"
-    o += "    /// Counted where each crossing happens (R5). Static: an [UnmanagedCallersOnly]"
-    o += "    /// callback cannot reach an instance; one arm at a time."
+    o += "    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per"
+    o += "    /// context): one arm at a time."
     o += "    private static long _fwd, _rev;"
     o += "    public long ForwardCalls => _fwd;"
     o += "    public long ReverseCalls => _rev;"
@@ -1408,10 +1523,7 @@ def _emit_root(o, p, root, facade_ns):
     o += ""
     o += "    public %s(bool utf16 = false)" % cls
     o += "    {"
-    o += "        _ctx = Abi.ak_enc_ctx_new();"
-    o += "        if (_ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_enc_ctx_new returned null\");"
-    o += "        _st = new Stage(utf16 || Environment.GetEnvironmentVariable(\"AK_UTF16\") == \"1\");"
-    o += "        _run = (Run_%s*)NativeMemory.AllocZeroed((nuint)sizeof(Run_%s));" % (root, root)
+    o += "        _eh = new EncCtx(utf16 || Environment.GetEnvironmentVariable(\"AK_UTF16\") == \"1\");"
     for s in slots:
         if s.has_evt:
             o += "        _evt_%s = (ak_evt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_evt_%s));" % (s.name, s.et, s.et)
@@ -1420,9 +1532,9 @@ def _emit_root(o, p, root, facade_ns):
     o += "    }"
     o += ""
     # ---------------- loops
-    o += "    /// E1R / E1C (D21 step 7): the facade root of the encode running on this thread, for the"
-    o += "    /// frames inside the loop callbacks to pin its strings."
-    o += "    [ThreadStatic] private static %s _pinSrc;" % root
+    _emit_enc_ctx(o, p, root, slots)
+    o += "    /// D26: the loop callbacks reach the encode host context through `obj` (its Run block)."
+    o += "    private static EncCtx Host(Run_%s* run) => (EncCtx)GCHandle.FromIntPtr(run->Host).Target;" % root
     o += ""
     for s in slots:
         pinned = s.kind == "msg" and _emit_pin_frames(o, p, root, s)
@@ -1447,16 +1559,17 @@ def _emit_root(o, p, root, facade_ns):
         if s.kind == "msg":
             o += "            int chunk = run->Chunk <= 0 ? n : run->Chunk;"
             if pinned:
-                o += "            int d = Stage.DeferNow;"
-                o += "            if (d != 0 && chunk > Stage.PinK) chunk = Stage.PinK;"
+                o += "            int d = run->Defer;"
+                o += "            EncCtx h = null;"
+                o += "            if (d != 0) { h = Host(run); if (chunk > Stage.PinK) chunk = Stage.PinK; }"
             o += "            for (int off = 0; off < n; off += chunk)"
             o += "            {"
             o += "                int k = n - off; if (k > chunk) k = chunk;"
             if pinned:
-                lst = _get("_pinSrc", p, root, s.path)
+                lst = _get("h.Root", p, root, s.path)
                 o += "                if (d != 0)"
                 o += "                {"
-                o += "                    int rp = d == 1 ? Rec_%s(ctx, run, %s, off, k, 0) : ChunkH_%s(ctx, run, %s, off, k);" % (s.name, lst, s.name, lst)
+                o += "                    int rp = d == 1 ? Rec_%s(ctx, run, h.St, %s, off, k, 0) : ChunkH_%s(ctx, run, h.St, %s, off, k);" % (s.name, lst, s.name, lst)
                 o += "                    Stage.AfterChunk();"
                 o += "                    if (rp < 0) return rp;"
                 o += "                    continue;"
@@ -1473,7 +1586,7 @@ def _emit_root(o, p, root, facade_ns):
             o += "            return 0;"
         else:
             if s.kind == "blob" and s.f.kind == "string":
-                o += "            if (Stage.DeferNow != 0) return PinStrs_%s(ctx, (ak_str*)run->S_%s, %s, n);" % (s.name, s.name, _get("_pinSrc", p, root, s.path))
+                o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s(ctx, (ak_str*)run->S_%s, h.St, %s, n, run->Defer); }" % (s.name, s.name, _get("h.Root", p, root, s.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
         o += "        }"
@@ -1492,16 +1605,16 @@ def _emit_root(o, p, root, facade_ns):
             o += "            int n = run->C_%s_%s[e];" % (s.name, i.name)
             o += "            if (n == 0) return 0;"
             if i.kind == "blob" and i.f.kind == "string":
-                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.DeferNow != 0) return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                el = "%s[e]" % _get("h.Root", p, root, s.path)
+                o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s_%s(ctx, (ak_str*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
                     s.name, i.name, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             elif i.kind == "map":
-                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.DeferNow != 0) return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                el = "%s[e]" % _get("h.Root", p, root, s.path)
+                o += "            if (run->Defer != 0) { var h = Host(run); return PinMap_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
                     s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             elif i.kind == "msg" and _pin_fields(p, i.et, "__e")[1]:
-                el = "%s[e]" % _get("_pinSrc", p, root, s.path)
-                o += "            if (Stage.DeferNow != 0) return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], %s, n);" % (
+                el = "%s[e]" % _get("h.Root", p, root, s.path)
+                o += "            if (run->Defer != 0) { var h = Host(run); return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
                     s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
             o += "            _fwd++;"
             o += "            return %s;" % _loop_forward(
@@ -1549,11 +1662,15 @@ def _emit_root(o, p, root, facade_ns):
     o += "    private int Go(%s src, bool retain, bool call, out byte* outPtr, out int outLen)" % root
     o += "    {"
     o += "        outPtr = null; outLen = 0;"
+    o += "        // D26: the call's state is the encode host context's, reset here (the core context"
+    o += "        // with it), reused across calls."
+    o += "        var __h = _eh;"
+    o += "        IntPtr _ctx = __h.Ctx;"
+    o += "        Stage _st = __h.St;"
+    o += "        Run_%s* _run = __h.Run;" % root
     o += "        Abi.ak_enc_reset(_ctx);"
     o += "        _st.Reset();"
     o += "        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only"
-    o += "        long __mk0 = 0, __pt0 = 0;"
-    o += "        if (__d != 0) { __mk0 = Stage.Marked; __pt0 = Stage.Patched; }   // this encode's marks and patches"
     o += "        _run->Chunk = Chunk;"
     if _NO:
         o += "        if (retain) throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10): no ak_uencode\");"
@@ -1649,10 +1766,13 @@ def _emit_root(o, p, root, facade_ns):
     o += "        _st.ReleasePins();   // D21 E1: the core has copied every pinned string"
     o += "        if (__d != 0)"
     o += "        {"
-    o += "            Stage.DeferNow = 0;   // the next encode on this thread starts from the default"
-    o += "            _pinSrc = null;"
+    o += "            _run->Defer = 0;   // the next call starts from the default"
+    o += "            __h.Root = null;   // the context does not keep the message alive"
+    o += "#if AK_HOST_COUNT"
+    o += "            Stage.CountMarked += _st.Marked; Stage.CountPatched += _st.Patched; Stage.CountRepPatched += _st.RepPatched; Stage.CountMapPatched += _st.MapPatched;"
+    o += "#endif"
     o += "            // E1R / E1C: every mark the fill left was patched by a frame before the core read it."
-    o += "            if (!Stage.NoGuard && Stage.Marked - __mk0 != Stage.Patched - __pt0 && rc >= 0) rc = Abi.AK_ERR_HOST;"
+    o += "            if (!Stage.NoGuard && _st.Marked != _st.Patched && rc >= 0) rc = Abi.AK_ERR_HOST;"
     o += "        }"
     o += "        if (rc < 0) return (int)rc;"
     o += "        if (_keep) return 0;   // EncodeInto: the output stays in the context (the move path)"
@@ -1667,35 +1787,19 @@ def _emit_root(o, p, root, facade_ns):
     _emit_pull(o, p, root, slots)
     _emit_fsm(o, p, root, slots)
     # ---------------- tail
-    o += "    public long PullFootprint() => _dctx == IntPtr.Zero ? 0 : (long)Abi.ak_bdr_footprint(_dctx);"
+    o += "    public long PullFootprint() => _dh == null ? 0 : (long)Abi.ak_bdr_footprint(_dh.Ctx);"
     o += "    public AkCounters EncCounters() { AkCounters c; Abi.ak_enc_counters(_ctx, &c); return c; }"
     o += "    public void EncCountersReset() => Abi.ak_enc_counters_reset(_ctx);"
-    o += "    public AkCounters DecCounters() { AkCounters c; if (_dctx == IntPtr.Zero) return default; Abi.ak_dec_counters(_dctx, &c); return c; }"
-    o += "    public void DecCountersReset() { if (_dctx != IntPtr.Zero) Abi.ak_dec_counters_reset(_dctx); }"
+    o += "    public AkCounters DecCounters() { AkCounters c; if (_dh == null) return default; Abi.ak_dec_counters(_dh.Ctx, &c); return c; }"
+    o += "    public void DecCountersReset() { if (_dh != null) Abi.ak_dec_counters_reset(_dh.Ctx); }"
     o += ""
     o += "    public void Dispose()"
     o += "    {"
-    o += "        if (_ctx != IntPtr.Zero) { Abi.ak_enc_ctx_free(_ctx); _ctx = IntPtr.Zero; }"
-    o += "        if (_dctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(_dctx); _dctx = IntPtr.Zero; }"
-    o += "        if (_th.IsAllocated) _th.Free();"
-    if not _NO:
-        o += "        _arena?.Dispose();"
-    o += "        _st.Dispose();"
-    o += "        if (_run != null)"
-    o += "        {"
-    for s in slots:
-        o += "            NativeMemory.Free(_run->S_%s);" % s.name
-        for i in s.inner:
-            o += "            NativeMemory.Free(_run->I_%s_%s); NativeMemory.Free(_run->O_%s_%s); NativeMemory.Free(_run->C_%s_%s);" % (
-                s.name, i.name, s.name, i.name, s.name, i.name)
-    o += "            NativeMemory.Free(_run); _run = null;"
-    o += "        }"
-    for s in slots:
-        if s.has_evt:
-            o += "        if (_evt_%s != null) { NativeMemory.Free(_evt_%s); _evt_%s = null; }" % (s.name, s.name, s.name)
-    o += "        if (_drun != null) { NativeMemory.Free(_drun); _drun = null; }"
-    if not _NO:
-        o += "        if (_uo != null) { NativeMemory.Free(_uo); _uo = null; }"
+    o += "        _eh.Dispose();"
+    o += "        _dh?.Dispose(); _dh = null;"
+    for s_ in slots:
+        if s_.has_evt:
+            o += "        if (_evt_%s != null) { NativeMemory.Free(_evt_%s); _evt_%s = null; }" % (s_.name, s_.name, s_.name)
     o += "    }"
     o += "}"
     o += ""
@@ -1712,17 +1816,73 @@ def _inline(fn, *args):
     return " ".join(buf)
 
 
-def _emit_decode(o, p, root, slots):
+def _emit_dec_ctx(o, p, root):
+    """D26 (s15): the host's DECODE context for `root`: it owns the core decode context."""
+    on = None
+    if not _NO:
+        from plan import unk_opts_name
+        on = unk_opts_name(root)
+    o += "    /// D26 (s15): the decode host context's native block, the push callbacks' `obj`: Host is the"
+    o += "    /// ONE GCHandle to the managed DecCtx, Buf the call's input%s." % ("" if _NO else ", Arena the call's arena (null in drop mode)")
     o += "    [StructLayout(LayoutKind.Sequential)]"
-    o += "    private struct DecRun { public IntPtr Target; public byte* Buf; }"
+    o += "    private struct DecRun { public IntPtr Host; public byte* Buf;%s }" % ("" if _NO else " public UnkArena* Arena;")
     o += ""
-    o += "    private static %s Tgt(void* obj) => (%s)GCHandle.FromIntPtr(((DecRun*)obj)->Target).Target;" % (root, root)
+    o += "    /// D26 (s15): the host's explicit DECODE context, one per binding instance, created on its"
+    o += "    /// first decode and kept: it OWNS the core decode context (ak_dec_ctx_%s, with its pvt" % root
+    o += "    /// bits), the native block DecRun (the push callbacks' `obj`) and ONE GCHandle to itself,"
+    o += "    /// allocated here (never per call)%s. Per call: Begin sets Root (and Arena)," % ("" if _NO else ", the native unknown-field options (`host` = the arena, grow's `sink`) and the arena")
+    o += "    /// the call runs, and Root, Buf and Arena are cleared after it. Freed in Dispose."
+    o += "    private sealed class DecCtx : IDisposable"
+    o += "    {"
+    o += "        public IntPtr Ctx;"
+    o += "        public DecRun* Run;"
+    if not _NO:
+        o += "        public UnkArena* Arena;"
+        o += "        public %s* Uo;" % on
+        o += "        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for"
+    o += "        public %s Root;" % root
+    o += "        private GCHandle _self;"
+    o += "        public DecCtx()"
+    o += "        {"
+    o += "            Ctx = Abi.ak_dec_ctx_new_%s(%s);   // rule 6: bound to this root%s" % (root, "" if _NO else "null", "; no options exist" if _NO else ", drop mode")
+    o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
+    o += "            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
+    o += "            int sp = Abi.ak_dec_set_pvt_%s(Ctx, Pvt);   // step 5b: the root's one native pvt" % root
+    o += "            if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
+    o += "            // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created."
+    o += "            int fp = Abi.ak_fsm_set_pvt_%s(Ctx, FsmPvt);" % root
+    o += "            if (fp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + fp);" % root
+    o += "            _self = GCHandle.Alloc(this);"
+    o += "            Run = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
+    o += "            Run->Host = GCHandle.ToIntPtr(_self);"
+    if not _NO:
+        o += "            Arena = UnkArena.Create();"
+        o += "            Uo = (%s*)NativeMemory.AllocZeroed((nuint)sizeof(%s));" % (on, on)
+    o += "        }"
+    o += "        public void Dispose()"
+    o += "        {"
+    o += "            if (Ctx != IntPtr.Zero) { Abi.ak_dec_ctx_free(Ctx); Ctx = IntPtr.Zero; }"
+    o += "            if (_self.IsAllocated) _self.Free();"
+    o += "            if (Run != null) { NativeMemory.Free(Run); Run = null; }"
+    if not _NO:
+        o += "            if (Arena != null) { UnkArena.Destroy(Arena); Arena = null; }"
+        o += "            if (Uo != null) { NativeMemory.Free(Uo); Uo = null; }"
+    o += "            Root = null;"
+    o += "        }"
+    o += "    }"
     o += ""
+
+
+def _emit_decode(o, p, root, slots):
+    _emit_dec_ctx(o, p, root)
+    o += "    private static %s Tgt(void* obj) => ((DecCtx)GCHandle.FromIntPtr(((DecRun*)obj)->Host).Target).Root;" % root
+    o += ""
+    arg_a = "" if _NO else ", ((DecRun*)obj)->Arena"
     o += "    %s" % UCO
     o += "    private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_%s* fix)" % root
     o += "    {"
     o += "        _rev++;"
-    o += "        try { if (G.PlantHostFail == 1) throw new InvalidOperationException(\"planted host failure (apply)\"); G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf); }" % root
+    o += "        try { if (G.PlantHostFail == 1) throw new InvalidOperationException(\"planted host failure (apply)\"); G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf%s); }" % (root, arg_a)
     o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
     o += ""
@@ -1737,6 +1897,8 @@ def _emit_decode(o, p, root, slots):
             o += "        {"
             o += "            if (G.PlantHostFail == 2) throw new InvalidOperationException(\"planted host failure (add)\");"
             o += "            byte* b = ((DecRun*)obj)->Buf;"
+            if not _NO:
+                o += "            UnkArena* a = ((DecRun*)obj)->Arena;"
             o += "            var lst = %s;" % lst
             _add_body(o, s, "lst", "xs", "n", "            ")
             o += "        }"
@@ -1756,7 +1918,7 @@ def _emit_decode(o, p, root, slots):
         o += "    private static void Apply_%s(IntPtr ctx, void* obj, long token, ak_dfix_%s* fix)" % (s.name, s.et)
         o += "    {"
         o += "        _rev++;"
-        o += "        try { var lst = %s; G.D_%s(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf); }" % (lst, s.et)
+        o += "        try { var lst = %s; G.D_%s(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf%s); }" % (lst, s.et, arg_a)
         o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
         o += "    }"
         o += ""
@@ -1768,6 +1930,8 @@ def _emit_decode(o, p, root, slots):
             o += "        try"
             o += "        {"
             o += "            byte* b = ((DecRun*)obj)->Buf;"
+            if not _NO:
+                o += "            UnkArena* a = ((DecRun*)obj)->Arena;"
             o += "            var e = %s[(int)token];" % lst
             o += "            var il = %s;" % _make("e", p, s.et, i.path)
             _add_body(o, i, "il", "xs", "n", "            ", "k")
@@ -1815,7 +1979,6 @@ def _emit_decode(o, p, root, slots):
     o += "    /// Step 5b: the pull family's bits, once per root in native memory (the setter copies them)."
     o += "    private static readonly ak_pvt_%s* Pvt = MakePvt();" % root
     o += "    private static ak_pvt_%s* MakePvt() { var v = (ak_pvt_%s*)NativeMemory.AllocZeroed((nuint)sizeof(ak_pvt_%s)); v->utf8_skip = AkUtf8Skip.%s_ALL; return v; }" % (root, root, root, root)
-    o += "    private GCHandle _th;"
     o += "    private int DecodeArmed(byte[] src, int len, int mode, out %s result)" % root
     o += "    {"
     o += "        result = null;"
@@ -1826,9 +1989,10 @@ def _emit_decode(o, p, root, slots):
     o += "        int ar = ArmFor(mode);"
     o += "        if (ar != 0) { Disarm(ar); return ar; }"
     o += "        var target = new %s();" % root
-    o += "        // Step a2 (ii): one GCHandle per instance, its Target set for this decode."
-    o += "        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);"
-    o += "        _th.Target = target;"
+    o += "        // D26: the decode host context's ONE GCHandle (allocated with it) reaches it; the"
+    o += "        // call's root is set on it here and cleared after the call."
+    o += "        var h = _dh;"
+    o += "        h.Root = target;"
     o += "        int rc = Abi.AK_ERR_HOST;"
     o += "        try"
     o += "        {"
@@ -1837,13 +2001,12 @@ def _emit_decode(o, p, root, slots):
     o += "            {"
     o += "                // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0."
     o += "                byte* b = len == 0 ? one : b0;"
-    o += "                _drun->Target = GCHandle.ToIntPtr(_th);"
-    o += "                _drun->Buf = b;"
+    o += "                h.Run->Buf = b;"
     o += "                _fwd++;"
-    o += "                rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, Vt);" % root
+    o += "                rc = Abi.ak_decode_%s(h.Ctx, h.Run, b, (nuint)len, Vt);" % root
     o += "            }"
     o += "        }"
-    o += "        finally { _th.Target = null; rc = Disarm(rc); }"
+    o += "        finally { h.Root = null; h.Run->Buf = null; rc = Disarm(rc); }"
     o += "        if (rc < 0) return rc;"
     o += "        result = target;"
     o += "        return 0;"
@@ -1880,15 +2043,14 @@ def _emit_decode(o, p, root, slots):
     o += "        EnsureDec();"
     o += "        int ar = ArmFor(retain ? -1 : -2);"
     o += "        if (ar != 0) { Disarm(ar); return ar; }"
-    o += "        if (!_th.IsAllocated) _th = GCHandle.Alloc(null);"
     o += "        int rc;"
     o += "        fixed (byte* b0 = src)"
     o += "        fixed (byte* one = One)"
     o += "        {"
     o += "            byte* b = len == 0 ? one : b0;"
-    o += "            _drun->Target = GCHandle.ToIntPtr(_th);"
-    o += "            _drun->Buf = b;"
-    o += "            rc = Abi.ak_decode_%s(_dctx, _drun, b, (nuint)len, vt);" % root
+    o += "            _dh.Run->Buf = b;"
+    o += "            rc = Abi.ak_decode_%s(_dh.Ctx, _dh.Run, b, (nuint)len, vt);" % root
+    o += "            _dh.Run->Buf = null;"
     o += "        }"
     o += "        rc = Disarm(rc);"
     o += "        return rc == UNDELIVERED ? 0 : rc;"
@@ -1902,7 +2064,7 @@ def _emit_decode(o, p, root, slots):
     o += "        int rc;"
     o += "        fixed (byte* b0 = src)"
     o += "        fixed (byte* one = One)"
-    o += "            rc = Abi.ak_parse_%s(_dctx, len == 0 ? one : b0, (nuint)len);" % root
+    o += "            rc = Abi.ak_parse_%s(_dh.Ctx, len == 0 ? one : b0, (nuint)len);" % root
     o += "        rc = Disarm(rc);"
     o += "        return rc == UNDELIVERED ? 0 : rc;"
     o += "    }"
@@ -1946,20 +2108,9 @@ def _emit_unk_nounk(o, p, root):
     o += "    public int Undelivered => 0;"
     o += "    public long ResetCalls => 0;"
     o += ""
-    o += "    private void EnsureDec()"
-    o += "    {"
-    o += "        if (_dctx != IntPtr.Zero) return;"
-    o += "        _dctx = Abi.ak_dec_ctx_new_%s();   // rule 6: bound to this root; no options exist" % root
-    o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
-    o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
-    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
-    o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
-    o += "        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set"
-    o += "        // lazily on the first FSM decode, it made one count row depend on which thread decoded)."
-    o += "        int fp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
-    o += "        if (fp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + fp);" % root
-    o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
-    o += "    }"
+    o += "    /// D26: the decode host context (and with it the core decode context) is created on the"
+    o += "    /// first decode and kept for the binding's life."
+    o += "    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }"
     o += ""
     o += "    private int ArmFor(int mode) => mode == -2 ? 0 : throw new NotSupportedException(\"unknown fields are compiled out of this build (WP5 step 10)\");"
     o += "    private int Disarm(int rc) => rc;"
@@ -1984,29 +2135,15 @@ def _emit_unk(o, p, root):
     o += "    /// carried back to the host: a host defect, never a core code."
     o += "    public const int UNDELIVERED = -1001;"
     o += "    public int Undelivered { get; private set; }"
-    o += "    private %s* _uo;" % on
-    o += "    private UnkArena _arena;"
-    o += "    private int _armed = int.MinValue;   // the `zero` the options at _uo were written for"
     o += "    /// The one reset that arms each decode (rule 7): a forward crossing, counted"
     o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
     o += "    private static long _resets;"
     o += "    public long ResetCalls => _resets;"
     o += "    public const bool UnknownCompiledOut = false;"
     o += ""
-    o += "    private void EnsureDec()"
-    o += "    {"
-    o += "        if (_dctx != IntPtr.Zero) return;"
-    o += "        _dctx = Abi.ak_dec_ctx_new_%s(null);   // rule 6: bound to this root, drop mode" % root
-    o += "        if (_dctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
-    o += "        // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
-    o += "        int sp = Abi.ak_dec_set_pvt_%s(_dctx, Pvt);   // step 5b: the root's one native pvt" % root
-    o += "        if (sp != 0) throw new InvalidOperationException(\"ak_dec_set_pvt_%s: \" + sp);" % root
-    o += "        // D23 / D24: the FSM's own D20 mask, copied once into the context when it is created (set"
-    o += "        // lazily on the first FSM decode, it made one count row depend on which thread decoded)."
-    o += "        int fp = Abi.ak_fsm_set_pvt_%s(_dctx, FsmPvt);" % root
-    o += "        if (fp != 0) throw new InvalidOperationException(\"ak_fsm_set_pvt_%s: \" + fp);" % root
-    o += "        _drun = (DecRun*)NativeMemory.AllocZeroed((nuint)sizeof(DecRun));"
-    o += "    }"
+    o += "    /// D26: the decode host context (and with it the core decode context) is created on the"
+    o += "    /// first decode and kept for the binding's life."
+    o += "    private void EnsureDec() { if (_dh == null) _dh = new DecCtx(); }"
     o += ""
     o += "    /// The options, rewritten before every retained decode: every entry names the one"
     o += "    /// grow and holds no pre-allocated buffer (all from grow, so the core never needs"
@@ -2015,14 +2152,16 @@ def _emit_unk(o, p, root):
     o += "    {"
     o += "        // Step a2 (iii): rewritten only when the mode changed. The core never writes a"
     o += "        // grow-only entry (it takes and clears pre-placed buffers only, and there are none)."
-    o += "        if (_uo != null && _armed == zero) return _uo;"
-    o += "        if (_uo == null) _uo = (%s*)NativeMemory.AllocZeroed((nuint)sizeof(%s));" % (on, on)
-    o += "        *_uo = default;"
-    o += "        _armed = zero;"
+    o += "        var h = _dh;"
+    o += "        if (h.Armed == zero) return h.Uo;"
+    o += "        var uo = h.Uo;"
+    o += "        *uo = default;"
+    o += "        h.Armed = zero;"
+    o += "        uo->host = (IntPtr)h.Arena;   // D26: grow's `sink`, the decode host context's arena"
     o += "        var g = UnkHost.Fn;"
     for i, (n, _m, _t) in enumerate(lay):
-        o += "        if (zero != %d) _uo->%s.grow = g;" % (i, n)
-    o += "        return _uo;"
+        o += "        if (zero != %d) uo->%s.grow = g;" % (i, n)
+    o += "        return uo;"
     o += "    }"
     o += ""
     o += "    /// mode -2: drop (reset with NULL); -1: retain everywhere; k >= 0: retain but k."
@@ -2030,23 +2169,23 @@ def _emit_unk(o, p, root):
     o += "    {"
     o += "        Undelivered = 0;"
     o += "        _resets++;"
-    o += "        if (mode == -2) { G.Arena = null; return Abi.ak_dec_reset_%s(_dctx, null); }" % root
-    o += "        _arena ??= new UnkArena();"
-    o += "        _arena.Begin();"
-    o += "        G.Arena = _arena;"
-    o += "        return Abi.ak_dec_reset_%s(_dctx, Arm(mode));" % root
+    o += "        var h = _dh;"
+    o += "        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_%s(h.Ctx, null); }" % root
+    o += "        h.Arena->Begin();"
+    o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
+    o += "        return Abi.ak_dec_reset_%s(h.Ctx, Arm(mode));" % root
     o += "    }"
     o += ""
     o += "    /// After every decode: a buffer still outstanding (the arena's count) after a success is"
     o += "    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE"
     o += "    /// reset per decode, the arming one before it (ArmFor); the options stay at their"
-    o += "    /// stable native address (_uo) until the next decode's reset rewrites them."
+    o += "    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them."
     o += "    private int Disarm(int rc)"
     o += "    {"
-    o += "        var a = G.Arena;"
-    o += "        G.Arena = null;"
-    o += "        if (a == null || a.Outstanding == 0) return rc;"
-    o += "        int left = a.Outstanding;   // the memory stays the arena's, rewound by the next Begin"
+    o += "        var a = _dh.Run->Arena;"
+    o += "        _dh.Run->Arena = null;"
+    o += "        if (a == null || a->Outstanding == 0) return rc;"
+    o += "        int left = a->Outstanding;   // the memory stays the arena's, rewound by the next Begin"
     o += "        if (rc < 0) return rc;"
     o += "        Undelivered = left;"
     o += "        return UNDELIVERED;"
@@ -2092,13 +2231,13 @@ def _emit_pull(o, p, root, slots):
     o += "            {"
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                _fwd++;"
-    o += "                rc = Abi.ak_parse_%s(_dctx, b, (nuint)len);" % root
+    o += "                rc = Abi.ak_parse_%s(_dh.Ctx, b, (nuint)len);" % root
     o += "                if (rc >= 0)"
     o += "                {"
     o += "                    byte* recs; nuint rlen;"
     o += "                    _fwd++;"
-    o += "                    rc = Abi.ak_bdr_ptr(_dctx, &recs, &rlen);"
-    o += "                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }"
+    o += "                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);"
+    o += "                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen%s); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }" % ("" if _NO else ", _dh.Run->Arena")
     o += "                }"
     o += "            }"
     o += "        }"
@@ -2109,7 +2248,7 @@ def _emit_pull(o, p, root, slots):
     o += "    }"
     o += ""
     o += "    private const uint OP_APPLY = 1, OP_ADD = 2, OP_NEW = 3, OP_APPLY_ELEM = 4;   // ak_bdr_rec.op"
-    o += "    private static void Replay(%s t, byte* b, byte* p, int len)" % root
+    o += "    private static void Replay(%s t, byte* b, byte* p, int len%s)" % (root, _ap())
     o += "    {"
     o += "        int at = 0;"
     o += "        while (len - at >= sizeof(ak_bdr_rec))"
@@ -2120,7 +2259,7 @@ def _emit_pull(o, p, root, slots):
     o += "            uint outer = r.slot >> 16, inner = r.slot & 0xFFFF;"
     o += "            switch (r.op)"
     o += "            {"
-    o += "                case OP_APPLY: G.D_%s(ref *(ak_dfix_%s*)body, t, b); break;" % (root, root)
+    o += "                case OP_APPLY: G.D_%s(ref *(ak_dfix_%s*)body, t, b%s); break;" % (root, root, _aa())
     for si, s in enumerate(slots, 1):
         lst = _make("t", p, root, s.path)
         if s.leaf:
@@ -2132,8 +2271,8 @@ def _emit_pull(o, p, root, slots):
             o += "                }"
         else:
             o += "                case OP_NEW when outer == %d: %s.Add(new %s()); break;" % (si, lst, s.et)
-            o += "                case OP_APPLY_ELEM when outer == %d: G.D_%s(ref *(ak_dfix_%s*)body, %s[(int)r.token], b); break;" % (
-                si, s.et, s.et, lst)
+            o += "                case OP_APPLY_ELEM when outer == %d: G.D_%s(ref *(ak_dfix_%s*)body, %s[(int)r.token], b%s); break;" % (
+                si, s.et, s.et, lst, _aa())
             for ii, i in enumerate(s.inner, 1):
                 o += "                case OP_ADD when outer == %d && inner == %d:" % (si, ii)
                 o += "                {"
@@ -2178,11 +2317,11 @@ def _fsm_append(o, s, lst, xs, n, ind, var):
                 ind, var, var, n, var, lst, xs, var, xs, var)
         else:
             # The facade map has no bag: an entry's unknown-field buffer is freed (U-map-entry).
-            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown); }" % (
+            o += "%sfor (int %s = 0; %s < %s; %s++) { %s[G.Str(b, %s[%s].key)] = G.Str(b, %s[%s].value); G.Drop(ref %s[%s].unknown, a); }" % (
                 ind, var, var, n, var, lst, xs, var, xs, var, xs, var)
     else:
-        o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b); %s.Add(x); }" % (
-            ind, var, var, n, var, s.et, s.et, xs, var, lst)
+        o += "%sfor (int %s = 0; %s < %s; %s++) { var x = new %s(); G.D_%s(ref %s[%s], x, b%s); %s.Add(x); }" % (
+            ind, var, var, n, var, s.et, s.et, xs, var, _aa(), lst)
 
 
 def _emit_fsm(o, p, root, slots):
@@ -2216,7 +2355,9 @@ def _emit_fsm(o, p, root, slots):
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                ak_fsm_ev ev;"
     o += "                _fwd++;"
-    o += "                int op = Abi.ak_fsm_begin_%s(_dctx, b, (nuint)len, &ev);" % root
+    if not _NO:
+        o += "                UnkArena* a = _dh.Run->Arena;"
+    o += "                int op = Abi.ak_fsm_begin_%s(_dh.Ctx, b, (nuint)len, &ev);" % root
     o += "                try"
     o += "                {"
     o += "                    while (op > 0)"
@@ -2224,12 +2365,12 @@ def _emit_fsm(o, p, root, slots):
     o += "                        if (op == (int)Abi.AK_BDR_APPLY)"
     o += "                        {"
     o += "                            // The root group: always the last event, the end."
-    o += "                            G.D_%s(ref *(ak_dfix_%s*)ev.data, t, b);" % (root, root)
+    o += "                            G.D_%s(ref *(ak_dfix_%s*)ev.data, t, b%s);" % (root, root, _aa())
     o += "                            break;"
     o += "                        }"
-    o += "                        FsmDispatch(t, b, (uint)op, &ev);"
+    o += "                        FsmDispatch(t, b, (uint)op, &ev%s);" % _aa()
     o += "                        _fwd++;"
-    o += "                        op = Abi.ak_fsm_next_%s(_dctx, &ev);" % root
+    o += "                        op = Abi.ak_fsm_next_%s(_dh.Ctx, &ev);" % root
     o += "                    }"
     o += "                    rc = op < 0 ? op : 0;"
     o += "                }"
@@ -2245,7 +2386,7 @@ def _emit_fsm(o, p, root, slots):
     o += "    /// D23: one non-final event, `op` the call's return (NEW, ADD, APPLY_ELEM; the root APPLY is the end event,"
     o += "    /// handled by TryFsm). slot = outer << 16 | inner, pull's numbering: a root-level run"
     o += "    /// is (0, slot), a non-leaf slot's element is (slot, 0) and its inner runs (slot, inner)."
-    o += "    private static void FsmDispatch(%s t, byte* b, uint op, ak_fsm_ev* ev)" % root
+    o += "    private static void FsmDispatch(%s t, byte* b, uint op, ak_fsm_ev* ev%s)" % (root, _ap())
     o += "    {"
     o += "        byte* d = (byte*)ev->data;"
     o += "        switch (op)"
@@ -2264,8 +2405,8 @@ def _emit_fsm(o, p, root, slots):
         o += "                switch (ev->slot >> 16)"
         o += "                {"
         for si, s in nonleaf:
-            o += "                    case %d: G.D_%s(ref *(ak_dfix_%s*)d, %s[(int)ev->token], b); return;" % (
-                si, s.et, s.et, _make("t", p, root, s.path))
+            o += "                    case %d: G.D_%s(ref *(ak_dfix_%s*)d, %s[(int)ev->token], b%s); return;" % (
+                si, s.et, s.et, _make("t", p, root, s.path), _aa())
         o += "                }"
         o += "                return;"
     if adds:

@@ -15,13 +15,13 @@ public static class Values
 {
     private static readonly string[] Vocab = { "alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa" };
 
-    // One SHA-256 per thread: the value rules are called from the payload
-    // builders only, but a benchmark harness that built two payloads on two
-    // threads would otherwise corrupt both and look like a codec defect.
-    [ThreadStatic] private static SHA256 _sha;
-    private static SHA256 Sha => _sha ??= SHA256.Create();
-
-    private static byte[] Digest(string s) => Sha.ComputeHash(Encoding.UTF8.GetBytes(s));
+    // The digest without shared state (D26: no thread-local storage): .NET 5+'s static
+    // one-shot, or one SHA-256 object per call on the floors (the payload builders only).
+#if NET5_0_OR_GREATER
+    private static byte[] Digest(string s) => SHA256.HashData(Encoding.UTF8.GetBytes(s));
+#else
+    private static byte[] Digest(string s) { using (var h = SHA256.Create()) return h.ComputeHash(Encoding.UTF8.GetBytes(s)); }
+#endif
 
     /// The first eight bytes of sha256("path#idx"), little endian.
     public static ulong H64(string path, long idx)
