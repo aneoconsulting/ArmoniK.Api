@@ -1,6 +1,6 @@
 # s14 ladder, one-string sweep: ns per string, median of the per-process medians (n processes per cell in reference.md). CONTAINER INSTRUMENTATION.
 
-R0 E0; R1 E0 through the generic transcoder path (identity copy); R2 E1R with the UTF-16 stub (bytes NOT checked); R2g R2 without the guard; R3 E1R (simdutf); R3g R3 without the guard. Steps: R1-R0 the generic path; R2-R1 E1R's frame, mark, patch and element calls against E0's staging (both through the generic path); R3-R2 the UTF-16 transcoder over the stub; R3-R3g and R2-R2g the guard.
+R0 E0; R1 E0 through the generic transcoder path (identity copy); R2 E1R with the UTF-16 stub (bytes NOT checked); R2g R2 without the guard; R3 E1R (simdutf); R3g R3 without the guard. Steps: R1-R0 the generic path; R2-R1 E1R's frame, mark, patch and element calls against E0's staging (both through the generic path); R3-R2 the UTF-16 transcoder over the stub; R3-R3g and R2-R2g the guard. R2 copies `len` raw bytes: on Latin-1 its output is half the real UTF-8 (40 / 48 bytes for 80 / 96), so on those rows R2 also removes output bytes, not only the transcoder.
 
 ## DOTNET_TieredPGO=0
 

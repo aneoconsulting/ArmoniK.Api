@@ -35,7 +35,7 @@ if os.path.isdir(sw):
         d = by.get(k, {}).get((kind, path))
         return statistics.median(d.values()) if d else None
     t = ['# s14 ladder, one-string sweep: ns per string, median of the per-process medians (n processes per cell in reference.md). CONTAINER INSTRUMENTATION.', '',
-         'R0 E0; R1 E0 through the generic transcoder path (identity copy); R2 E1R with the UTF-16 stub (bytes NOT checked); R2g R2 without the guard; R3 E1R (simdutf); R3g R3 without the guard. Steps: R1-R0 the generic path; R2-R1 E1R\'s frame, mark, patch and element calls against E0\'s staging (both through the generic path); R3-R2 the UTF-16 transcoder over the stub; R3-R3g and R2-R2g the guard.', '']
+         'R0 E0; R1 E0 through the generic transcoder path (identity copy); R2 E1R with the UTF-16 stub (bytes NOT checked); R2g R2 without the guard; R3 E1R (simdutf); R3g R3 without the guard. Steps: R1-R0 the generic path; R2-R1 E1R\'s frame, mark, patch and element calls against E0\'s staging (both through the generic path); R3-R2 the UTF-16 transcoder over the stub; R3-R3g and R2-R2g the guard. R2 copies `len` raw bytes: on Latin-1 its output is half the real UTF-8 (40 / 48 bytes for 80 / 96), so on those rows R2 also removes output bytes, not only the transcoder.', '']
     for cfg, cn in CFGS:
         t += ['## ' + cn, '', '| content | units | ' + ' | '.join(r for r, _, _ in RUNGS) + ' | R3-R0 | R1-R0 | R2-R1 | R3-R2 | R3-R3g | R2-R2g |', '|---|---:|' + '---:|' * (len(RUNGS) + 6)]
         for c in ('ascii', 'latin1'):
@@ -102,10 +102,13 @@ if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
         return ((0, int(m.group(1)), int(m.group(2))) if m else (1, k[0], 0), k[1], k[2])
     rows = sorted(by, key=key)
     R = ['r0', 'r1', 'r2', 'r3', 'r3g']
-    t = ['# s14 ladder grid: encode-core-hot, core-ffi, process CPU per op (us), median over every round of both reps; per-string steps in ns = step / strings per encode. CONTAINER INSTRUMENTATION.', '',
+    t = ['# s14 ladder grid: encode-core-hot, core-ffi, process CPU per op (us), median over every round of every rep; per-string steps in ns = step / strings per encode. CONTAINER INSTRUMENTATION.', '',
          'r0 E0; r1 E0 on the generic transcoder path; r2 E1R with the UTF-16 stub (bytes NOT checked); r3 E1R; r3g E1R without the guard.', '']
     rf = ['# s14 ladder grid reference: median [min-max] (per-rep medians), us per op', '']
-    for cfg, cn in CFGS:
+    GCFGS = [('pgo0', 'DOTNET_TieredPGO=0'), ('dflt', 'default JIT configuration (every BDN child kept: no slow-mode filter)')]
+    t.append('R2 copies `len` raw bytes per string: on Latin-1 and wide content its output is SHORTER than the real UTF-8 (2 or 3 bytes per unit), so on those rows R2 also removes output bytes, not only the transcoder.')
+    t.append('')
+    for cfg, cn in GCFGS:
         t += ['## ' + cn, '', '| payload | content | mode | strings | R0 | R1 | R2 | R3 | R3g | R3-R0 ns/str | R1-R0 | R2-R1 | R3-R2 | R3-R3g |', '|---|---|---|---:|' + '---:|' * 10]
         rf += ['## ' + cn, '', '| payload | content | mode | ' + ' | '.join(R) + ' |', '|---|---|---|' + '---|' * len(R)]
         for k in rows:
