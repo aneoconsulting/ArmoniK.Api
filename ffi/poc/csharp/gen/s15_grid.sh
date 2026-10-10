@@ -4,9 +4,9 @@
 #   S15_SET=ladder: the s14 ladder rows (P2.2 three content sets, P2.4, U-deep-u-repeated;
 #     encode-core-hot, core-ffi, drop and retain), R0 (E0), R3 (E1R), R3g (E1R, AK_STR_NOGUARD=1)
 #     on the D26 code, R0 and R3 on BASE; under DOTNET_TieredPGO=0 and the default JIT configuration;
-#   S15_SET=codec: the core-ffi codec grid (the core grid's directions, encode-transport-hot and
-#     decode-read, retain and drop; E0 and the FSM as today), the D26 code and BASE, default JIT
-#     configuration.
+#   S15_SET=codec: the core-ffi codec grid (the core grid's core-ffi directions, encode-core-hot
+#     and decode-read, retain and drop; E0 and the FSM as today), the D26 code and BASE, default
+#     JIT configuration; S15_ONLY / S15_DIRS narrow it (AK_BDN_ONLY / AK_BDN_DIRS).
 # Resumable at CELL granularity as gen/s14_grid.sh (a cell = one variant x one rep = one BDN host
 # process; complete = its rc=0 line in header.txt and a non-empty jsonl; a partial cell moved to
 # ../<set>-INTERRUPTED/ as -cutN), a quiet machine before each cell, the boot time on each line,
@@ -32,6 +32,9 @@ if [ "$SET" = ladder ]; then
     VARS+=("new-r0-$c|$SLICE|E0|$e" "new-r3-$c|$SLICE|E1R|$e" "new-r3g-$c|$SLICE|E1R|$e AK_STR_NOGUARD=1" "base-r0-$c|$BASE|E0|$e" "base-r3-$c|$BASE|E1R|$e")
   done
 else
+  # S15_ONLY / S15_DIRS narrow the codec set (a follow-up on one row: AK_BDN_ONLY / AK_BDN_DIRS)
+  [ -n "${S15_ONLY:-}" ] && export AK_BDN_ONLY="$S15_ONLY"
+  [ -n "${S15_DIRS:-}" ] && export AK_BDN_DIRS="$S15_DIRS"
   VARS=("new|$SLICE|E0|X_S15=1" "base|$BASE|E0|X_S15=1")
 fi
 for tt in "new|$SLICE" "base|$BASE"; do

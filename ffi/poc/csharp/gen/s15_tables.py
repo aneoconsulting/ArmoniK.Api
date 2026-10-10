@@ -91,7 +91,7 @@ if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
 gd = os.path.join(D, 'codec')
 if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
     by = load(gd)
-    t = ['# s15 core-ffi codec grid (core grid directions; drop and retain; E0 and the FSM as today): process CPU per op (us), median over every round of every rep (3 BDN host processes per variant), new = D26 code, base = the code before D26 (same session, interleaved). CONTAINER INSTRUMENTATION.', '',
+    t = ['# s15 core-ffi codec grid (the core grid core-ffi directions, encode-core-hot and decode-read; drop and retain; E0 and the FSM as today): process CPU per op (us), median over every round of every rep (3 BDN host processes per variant), new = D26 code, base = the code before D26 (same session, interleaved). CONTAINER INSTRUMENTATION.', '',
          '| payload | content | dir | mode | new | base |', '|---|---|---|---|---:|---:|']
     rf = ['# s15 codec grid reference: median [min-max] (per-rep medians), us per op', '', '| payload | content | dir | mode | new | base |', '|---|---|---|---|---|---|']
     for k in sorted(by, key=key):
