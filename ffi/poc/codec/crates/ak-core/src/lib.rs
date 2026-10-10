@@ -1240,6 +1240,9 @@ pub extern "C" fn ak_tc_utf16() -> ak_transcode_fn {
 /// s14, `tc-measure-u16stub` only: a TIMING STUB in place of the UTF-16 transcoder: `len`
 /// raw bytes of the source copied (no conversion; the output is wrong), with the same grow
 /// contract, so the frames, marks, patches and element calls around it are timed without it.
+/// Its copy is `ptr::copy`: with `copy_nonoverlapping` its body equalled tc_utf8_trusted's and
+/// the release build folded the two to one address, so the encoder's `tc == tc_utf8_trusted`
+/// fast path took the stub (found by disassembly, s14; the test below now asserts it cannot).
 #[cfg(feature = "tc-measure-u16stub")]
 unsafe extern "C" fn tc_utf16_stub(
     src: *const c_void,
@@ -1261,7 +1264,7 @@ unsafe extern "C" fn tc_utf16_stub(
             return AK_ERR_CAPACITY;
         }
     }
-    core::ptr::copy_nonoverlapping(src as *const u8, dst, len);
+    core::ptr::copy(src as *const u8, dst, len);
     len as i32
 }
 
@@ -2319,6 +2322,7 @@ mod s14_measure_tests {
     fn u16_stub_copies_len_raw_bytes() {
         let u: [u16; 4] = [0x41, 0x42, 0x43, 0x44];
         let mut d = [0u8; 16];
+        assert_ne!(ak_tc_utf16() as usize, tc_utf8_trusted as usize);
         let n = unsafe { ak_tc_utf16()(u.as_ptr() as *const c_void, 4, d.as_mut_ptr(), 16, no_grow, core::ptr::null_mut()) };
         assert_eq!(n, 4);
         assert_eq!(&d[..4], &[0x41, 0, 0x42, 0]);
