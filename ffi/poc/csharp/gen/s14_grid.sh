@@ -15,7 +15,7 @@
 # Same settings as gen/opt_ab.sh (client CPUs 0,1, warm-up 25 x 40 ms, 6 rounds x 40 ms,
 # MemoryDiagnoser, default toolchain, Cases.Verify in every process); the variant's core reaches
 # BDN's children through AK_CORE_LIB (src/Harness/CoreLib.cs), recorded per row as core_maps.
-#   gen/s14_grid.sh OUTDIR
+#   [REPS=3] gen/s14_grid.sh OUTDIR
 set -uo pipefail
 SLICE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$SLICE"
 REPO="$(git -C "$SLICE" rev-parse --show-toplevel)"
@@ -45,7 +45,7 @@ quiet() {
 complete() {  # rep name
   grep -q "^# rep $1 $2 full: rc=0" "$OUT/header.txt" && [ -s "$OUT/$2-full-r$1.jsonl" ]
 }
-for r in 1 2; do
+for r in $(seq 1 "${REPS:-3}"); do
   if [ $((r % 2)) = 1 ]; then ORD=("${VARS[@]}"); else ORD=(); for ((i=${#VARS[@]}-1; i>=0; i--)); do ORD+=("${VARS[$i]}"); done; fi
   for v in "${ORD[@]}"; do
     IFS='|' read -r name enc coredir xenv <<< "$v"
