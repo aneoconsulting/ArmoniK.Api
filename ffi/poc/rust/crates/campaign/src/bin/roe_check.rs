@@ -1,29 +1,24 @@
-//! reset-on-entry (owner, 2026-10-10; a measurement experiment, core feature default OFF):
-//! the checks of the variant, on the codec suite's inputs (the 16 shapes, the content sets,
-//! every `U-*` row the shapes roots carry), every unknown-field mode of this build.
+//! FIX-PLAN D27 (owner, 2026-10-10): reset on entry, the core's behaviour. The checks, on the
+//! codec suite's inputs (the 16 shapes, the content sets, every `U-*` row the shapes roots
+//! carry), every unknown-field mode of this build (gate step 11h):
 //!
 //!   ABANDON  an FSM decode stopped before its end event (after begin only, and after half of
 //!            its events), then a fresh FSM, push and pull decode on the SAME context: each
 //!            equals a reference decode on a context of its own;
-//!   ERR      a failed decode (the input less its last byte) in each family: the error detail
-//!            (`ak_dec_err`) right after the call, after an operation on other contexts, and
-//!            after the next decode on this one;
+//!   ERR      a failed decode (the input less its last byte) in each family: the context's error
+//!            slot (`ak_dec_err`) right after the call, after operations on other contexts, and
+//!            after the next decode on this one (codec errors are returned, the slot reads 0);
 //!   ENC      an encode's output read after the call (`ak_enc_take`'s bytes) equals core-native's,
 //!            still after a decode and an encode on other contexts, and the next encode on this
 //!            context (another value, then the first again) writes exactly its own bytes;
-//!   HOSTERR  (variant, full build only) a decode the HOST fails (every unknown-field grow
-//!            calls `ak_fail`): the context's sticky slot (`ak_dec_err`) holds the host's code
-//!            after the call and after operations on other contexts, and is cleared by the next
-//!            decode on it; the same sequence with the core's re-arm off on the context (today's
-//!            path) gives the same codes;
-//!   REARM    (variant, full build only) every unknown-field position re-read on each decode
-//!            entry: `binding::roe_rearm_check_<root>`, and its control with the core's re-arm
-//!            switched off on that context (`ak_measure_dec_set_roe(ctx, 0)`), which must fail
-//!            wherever zeroing a position changes the value.
+//!   HOSTERR  (full build) a decode the HOST fails (every unknown-field grow calls `ak_fail`):
+//!            the slot holds the host's code after the call and after operations on other
+//!            contexts, and the next decode on the context clears it;
+//!   REARM    (full build) every unknown-field position re-read on each decode entry, the host
+//!            rewriting its options in place with no reset (`binding::roe_rearm_check_<root>`).
 //!
-//! The ABANDON, ERR and ENC lines are printed in the same form by the default build, so the two
-//! outputs are compared line for line (today's behaviour against the variant's). Exit 1 on any
-//! failure.
+//! The controls are gate step 11h's plants (the re-arm, or the encode reset, removed from the
+//! core in a shadow tree): each must make this binary fail. Exit 1 on any failure.
 
 use ak_abi::*;
 use campaign::*;
@@ -58,12 +53,7 @@ fn fsm_partial(root: &str, ctx: *mut ak_dec_ctx, b: &[u8], steps: usize) -> (i32
     }
 }
 
-#[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
-extern "C" {
-    fn ak_measure_dec_set_roe(ctx: *mut ak_dec_ctx, on: i32);
-}
-
-#[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
+#[cfg(feature = "unknown-fields")]
 fn fail_decode(root: &str, c: binding::DecCtxs, b: &[u8], fam: u32) -> i32 {
     match root {
         "ListResultsResponse" => binding::roe_fail_decode_list_results_response(c, b, fam),
@@ -77,16 +67,16 @@ fn fail_decode(root: &str, c: binding::DecCtxs, b: &[u8], fam: u32) -> i32 {
     }
 }
 
-#[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
-fn rearm(root: &str, c: binding::DecCtxs, b: &[u8], roe: bool) -> Result<(usize, usize), String> {
+#[cfg(feature = "unknown-fields")]
+fn rearm(root: &str, c: binding::DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
     match root {
-        "ListResultsResponse" => binding::roe_rearm_check_list_results_response(c, b, roe),
-        "ListTasksDetailedResponse" => binding::roe_rearm_check_list_tasks_detailed_response(c, b, roe),
-        "ListProbeResponse" => binding::roe_rearm_check_list_probe_response(c, b, roe),
-        "ListTaskSummaryResponse" => binding::roe_rearm_check_list_task_summary_response(c, b, roe),
-        "UploadResultDataMessage" => binding::roe_rearm_check_upload_result_data_message(c, b, roe),
-        "ListMetricsResponse" => binding::roe_rearm_check_list_metrics_response(c, b, roe),
-        "DualResponse" => binding::roe_rearm_check_dual_response(c, b, roe),
+        "ListResultsResponse" => binding::roe_rearm_check_list_results_response(c, b),
+        "ListTasksDetailedResponse" => binding::roe_rearm_check_list_tasks_detailed_response(c, b),
+        "ListProbeResponse" => binding::roe_rearm_check_list_probe_response(c, b),
+        "ListTaskSummaryResponse" => binding::roe_rearm_check_list_task_summary_response(c, b),
+        "UploadResultDataMessage" => binding::roe_rearm_check_upload_result_data_message(c, b),
+        "ListMetricsResponse" => binding::roe_rearm_check_list_metrics_response(c, b),
+        "DualResponse" => binding::roe_rearm_check_dual_response(c, b),
         r => panic!("root {r}"),
     }
 }
@@ -104,8 +94,6 @@ struct Tally {
     hosterr: usize,
     rearm_bite: usize,
     rearm_inputs: usize,
-    control_failed: usize,
-    control_needed: usize,
 }
 
 struct V<'a> {
@@ -216,63 +204,43 @@ impl Visit for V<'_> {
                 }
             }
 
-            // ---- HOSTERR (variant, full build): the host's error on the sticky slot.
-            #[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
+            // ---- HOSTERR (full build): the host's error on the sticky slot.
+            #[cfg(feature = "unknown-fields")]
             if retain {
                 for fam in 0..3u32 {
-                    let mut seen: Vec<(i32, i32, i32, i32)> = Vec::new();
-                    for roe in [true, false] {
-                        let h = Ctx::new();
-                        unsafe { ak_measure_dec_set_roe(R::dec_ctx(&h), roe as i32) };
-                        let rc = fail_decode(R::ROOT, h.dec, w, fam);
-                        let e1 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
-                        let v = R::f_decode(&other, w, retain);
-                        if let (true, Ok(v)) = (self.inp.encode, &v) {
-                            let _ = R::f_encode(&other, v, retain);
-                        }
-                        let e2 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
-                        let ok_next = R::f_decode(&h, w, false).is_ok();
-                        let e3 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
-                        seen.push((rc, e1, e2, e3 + if ok_next { 0 } else { 1 }));
-                    }
-                    let (rc, e1, e2, e3) = seen[0];
+                    let h = Ctx::new();
+                    let rc = fail_decode(R::ROOT, h.dec, w, fam);
                     if rc == 0 {
                         continue; // no grow asked: the input has no unknown field
                     }
+                    let e1 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
+                    let v = R::f_decode(&other, w, retain);
+                    if let (true, Ok(v)) = (self.inp.encode, &v) {
+                        let _ = R::f_encode(&other, v, retain);
+                    }
+                    let e2 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
+                    let ok_next = R::f_decode(&h, w, false).is_ok();
+                    let e3 = unsafe { ak_dec_err(R::dec_ctx(&h)) };
                     let fam_s = ["push", "pull", "fsm"][fam as usize];
-                    self.chk(rc == binding::ROE_HOST_FAIL && e1 == rc && e2 == rc && e3 == AK_OK && seen[0] == seen[1],
-                        format!("HOSTERR {fam_s}: rc {rc}, detail {e1} after the call, {e2} after other operations, {e3} after the next decode; re-arm off: {:?}", seen[1]));
+                    self.chk(rc == binding::ROE_HOST_FAIL && e1 == rc && e2 == rc && ok_next && e3 == AK_OK,
+                        format!("HOSTERR {fam_s}: rc {rc}, detail {e1} after the call, {e2} after other operations, {e3} after the next decode"));
                     self.t.hosterr += 1;
-                    self.t.lines.push(format!("HOSTERR {id} {fam_s}: rc {rc}, detail after call {e1}, after other operations {e2}, after the next decode {e3}; core re-arm off on the context: {:?}", seen[1]));
+                    self.t.lines.push(format!("HOSTERR {id} {fam_s}: rc {rc}, detail after call {e1}, after other operations {e2}, after the next decode {e3}"));
                 }
             }
 
-            // ---- REARM (variant, full build): every position re-read on each decode entry.
-            #[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
+            // ---- REARM (full build): every position re-read on each decode entry.
+            #[cfg(feature = "unknown-fields")]
             if retain {
                 let fresh = Ctx::new();
-                match rearm(R::ROOT, fresh.dec, w, true) {
+                self.t.checks += 1;
+                match rearm(R::ROOT, fresh.dec, w) {
                     Ok((n, bite)) => {
                         self.t.rearm_cmp += n;
                         self.t.rearm_bite += bite;
                         self.t.rearm_inputs += 1;
-                        self.t.checks += 1;
-                        let ctl = Ctx::new();
-                        let control = rearm(R::ROOT, ctl.dec, w, false);
-                        if bite > 0 {
-                            self.t.control_needed += 1;
-                            self.t.checks += 1;
-                            if control.is_err() {
-                                self.t.control_failed += 1;
-                            } else {
-                                self.t.fails.push(format!("{id} REARM control (re-arm off) did NOT fail although {bite} position(s) matter"));
-                            }
-                        }
                     }
-                    Err(e) => {
-                        self.t.checks += 1;
-                        self.t.fails.push(format!("{id} REARM {e}"));
-                    }
+                    Err(e) => self.t.fails.push(format!("{id} REARM {e}")),
                 }
             }
         }
@@ -280,29 +248,20 @@ impl Visit for V<'_> {
 }
 
 fn main() {
-    let roe = cfg!(feature = "reset-on-entry");
-    #[cfg(feature = "reset-on-entry")]
-    {
-        let c = Ctx::new(); // ak_init through the binding, which refuses a core without the marker
-        drop(c);
-        assert!(binding::RESET_ON_ENTRY && binding::core_resets_on_entry() == 1, "not the reset-on-entry core");
-    }
     let mut t = Tally::default();
     for inp in inputs(&[]) {
         campaign::generated::roots::with_root(&inp.root, &mut V { inp: &inp, t: &mut t });
     }
-    println!("# reset-on-entry checks, build {} {}", if roe { "VARIANT (reset-on-entry core and binding)" } else { "DEFAULT (explicit resets)" },
-             if cfg!(feature = "unknown-fields") { "full (drop, retain)" } else { "no-unknown" });
+    println!("# D27 reset-on-entry checks, build {}", if cfg!(feature = "unknown-fields") { "full (drop, retain)" } else { "no-unknown" });
     for l in &t.lines {
         println!("{l}");
     }
     println!("# ABANDON: {} abandoned decodes followed by fresh fsm, push and pull decodes; {} (input, mode) pairs with a single event (nothing to abandon)", t.abandoned, t.no_abandon);
     println!("# ERR: {} failed decodes (input less its last byte, three families)", t.err_cases);
     println!("# ENC: {} encodes read after the call", t.enc_cases);
-    if roe && cfg!(feature = "unknown-fields") {
+    if cfg!(feature = "unknown-fields") {
         println!("# HOSTERR: {} decodes failed by the host (inputs with an unknown field, three families)", t.hosterr);
         println!("# REARM: {} inputs, {} comparisons (5 per family and position), {} (input, family, position) cases where zeroing the position changes the value", t.rearm_inputs, t.rearm_cmp, t.rearm_bite);
-        println!("# REARM control (core re-arm off on the context): failed as required on {} of {} inputs where a position matters", t.control_failed, t.control_needed);
     }
     println!("# {} checks, {} failures", t.checks, t.fails.len());
     for f in &t.fails {

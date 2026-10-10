@@ -100,7 +100,7 @@ fn prealloc_cases(cx: &Cx) -> bool {
     ok &= oneof_cases(cx);
     ok &= wrong_root_cases(cx);
     ok &= refused_parse_keeps_records(cx);
-    ok &= decided_at_arm_time(cx);
+    ok &= decided_at_entry(cx);
     ok
 }
 
@@ -358,10 +358,12 @@ fn refused_parse_keeps_records(cx: &Cx) -> bool {
     }
 }
 
-/// FIX-PLAN R-H20 / ABI-v1 rule 1 as amended 2026-09-26: whether a decode retains is decided
-/// when the context is reset. Options all zero at reset, an entry refilled AFTER the reset
-/// and before the decode: the decode succeeds (rc 0) and delivers no bag.
-fn decided_at_arm_time(cx: &Cx) -> bool {
+/// FIX-PLAN R-H20 as amended by D27 (owner, 2026-10-10): whether a decode retains is decided at
+/// the DECODE'S ENTRY, from the options the context points to then (the core re-arms on every
+/// decode entry). Options all zero at the reset, an entry refilled AFTER the reset and before
+/// the decode: the decode succeeds (rc 0) and delivers the bag, as the twin armed before the
+/// reset does. (Before D27 the decision was made at the reset and the bag was lost.)
+fn decided_at_entry(cx: &Cx) -> bool {
     let ctx = cx.dec.list_results_response;
     let mut o = binding::unk_opts_list_results_response(None);
     o.self_.grow = None;
@@ -387,22 +389,9 @@ fn decided_at_arm_time(cx: &Cx) -> bool {
         let r2 = binding::decode_with_list_results_response_opts(cx.dec, &b, &mut o2);
         let bag2 = r2.as_ref().map(|v| v.unknown_fields.len()).unwrap_or(usize::MAX);
         binding::unk_reclaim();
-        // reset-on-entry (owner, 2026-10-10; measurement experiment): the core re-arms from
-        // the stored options pointer on EVERY decode entry, so the decision moves from the
-        // reset to the decode's entry: the refill made after the reset IS seen (a bag), as
-        // the twin's. This is the variant's defining difference from rule 1 as amended
-        // (R-H20), stated rather than hidden.
-        #[cfg(feature = "reset-on-entry")]
-        {
-            let pass = r0 == AK_OK && rc == 0 && bag == 3 && bag2 == 3;
-            println!("  placement: {:<24} reset-on-entry VARIANT: reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (the variant decides at the DECODE ENTRY: want rc 0 and the bag, 3 bytes); twin armed at reset: bag {} bytes (want 3)  {}",
-                     "decided at entry (roe)", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));
-            return pass;
-        }
-        #[allow(unreachable_code)]
-        let pass = r0 == AK_OK && rc == 0 && bag == 0 && bag2 == 3;
-        println!("  placement: {:<24} reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (want rc 0 and no bag); twin armed at reset: bag {} bytes (want 3)  {}",
-                 "decided at arm time", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));
+        let pass = r0 == AK_OK && rc == 0 && bag == 3 && bag2 == 3;
+        println!("  placement: {:<24} reset with all-zero options rc {r0}; root entry refilled after the reset; decode rc {rc}, root bag {} bytes (want rc 0 and the bag, 3 bytes: decided at the decode's entry, D27); twin armed at reset: bag {} bytes (want 3)  {}",
+                 "decided at entry", if bag == usize::MAX { 0 } else { bag }, bag2, verdict(pass));
         pass
     }
 }

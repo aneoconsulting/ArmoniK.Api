@@ -1,0 +1,24 @@
+# fast checks (D27), 60afe577 + uncommitted D27 changes
+== generators, every slice
+guard 28 backend modules import plans only; a planted IR import is caught
+      c_abi.py cpp_binding.py cpp_facade.py cpp_layout.py cpp_names.py cpp_native.py cs_binding.py cs_host.py cs_layout_probe.py cs_managed.py cs_names.py cs_types.py java_backend.py java_binding.py java_facade.py java_jni.py java_layout.py java_names.py java_pull.py java_rcodec.py py_capi.py py_pure.py rust_abi.py rust_binding.py rust_facade.py rust_fsm.py rust_native.py rustnames.py
+guard 119 slice gen/ modules: no front-end import, no wire emitter outside a listed renderer, no renamed copy; 3 planted violations caught
+slice rust    --check: exit 0
+slice cpp     --check: exit 0
+slice java    --check: exit 0
+   checked 530 generated files, 0 problem(s)
+slice csharp  --check: exit 0
+slice python  --check: exit 0
+rc=0
+== corpus FSM differential, full and no-unknown
+# API checks: 174 checks, 0 failures
+# 2632 checks, 0 failures
+FSM CORPUS DIFFERENTIAL PASSED
+# API checks: 174 checks, 0 failures
+# 1403 checks, 0 failures
+FSM CORPUS DIFFERENTIAL PASSED
+== no-unknown: pre-check (core grid), conformance, shapes, crossing counts
+PRECHECK PASSED: 409 checks, 25 inputs, 98 cases; incumbent refusals on U-* rows (not timed): 8
+VERDICT: every arm is byte-identical to the validated manifest on every payload it covers.
+VERDICT: every shape above is exercised and every arm agrees.
+  no-unknown crossing counts identical to gen/crossings-nounk.txt

@@ -1,4 +1,4 @@
-"""reset-on-entry: the tables of gen/roe_bench.sh's launches. Absolute times only: for each
+"""HISTORICAL (the reset-on-entry experiment, logs/rust/opt/reset-on-entry/bench; its bench, bin roe_bench and gen/roe_bench.sh, are at 0f0164c0 and were removed when D27 made reset on entry the core's only behaviour). The tables of those launches. Absolute times only: for each
 (input, mode, op), the explicit-reset path and the reset-on-entry path, each as the median over
 launches of the per-launch median, with the range of the per-launch medians; then the
 isolated reset calls. Container instrumentation.

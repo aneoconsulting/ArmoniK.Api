@@ -176,10 +176,11 @@ pub fn unk_reclaim() -> usize {
 //
 // The core's context counters see the codec's own entry points (`ak_encode_*`,
 // `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
-// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
-// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
-// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
-// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// see a handful of plain exports the binding also calls: `ak_dec_reset_<Root>` (FIX-PLAN
+// D27: only to set the options pointer, when a retain decode follows a drop one, and to
+// disarm with NULL when a drop decode follows a retain one; the core resets every context on
+// entry, so no `ak_enc_reset` and no per-decode reset), `ak_enc_take` (reading the encoded
+// bytes) and `ak_dec_err` (after a decode). The counting build (`count` feature) tallies those here, at the call site, so the
 // counts cover every exported call; in any other build these are empty inline functions.
 #[cfg(feature = "count")]
 thread_local! {
@@ -2341,7 +2342,7 @@ pub(crate) fn fill_wire_zoo_unk_sparse(d: &mut ak_ufix_WireZoo, o: &WireZoo, tc:
 pub fn encode_into_timestamp(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -2354,7 +2355,7 @@ pub fn encode_into_timestamp(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Re
 pub fn encode_into_timestamp_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -2367,7 +2368,7 @@ pub fn encode_into_timestamp_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: 
 pub fn encode_into_timestamp_unk(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -2380,7 +2381,7 @@ pub fn encode_into_timestamp_unk(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -
 pub fn encode_into_timestamp_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Timestamp {
             _reserved: ::core::ptr::null(),
         };
@@ -2393,7 +2394,7 @@ pub fn encode_into_timestamp_zeroed(ctx: *mut ak_enc_ctx, o: &Timestamp, t: &Tcs
 pub fn encode_into_duration(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -2406,7 +2407,7 @@ pub fn encode_into_duration(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Resu
 pub fn encode_into_duration_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -2419,7 +2420,7 @@ pub fn encode_into_duration_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &T
 pub fn encode_into_duration_unk(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -2432,7 +2433,7 @@ pub fn encode_into_duration_unk(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> 
 pub fn encode_into_duration_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Duration {
             _reserved: ::core::ptr::null(),
         };
@@ -2445,7 +2446,7 @@ pub fn encode_into_duration_zeroed(ctx: *mut ak_enc_ctx, o: &Duration, t: &Tcs) 
 pub fn encode_into_result_raw(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -2458,7 +2459,7 @@ pub fn encode_into_result_raw(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> R
 pub fn encode_into_result_raw_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -2471,7 +2472,7 @@ pub fn encode_into_result_raw_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ResultRaw, t:
 pub fn encode_into_result_raw_unk(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -2484,7 +2485,7 @@ pub fn encode_into_result_raw_unk(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) 
 pub fn encode_into_result_raw_zeroed(ctx: *mut ak_enc_ctx, o: &ResultRaw, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ResultRaw {
             _reserved: ::core::ptr::null(),
         };
@@ -2568,7 +2569,7 @@ unsafe fn loop_task_options_options_big(ctx: *mut ak_enc_ctx, obj: *const c_void
 pub fn encode_into_task_options(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -2581,7 +2582,7 @@ pub fn encode_into_task_options(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) 
 pub fn encode_into_task_options_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -2594,7 +2595,7 @@ pub fn encode_into_task_options_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions
 pub fn encode_into_task_options_unk(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -2607,7 +2608,7 @@ pub fn encode_into_task_options_unk(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &T
 pub fn encode_into_task_options_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOptions {
             loop_options: Some(loop_task_options_options),
         };
@@ -2620,7 +2621,7 @@ pub fn encode_into_task_options_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOptions, t:
 pub fn encode_into_task_output(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -2633,7 +2634,7 @@ pub fn encode_into_task_output(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) ->
 pub fn encode_into_task_output_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -2646,7 +2647,7 @@ pub fn encode_into_task_output_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOutput, 
 pub fn encode_into_task_output_unk(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -2659,7 +2660,7 @@ pub fn encode_into_task_output_unk(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs
 pub fn encode_into_task_output_zeroed(ctx: *mut ak_enc_ctx, o: &TaskOutput, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskOutput {
             _reserved: ::core::ptr::null(),
         };
@@ -2997,7 +2998,7 @@ unsafe fn loop_task_detailed_options_options_big(ctx: *mut ak_enc_ctx, obj: *con
 pub fn encode_into_task_detailed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -3014,7 +3015,7 @@ pub fn encode_into_task_detailed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs
 pub fn encode_into_task_detailed_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -3031,7 +3032,7 @@ pub fn encode_into_task_detailed_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskDetail
 pub fn encode_into_task_detailed_unk(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -3048,7 +3049,7 @@ pub fn encode_into_task_detailed_unk(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: 
 pub fn encode_into_task_detailed_zeroed(ctx: *mut ak_enc_ctx, o: &TaskDetailed, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskDetailed {
             loop_parent_task_ids: Some(loop_task_detailed_parent_task_ids),
             loop_data_dependencies: Some(loop_task_detailed_data_dependencies),
@@ -3138,7 +3139,7 @@ unsafe fn loop_task_summary_options_options_big(ctx: *mut ak_enc_ctx, obj: *cons
 pub fn encode_into_task_summary(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -3151,7 +3152,7 @@ pub fn encode_into_task_summary(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) 
 pub fn encode_into_task_summary_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -3164,7 +3165,7 @@ pub fn encode_into_task_summary_unk_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary
 pub fn encode_into_task_summary_unk(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -3177,7 +3178,7 @@ pub fn encode_into_task_summary_unk(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &T
 pub fn encode_into_task_summary_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_TaskSummary {
             loop_options_options: Some(loop_task_summary_options_options),
         };
@@ -3190,7 +3191,7 @@ pub fn encode_into_task_summary_zeroed(ctx: *mut ak_enc_ctx, o: &TaskSummary, t:
 pub fn encode_into_probe(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -3203,7 +3204,7 @@ pub fn encode_into_probe(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usi
 pub fn encode_into_probe_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -3216,7 +3217,7 @@ pub fn encode_into_probe_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) ->
 pub fn encode_into_probe_unk(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -3229,7 +3230,7 @@ pub fn encode_into_probe_unk(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result
 pub fn encode_into_probe_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Probe {
             _reserved: ::core::ptr::null(),
         };
@@ -3242,7 +3243,7 @@ pub fn encode_into_probe_zeroed(ctx: *mut ak_enc_ctx, o: &Probe, t: &Tcs) -> Res
 pub fn encode_into_empty(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -3255,7 +3256,7 @@ pub fn encode_into_empty(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usi
 pub fn encode_into_empty_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -3268,7 +3269,7 @@ pub fn encode_into_empty_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) ->
 pub fn encode_into_empty_unk(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -3281,7 +3282,7 @@ pub fn encode_into_empty_unk(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result
 pub fn encode_into_empty_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Empty {
             _reserved: ::core::ptr::null(),
         };
@@ -3294,7 +3295,7 @@ pub fn encode_into_empty_zeroed(ctx: *mut ak_enc_ctx, o: &Empty, t: &Tcs) -> Res
 pub fn encode_into_upload_result_data(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -3308,7 +3309,7 @@ pub fn encode_into_upload_result_data(ctx: *mut ak_enc_ctx, o: &UploadResultData
 pub fn encode_into_upload_result_data_unk_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -3322,7 +3323,7 @@ pub fn encode_into_upload_result_data_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Uploa
 pub fn encode_into_upload_result_data_unk(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -3336,7 +3337,7 @@ pub fn encode_into_upload_result_data_unk(ctx: *mut ak_enc_ctx, o: &UploadResult
 pub fn encode_into_upload_result_data_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultData, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultData {
             _reserved: ::core::ptr::null(),
         };
@@ -3436,7 +3437,7 @@ unsafe extern "C" fn loop_metrics_batch_statuses(
 pub fn encode_into_metrics_batch(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -3453,7 +3454,7 @@ pub fn encode_into_metrics_batch(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs
 pub fn encode_into_metrics_batch_unk_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -3470,7 +3471,7 @@ pub fn encode_into_metrics_batch_unk_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBat
 pub fn encode_into_metrics_batch_unk(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -3487,7 +3488,7 @@ pub fn encode_into_metrics_batch_unk(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: 
 pub fn encode_into_metrics_batch_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBatch, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_MetricsBatch {
             loop_ticks: Some(loop_metrics_batch_ticks),
             loop_values: Some(loop_metrics_batch_values),
@@ -3504,7 +3505,7 @@ pub fn encode_into_metrics_batch_zeroed(ctx: *mut ak_enc_ctx, o: &MetricsBatch, 
 pub fn encode_into_pair(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -3517,7 +3518,7 @@ pub fn encode_into_pair(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize
 pub fn encode_into_pair_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -3530,7 +3531,7 @@ pub fn encode_into_pair_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> R
 pub fn encode_into_pair_unk(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -3543,7 +3544,7 @@ pub fn encode_into_pair_unk(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<u
 pub fn encode_into_pair_zeroed(ctx: *mut ak_enc_ctx, o: &Pair, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Pair {
             _reserved: ::core::ptr::null(),
         };
@@ -3836,7 +3837,7 @@ unsafe fn loop_list_results_response_results_unk_zeroed_big(ctx: *mut ak_enc_ctx
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
         };
@@ -3849,7 +3850,7 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
 pub fn encode_into_list_results_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_unk_zeroed),
         };
@@ -3862,7 +3863,7 @@ pub fn encode_into_list_results_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_results_response_unk(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_unk),
         };
@@ -3875,7 +3876,7 @@ pub fn encode_into_list_results_response_unk(ctx: *mut ak_enc_ctx, o: &ListResul
 pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_zeroed),
         };
@@ -4511,7 +4512,7 @@ static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_Tas
 pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -4525,7 +4526,7 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
 pub fn encode_into_list_tasks_detailed_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -4539,7 +4540,7 @@ pub fn encode_into_list_tasks_detailed_response_unk_zeroed(ctx: *mut ak_enc_ctx,
 pub fn encode_into_list_tasks_detailed_response_unk(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_unk),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -4553,7 +4554,7 @@ pub fn encode_into_list_tasks_detailed_response_unk(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -4926,7 +4927,7 @@ static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSu
 pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -4940,7 +4941,7 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
 pub fn encode_into_list_task_summary_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_unk_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -4954,7 +4955,7 @@ pub fn encode_into_list_task_summary_response_unk_zeroed(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_list_task_summary_response_unk(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_unk),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -4968,7 +4969,7 @@ pub fn encode_into_list_task_summary_response_unk(ctx: *mut ak_enc_ctx, o: &List
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -5262,7 +5263,7 @@ unsafe fn loop_list_probe_response_probes_unk_zeroed_big(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
         };
@@ -5275,7 +5276,7 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
 pub fn encode_into_list_probe_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_unk_zeroed),
         };
@@ -5288,7 +5289,7 @@ pub fn encode_into_list_probe_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &List
 pub fn encode_into_list_probe_response_unk(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_unk),
         };
@@ -5301,7 +5302,7 @@ pub fn encode_into_list_probe_response_unk(ctx: *mut ak_enc_ctx, o: &ListProbeRe
 pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
@@ -5693,7 +5694,7 @@ static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_Metrics
 pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -5707,7 +5708,7 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
 pub fn encode_into_list_metrics_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_unk_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -5721,7 +5722,7 @@ pub fn encode_into_list_metrics_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Li
 pub fn encode_into_list_metrics_response_unk(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_unk),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -5735,7 +5736,7 @@ pub fn encode_into_list_metrics_response_unk(ctx: *mut ak_enc_ctx, o: &ListMetri
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -5749,7 +5750,7 @@ pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMe
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -5763,7 +5764,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
 pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -5777,7 +5778,7 @@ pub fn encode_into_upload_result_data_message_unk_zeroed(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -5791,7 +5792,7 @@ pub fn encode_into_upload_result_data_message_unk(ctx: *mut ak_enc_ctx, o: &Uplo
 pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -6365,7 +6366,7 @@ unsafe fn loop_dual_response_right_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *co
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
@@ -6379,7 +6380,7 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
 pub fn encode_into_dual_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_unk_zeroed),
             loop_right: Some(loop_dual_response_right_unk_zeroed),
@@ -6393,7 +6394,7 @@ pub fn encode_into_dual_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &DualRespon
 pub fn encode_into_dual_response_unk(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_unk),
             loop_right: Some(loop_dual_response_right_unk),
@@ -6407,7 +6408,7 @@ pub fn encode_into_dual_response_unk(ctx: *mut ak_enc_ctx, o: &DualResponse, t: 
 pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_zeroed),
             loop_right: Some(loop_dual_response_right_zeroed),
@@ -6421,7 +6422,7 @@ pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, 
 pub fn encode_into_chunk_leaf(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -6434,7 +6435,7 @@ pub fn encode_into_chunk_leaf(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> R
 pub fn encode_into_chunk_leaf_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -6447,7 +6448,7 @@ pub fn encode_into_chunk_leaf_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t:
 pub fn encode_into_chunk_leaf_unk(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -6460,7 +6461,7 @@ pub fn encode_into_chunk_leaf_unk(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) 
 pub fn encode_into_chunk_leaf_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkLeaf, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkLeaf {
             _reserved: ::core::ptr::null(),
         };
@@ -6768,7 +6769,7 @@ unsafe fn loop_chunk_inner_leaves_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *con
 pub fn encode_into_chunk_inner(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves),
@@ -6782,7 +6783,7 @@ pub fn encode_into_chunk_inner(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) ->
 pub fn encode_into_chunk_inner_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves_unk_zeroed),
@@ -6796,7 +6797,7 @@ pub fn encode_into_chunk_inner_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkInner, 
 pub fn encode_into_chunk_inner_unk(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves_unk),
@@ -6810,7 +6811,7 @@ pub fn encode_into_chunk_inner_unk(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs
 pub fn encode_into_chunk_inner_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkInner {
             loop_marks: Some(loop_chunk_inner_marks),
             loop_leaves: Some(loop_chunk_inner_leaves_zeroed),
@@ -7262,7 +7263,7 @@ unsafe fn loop_chunk_element_inner_leaves_unk_zeroed_big(ctx: *mut ak_enc_ctx, o
 pub fn encode_into_chunk_element(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -7278,7 +7279,7 @@ pub fn encode_into_chunk_element(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs
 pub fn encode_into_chunk_element_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -7294,7 +7295,7 @@ pub fn encode_into_chunk_element_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkEleme
 pub fn encode_into_chunk_element_unk(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -7310,7 +7311,7 @@ pub fn encode_into_chunk_element_unk(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: 
 pub fn encode_into_chunk_element_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkElement {
             loop_labels: Some(loop_chunk_element_labels),
             loop_attrs: Some(loop_chunk_element_attrs),
@@ -7835,7 +7836,7 @@ static ELEM_VT_ChunkedResponse_items: ak_evt_ChunkElement = ak_evt_ChunkElement 
 pub fn encode_into_chunked_response(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -7849,7 +7850,7 @@ pub fn encode_into_chunked_response(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t
 pub fn encode_into_chunked_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items_unk_zeroed),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -7863,7 +7864,7 @@ pub fn encode_into_chunked_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Chunked
 pub fn encode_into_chunked_response_unk(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items_unk),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -7877,7 +7878,7 @@ pub fn encode_into_chunked_response_unk(ctx: *mut ak_enc_ctx, o: &ChunkedRespons
 pub fn encode_into_chunked_response_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponse {
             loop_items: Some(loop_chunked_response_items_zeroed),
             elem_items: &ELEM_VT_ChunkedResponse_items,
@@ -8400,7 +8401,7 @@ static ELEM_VT_ChunkedResponseWide_items: ak_evt_ChunkElement = ak_evt_ChunkElem
 pub fn encode_into_chunked_response_wide(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -8414,7 +8415,7 @@ pub fn encode_into_chunked_response_wide(ctx: *mut ak_enc_ctx, o: &ChunkedRespon
 pub fn encode_into_chunked_response_wide_unk_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items_unk_zeroed),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -8428,7 +8429,7 @@ pub fn encode_into_chunked_response_wide_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Ch
 pub fn encode_into_chunked_response_wide_unk(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items_unk),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -8442,7 +8443,7 @@ pub fn encode_into_chunked_response_wide_unk(ctx: *mut ak_enc_ctx, o: &ChunkedRe
 pub fn encode_into_chunked_response_wide_zeroed(ctx: *mut ak_enc_ctx, o: &ChunkedResponseWide, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ChunkedResponseWide {
             loop_items: Some(loop_chunked_response_wide_items_zeroed),
             elem_items: &ELEM_VT_ChunkedResponseWide_items,
@@ -8456,7 +8457,7 @@ pub fn encode_into_chunked_response_wide_zeroed(ctx: *mut ak_enc_ctx, o: &Chunke
 pub fn encode_into_leaf_element(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -8469,7 +8470,7 @@ pub fn encode_into_leaf_element(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) 
 pub fn encode_into_leaf_element_unk_zeroed(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -8482,7 +8483,7 @@ pub fn encode_into_leaf_element_unk_zeroed(ctx: *mut ak_enc_ctx, o: &LeafElement
 pub fn encode_into_leaf_element_unk(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -8495,7 +8496,7 @@ pub fn encode_into_leaf_element_unk(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &T
 pub fn encode_into_leaf_element_zeroed(ctx: *mut ak_enc_ctx, o: &LeafElement, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafElement {
             _reserved: ::core::ptr::null(),
         };
@@ -8788,7 +8789,7 @@ unsafe fn loop_leaf_response_items_unk_zeroed_big(ctx: *mut ak_enc_ctx, obj: *co
 pub fn encode_into_leaf_response(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items),
         };
@@ -8801,7 +8802,7 @@ pub fn encode_into_leaf_response(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs
 pub fn encode_into_leaf_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items_unk_zeroed),
         };
@@ -8814,7 +8815,7 @@ pub fn encode_into_leaf_response_unk_zeroed(ctx: *mut ak_enc_ctx, o: &LeafRespon
 pub fn encode_into_leaf_response_unk(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items_unk),
         };
@@ -8827,7 +8828,7 @@ pub fn encode_into_leaf_response_unk(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: 
 pub fn encode_into_leaf_response_zeroed(ctx: *mut ak_enc_ctx, o: &LeafResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_LeafResponse {
             loop_items: Some(loop_leaf_response_items_zeroed),
         };
@@ -8974,7 +8975,7 @@ unsafe fn loop_surrogate_texts_big(ctx: *mut ak_enc_ctx, obj: *const c_void, tok
 pub fn encode_into_surrogate(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -8988,7 +8989,7 @@ pub fn encode_into_surrogate(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Re
 pub fn encode_into_surrogate_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -9002,7 +9003,7 @@ pub fn encode_into_surrogate_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: 
 pub fn encode_into_surrogate_unk(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -9016,7 +9017,7 @@ pub fn encode_into_surrogate_unk(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -
 pub fn encode_into_surrogate_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_Surrogate {
             loop_attrs: Some(loop_surrogate_attrs),
             loop_texts: Some(loop_surrogate_texts),
@@ -9030,7 +9031,7 @@ pub fn encode_into_surrogate_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogate, t: &Tcs
 pub fn encode_into_surrogate_inner(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -9043,7 +9044,7 @@ pub fn encode_into_surrogate_inner(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: 
 pub fn encode_into_surrogate_inner_unk_zeroed(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -9056,7 +9057,7 @@ pub fn encode_into_surrogate_inner_unk_zeroed(ctx: *mut ak_enc_ctx, o: &Surrogat
 pub fn encode_into_surrogate_inner_unk(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -9069,7 +9070,7 @@ pub fn encode_into_surrogate_inner_unk(ctx: *mut ak_enc_ctx, o: &SurrogateInner,
 pub fn encode_into_surrogate_inner_zeroed(ctx: *mut ak_enc_ctx, o: &SurrogateInner, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_SurrogateInner {
             _reserved: ::core::ptr::null(),
         };
@@ -9082,7 +9083,7 @@ pub fn encode_into_surrogate_inner_zeroed(ctx: *mut ak_enc_ctx, o: &SurrogateInn
 pub fn encode_into_wire_zoo(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -9095,7 +9096,7 @@ pub fn encode_into_wire_zoo(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Resul
 pub fn encode_into_wire_zoo_unk_zeroed(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -9108,7 +9109,7 @@ pub fn encode_into_wire_zoo_unk_zeroed(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tc
 pub fn encode_into_wire_zoo_unk(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -9121,7 +9122,7 @@ pub fn encode_into_wire_zoo_unk(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> R
 pub fn encode_into_wire_zoo_zeroed(ctx: *mut ak_enc_ctx, o: &WireZoo, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_WireZoo {
             _reserved: ::core::ptr::null(),
         };
@@ -9641,14 +9642,17 @@ pub fn decode_with_timestamp_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Tim
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_timestamp(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.timestamp_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Timestamp(ctxs.timestamp, st.timestamp_opts.get());
         if rc == AK_OK { st.timestamp_armed.set(true); }
@@ -9985,14 +9989,17 @@ pub fn decode_with_duration_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Dura
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_duration(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.duration_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Duration(ctxs.duration, st.duration_opts.get());
         if rc == AK_OK { st.duration_armed.set(true); }
@@ -10348,14 +10355,17 @@ pub fn decode_with_result_raw_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Re
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_result_raw(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.result_raw_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ResultRaw(ctxs.result_raw, st.result_raw_opts.get());
         if rc == AK_OK { st.result_raw_armed.set(true); }
@@ -10731,14 +10741,17 @@ pub fn decode_with_task_options_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_task_options(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.task_options_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_TaskOptions(ctxs.task_options, st.task_options_opts.get());
         if rc == AK_OK { st.task_options_armed.set(true); }
@@ -11084,14 +11097,17 @@ pub fn decode_with_task_output_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_T
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_task_output(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.task_output_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_TaskOutput(ctxs.task_output, st.task_output_opts.get());
         if rc == AK_OK { st.task_output_armed.set(true); }
@@ -11618,14 +11634,17 @@ pub fn decode_with_task_detailed_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_task_detailed(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.task_detailed_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_TaskDetailed(ctxs.task_detailed, st.task_detailed_opts.get());
         if rc == AK_OK { st.task_detailed_armed.set(true); }
@@ -12056,14 +12075,17 @@ pub fn decode_with_task_summary_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_task_summary(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.task_summary_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_TaskSummary(ctxs.task_summary, st.task_summary_opts.get());
         if rc == AK_OK { st.task_summary_armed.set(true); }
@@ -12422,14 +12444,17 @@ pub fn decode_with_probe_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Probe_o
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_probe(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.probe_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Probe(ctxs.probe, st.probe_opts.get());
         if rc == AK_OK { st.probe_armed.set(true); }
@@ -12765,14 +12790,17 @@ pub fn decode_with_empty_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Empty_o
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_empty(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.empty_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Empty(ctxs.empty, st.empty_opts.get());
         if rc == AK_OK { st.empty_armed.set(true); }
@@ -13110,14 +13138,17 @@ pub fn decode_with_upload_result_data_opts(ctxs: DecCtxs, b: &[u8], opts: &mut a
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_upload_result_data(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.upload_result_data_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_UploadResultData(ctxs.upload_result_data, st.upload_result_data_opts.get());
         if rc == AK_OK { st.upload_result_data_armed.set(true); }
@@ -13543,14 +13574,17 @@ pub fn decode_with_metrics_batch_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_metrics_batch(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.metrics_batch_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_MetricsBatch(ctxs.metrics_batch, st.metrics_batch_opts.get());
         if rc == AK_OK { st.metrics_batch_armed.set(true); }
@@ -13922,14 +13956,17 @@ pub fn decode_with_pair_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Pair_opt
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_pair(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.pair_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Pair(ctxs.pair, st.pair_opts.get());
         if rc == AK_OK { st.pair_armed.set(true); }
@@ -14287,14 +14324,17 @@ pub fn decode_with_list_results_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mu
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_list_results_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.list_results_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ListResultsResponse(ctxs.list_results_response, st.list_results_response_opts.get());
         if rc == AK_OK { st.list_results_response_armed.set(true); }
@@ -14777,14 +14817,17 @@ pub fn decode_with_list_tasks_detailed_response_opts(ctxs: DecCtxs, b: &[u8], op
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_list_tasks_detailed_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.list_tasks_detailed_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ListTasksDetailedResponse(ctxs.list_tasks_detailed_response, st.list_tasks_detailed_response_opts.get());
         if rc == AK_OK { st.list_tasks_detailed_response_armed.set(true); }
@@ -15230,14 +15273,17 @@ pub fn decode_with_list_task_summary_response_opts(ctxs: DecCtxs, b: &[u8], opts
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_list_task_summary_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.list_task_summary_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ListTaskSummaryResponse(ctxs.list_task_summary_response, st.list_task_summary_response_opts.get());
         if rc == AK_OK { st.list_task_summary_response_armed.set(true); }
@@ -15611,14 +15657,17 @@ pub fn decode_with_list_probe_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut 
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_list_probe_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.list_probe_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ListProbeResponse(ctxs.list_probe_response, st.list_probe_response_opts.get());
         if rc == AK_OK { st.list_probe_response_armed.set(true); }
@@ -16076,14 +16125,17 @@ pub fn decode_with_list_metrics_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mu
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_list_metrics_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.list_metrics_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ListMetricsResponse(ctxs.list_metrics_response, st.list_metrics_response_opts.get());
         if rc == AK_OK { st.list_metrics_response_armed.set(true); }
@@ -16467,14 +16519,17 @@ pub fn decode_with_upload_result_data_message_opts(ctxs: DecCtxs, b: &[u8], opts
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_upload_result_data_message(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.upload_result_data_message_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_UploadResultDataMessage(ctxs.upload_result_data_message, st.upload_result_data_message_opts.get());
         if rc == AK_OK { st.upload_result_data_message_armed.set(true); }
@@ -16848,14 +16903,17 @@ pub fn decode_with_dual_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_dual_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.dual_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_DualResponse(ctxs.dual_response, st.dual_response_opts.get());
         if rc == AK_OK { st.dual_response_armed.set(true); }
@@ -17208,14 +17266,17 @@ pub fn decode_with_chunk_leaf_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Ch
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_chunk_leaf(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.chunk_leaf_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ChunkLeaf(ctxs.chunk_leaf, st.chunk_leaf_opts.get());
         if rc == AK_OK { st.chunk_leaf_armed.set(true); }
@@ -17587,14 +17648,17 @@ pub fn decode_with_chunk_inner_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_C
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_chunk_inner(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.chunk_inner_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ChunkInner(ctxs.chunk_inner, st.chunk_inner_opts.get());
         if rc == AK_OK { st.chunk_inner_armed.set(true); }
@@ -18032,14 +18096,17 @@ pub fn decode_with_chunk_element_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_chunk_element(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.chunk_element_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ChunkElement(ctxs.chunk_element, st.chunk_element_opts.get());
         if rc == AK_OK { st.chunk_element_armed.set(true); }
@@ -18511,14 +18578,17 @@ pub fn decode_with_chunked_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_chunked_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.chunked_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ChunkedResponse(ctxs.chunked_response, st.chunked_response_opts.get());
         if rc == AK_OK { st.chunked_response_armed.set(true); }
@@ -18997,14 +19067,17 @@ pub fn decode_with_chunked_response_wide_opts(ctxs: DecCtxs, b: &[u8], opts: &mu
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_chunked_response_wide(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.chunked_response_wide_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_ChunkedResponseWide(ctxs.chunked_response_wide, st.chunked_response_wide_opts.get());
         if rc == AK_OK { st.chunked_response_wide_armed.set(true); }
@@ -19386,14 +19459,17 @@ pub fn decode_with_leaf_element_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_leaf_element(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.leaf_element_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_LeafElement(ctxs.leaf_element, st.leaf_element_opts.get());
         if rc == AK_OK { st.leaf_element_armed.set(true); }
@@ -19749,14 +19825,17 @@ pub fn decode_with_leaf_response_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_leaf_response(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.leaf_response_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_LeafResponse(ctxs.leaf_response, st.leaf_response_opts.get());
         if rc == AK_OK { st.leaf_response_armed.set(true); }
@@ -20151,14 +20230,17 @@ pub fn decode_with_surrogate_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Sur
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_surrogate(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.surrogate_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_Surrogate(ctxs.surrogate, st.surrogate_opts.get());
         if rc == AK_OK { st.surrogate_armed.set(true); }
@@ -20510,14 +20592,17 @@ pub fn decode_with_surrogate_inner_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_d
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_surrogate_inner(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.surrogate_inner_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_SurrogateInner(ctxs.surrogate_inner, st.surrogate_inner_opts.get());
         if rc == AK_OK { st.surrogate_inner_armed.set(true); }
@@ -20867,14 +20952,17 @@ pub fn decode_with_wire_zoo_opts(ctxs: DecCtxs, b: &[u8], opts: &mut ak_dec_Wire
     r
 }
 
-/// Optimisation U1: arm this root's context with the options at their STABLE address
-/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they
-/// need no refill), one reset per decode (decision 11 rule 7). The context stays
-/// armed afterwards; the drop-mode entries disarm it when they next run.
+/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their
+/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,
+/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The
+/// context stays armed afterwards; the drop-mode entries disarm it when they next run.
 #[inline(always)]
 fn arm_wire_zoo(ctxs: DecCtxs) -> i32 {
     unsafe {
         let st = &*ctxs.unk;
+        // D27: already armed with these options (stable address): the decode entry
+        // re-arms from them; a reset only sets the pointer.
+        if st.wire_zoo_armed.get() { return AK_OK; }
         host_reset();
         let rc = ak_dec_reset_WireZoo(ctxs.wire_zoo, st.wire_zoo_opts.get());
         if rc == AK_OK { st.wire_zoo_armed.set(true); }
@@ -27228,4 +27316,2525 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
         }
     }
     (n, bad)
+}
+
+
+// ---- FIX-PLAN D27 checks (reset on entry; gate step 11h) ----
+
+/// D27 check: the host's error, reported through `ak_fail` from a grow.
+pub const ROE_HOST_FAIL: i32 = -4242;
+/// A grow that fails: `ak_fail(host, ROE_HOST_FAIL)` (the host pointer is the context).
+pub unsafe extern "C" fn roe_fail_grow(host: *mut c_void, _want: i32, _dst: *mut *mut u8, _cap: *mut i32) -> i32 {
+    ak_fail(host, ROE_HOST_FAIL, ::core::ptr::null(), 0);
+    ROE_HOST_FAIL
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_timestamp(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.timestamp;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_timestamp(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_Timestamp(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_timestamp_armed(ctxs, b),
+            1 => parse_walk_with_timestamp_armed(ctxs, b, &mut toks),
+            _ => fsm_with_timestamp_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Timestamp(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Timestamp` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_timestamp(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.timestamp;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Timestamp, i32> {
+                let r = match fam {
+                    0 => decode_with_timestamp_armed(ctxs, b),
+                    1 => parse_walk_with_timestamp_armed(ctxs, b, toks),
+                    _ => fsm_with_timestamp_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_timestamp(None);
+            ak_dec_reset_Timestamp(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_TIMESTAMP {
+                let mut o_p = unk_opts_timestamp(Some(p));
+                ak_dec_reset_Timestamp(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_timestamp(None));
+                ak_dec_reset_Timestamp(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_timestamp(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_timestamp(None);
+                let c = run(&mut toks);
+                *st = unk_opts_timestamp(Some(p));
+                ak_dec_reset_Timestamp(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_timestamp(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Timestamp(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Timestamp(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_duration(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.duration;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_duration(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_Duration(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_duration_armed(ctxs, b),
+            1 => parse_walk_with_duration_armed(ctxs, b, &mut toks),
+            _ => fsm_with_duration_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Duration(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Duration` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_duration(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.duration;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Duration, i32> {
+                let r = match fam {
+                    0 => decode_with_duration_armed(ctxs, b),
+                    1 => parse_walk_with_duration_armed(ctxs, b, toks),
+                    _ => fsm_with_duration_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_duration(None);
+            ak_dec_reset_Duration(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_DURATION {
+                let mut o_p = unk_opts_duration(Some(p));
+                ak_dec_reset_Duration(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_duration(None));
+                ak_dec_reset_Duration(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_duration(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_duration(None);
+                let c = run(&mut toks);
+                *st = unk_opts_duration(Some(p));
+                ak_dec_reset_Duration(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_duration(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Duration(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Duration(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_result_raw(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.result_raw;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_result_raw(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.created_at.grow = Some(roe_fail_grow);
+        o.completed_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_ResultRaw(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_result_raw_armed(ctxs, b),
+            1 => parse_walk_with_result_raw_armed(ctxs, b, &mut toks),
+            _ => fsm_with_result_raw_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ResultRaw(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ResultRaw` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_result_raw(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.result_raw;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ResultRaw, i32> {
+                let r = match fam {
+                    0 => decode_with_result_raw_armed(ctxs, b),
+                    1 => parse_walk_with_result_raw_armed(ctxs, b, toks),
+                    _ => fsm_with_result_raw_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_result_raw(None);
+            ak_dec_reset_ResultRaw(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_RESULTRAW {
+                let mut o_p = unk_opts_result_raw(Some(p));
+                ak_dec_reset_ResultRaw(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_result_raw(None));
+                ak_dec_reset_ResultRaw(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_result_raw(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_result_raw(None);
+                let c = run(&mut toks);
+                *st = unk_opts_result_raw(Some(p));
+                ak_dec_reset_ResultRaw(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_result_raw(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ResultRaw(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ResultRaw(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_task_options(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.task_options;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_task_options(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.options.grow = Some(roe_fail_grow);
+        o.max_duration.grow = Some(roe_fail_grow);
+        ak_dec_reset_TaskOptions(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_task_options_armed(ctxs, b),
+            1 => parse_walk_with_task_options_armed(ctxs, b, &mut toks),
+            _ => fsm_with_task_options_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_TaskOptions(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_TaskOptions` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_task_options(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.task_options;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<TaskOptions, i32> {
+                let r = match fam {
+                    0 => decode_with_task_options_armed(ctxs, b),
+                    1 => parse_walk_with_task_options_armed(ctxs, b, toks),
+                    _ => fsm_with_task_options_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_task_options(None);
+            ak_dec_reset_TaskOptions(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_TASKOPTIONS {
+                let mut o_p = unk_opts_task_options(Some(p));
+                ak_dec_reset_TaskOptions(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_task_options(None));
+                ak_dec_reset_TaskOptions(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_task_options(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_task_options(None);
+                let c = run(&mut toks);
+                *st = unk_opts_task_options(Some(p));
+                ak_dec_reset_TaskOptions(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_task_options(None);
+                let e = run(&mut toks);
+                ak_dec_reset_TaskOptions(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_TaskOptions(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_task_output(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.task_output;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_task_output(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_TaskOutput(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_task_output_armed(ctxs, b),
+            1 => parse_walk_with_task_output_armed(ctxs, b, &mut toks),
+            _ => fsm_with_task_output_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_TaskOutput(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_TaskOutput` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_task_output(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.task_output;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<TaskOutput, i32> {
+                let r = match fam {
+                    0 => decode_with_task_output_armed(ctxs, b),
+                    1 => parse_walk_with_task_output_armed(ctxs, b, toks),
+                    _ => fsm_with_task_output_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_task_output(None);
+            ak_dec_reset_TaskOutput(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_TASKOUTPUT {
+                let mut o_p = unk_opts_task_output(Some(p));
+                ak_dec_reset_TaskOutput(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_task_output(None));
+                ak_dec_reset_TaskOutput(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_task_output(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_task_output(None);
+                let c = run(&mut toks);
+                *st = unk_opts_task_output(Some(p));
+                ak_dec_reset_TaskOutput(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_task_output(None);
+                let e = run(&mut toks);
+                ak_dec_reset_TaskOutput(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_TaskOutput(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_task_detailed(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.task_detailed;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_task_detailed(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.options.grow = Some(roe_fail_grow);
+        o.options_options.grow = Some(roe_fail_grow);
+        o.options_max_duration.grow = Some(roe_fail_grow);
+        o.created_at.grow = Some(roe_fail_grow);
+        o.submitted_at.grow = Some(roe_fail_grow);
+        o.started_at.grow = Some(roe_fail_grow);
+        o.ended_at.grow = Some(roe_fail_grow);
+        o.pod_ttl.grow = Some(roe_fail_grow);
+        o.output.grow = Some(roe_fail_grow);
+        o.received_at.grow = Some(roe_fail_grow);
+        o.acquired_at.grow = Some(roe_fail_grow);
+        o.creation_to_end_duration.grow = Some(roe_fail_grow);
+        o.processing_to_end_duration.grow = Some(roe_fail_grow);
+        o.received_to_end_duration.grow = Some(roe_fail_grow);
+        o.processed_at.grow = Some(roe_fail_grow);
+        o.fetched_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_TaskDetailed(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_task_detailed_armed(ctxs, b),
+            1 => parse_walk_with_task_detailed_armed(ctxs, b, &mut toks),
+            _ => fsm_with_task_detailed_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_TaskDetailed(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_TaskDetailed` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_task_detailed(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.task_detailed;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<TaskDetailed, i32> {
+                let r = match fam {
+                    0 => decode_with_task_detailed_armed(ctxs, b),
+                    1 => parse_walk_with_task_detailed_armed(ctxs, b, toks),
+                    _ => fsm_with_task_detailed_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_task_detailed(None);
+            ak_dec_reset_TaskDetailed(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_TASKDETAILED {
+                let mut o_p = unk_opts_task_detailed(Some(p));
+                ak_dec_reset_TaskDetailed(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_task_detailed(None));
+                ak_dec_reset_TaskDetailed(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_task_detailed(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_task_detailed(None);
+                let c = run(&mut toks);
+                *st = unk_opts_task_detailed(Some(p));
+                ak_dec_reset_TaskDetailed(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_task_detailed(None);
+                let e = run(&mut toks);
+                ak_dec_reset_TaskDetailed(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_TaskDetailed(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_task_summary(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.task_summary;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_task_summary(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.options.grow = Some(roe_fail_grow);
+        o.options_options.grow = Some(roe_fail_grow);
+        o.options_max_duration.grow = Some(roe_fail_grow);
+        o.created_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_TaskSummary(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_task_summary_armed(ctxs, b),
+            1 => parse_walk_with_task_summary_armed(ctxs, b, &mut toks),
+            _ => fsm_with_task_summary_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_TaskSummary(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_TaskSummary` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_task_summary(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.task_summary;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<TaskSummary, i32> {
+                let r = match fam {
+                    0 => decode_with_task_summary_armed(ctxs, b),
+                    1 => parse_walk_with_task_summary_armed(ctxs, b, toks),
+                    _ => fsm_with_task_summary_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_task_summary(None);
+            ak_dec_reset_TaskSummary(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_TASKSUMMARY {
+                let mut o_p = unk_opts_task_summary(Some(p));
+                ak_dec_reset_TaskSummary(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_task_summary(None));
+                ak_dec_reset_TaskSummary(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_task_summary(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_task_summary(None);
+                let c = run(&mut toks);
+                *st = unk_opts_task_summary(Some(p));
+                ak_dec_reset_TaskSummary(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_task_summary(None);
+                let e = run(&mut toks);
+                ak_dec_reset_TaskSummary(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_TaskSummary(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_probe(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.probe;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_probe(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.body.grow = Some(roe_fail_grow);
+        ak_dec_reset_Probe(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_probe_armed(ctxs, b),
+            1 => parse_walk_with_probe_armed(ctxs, b, &mut toks),
+            _ => fsm_with_probe_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Probe(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Probe` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_probe(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.probe;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Probe, i32> {
+                let r = match fam {
+                    0 => decode_with_probe_armed(ctxs, b),
+                    1 => parse_walk_with_probe_armed(ctxs, b, toks),
+                    _ => fsm_with_probe_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_probe(None);
+            ak_dec_reset_Probe(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_PROBE {
+                let mut o_p = unk_opts_probe(Some(p));
+                ak_dec_reset_Probe(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_probe(None));
+                ak_dec_reset_Probe(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_probe(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_probe(None);
+                let c = run(&mut toks);
+                *st = unk_opts_probe(Some(p));
+                ak_dec_reset_Probe(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_probe(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Probe(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Probe(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_empty(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.empty;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_empty(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_Empty(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_empty_armed(ctxs, b),
+            1 => parse_walk_with_empty_armed(ctxs, b, &mut toks),
+            _ => fsm_with_empty_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Empty(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Empty` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_empty(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.empty;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Empty, i32> {
+                let r = match fam {
+                    0 => decode_with_empty_armed(ctxs, b),
+                    1 => parse_walk_with_empty_armed(ctxs, b, toks),
+                    _ => fsm_with_empty_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_empty(None);
+            ak_dec_reset_Empty(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_EMPTY {
+                let mut o_p = unk_opts_empty(Some(p));
+                ak_dec_reset_Empty(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_empty(None));
+                ak_dec_reset_Empty(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_empty(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_empty(None);
+                let c = run(&mut toks);
+                *st = unk_opts_empty(Some(p));
+                ak_dec_reset_Empty(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_empty(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Empty(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Empty(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_upload_result_data(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.upload_result_data;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_upload_result_data(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_UploadResultData(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_upload_result_data_armed(ctxs, b),
+            1 => parse_walk_with_upload_result_data_armed(ctxs, b, &mut toks),
+            _ => fsm_with_upload_result_data_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_UploadResultData(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_UploadResultData` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_upload_result_data(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.upload_result_data;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<UploadResultData, i32> {
+                let r = match fam {
+                    0 => decode_with_upload_result_data_armed(ctxs, b),
+                    1 => parse_walk_with_upload_result_data_armed(ctxs, b, toks),
+                    _ => fsm_with_upload_result_data_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_upload_result_data(None);
+            ak_dec_reset_UploadResultData(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_UPLOADRESULTDATA {
+                let mut o_p = unk_opts_upload_result_data(Some(p));
+                ak_dec_reset_UploadResultData(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_upload_result_data(None));
+                ak_dec_reset_UploadResultData(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_upload_result_data(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_upload_result_data(None);
+                let c = run(&mut toks);
+                *st = unk_opts_upload_result_data(Some(p));
+                ak_dec_reset_UploadResultData(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_upload_result_data(None);
+                let e = run(&mut toks);
+                ak_dec_reset_UploadResultData(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_UploadResultData(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_metrics_batch(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.metrics_batch;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_metrics_batch(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_MetricsBatch(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_metrics_batch_armed(ctxs, b),
+            1 => parse_walk_with_metrics_batch_armed(ctxs, b, &mut toks),
+            _ => fsm_with_metrics_batch_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_MetricsBatch(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_MetricsBatch` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_metrics_batch(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.metrics_batch;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<MetricsBatch, i32> {
+                let r = match fam {
+                    0 => decode_with_metrics_batch_armed(ctxs, b),
+                    1 => parse_walk_with_metrics_batch_armed(ctxs, b, toks),
+                    _ => fsm_with_metrics_batch_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_metrics_batch(None);
+            ak_dec_reset_MetricsBatch(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_METRICSBATCH {
+                let mut o_p = unk_opts_metrics_batch(Some(p));
+                ak_dec_reset_MetricsBatch(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_metrics_batch(None));
+                ak_dec_reset_MetricsBatch(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_metrics_batch(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_metrics_batch(None);
+                let c = run(&mut toks);
+                *st = unk_opts_metrics_batch(Some(p));
+                ak_dec_reset_MetricsBatch(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_metrics_batch(None);
+                let e = run(&mut toks);
+                ak_dec_reset_MetricsBatch(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_MetricsBatch(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_pair(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.pair;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_pair(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_Pair(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_pair_armed(ctxs, b),
+            1 => parse_walk_with_pair_armed(ctxs, b, &mut toks),
+            _ => fsm_with_pair_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Pair(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Pair` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_pair(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.pair;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Pair, i32> {
+                let r = match fam {
+                    0 => decode_with_pair_armed(ctxs, b),
+                    1 => parse_walk_with_pair_armed(ctxs, b, toks),
+                    _ => fsm_with_pair_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_pair(None);
+            ak_dec_reset_Pair(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_PAIR {
+                let mut o_p = unk_opts_pair(Some(p));
+                ak_dec_reset_Pair(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_pair(None));
+                ak_dec_reset_Pair(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_pair(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_pair(None);
+                let c = run(&mut toks);
+                *st = unk_opts_pair(Some(p));
+                ak_dec_reset_Pair(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_pair(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Pair(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Pair(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_list_results_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.list_results_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_list_results_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.results.grow = Some(roe_fail_grow);
+        o.results_created_at.grow = Some(roe_fail_grow);
+        o.results_completed_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_ListResultsResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_list_results_response_armed(ctxs, b),
+            1 => parse_walk_with_list_results_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_list_results_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ListResultsResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_list_results_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.list_results_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ListResultsResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_list_results_response_armed(ctxs, b),
+                    1 => parse_walk_with_list_results_response_armed(ctxs, b, toks),
+                    _ => fsm_with_list_results_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_list_results_response(None);
+            ak_dec_reset_ListResultsResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LISTRESULTSRESPONSE {
+                let mut o_p = unk_opts_list_results_response(Some(p));
+                ak_dec_reset_ListResultsResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_list_results_response(None));
+                ak_dec_reset_ListResultsResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_list_results_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_list_results_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_list_results_response(Some(p));
+                ak_dec_reset_ListResultsResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_list_results_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ListResultsResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.list_tasks_detailed_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_list_tasks_detailed_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.tasks.grow = Some(roe_fail_grow);
+        o.tasks_options.grow = Some(roe_fail_grow);
+        o.tasks_options_options.grow = Some(roe_fail_grow);
+        o.tasks_options_max_duration.grow = Some(roe_fail_grow);
+        o.tasks_created_at.grow = Some(roe_fail_grow);
+        o.tasks_submitted_at.grow = Some(roe_fail_grow);
+        o.tasks_started_at.grow = Some(roe_fail_grow);
+        o.tasks_ended_at.grow = Some(roe_fail_grow);
+        o.tasks_pod_ttl.grow = Some(roe_fail_grow);
+        o.tasks_output.grow = Some(roe_fail_grow);
+        o.tasks_received_at.grow = Some(roe_fail_grow);
+        o.tasks_acquired_at.grow = Some(roe_fail_grow);
+        o.tasks_creation_to_end_duration.grow = Some(roe_fail_grow);
+        o.tasks_processing_to_end_duration.grow = Some(roe_fail_grow);
+        o.tasks_received_to_end_duration.grow = Some(roe_fail_grow);
+        o.tasks_processed_at.grow = Some(roe_fail_grow);
+        o.tasks_fetched_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_ListTasksDetailedResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_list_tasks_detailed_response_armed(ctxs, b),
+            1 => parse_walk_with_list_tasks_detailed_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_list_tasks_detailed_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ListTasksDetailedResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_list_tasks_detailed_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.list_tasks_detailed_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ListTasksDetailedResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_list_tasks_detailed_response_armed(ctxs, b),
+                    1 => parse_walk_with_list_tasks_detailed_response_armed(ctxs, b, toks),
+                    _ => fsm_with_list_tasks_detailed_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_list_tasks_detailed_response(None);
+            ak_dec_reset_ListTasksDetailedResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LISTTASKSDETAILEDRESPONSE {
+                let mut o_p = unk_opts_list_tasks_detailed_response(Some(p));
+                ak_dec_reset_ListTasksDetailedResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_list_tasks_detailed_response(None));
+                ak_dec_reset_ListTasksDetailedResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_list_tasks_detailed_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_list_tasks_detailed_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_list_tasks_detailed_response(Some(p));
+                ak_dec_reset_ListTasksDetailedResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_list_tasks_detailed_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ListTasksDetailedResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_list_task_summary_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.list_task_summary_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_list_task_summary_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.tasks.grow = Some(roe_fail_grow);
+        o.tasks_options.grow = Some(roe_fail_grow);
+        o.tasks_options_options.grow = Some(roe_fail_grow);
+        o.tasks_options_max_duration.grow = Some(roe_fail_grow);
+        o.tasks_created_at.grow = Some(roe_fail_grow);
+        ak_dec_reset_ListTaskSummaryResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_list_task_summary_response_armed(ctxs, b),
+            1 => parse_walk_with_list_task_summary_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_list_task_summary_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ListTaskSummaryResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_list_task_summary_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.list_task_summary_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ListTaskSummaryResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_list_task_summary_response_armed(ctxs, b),
+                    1 => parse_walk_with_list_task_summary_response_armed(ctxs, b, toks),
+                    _ => fsm_with_list_task_summary_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_list_task_summary_response(None);
+            ak_dec_reset_ListTaskSummaryResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LISTTASKSUMMARYRESPONSE {
+                let mut o_p = unk_opts_list_task_summary_response(Some(p));
+                ak_dec_reset_ListTaskSummaryResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_list_task_summary_response(None));
+                ak_dec_reset_ListTaskSummaryResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_list_task_summary_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_list_task_summary_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_list_task_summary_response(Some(p));
+                ak_dec_reset_ListTaskSummaryResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_list_task_summary_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ListTaskSummaryResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_list_probe_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.list_probe_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_list_probe_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.probes.grow = Some(roe_fail_grow);
+        o.probes_body.grow = Some(roe_fail_grow);
+        ak_dec_reset_ListProbeResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_list_probe_response_armed(ctxs, b),
+            1 => parse_walk_with_list_probe_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_list_probe_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ListProbeResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_list_probe_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.list_probe_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ListProbeResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_list_probe_response_armed(ctxs, b),
+                    1 => parse_walk_with_list_probe_response_armed(ctxs, b, toks),
+                    _ => fsm_with_list_probe_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_list_probe_response(None);
+            ak_dec_reset_ListProbeResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LISTPROBERESPONSE {
+                let mut o_p = unk_opts_list_probe_response(Some(p));
+                ak_dec_reset_ListProbeResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_list_probe_response(None));
+                ak_dec_reset_ListProbeResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_list_probe_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_list_probe_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_list_probe_response(Some(p));
+                ak_dec_reset_ListProbeResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_list_probe_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ListProbeResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_list_metrics_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.list_metrics_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_list_metrics_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.batches.grow = Some(roe_fail_grow);
+        ak_dec_reset_ListMetricsResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_list_metrics_response_armed(ctxs, b),
+            1 => parse_walk_with_list_metrics_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_list_metrics_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ListMetricsResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_list_metrics_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.list_metrics_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ListMetricsResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_list_metrics_response_armed(ctxs, b),
+                    1 => parse_walk_with_list_metrics_response_armed(ctxs, b, toks),
+                    _ => fsm_with_list_metrics_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_list_metrics_response(None);
+            ak_dec_reset_ListMetricsResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LISTMETRICSRESPONSE {
+                let mut o_p = unk_opts_list_metrics_response(Some(p));
+                ak_dec_reset_ListMetricsResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_list_metrics_response(None));
+                ak_dec_reset_ListMetricsResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_list_metrics_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_list_metrics_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_list_metrics_response(Some(p));
+                ak_dec_reset_ListMetricsResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_list_metrics_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ListMetricsResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_upload_result_data_message(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.upload_result_data_message;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_upload_result_data_message(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.upload.grow = Some(roe_fail_grow);
+        ak_dec_reset_UploadResultDataMessage(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_upload_result_data_message_armed(ctxs, b),
+            1 => parse_walk_with_upload_result_data_message_armed(ctxs, b, &mut toks),
+            _ => fsm_with_upload_result_data_message_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_UploadResultDataMessage` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_upload_result_data_message(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.upload_result_data_message;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<UploadResultDataMessage, i32> {
+                let r = match fam {
+                    0 => decode_with_upload_result_data_message_armed(ctxs, b),
+                    1 => parse_walk_with_upload_result_data_message_armed(ctxs, b, toks),
+                    _ => fsm_with_upload_result_data_message_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_upload_result_data_message(None);
+            ak_dec_reset_UploadResultDataMessage(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_UPLOADRESULTDATAMESSAGE {
+                let mut o_p = unk_opts_upload_result_data_message(Some(p));
+                ak_dec_reset_UploadResultDataMessage(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_upload_result_data_message(None));
+                ak_dec_reset_UploadResultDataMessage(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_upload_result_data_message(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_upload_result_data_message(None);
+                let c = run(&mut toks);
+                *st = unk_opts_upload_result_data_message(Some(p));
+                ak_dec_reset_UploadResultDataMessage(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_upload_result_data_message(None);
+                let e = run(&mut toks);
+                ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_UploadResultDataMessage(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_dual_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.dual_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_dual_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.left.grow = Some(roe_fail_grow);
+        o.right.grow = Some(roe_fail_grow);
+        ak_dec_reset_DualResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_dual_response_armed(ctxs, b),
+            1 => parse_walk_with_dual_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_dual_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_DualResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_DualResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_dual_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.dual_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<DualResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_dual_response_armed(ctxs, b),
+                    1 => parse_walk_with_dual_response_armed(ctxs, b, toks),
+                    _ => fsm_with_dual_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_dual_response(None);
+            ak_dec_reset_DualResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_DUALRESPONSE {
+                let mut o_p = unk_opts_dual_response(Some(p));
+                ak_dec_reset_DualResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_dual_response(None));
+                ak_dec_reset_DualResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_dual_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_dual_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_dual_response(Some(p));
+                ak_dec_reset_DualResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_dual_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_DualResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_DualResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_chunk_leaf(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.chunk_leaf;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_chunk_leaf(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_ChunkLeaf(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_chunk_leaf_armed(ctxs, b),
+            1 => parse_walk_with_chunk_leaf_armed(ctxs, b, &mut toks),
+            _ => fsm_with_chunk_leaf_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ChunkLeaf(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ChunkLeaf` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_chunk_leaf(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.chunk_leaf;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ChunkLeaf, i32> {
+                let r = match fam {
+                    0 => decode_with_chunk_leaf_armed(ctxs, b),
+                    1 => parse_walk_with_chunk_leaf_armed(ctxs, b, toks),
+                    _ => fsm_with_chunk_leaf_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_chunk_leaf(None);
+            ak_dec_reset_ChunkLeaf(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_CHUNKLEAF {
+                let mut o_p = unk_opts_chunk_leaf(Some(p));
+                ak_dec_reset_ChunkLeaf(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_chunk_leaf(None));
+                ak_dec_reset_ChunkLeaf(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_chunk_leaf(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_chunk_leaf(None);
+                let c = run(&mut toks);
+                *st = unk_opts_chunk_leaf(Some(p));
+                ak_dec_reset_ChunkLeaf(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_chunk_leaf(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ChunkLeaf(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ChunkLeaf(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_chunk_inner(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.chunk_inner;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_chunk_inner(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.leaves.grow = Some(roe_fail_grow);
+        ak_dec_reset_ChunkInner(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_chunk_inner_armed(ctxs, b),
+            1 => parse_walk_with_chunk_inner_armed(ctxs, b, &mut toks),
+            _ => fsm_with_chunk_inner_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ChunkInner(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ChunkInner` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_chunk_inner(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.chunk_inner;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ChunkInner, i32> {
+                let r = match fam {
+                    0 => decode_with_chunk_inner_armed(ctxs, b),
+                    1 => parse_walk_with_chunk_inner_armed(ctxs, b, toks),
+                    _ => fsm_with_chunk_inner_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_chunk_inner(None);
+            ak_dec_reset_ChunkInner(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_CHUNKINNER {
+                let mut o_p = unk_opts_chunk_inner(Some(p));
+                ak_dec_reset_ChunkInner(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_chunk_inner(None));
+                ak_dec_reset_ChunkInner(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_chunk_inner(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_chunk_inner(None);
+                let c = run(&mut toks);
+                *st = unk_opts_chunk_inner(Some(p));
+                ak_dec_reset_ChunkInner(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_chunk_inner(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ChunkInner(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ChunkInner(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_chunk_element(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.chunk_element;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_chunk_element(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.attrs.grow = Some(roe_fail_grow);
+        o.inner.grow = Some(roe_fail_grow);
+        o.inner_leaves.grow = Some(roe_fail_grow);
+        ak_dec_reset_ChunkElement(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_chunk_element_armed(ctxs, b),
+            1 => parse_walk_with_chunk_element_armed(ctxs, b, &mut toks),
+            _ => fsm_with_chunk_element_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ChunkElement(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ChunkElement` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_chunk_element(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.chunk_element;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ChunkElement, i32> {
+                let r = match fam {
+                    0 => decode_with_chunk_element_armed(ctxs, b),
+                    1 => parse_walk_with_chunk_element_armed(ctxs, b, toks),
+                    _ => fsm_with_chunk_element_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_chunk_element(None);
+            ak_dec_reset_ChunkElement(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_CHUNKELEMENT {
+                let mut o_p = unk_opts_chunk_element(Some(p));
+                ak_dec_reset_ChunkElement(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_chunk_element(None));
+                ak_dec_reset_ChunkElement(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_chunk_element(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_chunk_element(None);
+                let c = run(&mut toks);
+                *st = unk_opts_chunk_element(Some(p));
+                ak_dec_reset_ChunkElement(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_chunk_element(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ChunkElement(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ChunkElement(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_chunked_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.chunked_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_chunked_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.items.grow = Some(roe_fail_grow);
+        o.items_attrs.grow = Some(roe_fail_grow);
+        o.items_inner.grow = Some(roe_fail_grow);
+        o.items_inner_leaves.grow = Some(roe_fail_grow);
+        ak_dec_reset_ChunkedResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_chunked_response_armed(ctxs, b),
+            1 => parse_walk_with_chunked_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_chunked_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ChunkedResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ChunkedResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_chunked_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.chunked_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ChunkedResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_chunked_response_armed(ctxs, b),
+                    1 => parse_walk_with_chunked_response_armed(ctxs, b, toks),
+                    _ => fsm_with_chunked_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_chunked_response(None);
+            ak_dec_reset_ChunkedResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_CHUNKEDRESPONSE {
+                let mut o_p = unk_opts_chunked_response(Some(p));
+                ak_dec_reset_ChunkedResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_chunked_response(None));
+                ak_dec_reset_ChunkedResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_chunked_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_chunked_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_chunked_response(Some(p));
+                ak_dec_reset_ChunkedResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_chunked_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ChunkedResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ChunkedResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_chunked_response_wide(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.chunked_response_wide;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_chunked_response_wide(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.items.grow = Some(roe_fail_grow);
+        o.items_attrs.grow = Some(roe_fail_grow);
+        o.items_inner.grow = Some(roe_fail_grow);
+        o.items_inner_leaves.grow = Some(roe_fail_grow);
+        ak_dec_reset_ChunkedResponseWide(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_chunked_response_wide_armed(ctxs, b),
+            1 => parse_walk_with_chunked_response_wide_armed(ctxs, b, &mut toks),
+            _ => fsm_with_chunked_response_wide_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_ChunkedResponseWide(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_ChunkedResponseWide` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_chunked_response_wide(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.chunked_response_wide;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<ChunkedResponseWide, i32> {
+                let r = match fam {
+                    0 => decode_with_chunked_response_wide_armed(ctxs, b),
+                    1 => parse_walk_with_chunked_response_wide_armed(ctxs, b, toks),
+                    _ => fsm_with_chunked_response_wide_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_chunked_response_wide(None);
+            ak_dec_reset_ChunkedResponseWide(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_CHUNKEDRESPONSEWIDE {
+                let mut o_p = unk_opts_chunked_response_wide(Some(p));
+                ak_dec_reset_ChunkedResponseWide(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_chunked_response_wide(None));
+                ak_dec_reset_ChunkedResponseWide(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_chunked_response_wide(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_chunked_response_wide(None);
+                let c = run(&mut toks);
+                *st = unk_opts_chunked_response_wide(Some(p));
+                ak_dec_reset_ChunkedResponseWide(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_chunked_response_wide(None);
+                let e = run(&mut toks);
+                ak_dec_reset_ChunkedResponseWide(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_ChunkedResponseWide(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_leaf_element(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.leaf_element;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_leaf_element(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.stamp.grow = Some(roe_fail_grow);
+        ak_dec_reset_LeafElement(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_leaf_element_armed(ctxs, b),
+            1 => parse_walk_with_leaf_element_armed(ctxs, b, &mut toks),
+            _ => fsm_with_leaf_element_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_LeafElement(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_LeafElement` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_leaf_element(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.leaf_element;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<LeafElement, i32> {
+                let r = match fam {
+                    0 => decode_with_leaf_element_armed(ctxs, b),
+                    1 => parse_walk_with_leaf_element_armed(ctxs, b, toks),
+                    _ => fsm_with_leaf_element_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_leaf_element(None);
+            ak_dec_reset_LeafElement(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LEAFELEMENT {
+                let mut o_p = unk_opts_leaf_element(Some(p));
+                ak_dec_reset_LeafElement(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_leaf_element(None));
+                ak_dec_reset_LeafElement(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_leaf_element(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_leaf_element(None);
+                let c = run(&mut toks);
+                *st = unk_opts_leaf_element(Some(p));
+                ak_dec_reset_LeafElement(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_leaf_element(None);
+                let e = run(&mut toks);
+                ak_dec_reset_LeafElement(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_LeafElement(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_leaf_response(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.leaf_response;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_leaf_response(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.items.grow = Some(roe_fail_grow);
+        o.items_stamp.grow = Some(roe_fail_grow);
+        ak_dec_reset_LeafResponse(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_leaf_response_armed(ctxs, b),
+            1 => parse_walk_with_leaf_response_armed(ctxs, b, &mut toks),
+            _ => fsm_with_leaf_response_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_LeafResponse(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_LeafResponse` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_leaf_response(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.leaf_response;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<LeafResponse, i32> {
+                let r = match fam {
+                    0 => decode_with_leaf_response_armed(ctxs, b),
+                    1 => parse_walk_with_leaf_response_armed(ctxs, b, toks),
+                    _ => fsm_with_leaf_response_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_leaf_response(None);
+            ak_dec_reset_LeafResponse(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_LEAFRESPONSE {
+                let mut o_p = unk_opts_leaf_response(Some(p));
+                ak_dec_reset_LeafResponse(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_leaf_response(None));
+                ak_dec_reset_LeafResponse(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_leaf_response(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_leaf_response(None);
+                let c = run(&mut toks);
+                *st = unk_opts_leaf_response(Some(p));
+                ak_dec_reset_LeafResponse(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_leaf_response(None);
+                let e = run(&mut toks);
+                ak_dec_reset_LeafResponse(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_LeafResponse(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_surrogate(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.surrogate;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_surrogate(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.nested.grow = Some(roe_fail_grow);
+        o.attrs.grow = Some(roe_fail_grow);
+        ak_dec_reset_Surrogate(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_surrogate_armed(ctxs, b),
+            1 => parse_walk_with_surrogate_armed(ctxs, b, &mut toks),
+            _ => fsm_with_surrogate_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_Surrogate(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_Surrogate` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_surrogate(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.surrogate;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<Surrogate, i32> {
+                let r = match fam {
+                    0 => decode_with_surrogate_armed(ctxs, b),
+                    1 => parse_walk_with_surrogate_armed(ctxs, b, toks),
+                    _ => fsm_with_surrogate_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_surrogate(None);
+            ak_dec_reset_Surrogate(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_SURROGATE {
+                let mut o_p = unk_opts_surrogate(Some(p));
+                ak_dec_reset_Surrogate(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_surrogate(None));
+                ak_dec_reset_Surrogate(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_surrogate(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_surrogate(None);
+                let c = run(&mut toks);
+                *st = unk_opts_surrogate(Some(p));
+                ak_dec_reset_Surrogate(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_surrogate(None);
+                let e = run(&mut toks);
+                ak_dec_reset_Surrogate(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_Surrogate(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_surrogate_inner(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.surrogate_inner;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_surrogate_inner(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        ak_dec_reset_SurrogateInner(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_surrogate_inner_armed(ctxs, b),
+            1 => parse_walk_with_surrogate_inner_armed(ctxs, b, &mut toks),
+            _ => fsm_with_surrogate_inner_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_SurrogateInner(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_SurrogateInner` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_surrogate_inner(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.surrogate_inner;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<SurrogateInner, i32> {
+                let r = match fam {
+                    0 => decode_with_surrogate_inner_armed(ctxs, b),
+                    1 => parse_walk_with_surrogate_inner_armed(ctxs, b, toks),
+                    _ => fsm_with_surrogate_inner_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_surrogate_inner(None);
+            ak_dec_reset_SurrogateInner(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_SURROGATEINNER {
+                let mut o_p = unk_opts_surrogate_inner(Some(p));
+                ak_dec_reset_SurrogateInner(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_surrogate_inner(None));
+                ak_dec_reset_SurrogateInner(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_surrogate_inner(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_surrogate_inner(None);
+                let c = run(&mut toks);
+                *st = unk_opts_surrogate_inner(Some(p));
+                ak_dec_reset_SurrogateInner(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_surrogate_inner(None);
+                let e = run(&mut toks);
+                ak_dec_reset_SurrogateInner(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_SurrogateInner(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
+}
+
+/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose
+/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),
+/// armed with an explicit reset and disarmed after it (no pointer outlives the call).
+/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).
+pub fn roe_fail_decode_wire_zoo(ctxs: DecCtxs, b: &[u8], fam: u32) -> i32 {
+    let ctx = ctxs.wire_zoo;
+    let mut toks: Vec<i64> = Vec::new();
+    unsafe {
+        let mut o = unk_opts_wire_zoo(None);
+        o.host = ctx as *mut c_void;
+        o.self_.grow = Some(roe_fail_grow);
+        o.v_msg.grow = Some(roe_fail_grow);
+        ak_dec_reset_WireZoo(ctx, &mut o);
+        let r = match fam {
+            0 => decode_with_wire_zoo_armed(ctxs, b),
+            1 => parse_walk_with_wire_zoo_armed(ctxs, b, &mut toks),
+            _ => fsm_with_wire_zoo_armed(ctxs, b, &mut toks),
+        };
+        unk_reclaim();
+        ak_dec_reset_WireZoo(ctx, ::core::ptr::null_mut());
+        match r { Err(e) => e, Ok(_) => 0 }
+    }
+}
+
+/// D27: every unknown-field position is re-read on each decode entry. Per family (push,
+/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_WireZoo` with
+/// the options, then the decode; the check arms ONCE with options at a stable address,
+/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p
+/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions
+/// where zeroing changed the value) or the first mismatch. Run on a context of its own;
+/// its control is gate step 11h's plant (the re-arm removed from the core).
+pub fn roe_rearm_check_wire_zoo(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {
+    let ctx = ctxs.wire_zoo;
+    let mut toks: Vec<i64> = Vec::new();
+    let (mut n, mut bite) = (0usize, 0usize);
+    let mut bad: Option<String> = None;
+    unsafe {
+        'fam: for fam in 0..3u32 {
+            let run = |toks: &mut Vec<i64>| -> Result<WireZoo, i32> {
+                let r = match fam {
+                    0 => decode_with_wire_zoo_armed(ctxs, b),
+                    1 => parse_walk_with_wire_zoo_armed(ctxs, b, toks),
+                    _ => fsm_with_wire_zoo_armed(ctxs, b, toks),
+                };
+                unk_reclaim();
+                r
+            };
+            let mut o_all = unk_opts_wire_zoo(None);
+            ak_dec_reset_WireZoo(ctx, &mut o_all);
+            let r_all = run(&mut toks);
+            for p in 0..UNK_POSITIONS_WIREZOO {
+                let mut o_p = unk_opts_wire_zoo(Some(p));
+                ak_dec_reset_WireZoo(ctx, &mut o_p);
+                let r_p = run(&mut toks);
+                if r_p != r_all { bite += 1; }
+                let mut st = Box::new(unk_opts_wire_zoo(None));
+                ak_dec_reset_WireZoo(ctx, &mut *st);
+                let a = run(&mut toks);
+                *st = unk_opts_wire_zoo(Some(p));
+                let b2 = run(&mut toks);
+                *st = unk_opts_wire_zoo(None);
+                let c = run(&mut toks);
+                *st = unk_opts_wire_zoo(Some(p));
+                ak_dec_reset_WireZoo(ctx, &mut *st);
+                let d = run(&mut toks);
+                *st = unk_opts_wire_zoo(None);
+                let e = run(&mut toks);
+                ak_dec_reset_WireZoo(ctx, ::core::ptr::null_mut());
+                n += 5;
+                for (what, got, want) in [("all, armed once", &a, &r_all), ("p zeroed in place", &b2, &r_p),
+                                          ("all again in place", &c, &r_all), ("p zeroed, armed once", &d, &r_p),
+                                          ("then all in place", &e, &r_all)] {
+                    if got != want {
+                        bad = Some(format!("family {} position {}: {} differs ({})", ["push", "pull", "fsm"][fam as usize], p, what,
+                                           match (got, want) { (Err(x), _) => format!("rc {x}"), (_, Err(y)) => format!("reference rc {y}"), _ => "value".into() }));
+                        break 'fam;
+                    }
+                }
+            }
+        }
+        ak_dec_reset_WireZoo(ctx, ::core::ptr::null_mut());
+    }
+    match bad { Some(m) => Err(m), None => Ok((n, bite)) }
 }

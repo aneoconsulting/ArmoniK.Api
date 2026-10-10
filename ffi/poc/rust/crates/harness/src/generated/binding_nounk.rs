@@ -28,10 +28,11 @@ use facade::*;
 //
 // The core's context counters see the codec's own entry points (`ak_encode_*`,
 // `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
-// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
-// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
-// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
-// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// see a handful of plain exports the binding also calls: `ak_dec_reset_<Root>` (FIX-PLAN
+// D27: only to set the options pointer, when a retain decode follows a drop one, and to
+// disarm with NULL when a drop decode follows a retain one; the core resets every context on
+// entry, so no `ak_enc_reset` and no per-decode reset), `ak_enc_take` (reading the encoded
+// bytes) and `ak_dec_err` (after a decode). The counting build (`count` feature) tallies those here, at the call site, so the
 // counts cover every exported call; in any other build these are empty inline functions.
 #[cfg(feature = "count")]
 thread_local! {
@@ -1024,7 +1025,7 @@ unsafe fn loop_list_results_response_results_zeroed_big(ctx: *mut ak_enc_ctx, ob
 pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results),
         };
@@ -1037,7 +1038,7 @@ pub fn encode_into_list_results_response(ctx: *mut ak_enc_ctx, o: &ListResultsRe
 pub fn encode_into_list_results_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListResultsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListResultsResponse {
             loop_results: Some(loop_list_results_response_results_zeroed),
         };
@@ -1535,7 +1536,7 @@ static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_Tas
 pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -1549,7 +1550,7 @@ pub fn encode_into_list_tasks_detailed_response(ctx: *mut ak_enc_ctx, o: &ListTa
 pub fn encode_into_list_tasks_detailed_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTasksDetailedResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTasksDetailedResponse {
             loop_tasks: Some(loop_list_tasks_detailed_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTasksDetailedResponse_tasks,
@@ -1705,7 +1706,7 @@ unsafe fn loop_list_probe_response_probes_zeroed_big(ctx: *mut ak_enc_ctx, obj: 
 pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes),
         };
@@ -1718,7 +1719,7 @@ pub fn encode_into_list_probe_response(ctx: *mut ak_enc_ctx, o: &ListProbeRespon
 pub fn encode_into_list_probe_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListProbeResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListProbeResponse {
             loop_probes: Some(loop_list_probe_response_probes_zeroed),
         };
@@ -1952,7 +1953,7 @@ static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSu
 pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -1966,7 +1967,7 @@ pub fn encode_into_list_task_summary_response(ctx: *mut ak_enc_ctx, o: &ListTask
 pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListTaskSummaryResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListTaskSummaryResponse {
             loop_tasks: Some(loop_list_task_summary_response_tasks_zeroed),
             elem_tasks: &ELEM_VT_ListTaskSummaryResponse_tasks,
@@ -1980,7 +1981,7 @@ pub fn encode_into_list_task_summary_response_zeroed(ctx: *mut ak_enc_ctx, o: &L
 pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -1994,7 +1995,7 @@ pub fn encode_into_upload_result_data_message(ctx: *mut ak_enc_ctx, o: &UploadRe
 pub fn encode_into_upload_result_data_message_zeroed(ctx: *mut ak_enc_ctx, o: &UploadResultDataMessage, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_UploadResultDataMessage {
             _reserved: ::core::ptr::null(),
         };
@@ -2249,7 +2250,7 @@ static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_Metrics
 pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2263,7 +2264,7 @@ pub fn encode_into_list_metrics_response(ctx: *mut ak_enc_ctx, o: &ListMetricsRe
 pub fn encode_into_list_metrics_response_zeroed(ctx: *mut ak_enc_ctx, o: &ListMetricsResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_ListMetricsResponse {
             loop_batches: Some(loop_list_metrics_response_batches_zeroed),
             elem_batches: &ELEM_VT_ListMetricsResponse_batches,
@@ -2561,7 +2562,7 @@ unsafe fn loop_dual_response_right_zeroed_big(ctx: *mut ak_enc_ctx, obj: *const 
 pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left),
             loop_right: Some(loop_dual_response_right),
@@ -2575,7 +2576,7 @@ pub fn encode_into_dual_response(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs
 pub fn encode_into_dual_response_zeroed(ctx: *mut ak_enc_ctx, o: &DualResponse, t: &Tcs) -> Result<usize, i32> {
     unsafe {
         TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));
-        host_reset(); ak_enc_reset(ctx);
+        // D27: the core's encode entry resets the context (no ak_enc_reset).
         let vt = ak_evt_DualResponse {
             loop_left: Some(loop_dual_response_left_zeroed),
             loop_right: Some(loop_dual_response_right_zeroed),
@@ -6250,3 +6251,6 @@ pub fn fsm_api_checks() -> (usize, Vec<String>) {
     }
     (n, bad)
 }
+
+
+// ---- FIX-PLAN D27 checks (reset on entry; gate step 11h) ----

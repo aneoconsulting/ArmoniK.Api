@@ -36,10 +36,7 @@ use std::time::{Duration, Instant};
 
 mod generated {
     /// WP5 step 10: without `unknown-fields`, the no-unknown variant's binding.
-    /// reset-on-entry (measurement experiment): the binding rendered for that core.
-    #[cfg_attr(all(not(feature = "reset-on-entry"), not(feature = "unknown-fields")), path = "binding_nounk.rs")]
-    #[cfg_attr(all(feature = "reset-on-entry", feature = "unknown-fields"), path = "binding_roe.rs")]
-    #[cfg_attr(all(feature = "reset-on-entry", not(feature = "unknown-fields")), path = "binding_roe_nounk.rs")]
+    #[cfg_attr(not(feature = "unknown-fields"), path = "binding_nounk.rs")]
     pub mod binding;
     pub mod dispatch;
 }

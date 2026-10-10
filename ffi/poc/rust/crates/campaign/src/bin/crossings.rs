@@ -12,11 +12,10 @@
 //! forward = every exported entry point the loop calls: the ones the core counts in its
 //! contexts (and, for RPC, `ak_call_unary` / `ak_bytes_free` in its RPC counters) PLUS the
 //! plain exports the binding tallies (`ak_enc_reset`, `ak_dec_reset_<Root>`, `ak_enc_take`,
-//! `ak_dec_err`). `resets` = how many of the forward calls are resets: one `ak_enc_reset`
-//! before every encode; ONE `ak_dec_reset_<Root>` before a retain decode or pull (arming the
-//! options at their stable address; the binding leaves the context armed, optimisation U1),
-//! and one before a drop decode only when a retaining decode left the context armed (the
-//! counted drop call runs after a warm drop call, so it is not armed and counts none).
+//! `ak_dec_err`). `resets` = how many of the forward calls are resets: since FIX-PLAN D27 the
+//! core resets each context in the first call of an operation, so the binding makes none per
+//! operation (`ak_dec_reset_<Root>` only when the options pointer changes, a retain decode after
+//! a drop one or the reverse; each count is taken warm, so none) and the column is 0.
 //! reverse = every reverse call. Retain mode runs with no pre-placed buffer and the
 //! binding's `unk_grow`, which grows GEOMETRICALLY (max(want, 2 x capacity, 64), capped at
 //! INT32_MAX; optimisation U2, owner decision: geometric in every build, the counting build
@@ -173,8 +172,8 @@ fn main() {
     assert!(out.iter().any(|l| !l.trim_end().ends_with("0        0      0")), "not a counting build (--features count)");
     rpc_rows(&mut out);
     println!("# CAMPAIGN req 19 (as amended 2026-09-26): forward = every exported entry point called (core-counted + the");
-    println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = ak_enc_reset before each");
-    println!("# encode + one ak_dec_reset_<Root> before each retain decode or pull (the context stays armed, U1). Retain: no pre-placed buffer,");
+    println!("# binding's ak_enc_reset / ak_dec_reset_<Root> / ak_enc_take / ak_dec_err); resets = the resets among them (0 since D27, see below;");
+    println!("# before it one ak_enc_reset per encode and one ak_dec_reset_<Root> per retain decode or pull). Retain: no pre-placed buffer,");
     println!("# geometric grow (unk_grow: max(want, 2 x capacity, 64), capped at INT32_MAX; U2, the owner's decision for every build).");
     println!("# decode, decode-read: core-ffi's decode, the FSM family since FIX-PLAN D24 (ak_fsm_begin_<Root> + one ak_fsm_next_<Root> per further");
     println!("# event, ak_dec_err after the last; no reverse call); decode-push: the push family (core-ffi-push, labelled extra; ak_decode_<Root> +");
@@ -189,8 +188,7 @@ fn main() {
     println!("# d/4MiB, d/16MiB: U2-stream, one client-streamed upload in 2 MiB chunks (B/C/E: open, a send per chunk, recv, free, destroy).");
     println!("# The counts do not depend on the h2 variant (stock or h2-batch): h2 is inside the core, below every counted entry point.");
     println!("# B-cb, C-cb, E-cb (and Bf-cb, Cf-cb, Ef-cb): the callback cells (CAMPAIGN req 16 as amended, Rust's reference core cells): ak_call_unary_cb / ak_call_unary_enc_cb + ak_call_destroy + ak_bytes_free, one reverse (the completion); d: ak_call_send_cb / _enc_cb per chunk and ak_call_recv_cb, one reverse per completion.");
-    #[cfg(feature = "reset-on-entry")]
-    println!("# reset-on-entry VARIANT (measurement experiment): the core resets each context on entry and the binding calls no ak_enc_reset and no ak_dec_reset_<Root> while the context is armed with its options (counted warm: the warm call armed it), so the resets column is 0.");
+    println!("# FIX-PLAN D27 (reset on entry): the core resets each context in the first call of an operation; the binding calls no ak_enc_reset, and ak_dec_reset_<Root> only to set or change the options pointer (counted warm: the warm call armed the context), so the resets column is 0 on every row.");
     println!("# input                                            direction    mode        forward  reverse resets");
     for l in out {
         println!("{l}");

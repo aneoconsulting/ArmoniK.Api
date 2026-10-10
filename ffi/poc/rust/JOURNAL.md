@@ -4631,3 +4631,17 @@ Built in an isolated worktree on 1d18e637, not pushed. Logs: `logs/rust/opt/d19-
   unchanged.
 - Timing: the reset calls cost 5-6 ns (encode) and 5-33 ns (decode, by root); the encode and
   decode-read rows differ both ways outside the launch ranges on a few rows; not attributed.
+
+## 2026-10-10: D27 (owner): reset on entry adopted, the core's only behaviour
+
+- Core: feature and measurement exports removed; the entries call `enc_reset_on_entry` /
+  `rearm_on_entry` (lib.rs) on lines of their own (no byte-identity constraint any more).
+- Rust binding: the variant rendering became the only one; binding_roe*, binding_explicit,
+  roe_bench and roe_checks.sh removed. roe_check lost its in-process control (it used the
+  per-context switch); its controls are now two plants in a shadow core (gen/d27_checks.sh, gate
+  step 11h): removing the re-arm fails 88 REARM cases, removing the encode reset fails 226 ENC
+  cases. unkctl's "decided at arm time" is now "decided at entry" (bag delivered).
+- Crossing counts: identical rows to the experiment's variant files.
+- The full gate was started and stopped at 11g after the owner's "checks, not gates" message;
+  0-11f had passed. The remaining fast checks ran instead (STATE "D27").
+- C++: see the C++ JOURNAL (the stale-address defect the corpus found in the arm-once binding).

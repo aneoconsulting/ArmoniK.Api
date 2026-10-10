@@ -1,0 +1,24 @@
+# gen/d27_checks.sh at 60afe577 + uncommitted D27 changes; rustc 1.94.1 (e408947bf 2026-03-25)
+  R1. roe_check, full build (drop, retain)
+    # D27 reset-on-entry checks, build full (drop, retain)
+    # ABANDON: 310 abandoned decodes followed by fresh fsm, push and pull decodes; 14 (input, mode) pairs with a single event (nothing to abandon)
+    # ERR: 684 failed decodes (input less its last byte, three families)
+    # ENC: 226 encodes read after the call
+    # HOSTERR: 264 decodes failed by the host (inputs with an unknown field, three families)
+    # REARM: 114 inputs, 12780 comparisons (5 per family and position), 288 (input, family, position) cases where zeroing the position changes the value
+    # 1826 checks, 0 failures
+    ROE CHECKS PASSED
+  R2. roe_check, no-unknown build
+    # D27 reset-on-entry checks, build no-unknown
+    # ABANDON: 155 abandoned decodes followed by fresh fsm, push and pull decodes; 7 (input, mode) pairs with a single event (nothing to abandon)
+    # ERR: 342 failed decodes (input less its last byte, three families)
+    # ENC: 113 encodes read after the call
+    # 724 checks, 0 failures
+    ROE CHECKS PASSED
+  R3. planted defects in the generated core, in a shadow tree (each must FAIL roe_check)
+    unplanted shadow build: passes (# 1826 checks, 0 failures)
+    planted the decode entries' re-arm removed (push, pull, FSM): caught (# 1826 checks, 88 failures; first: FAIL U-deep-all REARM family push position 2: p zeroed in place differs (rc -7))
+    planted the encode entries' reset removed: caught (# 1826 checks, 226 failures; first: FAIL P1.1 drop encode output: after the call true, after other operations true, next encode false false)
+    this tree's generated core untouched (the plants were in the shadow copy only)
+  D27 CHECKS PASSED
+exit 0

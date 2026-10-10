@@ -19,7 +19,8 @@
 # 11b  the campaign harness's pre-check; 11c crossing counts vs gen/crossings.txt; 11d-11f the
 #      RPC checks; 11g the FSM decode family's checks (D23; the target's decode since D24):
 #      differential full / no-unknown / counting, corpus differential, planted defects in a
-#      shadow tree, the C header and a C host (gen/fsm_checks.sh)
+#      shadow tree, the C header and a C host (gen/fsm_checks.sh); 11h reset on entry (D27):
+#      bin roe_check both builds and two plants in the core (gen/d27_checks.sh)
 #  12  the no-unknown build; 12b the core grid's TCP transport and the h2-batch core
 #
 # Own target dirs, all under poc/rust. `--tsan` also runs gen/tsan.sh (nightly).
@@ -120,6 +121,9 @@ rm -f "$T"
 
 step "11g. the FSM decode family (FIX-PLAN D23; core-ffi's decode and cells C/D's response decode since D24): differential, corpus differential, plants, C header"
 gen/fsm_checks.sh
+
+step "11h. reset on entry (FIX-PLAN D27): roe_check both builds, and its plants in a shadow tree"
+gen/d27_checks.sh
 
 step "12. the NO-UNKNOWN variant (WP5 step 10; CAMPAIGN.md req 10): unknown-field support compiled out"
 # Its own build and target directory (a shared target would overwrite libak_core.so).

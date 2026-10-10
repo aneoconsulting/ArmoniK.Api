@@ -7,15 +7,64 @@ here. This file states what exists and what was checked; the choice is the owner
 
 | | |
 |---|---|
-| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; owner's amendment the same day: the op is the return value (re-checked, `checks/rust-checks-op-return.log`); section "D23". **D24** (2026-10-09, owner): the FSM is the target's decode family in this slice (core-ffi codec arm, cells C and D, the corpus's ffi arms); push is the labelled extra `core-ffi-push`; checks only; section "D24". **reset-on-entry** (2026-10-10, owner): a measurement experiment, core feature default OFF (default build byte-identical), checked and timed in the container; section "reset-on-entry" |
-| **Next step** | none assigned in this slice. Latest unit (2026-10-10, owner): **reset-on-entry**, the core resetting each context in the first call of an operation, as a measurement experiment (core feature `reset-on-entry`, default OFF; the Rust bindings rendered for it; the same option in `cs_host.py` for the C# agent, its default output unchanged); checked (ROE CHECKS PASSED) and timed (absolute times) in the container: section "reset-on-entry", `logs/rust/opt/reset-on-entry/`. Before it (2026-10-09): D24 (the FSM is the target's decode in this slice) and D23. Earlier units: 2026-10-04 static decode vtables, D20, D19; 2026-10-02 the backward-encode experiment (patch only), WP12 item 1 and the TCP worker sweep. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`); h2-batch has not been gated there |
+| **Status** | Built on the merged branch (claude/rust-slice-optimization-sy1f4n): four codec arms plus the pull family, the RPC grid (cells A-F), the corpus through the C ABI and core-native, decision 11, the no-unknown build, the WP7 campaign harness, and every kept optimisation. Optimisation unit 2 (the owner) added: encode variants labelled by transport form; T1 (Enc::take, a moved Bytes; additive `ak_enc_take_owned`); the FRAMED send path as labelled extra cells (Bf-Ff, additive `ak_client_set_framed`); N2, N3; the labelled extra RPC directions c (unary upload of P5.3/P5.4) and d (req 14's streamed upload, ABI section 9's client streaming in the core: `ak_call_open/send/send_enc/recv/close`, close removed in unit 3). Not kept: N5 (apply-first decode order, reverted), core-only fat LTO (tooling left, off). N6 not reproduced. Gates: stable checkpoints before N5 passed twice (`opt/pre-n5-gate`, `opt/pre-n5-gate2`); the FINAL gate at d54ea963 from a clean tree PASSED on stable and on the 1.88.0 floor (`opt/final2-gate`); final run `opt/final2`. **Unit 3** (the owner): ABI v1 section 9 as specified (fe79f874, 22ebb97f) in the shared core and generator: call kinds, `ak_call_opts` (deadline, metadata), `ak_call_close` removed and `ak_call_cancel` on streams, the gRPC status number on the stream and on every unary delivery (`ak_completion.grpc_status`, trailing `grpc_status` on the blocking entries), D44's limits enforced; `bin/rpc_semantics` in the gate (11f). **D23** (2026-10-09, owner): the FSM decode family in the shared core and generator, separate from push and pull, checked (D23 CHECKS PASSED) and timed in the container; owner's amendment the same day: the op is the return value (re-checked, `checks/rust-checks-op-return.log`); section "D23". **D24** (2026-10-09, owner): the FSM is the target's decode family in this slice (core-ffi codec arm, cells C and D, the corpus's ffi arms); push is the labelled extra `core-ffi-push`; checks only; section "D24". **reset-on-entry** (2026-10-10, owner): a measurement experiment, core feature default OFF, checked and timed in the container; section "reset-on-entry". **D27** (2026-10-10, owner): reset on entry ADOPTED, the core's only behaviour; the Rust and C++ bindings make no per-operation reset; fast checks only (owner's "checks, not gates"); section "D27" |
+| **Next step** | D26 for Rust and C++ (the owner's order; not started). Latest unit (2026-10-10, owner): **D27**, reset on entry made the core's only behaviour (section "D27", `logs/rust/opt/d27-reset-on-entry/`, `logs/cpp/d27/`); fast checks only, the full gates NOT run (listed in the section). Before it the same day: the reset-on-entry experiment (section "reset-on-entry"). 2026-10-09: D24, D23. Earlier units: 2026-10-04 static decode vtables, D20, D19; 2026-10-02 the backward-encode experiment, WP12 item 1 and the TCP worker sweep. Last gate on the campaign machine: the landed p1 with stock h2 (`opt/p1-landed/gate.log`) |
 | **Blocked on** | nothing |
 | **Floor** (must build and pass correctness) | MSRV 1.88.0: the full gate (steps 0-12b, 11g included), both builds, passes on rustc 1.88.0 at c7b3392f with no uncommitted change in poc/rust or poc/codec and every target directory of this slice rebuilt from empty (`logs/rust/opt/d24-fsm-target/gate-floor-1.88.log`, D24). Earlier: a clean worktree at c8e8694eb (`logs/rust/campaign-wp7/gate-floor-1.88.log`) |
 | **Target** | stable 1.94.1 in the container; rustc 1.95.0 (the NixOS machine's ambient toolchain) on the campaign machine; README section 5: for Rust the floor is the target language level, one configuration |
 | **Incumbent** | prost 0.14.4, tonic 0.14.6, tonic-prost 0.14.6 (from Cargo.lock, printed in every campaign header). R14: tonic-prost's codec calls `Message::encode`/`decode`, so the production path and the library entry point are the same call |
 | **Questions this slice has open for the aggregating session** | (1) the proposed corpus rows of `gen/probe_corpus.py` (field numbers above 2^29-1, the 10th varint byte, two map-order rows) are not in `corpus/`; (2) no corpus row or payload has a repeated singular message with differing content, so merge-on-repeat (R-E4) is rendered and never observed; (3) a map entry has no unknown-field bag in the Rust facade (D42); (4) D23: pull's records of a group carry the group local's padding bytes as the stack held them (no-unknown TaskDetailed, bytes 348-351): a host reading members is unaffected, a byte-level comparison is not (the FSM differential zeroes padding on both sides) |
 
-## reset-on-entry (2026-10-10, owner; measurement experiment; container)
+## D27: reset on entry, the core's behaviour (2026-10-10, owner; FIX-PLAN D27, ABI-v1 rule 7 superseded, R-H20 amended)
+
+Logs `logs/rust/opt/d27-reset-on-entry/` (and the C++ slice's `logs/cpp/d27/`). No timing.
+- **Core** (`poc/codec`): the `reset-on-entry` feature and the measurement exports
+  (`ak_measure_reset_on_entry`, `ak_measure_{enc,dec}_set_roe`) are removed; the behaviour is
+  unconditional: every top-level encode entry calls `enc_reset_on_entry` (lib.rs; what
+  `ak_enc_reset` does), every decode entry (`ak_decode_*`, `ak_parse_*`, `ak_fsm_begin_*`) calls
+  `rearm_on_entry` (lib.rs; `unk_arm` from the stored options pointer, NULL nothing; not in the
+  no-unknown build). Rendered on lines of their own now (rust_abi.py, rust_fsm.py). `ak_enc_reset`
+  and `ak_dec_reset_<Root>` stay (set the options pointer, optional early release).
+- **Rust binding** (rust_binding.py): the former variant rendering is the only one: no `ak_enc_reset`
+  before an encode, `ak_dec_reset_<Root>` only to set the pointer (armed once with the options at
+  their stable address in `DecCtxs`, disarmed to NULL for drop), the D27 check helpers
+  (`roe_rearm_check_<root>`, `roe_fail_decode_<root>`) in every binding. `binding_roe*.rs`, the
+  harness/campaign/corpus feature, `binding_explicit`, bin roe_bench, gen/roe_bench.sh and
+  gen/roe_checks.sh are removed (the experiment's record is commit 0f0164c0 and
+  `logs/rust/opt/reset-on-entry/`; gen/roe_tables.py kept, marked historical).
+- **C++ binding** (cpp_binding.py): no `ak_enc_reset` in any `encode_into_*`; `decode_with_*_unk`
+  and `pull_with_*_unk` arm a context ONCE (`unk_arm_once_*`, the per-thread options at their
+  stable address). Found by the corpus: a context freed with a raw `ak_dec_ctx_free` stayed in the
+  binding's armed list, so a new context at the same address was taken for an armed one and
+  dropped every unknown field (ffi-pull-retain, 22 Chunk* rows). Fixed in the binding: contexts made
+  through `DecRoot<T>::ctx_new` / `DecCtxs` (`bound_ctx_new_*`) and resets through `DecRoot<T>::reset`
+  (`bound_reset_*`) forget the context first. A context created with a raw `ak_dec_ctx_new_<Root>`
+  at a reused address is still exposed (the list goes with D26). C++ STATE has the details.
+- **Rust gate steps run** (`gate-stopped-at-11g.log`: the gate was started and then stopped by the
+  owner's "checks, not gates" message): 0-11f all passed (conformance, shapes, counts, content
+  sets, concurrency, lifecycle, R-D1, R-D6, the corpus six arms and its controls with decision
+  11's "decided at entry" case PASS, pre-check 720 checks, crossing counts identical to the new
+  gen/crossings.txt, the framed path, uploads, section 9's semantics), 11g's F1 and F2 (the FSM
+  differential full and no-unknown) passed before the stop. Then (`d27-checks.log`,
+  `fast-checks.log`): gen/d27_checks.sh (gate step 11h, new: roe_check full and no-unknown, and
+  two plants in a shadow tree, the re-arm removed and the encode reset removed, both caught); the
+  corpus FSM differential both builds; the no-unknown pre-check (409 checks), conformance, shapes
+  and crossing counts; every slice's generator --check (`generators-check.txt`: rust, cpp, java,
+  python current; csharp STALE on the C# agent's own uncommitted work in progress, not this
+  unit's: its CoreFfi.cs files and cs_host.py are being edited by it).
+- **Not run** (owner, 2026-10-10: checks, not gates): gate steps 11g F3-F6 (counting
+  differential, corpus differential in the gate, FSM plants, C header), 12 (the no-unknown build's
+  upload and RPC checks, the C header variants), 12b (TCP and h2-batch); the h2-batch variant; the
+  1.88 floor; TSan.
+- **Crossing counts** regenerated (`gen/crossings.txt`, `gen/crossings-nounk.txt`): the rows are
+  exactly the experiment's variant counts (`logs/rust/opt/reset-on-entry/crossings/change.txt`:
+  every row's forward = the previous forward - its resets, reverse unchanged, resets 0); only the
+  header lines changed against them.
+- **Java and Python**: not touched, not run here. Their bindings reset before every operation,
+  which the core now also does on entry: redundant, the same state. Java's gate needs JDK 17 and
+  8 (this container has 21 only); Python's gate was not run under the owner's rule.
+
+## reset-on-entry (2026-10-10, owner; measurement experiment; container; ADOPTED as D27, files removed, see above)
 
 Nothing changes by default; the ABI text is unchanged. Logs `logs/rust/opt/reset-on-entry/`.
 - **Core** (`poc/codec`): feature `reset-on-entry`, default OFF. Every top-level encode entry
@@ -886,8 +935,8 @@ gen/corpus.sh          the corpus on the full build (6 arms) and on the no-unkno
                        (3 arms), each with its planted controls
 gen/fsm_checks.sh      the FSM family's checks (gate step 11g): differential, corpus
                        differential, six plants in a shadow tree, C header and C host
-gen/roe_checks.sh      reset-on-entry's checks (not in the gate); gen/roe_bench.sh, roe_tables.py
-                       its measurement; gen/crossings-roe*.txt its crossing counts
+gen/d27_checks.sh      reset on entry's checks (gate step 11h): bin roe_check, both builds, two plants
+gen/roe_tables.py      historical: the reset-on-entry experiment's tables
 gen/c_variant.sh       both C headers against both cores (section 10's check from a C++ host)
 gen/tsan.sh            the concurrency suite under ThreadSanitizer (nightly) with a planted race
 gen/crossings.txt      committed crossing counts, full build (drop, retain)
@@ -1306,6 +1355,7 @@ Not included: the gate and the builds, once per tree, ~0.5-1 h. The h2-batch cor
 
 | Log | What it establishes |
 |---|---|
+| `logs/rust/opt/d27-reset-on-entry/` | D27: `gate-stopped-at-11g.log` (steps 0-11f and 11g F1-F2 passed, then stopped), `d27-checks.log` (gen/d27_checks.sh: D27 CHECKS PASSED, plants caught), `fast-checks.log` (corpus FSM differential, the no-unknown checks), `generators-check.txt` |
 | `logs/rust/opt/reset-on-entry/` | reset-on-entry: `checks/roe-checks.log` (gen/roe_checks.sh: ROE CHECKS PASSED) and `checks/roe_check-*.txt` (the four builds' lines), `so-base.txt` (the base .so hashes), `crossings/` (change.txt, roe_diff.py), `csharp-render/` (the C# variant's diff), `bench/` (header, three launches, tables.md) |
 | `logs/rust/opt/d24-fsm-target/` | D24: `gate-stable.log` (the full gate, GATE PASSED, step 11g included), `gate-floor-1.88.log` (the floor), `crossings/` (change.txt, crdiff.py, crinv.py, the reference files before) |
 | `logs/rust/opt/d23-fsm-c-isolate/` | fix C isolated: builds.txt, bench/ and tables.md (six variants), perf/ (C0 vs C0f), the probe patch, checks-final.log on the final FSM (A+B) |

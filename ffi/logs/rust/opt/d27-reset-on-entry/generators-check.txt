@@ -1,0 +1,46 @@
+guard 28 backend modules import plans only; a planted IR import is caught
+      c_abi.py cpp_binding.py cpp_facade.py cpp_layout.py cpp_names.py cpp_native.py cs_binding.py cs_host.py cs_layout_probe.py cs_managed.py cs_names.py cs_types.py java_backend.py java_binding.py java_facade.py java_jni.py java_layout.py java_names.py java_pull.py java_rcodec.py py_capi.py py_pure.py rust_abi.py rust_binding.py rust_facade.py rust_fsm.py rust_native.py rustnames.py
+guard 119 slice gen/ modules: no front-end import, no wire emitter outside a listed renderer, no renamed copy; 3 planted violations caught
+ok    crates/ak-abi/src/generated/abi.rs
+ok    crates/ak-core/src/generated/codec.rs
+ok    crates/ak-core/src/generated/layout.rs
+ok    crates/ak-core/src/generated/rpc_check.rs
+ok    crates/ak-core/src/generated/abi_check.rs
+ok    crates/ak-core/src/generated/fsm.rs
+ok    crates/ak-abi/src/generated_corpus/abi.rs
+ok    crates/ak-core/src/generated_corpus/codec.rs
+ok    crates/ak-core/src/generated_corpus/layout.rs
+ok    crates/ak-core/src/generated_corpus/fsm.rs
+ok    crates/ak-abi/src/generated_nounk/abi.rs
+ok    crates/ak-core/src/generated_nounk/codec.rs
+ok    crates/ak-core/src/generated_nounk/layout.rs
+ok    crates/ak-core/src/generated_nounk/fsm.rs
+ok    crates/ak-abi/src/generated_corpus_nounk/abi.rs
+ok    crates/ak-core/src/generated_corpus_nounk/codec.rs
+ok    crates/ak-core/src/generated_corpus_nounk/layout.rs
+ok    crates/ak-core/src/generated_corpus_nounk/fsm.rs
+ok    crates/ak-abi/src/lib.rs
+slice rust    --check: exit 0
+slice cpp     --check: exit 0
+slice java    --check: exit 0
+   checked 530 generated files, 0 problem(s)
+slice csharp  --check: exit 1
+   STALE src/Corpus/Generated/CoreFfi.cs
+   STALE src/Corpus/GeneratedLazy/CoreFfi.cs
+   STALE src/Corpus/GeneratedLazyNounk/CoreFfi.cs
+   STALE src/Corpus/GeneratedNounk/CoreFfi.cs
+   STALE src/Corpus/GeneratedRoe/CoreFfi.cs
+   STALE src/Corpus/GeneratedRoeNounk/CoreFfi.cs
+   STALE src/Harness/Generated/CoreFfi.cs
+   STALE src/Harness/GeneratedLazy/CoreFfi.cs
+   STALE src/Harness/GeneratedLazyNounk/CoreFfi.cs
+   STALE src/Harness/GeneratedNounk/CoreFfi.cs
+   STALE src/Harness/GeneratedRoe/CoreFfi.cs
+   STALE src/Harness/GeneratedRoeBench/CoreFfiRoe.cs
+   STALE src/Harness/GeneratedRoeNounk/CoreFfi.cs
+   | STALE src/Harness/GeneratedRoe/CoreFfi.cs
+   | STALE src/Harness/GeneratedRoeBench/CoreFfiRoe.cs
+   | ok    src/Harness/GeneratedRoeBench/RoeTiming.cs
+   | STALE src/Harness/GeneratedRoeNounk/CoreFfi.cs
+   | ok    src/Rpc/Generated/RpcAbi.cs
+slice python  --check: exit 0
