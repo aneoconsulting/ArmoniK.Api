@@ -60,6 +60,14 @@ tc-scalar-naive = []
 tc-scalar-word = []
 tc-measure-generic = []
 tc-measure-u16stub = []
+# reset-on-entry (owner, 2026-10-10), MEASUREMENT EXPERIMENT, default OFF (the ABI text is
+# unchanged): each top-level encode entry resets its context on entry as `ak_enc_reset` does,
+# and each decode entry (push, pull, `ak_fsm_begin`) re-arms from the options pointer the
+# context holds (NULL = drop: nothing). `ak_enc_reset` / `ak_dec_reset_<Root>` stay. Exports
+# `ak_measure_reset_on_entry` (marker) and `ak_measure_{enc,dec}_set_roe` (per-context switch,
+# so the explicit-reset path and this one time in one process). The default build is
+# byte-identical (lib.rs, end of file).
+reset-on-entry = []
 # ABI v1 section 9, behind a feature so a codec arm does not link tonic and tokio into the
 # shared object it is timing. The rust slice turns it on; the cpp slice turns it on for its
 # RPC arm only; the java and csharp slices do not have one.

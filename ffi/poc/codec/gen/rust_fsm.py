@@ -611,7 +611,10 @@ def _emit_root(p, root):
     o.append("    ak_rt::bump!((*dcx).c, forward);")
     o.append("    // A new operation clears the sticky slot (the rule of the other families).")
     o.append("    (*dcx).hdr.err = AK_OK;")
-    o.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % rid)
+    # reset-on-entry (owner, 2026-10-10; core feature default OFF): re-arm from the stored
+    # options pointer; expands to nothing without the feature; on an existing line so the
+    # default build stays byte-identical.
+    o.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_%s);" % (rid, root.upper()))
     o.append("    let f = fsm_of(dcx);")
     o.append("    // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.")
     o.append("    if len > u32::MAX as usize {")

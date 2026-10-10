@@ -50,6 +50,7 @@ from cs_types import BAG
 # unknown="drop"): no u-groups, no ak_uencode/ak_uelem*, no options, no resets, no bag
 # capture, `ak_dec_ctx_new_<Root>()`. Set by emit_host from plan.unknown_compiled_out.
 _NO = False
+_ROE = False
 
 # The packed-run entry points, one per host array layout, read from plan.FIXED.run_types
 # (R-H15): no backend-local table.
@@ -1668,7 +1669,10 @@ def _emit_root(o, p, root, facade_ns):
     o += "        IntPtr _ctx = __h.Ctx;"
     o += "        Stage _st = __h.St;"
     o += "        Run_%s* _run = __h.Run;" % root
-    o += "        Abi.ak_enc_reset(_ctx);"
+    # reset-on-entry (owner, 2026-10-10; measurement experiment, option default off): the
+    # core built with `reset-on-entry` resets the context in its encode entry.
+    o += ("        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset)." if _ROE
+          else "        Abi.ak_enc_reset(_ctx);")
     o += "        _st.Reset();"
     o += "        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only"
     o += "        _run->Chunk = Chunk;"
@@ -1840,6 +1844,8 @@ def _emit_dec_ctx(o, p, root):
         o += "        public UnkArena* Arena;"
         o += "        public %s* Uo;" % on
         o += "        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for"
+        if _ROE:
+            o += "        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)"
     o += "        public %s Root;" % root
     o += "        private GCHandle _self;"
     o += "        public DecCtx()"
@@ -2168,12 +2174,34 @@ def _emit_unk(o, p, root):
     o += "    private int ArmFor(int mode)"
     o += "    {"
     o += "        Undelivered = 0;"
-    o += "        _resets++;"
-    o += "        var h = _dh;"
-    o += "        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_%s(h.Ctx, null); }" % root
-    o += "        h.Arena->Begin();"
-    o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
-    o += "        return Abi.ak_dec_reset_%s(h.Ctx, Arm(mode));" % root
+    if _ROE:
+        # reset-on-entry: the core re-reads the options at Uo (a stable native address) on
+        # every decode entry, so the struct is rewritten in place (Arm) and a reset is made
+        # only to change the core's pointer (NULL <-> Uo).
+        o += "        var h = _dh;"
+        o += "        if (mode == -2)"
+        o += "        {"
+        o += "            h.Run->Arena = null;"
+        o += "            if (!h.CoreArmed) return 0;"
+        o += "            h.CoreArmed = false;"
+        o += "            _resets++;"
+        o += "            return Abi.ak_dec_reset_%s(h.Ctx, null);" % root
+        o += "        }"
+        o += "        h.Arena->Begin();"
+        o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
+        o += "        var uo = Arm(mode);"
+        o += "        if (h.CoreArmed) return 0;"
+        o += "        _resets++;"
+        o += "        int rr = Abi.ak_dec_reset_%s(h.Ctx, uo);" % root
+        o += "        if (rr == 0) h.CoreArmed = true;"
+        o += "        return rr;"
+    else:
+        o += "        _resets++;"
+        o += "        var h = _dh;"
+        o += "        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_%s(h.Ctx, null); }" % root
+        o += "        h.Arena->Begin();"
+        o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
+        o += "        return Abi.ak_dec_reset_%s(h.Ctx, Arm(mode));" % root
     o += "    }"
     o += ""
     o += "    /// After every decode: a buffer still outstanding (the arena's count) after a success is"
@@ -2437,8 +2465,15 @@ def _emit_fsm(o, p, root, slots):
     o += ""
 
 
-def emit_host(x, ns, facade_ns):
-    global _NO
+def emit_host(x, ns, facade_ns, reset_on_entry=False):
+    """`reset_on_entry` (default False: the committed C# output, unchanged): render for a core
+    built with the `reset-on-entry` feature (owner, 2026-10-10; measurement experiment): no
+    `ak_enc_reset` before an encode, and `ak_dec_reset_<Root>` only when the core context's
+    options pointer changes (NULL <-> the stable Uo; the struct is rewritten in place and the
+    core re-reads it on every decode entry). The core exports `ak_measure_reset_on_entry`
+    (marker) and `ak_measure_{enc,dec}_set_roe` (per-context switch, measurement only)."""
+    global _NO, _ROE
+    _ROE = reset_on_entry
     p = as_plan(x)
     _NO = unknown_compiled_out(p)
     o = N.Head("The core-ffi host binding for every root of this message set.", p.source, "cs_host")

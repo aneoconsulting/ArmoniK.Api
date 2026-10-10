@@ -747,7 +747,11 @@ def emit_codec(ir):
             body.append("    direct: *const u8,")
             body.append("    direct_len: usize,")
         body.append(") -> isize {")
-        body.append("    let cx = ctx as *mut EncCtxImpl;")
+        # reset-on-entry (owner, 2026-10-10; measurement experiment, core feature default
+        # OFF): the macro (lib.rs) resets the context on entry as ak_enc_reset does, and
+        # expands to nothing without the feature. It sits on an EXISTING line so that no
+        # line number of the generated file moves: the default build stays byte-identical.
+        body.append("    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);")
         body.append("    ak_rt::bump!((*cx).e.c, forward);")
         body.append("    (*cx).open_obj = obj;")
         if direct_fields(ir, root):
@@ -776,7 +780,11 @@ def emit_codec(ir):
             body.append("    direct: *const u8,")
             body.append("    direct_len: usize,")
         body.append(") -> isize {")
-        body.append("    let cx = ctx as *mut EncCtxImpl;")
+        # reset-on-entry (owner, 2026-10-10; measurement experiment, core feature default
+        # OFF): the macro (lib.rs) resets the context on entry as ak_enc_reset does, and
+        # expands to nothing without the feature. It sits on an EXISTING line so that no
+        # line number of the generated file moves: the default build stays byte-identical.
+        body.append("    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);")
         body.append("    ak_rt::bump!((*cx).e.c, forward);")
         body.append("    (*cx).open_obj = obj;")
         if direct_fields(ir, root):
@@ -1383,7 +1391,9 @@ def _emit_decode(ir, sites):
         out.append("    // and takes the obligation off the binding author.")
         out.append("    (*dcx).hdr.err = AK_OK;")
         out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused.")
-        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % unk_root_id(ir, root))
+        # reset-on-entry: re-arm from the context's stored options pointer (no-op without
+        # the feature, on an existing line; see the encode entries).
+        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_%s);" % (unk_root_id(ir, root), root.upper()))
         out.append("    // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than")
         out.append("    // u32::MAX would alias offsets and lengths. Reject at entry rather than")
         out.append("    // truncate. `usize` is 64-bit on every host this ships to.")
@@ -1462,7 +1472,8 @@ def _emit_decode(ir, sites):
         rid = unk_root_id(ir, root)
         out.append("/// Decision 11 rule 1: where each position's entry sits in `%s`, and whether it" % on)
         out.append("/// is a pool; the core reads the host's struct IN PLACE through these offsets.")
-        out.append("const UNK_LAYOUT_%s: [(usize, bool); %d] = [" % (root.upper(), len(lay)))
+        # pub(crate): the FSM's begin re-arms from it under reset-on-entry (same line).
+        out.append("pub(crate) const UNK_LAYOUT_%s: [(usize, bool); %d] = [" % (root.upper(), len(lay)))
         for mn, _m, ty in lay:
             out.append("    (::core::mem::offset_of!(%s, %s), %s)," % (on, rust_member(mn), "true" if ty == "ak_unk_pool" else "false"))
         out.append("];")
@@ -1612,7 +1623,7 @@ def _emit_decode(ir, sites):
         out.append("    // Decision 11 rule 6: the context is bound to its root; another root is refused,")
         out.append("    // BEFORE the records are reset, so a refused parse leaves an earlier parse's")
         out.append("    // records readable (FIX-PLAN R-H10).")
-        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }" % unk_root_id(ir, root))
+        out.append("    if (*dcx).root != %d { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_%s);" % (unk_root_id(ir, root), root.upper()))
         out.append("    (*dcx).bdr.reset();")
         out.append("    // R-D9: reject a buffer longer than u32::MAX before it can alias a span.")
         out.append("    if len > u32::MAX as usize {")
