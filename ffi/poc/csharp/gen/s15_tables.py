@@ -88,7 +88,7 @@ if os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl')):
     open(os.path.join(gd, 'reference.md'), 'w').write('\n'.join(rf) + '\n')
     print('\n'.join(t))
 # ---------------------------------------------------------------- codec
-for gd in (os.path.join(D, 'codec'), os.path.join(D, 'codec-p22')):
+for gd in (os.path.join(D, 'codec'), os.path.join(D, 'codec-p22'), os.path.join(D, 'codec-small')):
   if not (os.path.isdir(gd) and glob.glob(os.path.join(gd, '*.jsonl'))): continue
   if True:
     by = load(gd)
