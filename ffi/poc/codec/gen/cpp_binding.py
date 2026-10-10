@@ -303,17 +303,17 @@ def _decode_field(ir, m, f, o, bits, dst):
         # Decision 11: the child's own unknown slot is delivered with it (fill_/from_ take
         # it into the child's bag); an absent child's slot, never placed, is freed if set.
         if has_slots(ir, f.of):
-            o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.get_or_insert(), f.%s, base, ctx);"
+            o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.get_or_insert(), f.%s, base, ctx, hd);"
                      % (bits[n], snake(f.of), dst + n, n))
             o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
-                     "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
+                     "  else { %s.reset(); unk_drop(hd, f.%s.unknown); }" % (dst + n, n))
         else:
             # B-4 (2026-09-28): built in place (emplace: a fresh default child, then filled),
             # never built by value and moved in.
-            o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.emplace(), f.%s, base, ctx);"
+            o.append("  if (f.presence & (1u << %d)) fill_%s(&%s.emplace(), f.%s, base, ctx, hd);"
                      % (bits[n], snake(f.of), dst + n, n))
             o.append("  else %s.reset();" % (dst + n) if NOUNK[0] else
-                     "  else { %s.reset(); unk_drop(f.%s.unknown); }" % (dst + n, n))
+                     "  else { %s.reset(); unk_drop(hd, f.%s.unknown); }" % (dst + n, n))
     elif f.kind == "enum":
         o.append("  %s = %s::%s(f.%s);" % (dst + n, _ns(), f.of, n))
     elif f.explicit:
@@ -335,7 +335,7 @@ def _decode_oneof(ir, m, oname, members, o, dst):
     # left behind by a switch to a scalar or blob member) is the host's and is freed.
     for gm in members:
         if gm.kind == "message" and not NOUNK[0]:
-            o.append("  if (f.%s_case != %du) unk_drop(f.%s_%s.unknown);"
+            o.append("  if (f.%s_case != %du) unk_drop(hd, f.%s_%s.unknown);"
                      % (oname, gm.tag, oname, gm.name))
     o.append("  switch (f.%s_case) {" % oname)
     for gm in members:
@@ -351,7 +351,7 @@ def _decode_oneof(ir, m, oname, members, o, dst):
             if has_slots(ir, gm.of):
                 raise NotImplementedError("a oneof member with loop slots (%s.%s)"
                                           % (m.name, gm.name))
-            o.append("      fill_%s(&%s.set_%s(), f.%s, base, ctx); break; }"
+            o.append("      fill_%s(&%s.set_%s(), f.%s, base, ctx, hd); break; }"
                      % (snake(gm.of), dst + oname, gm.name, slot))
         elif gm.kind == "bool":
             o.append("      %s.set_%s() = (f.%s != 0); break; }" % (dst + oname, gm.name, slot))
@@ -601,6 +601,7 @@ PRE = '''// Arm `core-ffi`: the generated C++ host binding over the C ABI.
 
 #include <cstdlib>
 #include <cstring>
+#include <new>
 #include <type_traits>
 #include <unordered_set>
 
@@ -766,6 +767,39 @@ static inline void b_of(const uint8_t *base, const struct ak_span &s, ak::String
 '''
 
 
+def _dec_host_struct(nu):
+    """FIX-PLAN D26 (owner, 2026-10-10, as amended): the host decode context."""
+    o = ["// FIX-PLAN D26: the HOST decode context. One per binding decode context: created with the",
+         "// core context it owns (DecRoot<T>::ctx_new, dec_ctx_new_for, DecCtxs), its per-call",
+         "// state reset at the start of each call, reused, freed with it (dec_ctx_free). The decode",
+         "// callbacks reach it through the sink the core hands them as `obj`, unk_grow through the",
+         "// options' `host` word. Nothing of it is thread-local; a context is used by one thread",
+         "// at a time.",
+         "struct DecHost {",
+         "  ak_dec_ctx *ctx;                // the core decode context (owned)",
+         "  std::vector<int64_t> toks;      // pull: the replay's element tokens (cleared per call)",
+         "  std::vector<uint64_t> scratch;  // pull_drain: the 8-aligned chunk (kept)"]
+    if not nu:
+        o += ["  std::vector<void *> live;       // decision 11: buffers placed, not yet delivered",
+              "  size_t entry_bytes;             // decision 11: map-entry unknown bytes (U-map-entry)",
+              "  int root;                       // the root it is bound to (DecRoot<T>::kIndex), -1 adopted",
+              "  void *unk_opts;                 // that root's decode_with_*_unk options (malloc'd, stable address)",
+              "  void (*unk_opts_free)(void *);  // frees what their entries still hold",
+              "  bool armed;                     // ctx armed with *unk_opts (D27: once, left armed)",
+              "  DecHost() : ctx(NULL), entry_bytes(0), root(-1), unk_opts(NULL), unk_opts_free(NULL), armed(false) {}"]
+    else:
+        o += ["  DecHost() : ctx(NULL) {}"]
+    o += [" private:",
+          "  DecHost(const DecHost &);",
+          "  DecHost &operator=(const DecHost &);",
+          "};",
+          "// A host context over a core context `c` (owned from here), with no retain options;",
+          "// NULL when c is NULL. Freed, with the core context, by dec_ctx_free.",
+          "DecHost *dec_host_adopt(ak_dec_ctx *c);",
+          ""]
+    return o
+
+
 def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.h",
                 retain=False):
     ir = as_plan(ir)
@@ -806,6 +840,7 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
          "// X-2, counting build: the pull records the replay dispatched since the last call.",
          "uint64_t pull_records_take();",
          ""]
+    o += _dec_host_struct(nu)
     for root in ir.roots:
         o.append("struct EncObj_%s {" % root)
         o.append("  const %s *o;" % root)
@@ -816,18 +851,18 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         for suffix in ("", "_zeroed", "_nobatch"):
             o.append("intptr_t encode_into_%s%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t);"
                      % (snake(root), suffix, root))
-        o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+        o.append("int32_t decode_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out);"
                  % (snake(root), root))
         o.append("// X-2 (2026-09-28), ABI v1 section 7.1's PULL family: ak_parse_<Root> (no reverse")
         o.append("// call), then the records replayed through the push vtable's own host functions;")
         o.append("// `pull_with_*` walks them in place (ak_bdr_ptr), `pull_drain_with_*` drains them in")
         o.append("// chunks into host memory (ak_bdr_footprint + ak_bdr_drain), as a JVM host must.")
-        o.append("int32_t pull_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+        o.append("int32_t pull_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out);"
                  % (snake(root), root))
-        o.append("int32_t pull_drain_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+        o.append("int32_t pull_drain_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out);"
                  % (snake(root), root))
         if not nu:
-            o.append("int32_t pull_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+            o.append("int32_t pull_with_%s_unk(DecHost *hd, const uint8_t *b, size_t n, %s *out);"
                      % (snake(root), root))
         if retain:
             o.append("// Decision 11 / plan Options.unknown = retain: the encode over the u-groups.")
@@ -841,12 +876,12 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         rs, on = snake(root), unk_opts_name(root)
         o.append("// Decision 11: armed decodes (reset(&opts), decode, reset(NULL)). `opts` is read")
         o.append("// in place and must stay alive and unmoved for the call.")
-        o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+        o.append("int32_t decode_with_%s_opts(DecHost *hd, const uint8_t *b, size_t n, %s *out,"
                  " struct %s *opts, void (*refill)(void *) = NULL, void *hold = NULL);"
                  % (rs, root, on))
-        o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out);"
+        o.append("int32_t decode_with_%s_unk(DecHost *hd, const uint8_t *b, size_t n, %s *out);"
                  % (rs, root))
-        o.append("int32_t decode_with_%s_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+        o.append("int32_t decode_with_%s_pool(DecHost *hd, const uint8_t *b, size_t n, %s *out,"
                  " uint32_t k, uint32_t cap, uint64_t *refills = NULL);" % (rs, root))
         o.append("void unk_opts_%s(struct %s *o, int zero);" % (rs, on))
         o.append("void unk_clear_%s(%s &o, int pos);" % (rs, root))
@@ -855,24 +890,22 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o += _nounk_header_tail(ir)
         return "\n".join(o)
     o.append("// Decision 11, the host side of the unknown-field buffers (see binding.cpp).")
+    o.append("// `host` is the options' host word: a DecHost (its live set tracks the buffer), or NULL.")
     o.append("int32_t unk_grow(void *host, int32_t want, uint8_t **dst, int32_t *cap);")
-    o.append("void unk_track(void *p);")
-    o.append("size_t unk_reclaim();")
-    o.append("size_t unk_entry_bytes();")
+    o.append("void unk_track(DecHost *hd, void *p);")
+    o.append("size_t unk_reclaim(DecHost *hd);")
+    o.append("size_t unk_entry_bytes(DecHost *hd);")
     o.append("")
     o.append("// Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the")
     o.append("// root's context constructor, reset, options and decodes, for code generic over T.")
     o.append("template <class T> struct DecRoot;")
-    o.append("// FIX-PLAN D27: a bound context created through the binding. The binding arms a context")
-    o.append("// ONCE (the core re-arms on every decode entry) and remembers the contexts it armed; a")
-    o.append("// context released with a raw ak_dec_ctx_free stays in that list, so a new context at the")
-    o.append("// same address is forgotten here, before it can be taken for an armed one.")
+    o.append("// FIX-PLAN D26: a bound context is created through the binding, as a host context that")
+    o.append("// owns it (DecHost). Options whose host word is NULL get the host context there.")
     for root in ir.roots:
-        o.append("ak_dec_ctx *bound_ctx_new_%s(struct %s *o);" % (snake(root), unk_opts_name(root)))
-    o.append("// The same for a reset through DecRoot<T>::reset: the context then points at the caller's")
-    o.append("// options, so the binding forgets it as armed with its own.")
+        o.append("DecHost *bound_ctx_new_%s(struct %s *o);" % (snake(root), unk_opts_name(root)))
+    o.append("// A reset through DecRoot<T>::reset: the context then points at the caller's options.")
     for root in ir.roots:
-        o.append("int32_t bound_reset_%s(ak_dec_ctx *c, struct %s *o);" % (snake(root), unk_opts_name(root)))
+        o.append("int32_t bound_reset_%s(DecHost *c, struct %s *o);" % (snake(root), unk_opts_name(root)))
     for root in ir.roots:
         rs, on = snake(root), unk_opts_name(root)
         mem = unk_opts_layout(ir, root)
@@ -882,50 +915,49 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("  typedef struct %s Opts;" % on)
         o.append("  enum { kPositions = %d, kIndex = %d };" % (len(mem), ir.roots.index(root)))
         o.append("  static const char *name() { return \"%s\"; }" % root)
-        o.append("  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_%s(o); }" % rs)
-        o.append("  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_%s(c, o); }" % rs)
+        o.append("  static DecHost *ctx_new(Opts *o) { return bound_ctx_new_%s(o); }" % rs)
+        o.append("  static int32_t reset(DecHost *c, Opts *o) { return bound_reset_%s(c, o); }" % rs)
         o.append("  static void opts(Opts *o, int zero) { unk_opts_%s(o, zero); }" % rs)
         o.append("  static void clear(%s &v, int pos) { unk_clear_%s(v, pos); }" % (root, rs))
         o.append("  static bool is_entry(int pos) {")
         o.append("    static const bool k[%d] = {%s};" % (len(mem), ent))
         o.append("    return pos >= 0 && pos < %d && k[pos];" % len(mem))
         o.append("  }")
-        o.append("  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return decode_with_%s(c, b, n, out);" % rs)
         o.append("  }")
-        o.append("  static int32_t decode_opts(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out,"
+        o.append("  static int32_t decode_opts(DecHost *c, const uint8_t *b, size_t n, %s *out,"
                  " Opts *o) {" % root)
         o.append("    return decode_with_%s_opts(c, b, n, out, o);" % rs)
         o.append("  }")
-        o.append("  static int32_t decode_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t decode_unk(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return decode_with_%s_unk(c, b, n, out);" % rs)
         o.append("  }")
-        o.append("  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return pull_with_%s(c, b, n, out);" % rs)
         o.append("  }")
-        o.append("  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return pull_drain_with_%s(c, b, n, out);" % rs)
         o.append("  }")
-        o.append("  static int32_t pull_unk(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t pull_unk(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return pull_with_%s_unk(c, b, n, out);" % rs)
         o.append("  }")
-        o.append("  static int32_t decode_pool(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out,"
+        o.append("  static int32_t decode_pool(DecHost *c, const uint8_t *b, size_t n, %s *out,"
                  " uint32_t k, uint32_t cap, uint64_t *refills) {" % root)
         o.append("    return decode_with_%s_pool(c, b, n, out, k, cap, refills);" % rs)
         o.append("  }")
         o.append("};")
     o.append("// A context bound to T's root, in drop mode (NULL options).")
-    o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }")
+    o.append("template <class T> inline DecHost *dec_ctx_new_for() { return DecRoot<T>::ctx_new(NULL); }")
     o.append("")
-    o.append("// Free a decode context. Use it rather than ak_dec_ctx_free for a context that")
-    o.append("// decode_with_*_unk may have left armed (rule 7): the binding forgets it first, so a")
-    o.append("// new context at the same address is not taken for an armed one.")
-    o.append("void dec_ctx_free(ak_dec_ctx *ctx);")
+    o.append("// Free a host context and the core context it owns, with what it still holds (its")
+    o.append("// options' unconsumed buffers, its undelivered ones).")
+    o.append("void dec_ctx_free(DecHost *hd);")
     o.append("")
     o.append("// One bound context per root, in drop mode, for a host that decodes several roots")
     o.append("// (one set per thread: a context is not shared between threads).")
     o.append("struct DecCtxs {")
-    o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
+    o.append("  DecHost *c[%d];" % len(ir.roots))
     o.append("  DecCtxs() {")
     for i, root in enumerate(ir.roots):
         o.append("    c[%d] = bound_ctx_new_%s(NULL);" % (i, snake(root)))
@@ -937,7 +969,7 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
     o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
     o.append("    return true;")
     o.append("  }")
-    o.append("  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }")
+    o.append("  template <class T> DecHost *of() const { return c[DecRoot<T>::kIndex]; }")
     o.append(" private:")
     o.append("  DecCtxs(const DecCtxs &);")
     o.append("  DecCtxs &operator=(const DecCtxs &);")
@@ -969,25 +1001,26 @@ def _nounk_header_tail(ir):
         o.append("template <> struct DecRoot<%s> {" % root)
         o.append("  enum { kIndex = %d };" % ir.roots.index(root))
         o.append("  static const char *name() { return \"%s\"; }" % root)
-        o.append("  static ak_dec_ctx *ctx_new() { return ak_dec_ctx_new_%s(); }" % root)
-        o.append("  static int32_t decode(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static DecHost *ctx_new() { return dec_host_adopt(ak_dec_ctx_new_%s()); }" % root)
+        o.append("  static int32_t decode(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return decode_with_%s(c, b, n, out);" % snake(root))
         o.append("  }")
-        o.append("  static int32_t pull(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t pull(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return pull_with_%s(c, b, n, out);" % snake(root))
         o.append("  }")
-        o.append("  static int32_t pull_drain(ak_dec_ctx *c, const uint8_t *b, size_t n, %s *out) {" % root)
+        o.append("  static int32_t pull_drain(DecHost *c, const uint8_t *b, size_t n, %s *out) {" % root)
         o.append("    return pull_drain_with_%s(c, b, n, out);" % snake(root))
         o.append("  }")
         o.append("};")
-    o.append("template <class T> inline ak_dec_ctx *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }")
-    o.append("void dec_ctx_free(ak_dec_ctx *ctx);  // ak_dec_ctx_free (the full build also forgets an armed context)")
+    o.append("template <class T> inline DecHost *dec_ctx_new_for() { return DecRoot<T>::ctx_new(); }")
+    o.append("// The host context and the core context it owns (FIX-PLAN D26), created and freed together.")
+    o.append("void dec_ctx_free(DecHost *hd);")
     o.append("")
     o.append("struct DecCtxs {")
-    o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
+    o.append("  DecHost *c[%d];" % len(ir.roots))
     o.append("  DecCtxs() {")
     for i, root in enumerate(ir.roots):
-        o.append("    c[%d] = ak_dec_ctx_new_%s();" % (i, root))
+        o.append("    c[%d] = dec_host_adopt(ak_dec_ctx_new_%s());" % (i, root))
     o.append("  }")
     o.append("  ~DecCtxs() {")
     o.append("    for (int i = 0; i < %d; ++i) dec_ctx_free(c[i]);" % len(ir.roots))
@@ -996,7 +1029,7 @@ def _nounk_header_tail(ir):
     o.append("    for (int i = 0; i < %d; ++i) if (c[i] == NULL) return false;" % len(ir.roots))
     o.append("    return true;")
     o.append("  }")
-    o.append("  template <class T> ak_dec_ctx *of() const { return c[DecRoot<T>::kIndex]; }")
+    o.append("  template <class T> DecHost *of() const { return c[DecRoot<T>::kIndex]; }")
     o.append(" private:")
     o.append("  DecCtxs(const DecCtxs &);")
     o.append("  DecCtxs &operator=(const DecCtxs &);")
@@ -1104,12 +1137,12 @@ Tcs tcs_host() {
             continue
         if has_slots(ir, name):
             o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
-                     " const uint8_t *base, ak_dec_ctx *ctx);" % (snake(name), name, name))
+                     " const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);" % (snake(name), name, name))
         else:
             o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
-                     " const uint8_t *base, ak_dec_ctx *ctx);" % (snake(name), name, name))
+                     " const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);" % (snake(name), name, name))
             o.append("static inline %s from_%s(const struct ak_dfix_%s &f,"
-                     " const uint8_t *base, ak_dec_ctx *ctx);" % (name, snake(name), name))
+                     " const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd);" % (name, snake(name), name))
     o.append("")
 
     # ---- group constructors --------------------------------------------------------
@@ -1216,8 +1249,8 @@ Tcs tcs_host() {
             o.append("// In place, never constructed: `%s` carries a repeated or map field," % name)
             o.append("// and `apply` arrives AFTER the runs that populated it.")
             o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
-                     " const uint8_t *base, ak_dec_ctx *ctx) {" % (snake(name), name, name))
-            o.append("  (void)dst; (void)f; (void)base; (void)ctx;")
+                     " const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {" % (snake(name), name, name))
+            o.append("  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;")
             for fld in m.plain:
                 if fld.oneof or fld.card != "singular":
                     continue
@@ -1225,15 +1258,15 @@ Tcs tcs_host() {
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "dst->")
             if not nu:
-                o.append("  unk_take(f.unknown, &dst->unknown_fields);")
+                o.append("  unk_take(hd, f.unknown, &dst->unknown_fields);")
             o.append("}")
         else:
             # B-3 (2026-09-28): a leaf group is read INTO a default-constructed object in
             # place (an element just emplaced, a child just emplaced); `from_` stays for
             # any by-value use.
             o.append("static inline void fill_%s(%s *dst, const struct ak_dfix_%s &f,"
-                     " const uint8_t *base, ak_dec_ctx *ctx) {" % (snake(name), name, name))
-            o.append("  (void)dst; (void)f; (void)base; (void)ctx;")
+                     " const uint8_t *base, ak_dec_ctx *ctx, DecHost *hd) {" % (snake(name), name, name))
+            o.append("  (void)dst; (void)f; (void)base; (void)ctx; (void)hd;")
             for fld in m.plain:
                 if fld.oneof or fld.card != "singular":
                     continue
@@ -1241,12 +1274,12 @@ Tcs tcs_host() {
             for oname, members in m.oneofs.items():
                 _decode_oneof(ir, m, oname, members, o, "dst->")
             if not nu:
-                o.append("  unk_take(f.unknown, &dst->unknown_fields);")
+                o.append("  unk_take(hd, f.unknown, &dst->unknown_fields);")
             o.append("}")
             o.append("static inline %s from_%s(const struct ak_dfix_%s &f, const uint8_t *base,"
-                     " ak_dec_ctx *ctx) {" % (name, snake(name), name))
+                     " ak_dec_ctx *ctx, DecHost *hd) {" % (name, snake(name), name))
             o.append("  %s r;" % name)
-            o.append("  fill_%s(&r, f, base, ctx);" % snake(name))
+            o.append("  fill_%s(&r, f, base, ctx, hd);" % snake(name))
             o.append("  return r;")
             o.append("}")
         o.append("")
@@ -1330,6 +1363,7 @@ Tcs tcs_host() {
         o.append("struct Sink_%s {" % root)
         o.append("  %s *out;" % root)
         o.append("  const uint8_t *base;")
+        o.append("  DecHost *hd;  // FIX-PLAN D26: the host decode context, reached through `obj`")
         o.append("  // Decision 11 rule 1: called after every element delivery, where the host may")
         o.append("  // refill its pools in place. NULL unless the decode pre-allocates.")
         if not nu:
@@ -1343,7 +1377,8 @@ Tcs tcs_host() {
         o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
         o.append("    const struct ak_dfix_%s &f = *fx;" % root)
         o.append("    const uint8_t *base = s->base;")
-        o.append("    (void)f; (void)base;")
+        o.append("    DecHost *hd = s->hd;")
+        o.append("    (void)f; (void)base; (void)hd;")
         for fld in m.plain:
             if fld.oneof or fld.card != "singular":
                 continue
@@ -1352,7 +1387,7 @@ Tcs tcs_host() {
             _decode_oneof(ir, m, oname, members, o, "s->out->")
         if not nu:
             o.append("    s->out->unknown_fields.clear();")
-            o.append("    unk_take(f.unknown, &s->out->unknown_fields);")
+            o.append("    unk_take(hd, f.unknown, &s->out->unknown_fields);")
         o.append("  AK_DGUARD_END")
         o.append("}")
         o.append("")
@@ -1417,7 +1452,7 @@ Tcs tcs_host() {
                     o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                     o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
                     if not nu:
-                        o.append("      unk_drop_entry(elems[i].unknown);")
+                        o.append("      unk_drop_entry(s->hd, elems[i].unknown);")
                     o.append("#if AK_CXX17")
                     o.append("      %s.insert_or_assign(std::move(k_), std::move(v_));" % dst)
                     o.append("#else")
@@ -1428,7 +1463,7 @@ Tcs tcs_host() {
                     o.append("    grow_by(%s, (size_t)n);" % dst)
                     o.append("    for (int32_t i = 0; i < n; ++i) {")
                     o.append("      %s.emplace_back();  // B-3: the element is built in place" % dst)
-                    o.append("      fill_%s(&%s.back(), elems[i], s->base, ctx);" % (snake(elem_ty), dst))
+                    o.append("      fill_%s(&%s.back(), elems[i], s->base, ctx, s->hd);" % (snake(elem_ty), dst))
                     o.append("    }")
                 o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
@@ -1458,7 +1493,7 @@ Tcs tcs_host() {
                          " const struct ak_dfix_%s *fx) {" % (snake(root), sn, elem_ty))
                 o.append("  AK_DGUARD_BEGIN")
                 o.append("    Sink_%s *s = (Sink_%s *)obj;" % (root, root))
-                o.append("    fill_%s(&%s[(size_t)tok], *fx, s->base, ctx);"
+                o.append("    fill_%s(&%s[(size_t)tok], *fx, s->base, ctx, s->hd);"
                          % (snake(elem_ty), dst))
                 o.append("    AK_REFILL();")
                 o.append("  AK_DGUARD_END")
@@ -1506,7 +1541,7 @@ Tcs tcs_host() {
                         o.append("      " + map_reader(kk, "s->base", "elems[i].key", "ctx", "k_"))
                         o.append("      " + map_reader(vk, "s->base", "elems[i].value", "ctx", "v_"))
                         if not nu:
-                            o.append("      unk_drop_entry(elems[i].unknown);")
+                            o.append("      unk_drop_entry(s->hd, elems[i].unknown);")
                         o.append("#if AK_CXX17")
                         o.append("      dst.insert_or_assign(std::move(k_), std::move(v_));")
                         o.append("#else")
@@ -1543,7 +1578,7 @@ Tcs tcs_host() {
                         o.append("    grow_by(dst, (size_t)n);")
                         o.append("    for (int32_t i = 0; i < n; ++i) {")
                         o.append("      dst.emplace_back();  // B-3: the element is built in place")
-                        o.append("      fill_%s(&dst.back(), elems[i], s->base, ctx);" % snake(iet))
+                        o.append("      fill_%s(&dst.back(), elems[i], s->base, ctx, s->hd);" % snake(iet))
                         o.append("    }")
                         o.append("    AK_REFILL();")
                         o.append("  AK_DGUARD_END")
@@ -1576,44 +1611,57 @@ Tcs tcs_host() {
                 o.append("    add_%s_%s%s" % (snake(root), sn, sep))
         o.append("};")
         o.append("")
-        o.append("static int32_t decode_impl_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+        o.append("static int32_t decode_impl_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out,"
                  " void (*refill)(void *), void *hold) {" % (snake(root), root))
         o.append("  AK_INIT_OR_RETURN();")
         o.append("  Sink_%s sink;" % root)
         o.append("  sink.out = out;")
         o.append("  sink.base = b;")
+        o.append("  sink.hd = hd;")
         if nu:
             o.append("  (void)refill; (void)hold;")
         else:
             o.append("  sink.refill = refill;")
             o.append("  sink.hold = hold;")
-        o.append("  return ak_decode_%s(ctx, &sink, b, n, &k_dvt_%s);" % (root, root))
+        o.append("  return ak_decode_%s(hd->ctx, &sink, b, n, &k_dvt_%s);" % (root, root))
         o.append("}")
         o.append("")
         if not nu:
             _emit_unk_armed(ir, o, root)
         o.append("// Decode with the context as it is armed: a context from")
-        o.append("// ak_dec_ctx_new_%s(NULL) (or last reset with NULL) drops every unknown field." % root)
+        o.append("// DecRoot<%s>::ctx_new(NULL) (or last reset with NULL) drops every unknown field." % root)
         if not nu:
             o.append("// A context `decode_with_%s_unk` left armed is disarmed first (rule 7)." % snake(root))
-        o.append("int32_t decode_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
+        o.append("int32_t decode_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out) {"
                  % (snake(root), root))
         if not nu:
-            o.append("  unk_disarm_%s(ctx);" % snake(root))
-        o.append("  return decode_impl_%s(ctx, b, n, out, NULL, NULL);" % snake(root))
+            o.append("  unk_disarm_%s(hd);" % snake(root))
+        o.append("  return decode_impl_%s(hd, b, n, out, NULL, NULL);" % snake(root))
         o.append("}")
         o.append("")
         if not nu:
             _emit_decode_unk(ir, o, root)
         _emit_pull(ir, o, root, slots, nu)
 
-    o.append("void dec_ctx_free(ak_dec_ctx *ctx) {")
+    o.append("// FIX-PLAN D26: the host context and the core context it owns, freed together.")
+    o.append("DecHost *dec_host_adopt(ak_dec_ctx *c) {")
+    o.append("  if (c == NULL) return NULL;")
+    o.append("  DecHost *hd = new (std::nothrow) DecHost();")
+    o.append("  if (hd == NULL) { ak_dec_ctx_free(c); return NULL; }")
+    o.append("  hd->ctx = c;")
+    o.append("  return hd;")
+    o.append("}")
+    o.append("")
+    o.append("void dec_ctx_free(DecHost *hd) {")
+    o.append("  if (hd == NULL) return;")
+    o.append("  ak_dec_ctx_free(hd->ctx);")
     if not nu:
-        o.append("  if (ctx != NULL) {")
-        for root in ir.roots:
-            o.append("    unk_armed_forget_%s(ctx);" % snake(root))
+        o.append("  unk_reclaim(hd);  // placed and never delivered")
+        o.append("  if (hd->unk_opts != NULL) {")
+        o.append("    hd->unk_opts_free(hd->unk_opts);  // what its entries still hold is the host's (R-H7)")
+        o.append("    std::free(hd->unk_opts);")
         o.append("  }")
-    o.append("  ak_dec_ctx_free(ctx);")
+    o.append("  delete hd;")
     o.append("}")
     o.append("")
     o.append("}  // namespace ffi")
@@ -1636,17 +1684,15 @@ PRE_UNK = '''// ---- ABI v1 decision 11, the host side of the unknown-field buff
 // and what a pool still holds after the decode are freed by `unk_reclaim`.
 // B-9 (2026-09-28): the live set is a flat vector, searched from the back (a buffer is
 // delivered soon after it is placed), so tracking allocates nothing per buffer; before, an
-// unordered_set node per insert.
-static std::vector<void *> &unk_live() {
-  static thread_local std::vector<void *> live;
-  return live;
-}
+// unordered_set node per insert. FIX-PLAN D26: the live set and the map-entry byte count are
+// the HOST CONTEXT's (DecHost, one per decode context), never thread-local: `unk_grow` reaches
+// it through the options' `host` word (the core hands it to grow), the delivery functions
+// through the decode's sink. A NULL host leaves a grown buffer untracked.
 static inline bool unk_live_erase(std::vector<void *> &l, void *p) {
   for (size_t i = l.size(); i-- > 0;)
     if (l[i] == p) { l[i] = l.back(); l.pop_back(); return true; }
   return false;
 }
-static thread_local size_t t_unk_entry_bytes = 0;
 
 // ABI v1 decision 11 rule 8: the capacity grows GEOMETRICALLY, never to the exact size
 // asked (an exact-size grow makes a message with many unknown runs quadratic): at least
@@ -1663,36 +1709,38 @@ static inline size_t unk_grow_cap(size_t want, size_t old_cap) {
 }
 
 int32_t unk_grow(void *host, int32_t want_i, uint8_t **dst, int32_t *cap) {
-  (void)host;
+  DecHost *hd = (DecHost *)host;
   if (want_i <= 0) return AK_ERR_LIMIT;
   const size_t want = unk_grow_cap((size_t)want_i, *cap > 0 ? (size_t)*cap : 0);
   void *old = *dst;
   void *p = old ? std::realloc(old, want) : std::malloc(want);
   if (p == NULL) return AK_ERR_LIMIT;
-  std::vector<void *> &l = unk_live();
-  bool placed = false;
-  if (old != NULL)
-    for (size_t i = l.size(); i-- > 0;)
-      if (l[i] == old) { l[i] = p; placed = true; break; }
-  if (!placed) l.push_back(p);
+  if (hd != NULL) {
+    std::vector<void *> &l = hd->live;
+    bool placed = false;
+    if (old != NULL)
+      for (size_t i = l.size(); i-- > 0;)
+        if (l[i] == old) { l[i] = p; placed = true; break; }
+    if (!placed) l.push_back(p);
+  }
   *dst = (uint8_t *)p;
   *cap = (int32_t)want;
   return AK_OK;
 }
 
-void unk_track(void *p) {
-  if (p != NULL) unk_live().push_back(p);
+void unk_track(DecHost *hd, void *p) {
+  if (p != NULL && hd != NULL) hd->live.push_back(p);
 }
 
 // R-H7: a buffer still sitting in an options entry after the decode was never consumed; it
 // stays the host's, in the host's struct, for the next decode with the same options (rule
 // 7). It is taken off the live set so the reclaim below never frees it.
-static inline void unk_untrack(void *p) {
-  if (p != NULL) unk_live_erase(unk_live(), p);
+static inline void unk_untrack(DecHost *hd, void *p) {
+  if (p != NULL) unk_live_erase(hd->live, p);
 }
 
-size_t unk_reclaim() {
-  std::vector<void *> &l = unk_live();
+size_t unk_reclaim(DecHost *hd) {
+  std::vector<void *> &l = hd->live;
   if (l.empty()) return 0;  // B-8: nothing placed and undelivered, the common case
   size_t n = l.size();
   for (size_t i = 0; i < n; ++i) std::free(l[i]);
@@ -1700,45 +1748,45 @@ size_t unk_reclaim() {
   return n;
 }
 
-size_t unk_entry_bytes() {
-  size_t r = t_unk_entry_bytes;
-  t_unk_entry_bytes = 0;
+size_t unk_entry_bytes(DecHost *hd) {
+  size_t r = hd->entry_bytes;
+  hd->entry_bytes = 0;
   return r;
 }
 
-static inline void unk_free_buf(void *p) {
-  std::vector<void *> &l = unk_live();
+static inline void unk_free_buf(DecHost *hd, void *p) {
+  std::vector<void *> &l = hd->live;
   if (!l.empty()) unk_live_erase(l, p);
   std::free(p);
 }
 
 // Delivery: the slot's runs, in wire order, into the facade's bag.
-static inline void unk_take(const struct ak_unk_buf &b, std::string *bag) {
+static inline void unk_take(DecHost *hd, const struct ak_unk_buf &b, std::string *bag) {
   if (b.data == NULL) return;
   bag->append((const char *)b.data, b.len);
-  unk_free_buf(b.data);
+  unk_free_buf(hd, b.data);
 }
 
 // Delivery where the facade keeps nothing (an inactive oneof member, an absent child).
-static inline void unk_drop(const struct ak_unk_buf &b) {
-  if (b.data != NULL) unk_free_buf(b.data);
+static inline void unk_drop(DecHost *hd, const struct ak_unk_buf &b) {
+  if (b.data != NULL) unk_free_buf(hd, b.data);
 }
 
 // A map entry: the facade's map has no bag (the U-map-entry gap), so the bytes are counted
 // (the evidence that the core captured them) and freed.
-static inline void unk_drop_entry(const struct ak_unk_buf &b) {
+static inline void unk_drop_entry(DecHost *hd, const struct ak_unk_buf &b) {
   if (b.data == NULL) return;
-  t_unk_entry_bytes += b.len;
-  unk_free_buf(b.data);
+  hd->entry_bytes += b.len;
+  unk_free_buf(hd, b.data);
 }
 
 // A pre-allocated buffer written into an EMPTY entry of the host's options (rule 1: the
 // host refills in place, with no call); tracked, so an unconsumed one is reclaimed.
-static inline void unk_fill_buf(struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
+static inline void unk_fill_buf(DecHost *hd, struct ak_unk_buf *e, uint32_t cap, uint64_t *count) {
   if (e->data != NULL || cap == 0) return;
   void *p = std::malloc(cap);
   if (p == NULL) return;
-  unk_track(p);
+  unk_track(hd, p);
   e->data = p;
   e->len = 0;
   e->cap = cap;
@@ -1853,20 +1901,22 @@ def _emit_pull(ir, o, root, slots, nu):
     o.append("  return AK_OK;")
     o.append("}")
     o.append("")
-    o.append("static thread_local std::vector<int64_t> t_pull_toks_%s;" % rs)
-    o.append("static thread_local std::vector<uint64_t> t_pull_scratch_%s;" % rs)
-    o.append("static int32_t pull_impl_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out, bool drain) {"
+    o.append("// FIX-PLAN D26: the replay's tokens and the drain's chunk are the host context's (kept")
+    o.append("// across calls, the tokens cleared at the start of each), never thread-local.")
+    o.append("static int32_t pull_impl_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out, bool drain) {"
              % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
+    o.append("  ak_dec_ctx *ctx = hd->ctx;")
     o.append("  Sink_%s sink;" % root)
     o.append("  sink.out = out;")
     o.append("  sink.base = b;")
+    o.append("  sink.hd = hd;")
     if not nu:
         o.append("  sink.refill = NULL;")
         o.append("  sink.hold = NULL;")
     o.append("  int32_t rc = ak_parse_%s(ctx, b, n);" % root)
     o.append("  if (rc < 0) return rc;")
-    o.append("  std::vector<int64_t> &toks = t_pull_toks_%s;" % rs)
+    o.append("  std::vector<int64_t> &toks = hd->toks;")
     o.append("  toks.clear();")
     o.append("  if (!drain) {")
     o.append("    const uint8_t *p = NULL;")
@@ -1877,7 +1927,7 @@ def _emit_pull(ir, o, root, slots, nu):
     o.append("  } else {")
     o.append("    // A host that must COPY: the records drained into its own 8-aligned memory in")
     o.append("    // chunks of at least AK_BDR_MIN_CHUNK (reused), each replayed.")
-    o.append("    std::vector<uint64_t> &sc = t_pull_scratch_%s;" % rs)
+    o.append("    std::vector<uint64_t> &sc = hd->scratch;")
     o.append("    if (sc.size() * 8 < AK_BDR_MIN_CHUNK) sc.resize((AK_BDR_MIN_CHUNK + 7) / 8);")
     o.append("    const size_t total = ak_bdr_footprint(ctx);")
     o.append("    ak_bdr_count_forward(ctx, 1);  // footprint takes a const context: counted here (R5)")
@@ -1894,16 +1944,16 @@ def _emit_pull(ir, o, root, slots, nu):
     o.append("  AK_HOST_CALL(); return ak_dec_err(ctx);  // what the host functions reported (ak_fail)")
     o.append("}")
     o.append("")
-    o.append("int32_t pull_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+    o.append("int32_t pull_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
     if not nu:
-        o.append("  unk_disarm_%s(ctx);" % rs)
-    o.append("  return pull_impl_%s(ctx, b, n, out, false);" % rs)
+        o.append("  unk_disarm_%s(hd);" % rs)
+    o.append("  return pull_impl_%s(hd, b, n, out, false);" % rs)
     o.append("}")
     o.append("")
-    o.append("int32_t pull_drain_with_%s(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+    o.append("int32_t pull_drain_with_%s(DecHost *hd, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
     if not nu:
-        o.append("  unk_disarm_%s(ctx);" % rs)
-    o.append("  return pull_impl_%s(ctx, b, n, out, true);" % rs)
+        o.append("  unk_disarm_%s(hd);" % rs)
+    o.append("  return pull_impl_%s(hd, b, n, out, true);" % rs)
     o.append("}")
     o.append("")
     if not nu:
@@ -1911,71 +1961,80 @@ def _emit_pull(ir, o, root, slots, nu):
         o.append("// Decision 11 on the pull family: armed as decode_with_%s_unk arms (once, left" % rs)
         o.append("// armed, D27); the unknown buffers ride in the records' groups and are delivered by")
         o.append("// the same host functions.")
-        o.append("int32_t pull_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
+        o.append("int32_t pull_with_%s_unk(DecHost *hd, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
         o.append("  AK_INIT_OR_RETURN();")
-        o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
-        o.append("  int32_t rc = unk_arm_once_%s(ctx);" % rs)
+        o.append("  int32_t rc = unk_arm_once_%s(hd);" % rs)
         o.append("  if (rc != AK_OK) return rc;")
-        o.append("  rc = pull_impl_%s(ctx, b, n, out, false);" % rs)
-        o.append("  unk_untrack_opts_%s(opts);" % rs)
-        o.append("  unk_reclaim();")
+        o.append("  rc = pull_impl_%s(hd, b, n, out, false);" % rs)
+        o.append("  unk_untrack_opts_%s(hd, (struct %s *)hd->unk_opts);" % (rs, on))
+        o.append("  unk_reclaim(hd);")
         o.append("  return rc;")
         o.append("}")
         o.append("")
 
 
 def _emit_unk_armed(ir, o, root):
-    """FIX-PLAN D27 (superseding rule 7's one reset per decode): the per-thread options
-    `decode_with_<root>_unk` arms its context with ONCE, and the contexts it left armed. Only a context the caller passes in
-    (so live) is ever reset; a freed one's stale entry is never dereferenced."""
+    """FIX-PLAN D27 (superseding rule 7's one reset per decode) and D26 (no thread-local
+    storage): the options `decode_with_<root>_unk` arms its context with are the HOST
+    CONTEXT's (allocated with it, at a stable address, `host` = the host context), and the
+    context is armed with them ONCE; `armed` says it is. The state is the context's own, so
+    a context freed and another created at the same address cannot inherit it."""
     rs, on = snake(root), unk_opts_name(root)
-    o.append("static thread_local struct %s t_unk_opts_%s;" % (on, rs))
-    o.append("static thread_local std::vector<ak_dec_ctx *> t_unk_armed_%s;" % rs)
-    o.append("static inline void unk_armed_note_%s(ak_dec_ctx *ctx) {" % rs)
-    o.append("  std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
-    o.append("  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return;")
-    o.append("  a.push_back(ctx);")
-    o.append("}")
-    o.append("static inline bool unk_armed_forget_%s(ak_dec_ctx *ctx) {" % rs)
-    o.append("  std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
-    o.append("  for (size_t i = 0; i < a.size(); ++i)")
-    o.append("    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }")
-    o.append("  return false;")
-    o.append("}")
-    o.append("static inline bool unk_armed_has_%s(ak_dec_ctx *ctx) {" % rs)
-    o.append("  const std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
-    o.append("  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;")
-    o.append("  return false;")
-    o.append("}")
-    o.append("// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable")
-    o.append("// address and the core re-reads them on every decode entry); a reset only sets the")
-    o.append("// pointer. Returns AK_OK or the refusal.")
-    o.append("static void unk_untrack_opts_%s(struct %s *opts);" % (rs, on))
-    o.append("static inline int32_t unk_arm_once_%s(ak_dec_ctx *ctx) {" % rs)
-    o.append("  if (unk_armed_has_%s(ctx)) return AK_OK;" % rs)
-    o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
+    o.append("static void unk_untrack_opts_%s(DecHost *hd, struct %s *opts);" % (rs, on))
+    o.append("// The host context's options, freed with it: what an entry still holds was not")
+    o.append("// consumed and is the host's (R-H7).")
+    o.append("static void unk_opts_free_%s(void *p);" % rs)
+    o.append("// FIX-PLAN D27: arm the context with the host context's options ONCE (they stay at")
+    o.append("// their stable address and the core re-reads them on every decode entry); a reset")
+    o.append("// only sets the pointer. Returns AK_OK or the refusal.")
+    o.append("static inline int32_t unk_arm_once_%s(DecHost *hd) {" % rs)
+    o.append("  if (hd->armed) return AK_OK;")
+    o.append("  if (hd->root != %d || hd->unk_opts == NULL) {" % ir.roots.index(root))
+    o.append("    // Another root's host context (its options are another type: never touched), or one")
+    o.append("    // with no retain options (dec_host_adopt): the core's refusal, else the binding's.")
+    o.append("    AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(hd->ctx, NULL);" % root)
+    o.append("    return rc != AK_OK ? rc : AK_ERR_INVALID_STATE;")
+    o.append("  }")
+    o.append("  struct %s *opts = (struct %s *)hd->unk_opts;" % (on, on))
     o.append("  unk_opts_%s(opts, -1);" % rs)
-    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
+    o.append("  opts->host = hd;")
+    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(hd->ctx, opts);" % root)
     o.append("  if (rc != AK_OK) {")
     o.append("    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).")
-    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    unk_untrack_opts_%s(hd, opts);" % rs)
     o.append("    return rc;")
     o.append("  }")
-    o.append("  unk_armed_note_%s(ctx);" % rs)
+    o.append("  hd->armed = true;")
     o.append("  return AK_OK;")
     o.append("}")
-    o.append("ak_dec_ctx *bound_ctx_new_%s(struct %s *o) {" % (rs, on))
-    o.append("  ak_dec_ctx *c = ak_dec_ctx_new_%s(o);" % root)
-    o.append("  if (c != NULL) unk_armed_forget_%s(c);  // D27: a stale entry at a reused address" % rs)
-    o.append("  return c;")
+    o.append("// FIX-PLAN D26: the host context, created with the core context it owns. Options `o`")
+    o.append("// whose `host` word is NULL get this host context there (their grown buffers are")
+    o.append("// tracked in its live set).")
+    o.append("DecHost *bound_ctx_new_%s(struct %s *o) {" % (rs, on))
+    o.append("  DecHost *hd = new (std::nothrow) DecHost();")
+    o.append("  if (hd == NULL) return NULL;")
+    o.append("  struct %s *u = (struct %s *)std::malloc(sizeof(struct %s));" % (on, on, on))
+    o.append("  if (u == NULL) { delete hd; return NULL; }")
+    o.append("  unk_opts_%s(u, -1);" % rs)
+    o.append("  u->host = hd;")
+    o.append("  hd->root = %d;" % ir.roots.index(root))
+    o.append("  hd->unk_opts = u;")
+    o.append("  hd->unk_opts_free = unk_opts_free_%s;" % rs)
+    o.append("  if (o != NULL && o->host == NULL) o->host = hd;")
+    o.append("  hd->ctx = ak_dec_ctx_new_%s(o);" % root)
+    o.append("  if (hd->ctx == NULL) { std::free(u); delete hd; return NULL; }")
+    o.append("  return hd;")
     o.append("}")
-    o.append("int32_t bound_reset_%s(ak_dec_ctx *c, struct %s *o) {" % (rs, on))
-    o.append("  if (c != NULL) unk_armed_forget_%s(c);" % rs)
-    o.append("  AK_HOST_CALL(); return ak_dec_reset_%s(c, o);" % root)
+    o.append("int32_t bound_reset_%s(DecHost *hd, struct %s *o) {" % (rs, on))
+    o.append("  if (hd == NULL) { AK_HOST_CALL(); return ak_dec_reset_%s(NULL, o); }" % root)
+    o.append("  hd->armed = false;  // the context now points at the caller's options (or none)")
+    o.append("  if (o != NULL && o->host == NULL) o->host = hd;")
+    o.append("  AK_HOST_CALL(); return ak_dec_reset_%s(hd->ctx, o);" % root)
     o.append("}")
-    o.append("static inline void unk_disarm_%s(ak_dec_ctx *ctx) {" % rs)
-    o.append("  if (!t_unk_armed_%s.empty() && unk_armed_forget_%s(ctx)) {" % (rs, rs))
-    o.append("    AK_HOST_CALL(); (void)ak_dec_reset_%s(ctx, NULL);" % root)
+    o.append("static inline void unk_disarm_%s(DecHost *hd) {" % rs)
+    o.append("  if (hd->armed) {")
+    o.append("    hd->armed = false;")
+    o.append("    AK_HOST_CALL(); (void)ak_dec_reset_%s(hd->ctx, NULL);" % root)
     o.append("  }")
     o.append("}")
     o.append("")
@@ -2003,14 +2062,22 @@ def _emit_decode_unk(ir, o, root):
     o.append("")
     o.append("// R-H7: every buffer still in the options is the host's: off the live set, so no")
     o.append("// reclaim frees it.")
-    o.append("static void unk_untrack_opts_%s(struct %s *opts) {" % (rs, on))
+    o.append("static void unk_untrack_opts_%s(DecHost *hd, struct %s *opts) {" % (rs, on))
     for mn, _m, ty in lay:
         if ty == "ak_unk_pool":
             o.append("  if (opts->%s.bufs != NULL)" % mn)
-            o.append("    for (uint32_t i = 0; i < opts->%s.n; ++i) unk_untrack(opts->%s.bufs[i].data);"
+            o.append("    for (uint32_t i = 0; i < opts->%s.n; ++i) unk_untrack(hd, opts->%s.bufs[i].data);"
                      % (mn, mn))
         else:
-            o.append("  unk_untrack(opts->%s.buf.data);" % mn)
+            o.append("  unk_untrack(hd, opts->%s.buf.data);" % mn)
+    o.append("}")
+    o.append("")
+    o.append("static void unk_opts_free_%s(void *p) {" % rs)
+    o.append("  struct %s *opts = (struct %s *)p;" % (on, on))
+    o.append("  (void)opts;")
+    for mn, _m, ty in lay:
+        if ty != "ak_unk_pool":
+            o.append("  std::free(opts->%s.buf.data);" % mn)
     o.append("}")
     o.append("")
     o.append("// The decode with the context armed with `opts`, read IN PLACE by the core until the")
@@ -2019,39 +2086,45 @@ def _emit_decode_unk(ir, o, root):
     o.append("// consumed and this binding did not deliver (a failed decode, a map entry) is freed")
     o.append("// before return; a buffer still in `opts` was not consumed and is left there, the")
     o.append("// host's, for the next decode with the same options (rule 7, R-H7).")
-    o.append("int32_t decode_with_%s_opts(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+    o.append("// FIX-PLAN D26: a NULL `host` word in `opts` is this host context for the call (grown")
+    o.append("// buffers tracked in its live set), and NULL again after it.")
+    o.append("int32_t decode_with_%s_opts(DecHost *hd, const uint8_t *b, size_t n, %s *out,"
              " struct %s *opts, void (*refill)(void *), void *hold) {" % (rs, root, on))
     o.append("  AK_INIT_OR_RETURN();")
+    o.append("  ak_dec_ctx *ctx = hd->ctx;")
+    o.append("  void *const host0 = opts->host;")
+    o.append("  if (host0 == NULL) opts->host = hd;")
+    o.append("  hd->armed = false;  // the context points at the caller's options, then at none")
     o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // reset 1: arms, before the decode" % root)
     o.append("  if (rc != AK_OK) {")
     o.append("    // Refused (another root's context, or the core uninitialized): nothing was")
     o.append("    // consumed, so every buffer in the options stays the host's (R-H7).")
-    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    unk_untrack_opts_%s(hd, opts);" % rs)
+    o.append("    opts->host = host0;")
     o.append("    return rc;")
     o.append("  }")
-    o.append("  rc = decode_impl_%s(ctx, b, n, out, refill, hold);" % rs)
+    o.append("  rc = decode_impl_%s(hd, b, n, out, refill, hold);" % rs)
     o.append("  AK_HOST_CALL(); int32_t rc2 = ak_dec_reset_%s(ctx, NULL);  // reset 2: disarms, after it" % root)
-    o.append("  unk_armed_forget_%s(ctx);  // the caller's options may not outlive the call" % rs)
     o.append("  // R-H7: what is still in the options was not consumed and stays the host's.")
-    o.append("  unk_untrack_opts_%s(opts);" % rs)
-    o.append("  unk_reclaim();")
+    o.append("  unk_untrack_opts_%s(hd, opts);" % rs)
+    o.append("  unk_reclaim(hd);")
+    o.append("  opts->host = host0;")
     o.append("  if (rc >= 0 && rc2 != AK_OK) rc = rc2;")
     o.append("  return rc;")
     o.append("}")
     o.append("")
     o.append("// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the")
-    o.append("// options live at a stable per-thread address and the core re-reads them on every")
-    o.append("// decode entry, so the context is armed ONCE and left armed (no reset per decode); a")
-    o.append("// drop decode through `decode_with_%s` disarms it first." % rs)
-    o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
+    o.append("// options are the host context's, at a stable address, and the core re-reads them on")
+    o.append("// every decode entry, so the context is armed ONCE and left armed (no reset per")
+    o.append("// decode); a drop decode through `decode_with_%s` disarms it first." % rs)
+    o.append("int32_t decode_with_%s_unk(DecHost *hd, const uint8_t *b, size_t n, %s *out) {"
              % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
-    o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
-    o.append("  int32_t rc = unk_arm_once_%s(ctx);" % rs)
+    o.append("  int32_t rc = unk_arm_once_%s(hd);" % rs)
     o.append("  if (rc != AK_OK) return rc;")
-    o.append("  rc = decode_impl_%s(ctx, b, n, out, NULL, NULL);" % rs)
-    o.append("  unk_untrack_opts_%s(opts);" % rs)
-    o.append("  unk_reclaim();")
+    o.append("  rc = decode_impl_%s(hd, b, n, out, NULL, NULL);" % rs)
+    o.append("  unk_untrack_opts_%s(hd, (struct %s *)hd->unk_opts);" % (rs, on))
+    o.append("  unk_reclaim(hd);")
     o.append("  return rc;")
     o.append("}")
     o.append("")
@@ -2062,6 +2135,7 @@ def _emit_decode_unk(ir, o, root):
     o.append("// fallback. Unconsumed buffers stay in the holder's options and are freed here.")
     o.append("struct UnkPool_%s {" % root)
     o.append("  struct %s opts;" % on)
+    o.append("  DecHost *hd;")
     o.append("  std::vector<struct ak_unk_buf> bufs;")
     o.append("  uint32_t k;")
     o.append("  uint32_t cap;")
@@ -2072,13 +2146,14 @@ def _emit_decode_unk(ir, o, root):
     o.append("  UnkPool_%s *h = (UnkPool_%s *)hv;" % (root, root))
     o.append("  (void)h;")
     for pi, (_i, mn) in enumerate(pools):
-        o.append("  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(&h->bufs[%d * (size_t)h->k + j], h->cap, &h->refills);" % pi)
+        o.append("  for (uint32_t j = 0; j < h->k; ++j) unk_fill_buf(h->hd, &h->bufs[%d * (size_t)h->k + j], h->cap, &h->refills);" % pi)
     o.append("}")
     o.append("")
-    o.append("int32_t decode_with_%s_pool(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out,"
+    o.append("int32_t decode_with_%s_pool(DecHost *hd, const uint8_t *b, size_t n, %s *out,"
              " uint32_t k, uint32_t cap, uint64_t *refills) {" % (rs, root))
     o.append("  UnkPool_%s h;" % root)
     o.append("  unk_opts_%s(&h.opts, -1);" % rs)
+    o.append("  h.hd = hd;")
     o.append("  h.k = k;")
     o.append("  h.cap = cap;")
     o.append("  h.refills = 0;")
@@ -2089,10 +2164,10 @@ def _emit_decode_unk(ir, o, root):
         o.append("  h.opts.%s.n = k;" % mn)
     o.append("  uint64_t first = 0;")
     for _i, mn in singles:
-        o.append("  unk_fill_buf(&h.opts.%s.buf, cap, &first);" % mn)
+        o.append("  unk_fill_buf(hd, &h.opts.%s.buf, cap, &first);" % mn)
     o.append("  unk_refill_%s(&h);" % rs)
     o.append("  h.refills = 0;")
-    o.append("  int32_t rc = decode_with_%s_opts(ctx, b, n, out, &h.opts, unk_refill_%s, &h);"
+    o.append("  int32_t rc = decode_with_%s_opts(hd, b, n, out, &h.opts, unk_refill_%s, &h);"
              % (rs, rs))
     o.append("  // The pre-allocated buffers the decode did not consume are still ours (R-H7).")
     o.append("  for (size_t i = 0; i < h.bufs.size(); ++i) std::free(h.bufs[i].data);")

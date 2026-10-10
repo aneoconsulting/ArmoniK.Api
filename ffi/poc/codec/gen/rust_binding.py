@@ -82,14 +82,13 @@ impl ::core::hash::Hasher for PtrHasher {
         self.0 = (x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15).rotate_left(29);
     }
 }
-type UnkLive = ::std::collections::HashMap<usize, usize, ::core::hash::BuildHasherDefault<PtrHasher>>;
-thread_local! {
-    static UNK_LIVE: ::core::cell::RefCell<UnkLive> = ::core::cell::RefCell::new(UnkLive::default());
-}
+pub type UnkLive = ::std::collections::HashMap<usize, usize, ::core::hash::BuildHasherDefault<PtrHasher>>;
 
 /// `ak_grow_fn` for an unknown-field buffer: a fresh buffer when `*dst` is NULL, else a
-/// realloc that keeps the first `*cap` bytes.
-pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
+/// realloc that keeps the first `*cap` bytes. FIX-PLAN D26: `host` is the options' host
+/// word, the decode host context (`HostDec`) whose live set records the buffer; NULL (options
+/// a caller built without it) leaves the buffer untracked.
+pub unsafe extern "C" fn unk_grow(host: *mut c_void, want: i32, dst: *mut *mut u8, cap: *mut i32) -> i32 {
     if want <= 0 {
         return AK_ERR_LIMIT;
     }
@@ -103,13 +102,14 @@ pub unsafe extern "C" fn unk_grow(_host: *mut c_void, want: i32, dst: *mut *mut 
     if p.is_null() {
         return AK_ERR_LIMIT;
     }
-    UNK_LIVE.with(|l| {
-        let mut l = l.borrow_mut();
+    let hd = host as *mut HostDec;
+    if !hd.is_null() {
+        let l = &mut (*hd).live;
         if !old.is_null() {
             l.remove(&(old as usize));
         }
         l.insert(p as usize, want);
-    });
+    }
     *dst = p;
     *cap = want as i32;
     AK_OK
@@ -150,27 +150,22 @@ mod unk_grow_cap_tests {
     }
 }
 
-/// A delivered slot's buffer, as the facade's bag (the host owns it from here).
+/// A delivered slot's buffer, as the facade's bag (the host owns it from here), off the decode
+/// host context's live set.
 #[inline]
-pub(crate) fn take_unk(b: &ak_unk_buf) -> Vec<u8> {
+pub(crate) unsafe fn take_unk(ctx: Dx, b: &ak_unk_buf) -> Vec<u8> {
     if b.data.is_null() {
         return Vec::new();
     }
-    UNK_LIVE.with(|l| {
-        l.borrow_mut().remove(&(b.data as usize));
-    });
-    unsafe { Vec::from_raw_parts(b.data as *mut u8, b.len as usize, b.cap as usize) }
+    (*ctx.hd).live.remove(&(b.data as usize));
+    Vec::from_raw_parts(b.data as *mut u8, b.len as usize, b.cap as usize)
 }
 
-thread_local! {
-    static UNK_ENTRY_BYTES: ::core::cell::Cell<usize> = const { ::core::cell::Cell::new(0) };
-}
-
-/// Bytes the core delivered in map-entry buffers since the last call (the facade map has
-/// no bag, so they are counted here and dropped): decision 11's evidence that the core
-/// captures map entries even where this facade cannot keep them.
-pub fn unk_entry_bytes() -> usize {
-    UNK_ENTRY_BYTES.with(|c| c.replace(0))
+/// Bytes the core delivered in map-entry buffers on these contexts since the last call (the
+/// facade map has no bag, so they are counted and dropped): decision 11's evidence that the
+/// core captures map entries even where this facade cannot keep them.
+pub fn unk_entry_bytes(ctxs: DecCtxs) -> usize {
+    unsafe { ::core::mem::replace(&mut (*ctxs.host).entry_bytes, 0) }
 }
 
 /// Decision 11 controls on one input (see `unk_controls_*`).
@@ -189,17 +184,16 @@ pub struct UnkReport {
     pub entry_mismatch: Vec<usize>,
 }
 
-/// Free every buffer `unk_grow` handed out that was never delivered. Returns how many.
-pub fn unk_reclaim() -> usize {
-    UNK_LIVE.with(|l| {
-        let mut l = l.borrow_mut();
-        let n = l.len();
-        // drain() keeps the table's capacity for the next decode.
-        for (p, c) in l.drain() {
-            unsafe { ::std::alloc::dealloc(p as *mut u8, ::std::alloc::Layout::from_size_align_unchecked(c, 1)) };
-        }
-        n
-    })
+/// Free every buffer `unk_grow` handed out to these contexts that was never delivered.
+/// Returns how many.
+pub fn unk_reclaim(ctxs: DecCtxs) -> usize {
+    let l = unsafe { &mut (*ctxs.host).live };
+    let n = l.len();
+    // drain() keeps the table's capacity for the next decode.
+    for (p, c) in l.drain() {
+        unsafe { ::std::alloc::dealloc(p as *mut u8, ::std::alloc::Layout::from_size_align_unchecked(c, 1)) };
+    }
+    n
 }
 
 '''
@@ -351,7 +345,7 @@ fn dguard_i64<F: FnOnce() -> i64>(ctx: *mut ak_dec_ctx, f: F) -> i64 {
 /// copy of the buffer instead measures 14 percent worse on .NET and it is the obvious thing
 /// to write, so the generator writes the other one.
 #[inline(always)]
-unsafe fn s_of(base: *const u8, s: ak_span, ctx: *mut ak_dec_ctx) -> String {
+unsafe fn s_of(base: *const u8, s: ak_span, ctx: Dx) -> String {
     // A zero-length span is the common case on the absent path (P1.3, P2.5) and must not go
     // through the validator at all.
     if s.len == 0 {
@@ -377,30 +371,25 @@ const fn ak_small_n(group_size: usize) -> usize {
     if n == 0 { 1 } else { n }
 }
 
-thread_local! {
-    /// Optimisation Z1 (a LABELLED EXTRA arm, `decode_with_*_zc`): the input `Bytes` of the
-    /// zero-copy decode in progress on this thread, or null. Every other decode keeps ABI v1
-    /// decision 13's copy semantics; this costs them one thread-local load per non-empty
-    /// `bytes` field.
-    static ZC_IN: ::core::cell::Cell<*const ::bytes::Bytes> = const { ::core::cell::Cell::new(::core::ptr::null()) };
-}
-
-/// Clears ZC_IN when the zero-copy decode returns (or unwinds).
-struct ZcReset;
+/// Clears the decode host context's Z1 input when the zero-copy decode returns (or unwinds).
+struct ZcReset(*mut HostDec);
 impl Drop for ZcReset {
     fn drop(&mut self) {
-        ZC_IN.with(|c| c.set(::core::ptr::null()));
+        unsafe { (*self.0).zc = ::core::ptr::null() };
     }
 }
 
 #[inline(always)]
-unsafe fn b_of(base: *const u8, s: ak_span) -> ::bytes::Bytes {
+unsafe fn b_of(base: *const u8, s: ak_span, ctx: Dx) -> ::bytes::Bytes {
     if s.len == 0 {
         return ::bytes::Bytes::new();
     }
     // Z1: inside a `_zc` decode of this very buffer, the field SHARES the input's
     // allocation (a refcount, no copy) instead of copying out of it.
-    let z = ZC_IN.with(|c| c.get());
+    // Optimisation Z1 (a LABELLED EXTRA arm, `decode_with_*_zc`): the input `Bytes` of the
+    // zero-copy decode in progress on this host context, or null (FIX-PLAN D26: the context's,
+    // not a thread-local's). Every other decode keeps decision 13's copy semantics.
+    let z = (*ctx.hd).zc;
     if !z.is_null() && (*z).as_ptr() == base {
         return (*z).slice(s.off as usize..s.off as usize + s.len as usize);
     }
@@ -466,17 +455,15 @@ impl Tcs {
     }
 }
 
-thread_local! {
-    // Only the transcoder choice, which a loop callback cannot be handed: the callback's
-    // arguments are the ABI's, not ours. Nothing else in this binding is a thread-local.
-    pub(crate) static TCS: ::std::cell::Cell<(Option<ak_transcode_fn>, Option<ak_transcode_fn>)> =
-        const { ::std::cell::Cell::new((None, None)) };
-}
-
-#[inline(always)]
-pub(crate) fn tcs() -> (ak_transcode_fn, ak_transcode_fn) {
-    let (a, b) = TCS.with(|c| c.get());
-    (a.unwrap(), b.unwrap())
+/// FIX-PLAN D26 (owner, 2026-10-10): no thread-local storage. What an encode's loop callbacks
+/// need beyond the ABI's own arguments -- the root object and the call's transcoder choice --
+/// is handed to them through the `obj` the core passes back (it never dereferences it): this
+/// pair, written by `encode_into_*` on its own stack for the call. (Before D26 the transcoder
+/// choice was a thread-local, on the claim that a callback could not be handed it; `obj` can.)
+#[repr(C)]
+pub struct EncObj {
+    pub o: *const c_void,
+    pub tc: (ak_transcode_fn, ak_transcode_fn),
 }
 '''
 
@@ -950,7 +937,8 @@ def emit_binding(ir):
         o.append("pub fn encode_into_%s(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
-        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        // D26: the call's host state, handed to the loop callbacks through `obj`.")
+        o.append("        let h = EncObj { o: o as *const _ as *const c_void, tc: (t.utf8, t.bytes) };")
         o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
@@ -965,9 +953,9 @@ def emit_binding(ir):
         o.append("        let fix = make_%s(o, (t.utf8, t.bytes));" % rs)
         if ds:
             o.append("        let d: &[u8] = %s;" % expr)
-            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+            o.append("        let rc = ak_encode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
         else:
-            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+            o.append("        let rc = ak_encode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix);" % root)
         o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
         o.append("    }")
         o.append("}")
@@ -979,7 +967,8 @@ def emit_binding(ir):
         o.append("pub fn encode_into_%s_unk_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
-        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        // D26: the call's host state, handed to the loop callbacks through `obj`.")
+        o.append("        let h = EncObj { o: o as *const _ as *const c_void, tc: (t.utf8, t.bytes) };")
         o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
@@ -995,9 +984,9 @@ def emit_binding(ir):
         o.append("        let fix = make_%s_unk(o, (t.utf8, t.bytes));" % rs)
         if ds:
             o.append("        let d: &[u8] = %s;" % expr)
-            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+            o.append("        let rc = ak_uencode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
         else:
-            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+            o.append("        let rc = ak_uencode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix);" % root)
         o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
         o.append("    }")
         o.append("}")
@@ -1007,7 +996,8 @@ def emit_binding(ir):
         o.append("pub fn encode_into_%s_unk(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
-        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        // D26: the call's host state, handed to the loop callbacks through `obj`.")
+        o.append("        let h = EncObj { o: o as *const _ as *const c_void, tc: (t.utf8, t.bytes) };")
         o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
@@ -1023,9 +1013,9 @@ def emit_binding(ir):
         o.append("        let fix = make_%s_unk(o, (t.utf8, t.bytes));" % rs)
         if ds:
             o.append("        let d: &[u8] = %s;" % expr)
-            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+            o.append("        let rc = ak_uencode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
         else:
-            o.append("        let rc = ak_uencode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+            o.append("        let rc = ak_uencode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix);" % root)
         o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
         o.append("    }")
         o.append("}")
@@ -1036,7 +1026,8 @@ def emit_binding(ir):
         o.append("pub fn encode_into_%s_zeroed(ctx: *mut ak_enc_ctx, o: &%s, t: &Tcs) -> Result<usize, i32> {"
                  % (rs, root))
         o.append("    unsafe {")
-        o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
+        o.append("        // D26: the call's host state, handed to the loop callbacks through `obj`.")
+        o.append("        let h = EncObj { o: o as *const _ as *const c_void, tc: (t.utf8, t.bytes) };")
         o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
@@ -1052,9 +1043,9 @@ def emit_binding(ir):
         o.append("        let fix = make_%s(o, (t.utf8, t.bytes));" % rs)
         if ds:
             o.append("        let d: &[u8] = %s;" % expr)
-            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
+            o.append("        let rc = ak_encode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix, d.as_ptr(), d.len());" % root)
         else:
-            o.append("        let rc = ak_encode_%s(o as *const _ as *const c_void, ctx, &vt, &fix);" % root)
+            o.append("        let rc = ak_encode_%s(&h as *const EncObj as *const c_void, ctx, &vt, &fix);" % root)
         o.append("        if rc < 0 { Err(rc as i32) } else { Ok(rc as usize) }")
         o.append("    }")
         o.append("}")
@@ -1078,7 +1069,7 @@ def emit_binding(ir):
             o.append("/// In place, never constructed: `%s` carries a repeated or map field," % name)
             o.append("/// and `apply` arrives AFTER the runs that populated it.")
             o.append("#[inline(always)]")
-            o.append("unsafe fn fill_%s(dst: &mut %s, f: &ak_dfix_%s, base: *const u8, ctx: *mut ak_dec_ctx) {"
+            o.append("unsafe fn fill_%s(dst: &mut %s, f: &ak_dfix_%s, base: *const u8, ctx: Dx) {"
                      % (snake(name), name, name))
             for fl in m.plain:
                 if fl.card != "singular":
@@ -1091,11 +1082,11 @@ def emit_binding(ir):
                 o.append("    };")
             o.append("    // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
             if not NOUNK:
-                o.append("    dst.unknown_fields.extend_from_slice(&take_unk(&f.unknown));")
+                o.append("    dst.unknown_fields.extend_from_slice(&take_unk(ctx, &f.unknown));")
             o.append("}")
         else:
             o.append("#[inline(always)]")
-            o.append("unsafe fn from_%s(f: &ak_dfix_%s, base: *const u8, ctx: *mut ak_dec_ctx) -> %s {"
+            o.append("unsafe fn from_%s(f: &ak_dfix_%s, base: *const u8, ctx: Dx) -> %s {"
                      % (snake(name), name, name))
             o.append("    %s {" % name)
             for fl in m.plain:
@@ -1111,7 +1102,7 @@ def emit_binding(ir):
             if not NOUNK:
                 # The no-unknown facade has no member to fill (FIX-PLAN R-H22).
                 o.append("        // Decision 11 (WP5 step 7): the message's own buffer, the host's now.")
-                o.append("        unknown_fields: take_unk(&f.unknown),")
+                o.append("        unknown_fields: take_unk(ctx, &f.unknown),")
             o.append("    }")
             o.append("}")
         o.append("")
@@ -1123,6 +1114,8 @@ def emit_binding(ir):
         o.append("pub struct Sink%s<'a> {" % root)
         o.append("    pub out: &'a mut %s," % root)
         o.append("    pub base: *const u8,")
+        o.append("    /// FIX-PLAN D26: the decode host context (the unknown-field live set, Z1's input).")
+        o.append("    pub hd: *mut HostDec,")
         o.append("}")
         o.append("")
         o.append("unsafe extern \"C\" fn apply_%s(" % rs)
@@ -1132,6 +1125,7 @@ def emit_binding(ir):
         o.append(") {")
         o.append("    dguard(ctx, || {")
         o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
+        o.append("        let ctx = Dx { ctx, hd: s.hd };")
         o.append("        let f = &*fx;")
         for fl in ir.msg(root).plain:
             if fl.card != "singular":
@@ -1144,7 +1138,7 @@ def emit_binding(ir):
             o.append("        };")
         o.append("        // Decision 11 (WP5 step 7): the root's own buffer, the host's now.")
         if not NOUNK:
-            o.append("        s.out.unknown_fields = take_unk(&f.unknown);")
+            o.append("        s.out.unknown_fields = take_unk(ctx, &f.unknown);")
         o.append("    })")
         o.append("}")
         o.append("")
@@ -1171,6 +1165,7 @@ def emit_binding(ir):
                 o.append(") {")
                 o.append("    dguard(ctx, || {")
                 o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
+                o.append("        let ctx = Dx { ctx, hd: s.hd };")
                 o.append("        let base = s.base;")
                 o.append("        fill_%s(&mut s.out.%s[tok as usize], &*fx, base, ctx);" % (snake(et), sn))
                 o.append("    })")
@@ -1186,16 +1181,16 @@ def emit_binding(ir):
         o.append("/// every `bytes` field a slice of `b` (sharing its allocation) instead of a copy.")
         o.append("/// Not ABI v1 decision 13's default (which copies); `b` must be the whole input.")
         o.append("pub fn decode_with_%s_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<%s, i32> {" % (rs, root))
-        o.append("    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));")
-        o.append("    let _z = ZcReset;")
+        o.append("    unsafe { (*ctxs.host).zc = b as *const ::bytes::Bytes; }")
+        o.append("    let _z = ZcReset(ctxs.host);")
         o.append("    decode_with_%s(ctxs, &b[..])" % rs)
         o.append("}")
         o.append("")
         if not NOUNK:
             o.append("/// Z1 with every position retained (see `decode_with_%s_zc`)." % rs)
             o.append("pub fn decode_with_%s_unk_zc(ctxs: DecCtxs, b: &::bytes::Bytes) -> Result<%s, i32> {" % (rs, root))
-            o.append("    ZC_IN.with(|c| c.set(b as *const ::bytes::Bytes));")
-            o.append("    let _z = ZcReset;")
+            o.append("    unsafe { (*ctxs.host).zc = b as *const ::bytes::Bytes; }")
+            o.append("    let _z = ZcReset(ctxs.host);")
             o.append("    decode_with_%s_unk(ctxs, &b[..])" % rs)
             o.append("}")
             o.append("")
@@ -1236,7 +1231,7 @@ def emit_binding(ir):
         o.append("    let ctx = ctxs.%s;" % rs)
         o.append("    let mut out = %s::default();" % root)
         o.append("    let rc = unsafe {")
-        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };" % root)
+        o.append("        let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), hd: ctxs.host };" % root)
         o.append("        ak_decode_%s(ctx, &mut sink as *mut _ as *mut c_void, b.as_ptr(), b.len(), &VT)" % root)
         o.append("    };")
         o.append("    if rc < 0 { Err(rc) } else { Ok(out) }")
@@ -1268,12 +1263,17 @@ def emit_binding(ir):
         o.append("/// delivered (an inactive oneof member, a map entry, a failed decode) are reclaimed.")
         o.append("pub fn decode_with_%s_opts(ctxs: DecCtxs, b: &[u8], opts: &mut %s) -> Result<%s, i32> {"
                  % (rs, on, root))
+        o.append("    // D26: grow's sink is this binding's decode host context for the call unless the")
+        o.append("    // caller set one (a NULL host word again after it).")
+        o.append("    let host0 = opts.host;")
+        o.append("    if host0.is_null() { opts.host = ctxs.host as *mut c_void; }")
         o.append("    let rc = unsafe { host_reset(); ak_dec_reset_%s(ctxs.%s, opts) };" % (root, rs))
-        o.append("    if rc != AK_OK { return Err(rc); }")
+        o.append("    if rc != AK_OK { opts.host = host0; return Err(rc); }")
         o.append("    let r = decode_with_%s_armed(ctxs, b);" % rs)
         o.append("    unsafe { host_reset(); ak_dec_reset_%s(ctxs.%s, ::core::ptr::null_mut()); }" % (root, rs))
         o.append("    unsafe { (*ctxs.unk).%s_armed.set(false); }" % rs)
-        o.append("    unk_reclaim();")
+        o.append("    unk_reclaim(ctxs);")
+        o.append("    opts.host = host0;")
         o.append("    r")
         o.append("}")
         o.append("")
@@ -1313,7 +1313,7 @@ def emit_binding(ir):
         o.append("    let rc = arm_%s(ctxs);" % rs)
         o.append("    if rc != AK_OK { return Err(rc); }")
         o.append("    let r = decode_with_%s_armed(ctxs, b);" % rs)
-        o.append("    unk_reclaim();")
+        o.append("    unk_reclaim(ctxs);")
         o.append("    r")
         o.append("}")
         o.append("")
@@ -1323,7 +1323,7 @@ def emit_binding(ir):
         o.append("    let rc = arm_%s(ctxs);" % rs)
         o.append("    if rc != AK_OK { return Err(rc); }")
         o.append("    let r = parse_walk_with_%s_armed(ctxs, b, toks);" % rs)
-        o.append("    unk_reclaim();")
+        o.append("    unk_reclaim(ctxs);")
         o.append("    r")
         o.append("}")
         o.append("")
@@ -1452,7 +1452,7 @@ def emit_binding(ir):
         o.append("        if rc < 0 {")
         o.append("            rc")
         o.append("        } else {")
-        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };"
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), hd: ctxs.host };"
                  % root)
         o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
         o.append("            // Two forward calls the counting build cannot see from inside,")
@@ -1503,7 +1503,7 @@ def emit_binding(ir):
         o.append("        if rc < 0 {")
         o.append("            rc")
         o.append("        } else {")
-        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };"
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), hd: ctxs.host };"
                  % root)
         o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
         o.append("            let mut p: *const u8 = ::core::ptr::null();")
@@ -1540,7 +1540,7 @@ def emit_binding(ir):
         o.append("        if rc < 0 {")
         o.append("            rc")
         o.append("        } else {")
-        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr() };"
+        o.append("            let mut sink = Sink%s { out: &mut out, base: b.as_ptr(), hd: ctxs.host };"
                  % root)
         o.append("            let obj = &mut sink as *mut _ as *mut c_void;")
         o.append("            let mut p: *const u8 = ::core::ptr::null();")
@@ -1603,7 +1603,7 @@ def _emit_roe_checks(ir):
             "            1 => parse_walk_with_%s_armed(ctxs, b, &mut toks)," % rs,
             "            _ => fsm_with_%s_armed(ctxs, b, &mut toks)," % rs,
             "        };",
-            "        unk_reclaim();",
+            "        unk_reclaim(ctxs);",
             "        ak_dec_reset_%s(ctx, ::core::ptr::null_mut());" % root,
             "        match r { Err(e) => e, Ok(_) => 0 }",
             "    }",
@@ -1631,28 +1631,35 @@ def _emit_roe_checks(ir):
             "                    1 => parse_walk_with_%s_armed(ctxs, b, toks)," % rs,
             "                    _ => fsm_with_%s_armed(ctxs, b, toks)," % rs,
             "                };",
-            "                unk_reclaim();",
+            "                unk_reclaim(ctxs);",
             "                r",
             "            };",
             "            let mut o_all = unk_opts_%s(None);" % rs,
+            "            o_all.host = ctxs.host as *mut c_void;",
             "            ak_dec_reset_%s(ctx, &mut o_all);" % root,
             "            let r_all = run(&mut toks);",
             "            for p in 0..UNK_POSITIONS_%s {" % up,
             "                let mut o_p = unk_opts_%s(Some(p));" % rs,
+            "                o_p.host = ctxs.host as *mut c_void;",
             "                ak_dec_reset_%s(ctx, &mut o_p);" % root,
             "                let r_p = run(&mut toks);",
             "                if r_p != r_all { bite += 1; }",
             "                let mut st = Box::new(unk_opts_%s(None));" % rs,
+            "                st.host = ctxs.host as *mut c_void;",
             "                ak_dec_reset_%s(ctx, &mut *st);" % root,
             "                let a = run(&mut toks);",
             "                *st = unk_opts_%s(Some(p));" % rs,
+            "                st.host = ctxs.host as *mut c_void;",
             "                let b2 = run(&mut toks);",
             "                *st = unk_opts_%s(None);" % rs,
+            "                st.host = ctxs.host as *mut c_void;",
             "                let c = run(&mut toks);",
             "                *st = unk_opts_%s(Some(p));" % rs,
+            "                st.host = ctxs.host as *mut c_void;",
             "                ak_dec_reset_%s(ctx, &mut *st);" % root,
             "                let d = run(&mut toks);",
             "                *st = unk_opts_%s(None);" % rs,
+            "                st.host = ctxs.host as *mut c_void;",
             "                let e = run(&mut toks);",
             "                ak_dec_reset_%s(ctx, ::core::ptr::null_mut());" % root,
             "                n += 5;",
@@ -1683,7 +1690,7 @@ def _assign(ir, owner, f, dst, fx, base):
         # The presence WORD decides, not the value: present-and-zero and present-and-empty
         # are both `Some`, and only the bit tells them from absent.
         inner = {"string": "s_of(%s, %s.%s, ctx)" % (base, fx, f.name),
-                 "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bytes": "b_of(%s, %s.%s, ctx)" % (base, fx, f.name),
                  "bool": "%s.%s != 0" % (fx, f.name),
                  "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
                      f.kind, "%s.%s" % (fx, f.name))
@@ -1692,7 +1699,7 @@ def _assign(ir, owner, f, dst, fx, base):
     if f.kind == "string":
         return ["%s.%s = s_of(%s, %s.%s, ctx);" % (dst, f.name, base, fx, f.name)]
     if f.kind == "bytes":
-        return ["%s.%s = b_of(%s, %s.%s);" % (dst, f.name, base, fx, f.name)]
+        return ["%s.%s = b_of(%s, %s.%s, ctx);" % (dst, f.name, base, fx, f.name)]
     if f.kind == "enum":
         return ["%s.%s = %s::from_i32(%s.%s);" % (dst, f.name, f.of, fx, f.name)]
     if f.kind == "bool":
@@ -1721,7 +1728,7 @@ def _ctor_expr(ir, owner, f, fx, base):
     bit = "AK_DFIX_%s_PRESENT_%s" % (owner.upper(), f.name.upper())
     if f.explicit:
         inner = {"string": "s_of(%s, %s.%s, ctx)" % (base, fx, f.name),
-                 "bytes": "b_of(%s, %s.%s)" % (base, fx, f.name),
+                 "bytes": "b_of(%s, %s.%s, ctx)" % (base, fx, f.name),
                  "bool": "%s.%s != 0" % (fx, f.name),
                  "enum": "%s::from_i32(%s.%s)" % (f.of, fx, f.name)}.get(
                      f.kind, "%s.%s" % (fx, f.name))
@@ -1729,7 +1736,7 @@ def _ctor_expr(ir, owner, f, fx, base):
     if f.kind == "string":
         return "s_of(%s, %s.%s, ctx)" % (base, fx, f.name)
     if f.kind == "bytes":
-        return "b_of(%s, %s.%s)" % (base, fx, f.name)
+        return "b_of(%s, %s.%s, ctx)" % (base, fx, f.name)
     if f.kind == "enum":
         return "%s::from_i32(%s.%s)" % (f.of, fx, f.name)
     if f.kind == "bool":
@@ -1755,7 +1762,7 @@ def _oneof_back(ir, name, oname, members, fx, base):
         if g.kind == "string":
             v = "s_of(%s, %s.%s_%s, ctx)" % (base, fx, oname, g.name)
         elif g.kind == "bytes":
-            v = "b_of(%s, %s.%s_%s)" % (base, fx, oname, g.name)
+            v = "b_of(%s, %s.%s_%s, ctx)" % (base, fx, oname, g.name)
         elif g.kind == "message":
             v = "from_%s(&%s.%s_%s, %s, ctx)" % (snake(g.of), fx, oname, g.name, base)
         elif g.kind == "bool":
@@ -1785,6 +1792,8 @@ def _emit_add(ir, o, root, et, sn, path, f):
     o.append(") {")
     o.append("    dguard(ctx, || {")
     o.append("        let s = &mut *(obj as *mut Sink%s);" % root)
+    o.append("        let ctx = Dx { ctx, hd: s.hd };")
+    o.append("        let _ = ctx;")
     o.append("        let base = s.base;")
     if et:
         target = "s.out.%s[tok as usize]" % sn
@@ -1805,15 +1814,15 @@ def _emit_add(ir, o, root, et, sn, path, f):
         o.append("            // Decision 11: the entry's own buffer; the facade map has no bag for")
         o.append("            // it (U-map-entry), so it is taken and dropped.")
         if not NOUNK:
-            o.append("            let t = take_unk(&e.unknown);")
-            o.append("            UNK_ENTRY_BYTES.with(|c| c.set(c.get() + t.len()));")
+            o.append("            let t = take_unk(ctx, &e.unknown);")
+            o.append("            (*ctx.hd).entry_bytes += t.len();")
         o.append("        }")
     elif f.kind == "string":
         o.append("        dst.reserve(n as usize);")
         o.append("        for i in 0..n as usize { dst.push(s_of(base, *elems.add(i), ctx)); }")
     elif f.kind == "bytes":
         o.append("        dst.reserve(n as usize);")
-        o.append("        for i in 0..n as usize { dst.push(b_of(base, *elems.add(i))); }")
+        o.append("        for i in 0..n as usize { dst.push(b_of(base, *elems.add(i), ctx)); }")
     elif f.card == "packed":
         conv = ("*elems.add(i) != 0" if f.kind == "bool"
                 else "%s::from_i32(*elems.add(i))" % f.of if f.kind == "enum"
@@ -1880,8 +1889,9 @@ def _emit_loop_unk_zeroed(ir, o, root, path, f, sn):
     o.append("    token: i64,")
     o.append(") -> i32 {")
     o.append("    guard(ctx, || {")
-    o.append("        let o = &*(obj as *const %s);" % root)
-    o.append("        let tc = tcs();")
+    o.append("        let h = &*(obj as *const EncObj);")
+    o.append("        let o = &*(h.o as *const %s);" % root)
+    o.append("        let tc = h.tc;")
     o.extend(_top_src(path))
     o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_%s>());" % et)
     o.append("        const SZ: usize = ::core::mem::size_of::<ak_ufix_%s>();" % et)
@@ -1928,8 +1938,9 @@ def _emit_loop_unk(ir, o, root, path, f, sn):
     o.append("    token: i64,")
     o.append(") -> i32 {")
     o.append("    guard(ctx, || {")
-    o.append("        let o = &*(obj as *const %s);" % root)
-    o.append("        let tc = tcs();")
+    o.append("        let h = &*(obj as *const EncObj);")
+    o.append("        let o = &*(h.o as *const %s);" % root)
+    o.append("        let tc = h.tc;")
     o.extend(_top_src(path))
     o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_ufix_%s>());" % et)
     o.append("        let mut chunk: [::core::mem::MaybeUninit<ak_ufix_%s>; CHUNK] =" % et)
@@ -1971,8 +1982,9 @@ def _emit_loop_zeroed(ir, o, root, path, f, sn):
     o.append("    token: i64,")
     o.append(") -> i32 {")
     o.append("    guard(ctx, || {")
-    o.append("        let o = &*(obj as *const %s);" % root)
-    o.append("        let tc = tcs();")
+    o.append("        let h = &*(obj as *const EncObj);")
+    o.append("        let o = &*(h.o as *const %s);" % root)
+    o.append("        let tc = h.tc;")
     o.extend(_top_src(path))
     o.append("        const CHUNK: usize = ak_rt::arena_n(::core::mem::size_of::<ak_efix_%s>());" % et)
     o.append("        const SZ: usize = ::core::mem::size_of::<ak_efix_%s>();" % et)
@@ -2024,8 +2036,9 @@ def _emit_loop(ir, o, root, path, f, sn, top, elem_path=None, inner_path=None, e
     o.append("    token: i64,")
     o.append(") -> i32 {")
     o.append("    guard(ctx, || {")
-    o.append("        let o = &*(obj as *const %s);" % root)
-    o.append("        let tc = tcs();")
+    o.append("        let h = &*(obj as *const EncObj);")
+    o.append("        let o = &*(h.o as *const %s);" % root)
+    o.append("        let tc = h.tc;")
     if top:
         o.extend(_top_src(path))
     else:
@@ -2194,18 +2207,18 @@ def _emit_unk_controls(ir, root):
     return [
         "pub fn unk_controls_%s(ctx: DecCtxs, b: &[u8], plant: bool) -> Result<UnkReport, i32> {" % rs,
         "    const IS_ENTRY: [bool; %d] = [%s];" % (len(mem), ent),
-        "    unk_entry_bytes();",
+        "    unk_entry_bytes(ctx);",
         "    let all = decode_with_%s_unk(ctx, b)?;" % rs,
-        "    let eb_all = unk_entry_bytes();",
+        "    let eb_all = unk_entry_bytes(ctx);",
         "    let mut toks = Vec::new();",
         "    let pw = parse_walk_with_%s_unk(ctx, b, &mut toks)?;" % rs,
-        "    unk_entry_bytes();",
+        "    unk_entry_bytes(ctx);",
         "    // Compared through Debug so a NaN equals itself (S-double-nan); bytes are the corpus's job.",
         "    let dbg = |x: &%s| format!(\"{:?}\", x);" % root,
         "    let mut rep = UnkReport { positions: %d, pull_equal: dbg(&pw) == dbg(&all), entry_bytes: eb_all, ..Default::default() };" % len(mem),
         "    for i in 0..%d {" % len(mem),
         "        let got = decode_with_%s_opts(ctx, b, &mut unk_opts_%s(Some(i)))?;" % (rs, rs),
-        "        let eb = unk_entry_bytes();",
+        "        let eb = unk_entry_bytes(ctx);",
         "        let mut exp = all.clone();",
         "        if !plant { unk_clear_%s(&mut exp, i); }" % rs,
         "        if dbg(&exp) != dbg(&all) { rep.changed += 1; }",
@@ -2235,7 +2248,32 @@ def _dec_ctxs(ir):
             o.append("    pub %s_armed: ::core::cell::Cell<bool>," % snake(root))
         o.append("}")
         o.append("")
-    o += ["/// One decode context per root (decision 11 rule 6: contexts are root-bound).",
+    # FIX-PLAN D26 (owner, 2026-10-10, as amended): no thread-local storage. The decode host
+    # context holds every per-call host state of a decode and is reached through the pointers
+    # the ABI already hands the callbacks: the push / pull / FSM host functions' `obj` (the
+    # Sink names it) and `grow`'s `sink` (the options' host word).
+    o += ["/// FIX-PLAN D26: the decode HOST context, one per `DecCtxs`, created and freed with it",
+          "/// (so with the core contexts it holds), reused across decodes, never made per call.",
+          "pub struct HostDec {"]
+    if not NOUNK:
+        o += ["    /// Every buffer `unk_grow` handed out on these contexts and not yet delivered.",
+              "    pub live: UnkLive,",
+              "    /// Map-entry unknown bytes delivered (and dropped) since `unk_entry_bytes` read it.",
+              "    pub entry_bytes: usize,"]
+    o += ["    /// Optimisation Z1's input `Bytes` while a `decode_with_*_zc` runs, else null.",
+          "    pub zc: *const ::bytes::Bytes,",
+          "}",
+          "",
+          "/// What a decode helper is handed as `ctx`: the core context of the call and the host",
+          "/// context the callback reached through its `obj`.",
+          "#[derive(Clone, Copy)]",
+          "pub struct Dx {",
+          "    pub ctx: *mut ak_dec_ctx,",
+          "    pub hd: *mut HostDec,",
+          "}",
+          "",
+          "/// One decode context per root (decision 11 rule 6: contexts are root-bound), owned by",
+          "/// the decode host context created with them (FIX-PLAN D26).",
           "#[derive(Clone, Copy)]",
           "pub struct DecCtxs {"]
     for root in ir.roots:
@@ -2243,11 +2281,19 @@ def _dec_ctxs(ir):
     if not NOUNK:
         o.append("    /// Optimisation U1 (owned; freed by `free`).")
         o.append("    pub unk: *mut UnkState,")
+    o.append("    /// FIX-PLAN D26: the decode host context (owned; freed by `free`).")
+    o.append("    pub host: *mut HostDec,")
     o.append("}")
     o.append("impl DecCtxs {")
     o.append("    /// Every root's context, bound, in drop mode. Requires `ak_init` first.")
     o.append("    pub fn new() -> Self {")
     o.append("        unsafe {")
+    o.append("            let host = Box::into_raw(Box::new(HostDec {")
+    if not NOUNK:
+        o.append("                live: UnkLive::default(),")
+        o.append("                entry_bytes: 0,")
+    o.append("                zc: ::core::ptr::null(),")
+    o.append("            }));")
     o.append("            let d = DecCtxs {")
     for root in ir.roots:
         o.append("                %s: ak_dec_ctx_new_%s(%s)," % (snake(root), root, "" if NOUNK else "::core::ptr::null_mut()"))
@@ -2257,7 +2303,12 @@ def _dec_ctxs(ir):
             o.append("                    %s_opts: ::core::cell::UnsafeCell::new(unk_opts_%s(None))," % (snake(root), snake(root)))
             o.append("                    %s_armed: ::core::cell::Cell::new(false)," % snake(root))
         o.append("                })),")
+    o.append("                host,")
     o.append("            };")
+    if not NOUNK:
+        o.append("            // D26: grow's `sink` is this host context (the options' host word).")
+        for root in ir.roots:
+            o.append("            (*(*d.unk).%s_opts.get()).host = host as *mut c_void;" % snake(root))
     for root in ir.roots:
         o.append("            assert!(!d.%s.is_null(), \"ak_dec_ctx_new_%s\");" % (snake(root), root))
     o.append("            d")
@@ -2268,6 +2319,8 @@ def _dec_ctxs(ir):
         o.append("        ak_dec_ctx_free(self.%s);" % snake(root))
     if not NOUNK:
         o.append("        drop(Box::from_raw(self.unk));")
+        o.append("        unk_reclaim(self);")
+    o.append("        drop(Box::from_raw(self.host));")
     o.append("    }")
     o.append("}")
     o.append("")
