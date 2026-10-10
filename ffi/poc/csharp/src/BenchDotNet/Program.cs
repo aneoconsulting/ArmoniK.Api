@@ -76,6 +76,12 @@ public static class Program
             Alloc.Startup();
             return PinBench.Run(Opt(a, "--pinbench", "pinbench.tsv"), int.Parse(Opt(a, "--rounds", "6"), CultureInfo.InvariantCulture), double.Parse(Opt(a, "--block-ms", "40"), CultureInfo.InvariantCulture));
         }
+#if AK_ROE_BENCH
+        // s16: reset-on-entry against the explicit resets, in one process (RoeBench/RoeBench.cs).
+        if (a.Contains("--roebench"))
+            return RoeBench.Run(Opt(a, "--roebench", "roe.tsv"), int.Parse(Opt(a, "--rounds", "21"), CultureInfo.InvariantCulture),
+                double.Parse(Opt(a, "--block-ms", "20"), CultureInfo.InvariantCulture), int.Parse(Opt(a, "--warm-ms", "1000"), CultureInfo.InvariantCulture));
+#endif
         if (a.Contains("--strsweep"))
         {
             Alloc.Startup();   // the allocator and single-CPU checks

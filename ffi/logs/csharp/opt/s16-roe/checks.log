@@ -1,0 +1,206 @@
+# s16_checks.sh at 0f0164c0 + uncommitted; 2026-10-10T17:08:30Z; boot 2026-10-10 09:18:10
+## 0. generators current (the default outputs and the variant's); the default builds unchanged by the variant's files
+$ bash -c ! grep -q '^wrote' '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s16chk/gen.out'
+exit status: 0
+$ python3 -I gen/no_tls.py src
+no_tls: 127 C# files scanned under src; 0 thread-local site(s)
+exit status: 0
+# cores: BenchDotNet/bin-roe 97ed73f02f727c8d; BenchDotNet/bin-roe-nounk e141731c4c8990dc; BenchDotNet/bin-roe-count 65c4dd0cea25b65d; BenchDotNet/bin-roe-count-nounk efd1e1f6fa817a0f; BenchDotNet/bin-roebench 97ed73f02f727c8d; Corpus/bin-roe b9ecf19a2e31c421; Corpus/bin-roe-nounk 6962de1d53287637; 
+## 1. the variant binding refuses a core without the feature (the marker export)
+$ env AK_CORE_LIB=/home/user/ArmoniK.Api/ffi/poc/csharp/target-core/release/libak_core.so dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s16_checks.sh: line 15: 21694 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+Unhandled exception. System.InvalidOperationException: reset-on-entry binding: the loaded core has no ak_measure_reset_on_entry (built without the reset-on-entry feature)
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 117
+exit status: 134
+control variant on the default core: failed, as required
+## 2. Cases.Verify: byte identity of every arm, every string path (E0 E1 E2 ETH:16 E3 E3L E1R E1C ...), retain and drop, both builds
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 3. --verify-mt (8 threads) per path, both builds; pin stress (1 thread) for the frame paths; the early-unpin control
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E2, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E3L, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1C (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1C (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1   # a CONTROL: must fail
+gen/s16_checks.sh: line 15: 25271 Segmentation fault      "$@" > "$SCRATCH/ctl.out" 2>&1
+P2.2/2 thread 0: bytes differ
+exit status: 139
+control verify-mt E1C 1 thread, handles released before the call + compacting GC: failed, as required
+## 4. --verify-fsm: push = pull = FSM on every payload, content set and U-* row, drop and retain; FSM calls = the Rust slice's events
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll' --verify-fsm --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/events-full.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/verify-fsm-full.log' | tail -n 3; exit ${PIPESTATUS[0]}
+verify-fsm (full): 114 inputs, 228 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 228 compared, 0 not in its list
+malformed variants: 20676 decodes per family (18626 refused by pull, FSM code == pull code required; 2050 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/events-nounk.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/verify-fsm-nounk.log' | tail -n 3; exit ${PIPESTATUS[0]}
+verify-fsm (no-unknown): 114 inputs, 114 input x mode graphs compared (push = pull = FSM, managed re-encoding and read pass); FSM events vs the Rust slice: 114 compared, 0 not in its list
+malformed variants: 10338 decodes per family (9313 refused by pull, FSM code == pull code required; 1025 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+## 5. the corpus (four arms, retain strict), both builds, E0 and E1R; E1R / E1C K 3 under pin stress; the push arms; the unknown-field controls
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-full-E0.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-full-E0.log'; exit $rc
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-nounk-E0.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-nounk-E0.log'; exit $rc
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-full-E1R.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-full-E1R.log'; exit $rc
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-nounk-E1R.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-nounk-E1R.log'; exit $rc
+
+# rows that hung or crashed a child: 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' --timeout-ms 300000 > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-pinstress-E1R.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-pinstress-E1R.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' --timeout-ms 300000 > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-pinstress-E1C.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-pinstress-E1C.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-push-full.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/corpus-push-full.log'; exit $rc
+# rows that hung or crashed a child: 0
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 6 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-roe/Release/net8.0/corpus' --unk-controls > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/unk-controls.log' 2>&1; rc=$?; tail -n 4 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/unk-controls.log'; exit $rc
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing)
+discard mismatches: 0 row(s); pull != push: 0 row(s); FSM != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+## 6. counts of the variant (both builds) against the committed ones: fwd = default fwd - the resets it no longer makes
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe.txt' > /dev/null && python3 -I gen/s16_counts.py gen/counts.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-change.md'; rc=$?; tail -n 12 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-change.md'; exit $rc
+| encode | retain | -1 | 1 | 0 | 22 |
+| encode-core | drop | -1 | 1 | 0 | 22 |
+| encode-core | retain | -1 | 1 | 0 | 22 |
+| encode-core-hot | drop | -1 | 1 | 0 | 29 |
+| encode-core-hot | retain | -1 | 1 | 0 | 29 |
+| encode-hot | drop | -1 | 1 | 0 | 114 |
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py gen/counts-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-nounk-change.md'; rc=$?; tail -n 8 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/counts-roe-nounk-change.md'; exit $rc
+| decode-reencode | no-unknown | -1 | 1 | 0 | 92 |
+| encode | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+## 7. planted defects in the variant's generated FSM consumer (src/Harness/GeneratedRoe/CoreFfi.cs), each caught by --verify-fsm
+planted 3 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a CONTROL: must fail
+  FAIL P2.2 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P2.2 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P2.2/latin1 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 100 failure(s)
+exit status: 1
+control token ignored (every element group applied to element 0): failed, as required
+planted 15 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a CONTROL: must fail
+  FAIL P1.1 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P1.1 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P1.2 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 488 failure(s)
+exit status: 1
+control a run's last element lost: failed, as required
+planted 7 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a CONTROL: must fail
+  FAIL P1.1 drop: FSM graph != push graph (managed re-encoding)
+  FAIL P1.1 retain: FSM graph != push graph (managed re-encoding)
+  FAIL P1.2 drop: FSM graph != push graph (managed re-encoding)
+verify-fsm: 290 failure(s)
+exit status: 1
+control the root group not applied: failed, as required
+planted 7 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 8   # a CONTROL: must fail
+  FAIL P1.1 byte 0 flipped drop: FSM 0 != pull -2 (push -2)
+  FAIL P1.1 byte 0 flipped retain: FSM -1001 != pull -2 (push -2)
+  FAIL P1.1 truncated at 107 drop: FSM 0 != pull -3 (push -3)
+verify-fsm: 2302 failure(s)
+exit status: 1
+control an error read as the end: failed, as required
+## 7b. a planted variant defect: the variant also skips the reset that CHANGES the options pointer (retain after drop decodes with the old pointer); --verify must fail
+planted 7 site(s)
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roe/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s16_checks.sh: line 15: 11152 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 117
+exit status: 134
+control retain decode never armed: failed, as required
+$ bash -c python3 gen/generate.py | grep -c '^wrote' | grep -qx 0
+exit status: 0
+## 8. the in-process bench's identity and reset bookkeeping on every case (one round, short blocks; no timing used)
+$ bash -c AK_CAMPAIGN_GRID=core AK_BDN_DROP=1 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-roebench/Release/net8.0/BenchDotNet.dll' --roebench '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/roebench-smoke.tsv' --rounds 1 --block-ms 1 --warm-ms 5 | tail -n 1
+roebench: 98 cases (0 identity failure(s)) to /home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/roebench-smoke.tsv; resets to /home/user/ArmoniK.Api/ffi/logs/csharp/opt/s16-roe/checks/roebench-smoke.tsv.resets.tsv
+exit status: 0
+
+S16 CHECKS PASSED (net8.0; not the gate)

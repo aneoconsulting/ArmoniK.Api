@@ -6,4 +6,10 @@
   <PropertyGroup Condition="'$(AkHostCount)' == 'true'">
     <DefineConstants>$(DefineConstants);AK_HOST_COUNT</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_ROE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoeBench)' == 'true'">
+    <DefineConstants>$(DefineConstants);AK_ROE_BENCH</DefineConstants>
+  </PropertyGroup>
 </Project>

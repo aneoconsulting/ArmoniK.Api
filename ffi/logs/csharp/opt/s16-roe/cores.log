@@ -1,0 +1,11 @@
+# s16 cores: git archive HEAD ffi/poc/codec, last core commit 30430915; rustc 1.94.1
+#   target-core-roe: --features rpc,init-guard,reset-on-entry  -> 97ed73f02f727c8d (171 ak_* exports; marker: 1)
+#   target-core-count-roe: --features rpc,count,init-guard,reset-on-entry  -> 65c4dd0cea25b65d (171 ak_* exports; marker: 1)
+#   target-core-corpus-roe: --features corpus,init-guard,reset-on-entry  -> b9ecf19a2e31c421 (368 ak_* exports; marker: 1)
+#   target-core-nounk-roe: --features rpc,init-guard,reset-on-entry --no-default-features -> e141731c4c8990dc (150 ak_* exports; marker: 1)
+#   target-core-count-nounk-roe: --features rpc,count,init-guard,reset-on-entry --no-default-features -> efd1e1f6fa817a0f (150 ak_* exports; marker: 1)
+#   target-core-corpus-nounk-roe: --features corpus,init-guard,reset-on-entry --no-default-features -> 6962de1d53287637 (298 ak_* exports; marker: 1)
+#   target-core-s16default: --features rpc,init-guard  -> 7b8ed0b888940ab7 (168 ak_* exports; marker: 0)
+#   target-core-corpus-s16default: --features corpus,init-guard  -> 44c28bac239c673c (365 ak_* exports; marker: 0)
+# default build target-core-s16default == target-core (byte-identical: 7b8ed0b888940ab7)
+# default build target-core-corpus-s16default == target-core-corpus (byte-identical: 44c28bac239c673c)

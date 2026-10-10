@@ -1,0 +1,15 @@
+# decision 11 (WP5 step 9): every accept row whose root crosses the C ABI; retained push is the
+# reference; each position zeroed in turn must equal it with that position's bags cleared;
+# pull and the FSM (D24's target family) must equal push (compared as retained re-encodings, ak_uencode_*)
+  U-chunkelem-all                    ChunkedResponse            positions  5, changed by zeroing  1 (items)
+  U-deep-all                         ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks_options)
+  U-element-all                      ListTasksDetailedResponse  positions 18, changed by zeroing  1 (tasks)
+  U-leaf-all                         ListResultsResponse        positions  4, changed by zeroing  2 (results_created_at, results_completed_at)
+  U-map-entry                        ListTasksDetailedResponse  positions 18, changed by zeroing  0 ()
+  U-nested-all                       ListResultsResponse        positions  4, changed by zeroing  1 (results)
+  U-oneof-all                        ListProbeResponse          positions  3, changed by zeroing  1 (probes)
+  U-root-all                         ListResultsResponse        positions  4, changed by zeroing  1 (self)
+rows 543 (accept, root in the ABI), 2290 (row, position) pairs; rows with unknowns at some position 307 (315 pairs changed by zeroing)
+discard mismatches: 0 row(s); pull != push: 0 row(s); FSM != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED

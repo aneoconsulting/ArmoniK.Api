@@ -1454,6 +1454,8 @@ def _emit_enc_ctx(o, p, root, slots):
     o += "        public %s Root;" % root
     o += "        public EncCtx(bool utf16) : base(utf16)"
     o += "        {"
+    if _ROE:
+        o += "            RoeCore.Check();   // reset-on-entry: refuse a core without the feature"
     o += "            Ctx = Abi.ak_enc_ctx_new();"
     o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_enc_ctx_new returned null\");"
     o += "            Run = (Run_%s*)NativeMemory.AllocZeroed((nuint)sizeof(Run_%s));" % (root, root)
@@ -1850,6 +1852,8 @@ def _emit_dec_ctx(o, p, root):
     o += "        private GCHandle _self;"
     o += "        public DecCtx()"
     o += "        {"
+    if _ROE:
+        o += "            RoeCore.Check();   // reset-on-entry: refuse a core without the feature"
     o += "            Ctx = Abi.ak_dec_ctx_new_%s(%s);   // rule 6: bound to this root%s" % (root, "" if _NO else "null", "; no options exist" if _NO else ", drop mode")
     o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
     o += "            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
@@ -2465,6 +2469,34 @@ def _emit_fsm(o, p, root, slots):
     o += ""
 
 
+ROECORE = r'''
+/// reset-on-entry (measurement experiment, rendered only with reset_on_entry=True): the core's
+/// measurement exports. Check() refuses a core built without the feature (its marker export
+/// is absent there: a binding that skips the resets must not run on such a core); EncSetRoe /
+/// DecSetRoe switch one context's reset-on-entry (MEASUREMENT ONLY: so a process can time the
+/// explicit-reset binding on the same core with the switch off on its contexts).
+public static unsafe class RoeCore
+{
+    [DllImport(Abi.Lib, EntryPoint = "ak_measure_reset_on_entry", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    private static extern uint Marker();
+    [DllImport(Abi.Lib, EntryPoint = "ak_measure_enc_set_roe", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    public static extern void EncSetRoe(IntPtr ctx, int on);
+    [DllImport(Abi.Lib, EntryPoint = "ak_measure_dec_set_roe", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    public static extern void DecSetRoe(IntPtr ctx, int on);
+    private static bool _ok;
+    public static void Check()
+    {
+        if (_ok) return;
+        uint m;
+        try { m = Marker(); }
+        catch (EntryPointNotFoundException) { throw new InvalidOperationException("reset-on-entry binding: the loaded core has no ak_measure_reset_on_entry (built without the reset-on-entry feature)"); }
+        if (m != 1) throw new InvalidOperationException("reset-on-entry binding: marker " + m);
+        _ok = true;
+    }
+}
+'''
+
+
 def emit_host(x, ns, facade_ns, reset_on_entry=False):
     """`reset_on_entry` (default False: the committed C# output, unchanged): render for a core
     built with the `reset-on-entry` feature (owner, 2026-10-10; measurement experiment): no
@@ -2493,6 +2525,9 @@ def emit_host(x, ns, facade_ns, reset_on_entry=False):
         o += ln
     if not _NO:
         for ln in UNKHOST.strip("\n").split("\n"):
+            o += ln
+    if _ROE:
+        for ln in ROECORE.strip("\n").split("\n"):
             o += ln
     o += ""
     _emit_groups(o, p)

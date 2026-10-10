@@ -47,6 +47,7 @@ import cs_arms              # noqa: E402
 import cs_proj              # noqa: E402
 import cs_registry          # noqa: E402
 import cs_campaign          # noqa: E402
+import cs_roebench          # noqa: E402  s16 glue (the reset-on-entry measurement)
 
 ROOT = os.path.dirname(HERE)
 
@@ -63,7 +64,7 @@ ROOTS = [
 SHARED = ["cs_names.py", "cs_types.py", "cs_managed.py", "cs_binding.py", "cs_host.py",
           "cs_layout_probe.py"]
 GLUE = ["glue.py", "cs_values.py", "cs_build.py", "cs_arms.py", "cs_proj.py", "cs_registry.py", "cs_campaign.py",
-        "generate.py"]
+        "cs_roebench.py", "generate.py"]
 
 
 def payload_roots():
@@ -119,7 +120,7 @@ def targets():
         "src/Corpus/Generated/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
         "src/Corpus/Generated/Dispatch.cs": cs_registry.emit_corpus_dispatch(abi, refused),
         "abi/src/main.rs": cs_layout_probe.emit(),
-    } | nounk_targets(p, full, abi, refused)
+    } | nounk_targets(p, full, abi, refused) | roe_targets(p, abi)
 
 
 def nounk_targets(p, full, abi, refused):
@@ -146,6 +147,33 @@ def nounk_targets(p, full, abi, refused):
         "src/Corpus/GeneratedNounk/Abi.cs": cs_binding.emit_abi(abid, "Armonik.Ffi.Corpus"),
         "src/Corpus/GeneratedNounk/CoreFfi.cs": cs_host.emit_host(abid, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus"),
         "src/Corpus/GeneratedNounk/Dispatch.cs": cs_registry.emit_corpus_dispatch(abid, refused),
+    }
+
+
+def roe_targets(p, abi):
+    """s16 (owner, 2026-10-10): reset-on-entry, a MEASUREMENT EXPERIMENT against a core built
+    with that feature. The same backend renders the host with reset_on_entry=True; these
+    files are compiled only in their own configurations, so every default build is unchanged:
+      /p:AkRoe=true       GeneratedRoe[Nounk]/CoreFfi.cs REPLACE the default host (the checks
+                          and counts of the variant; output bin-roe*/ obj-roe*);
+      /p:AkRoeBench=true  BOTH bindings in one process: the default host as the explicit-reset
+                          path and GeneratedRoeBench/CoreFfiRoe.cs (namespace
+                          Armonik.Ffi.HarnessRoe) beside it, with RoeOps (cs_roebench.py) and
+                          RoeBench.cs (output bin-roebench/)."""
+    pd = P.relower(p, p.options.with_unknown("drop"))
+    abid = P.relower(abi, abi.options.with_unknown("drop"))
+    bench = cs_host.emit_host(p, "Armonik.Ffi.HarnessRoe", "Armonik.Ffi.Facade", reset_on_entry=True)
+    # The second copy lives beside the default one in the Harness assembly: the P/Invoke
+    # binding (Abi), the groups and the facade are the default namespace's.
+    bench = bench.replace("using Armonik.Ffi.Facade;\n", "using Armonik.Ffi.Facade;\nusing Armonik.Ffi.Harness;\n", 1)
+    return {
+        "src/Harness/GeneratedRoe/CoreFfi.cs": cs_host.emit_host(p, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade", reset_on_entry=True),
+        "src/Harness/GeneratedRoeNounk/CoreFfi.cs": cs_host.emit_host(pd, "Armonik.Ffi.Harness", "Armonik.Ffi.Facade", reset_on_entry=True),
+        "src/Corpus/GeneratedRoe/CoreFfi.cs": cs_host.emit_host(abi, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus", reset_on_entry=True),
+        "src/Corpus/GeneratedRoeNounk/CoreFfi.cs": cs_host.emit_host(abid, "Armonik.Ffi.Corpus", "Armonik.Ffi.Corpus", reset_on_entry=True),
+        "src/Harness/GeneratedRoeBench/CoreFfiRoe.cs": bench,
+        "src/BenchDotNet/GeneratedRoeBench/RoeOps.cs": cs_roebench.emit(p),
+        "src/Harness/GeneratedRoeBench/RoeTiming.cs": cs_roebench.emit_timing(p),
     }
 
 

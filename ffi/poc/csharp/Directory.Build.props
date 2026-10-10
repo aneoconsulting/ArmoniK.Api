@@ -26,7 +26,7 @@
        codec (FIX-PLAN WP5 step 4, R-E7). obj-strict/bin-strict stay excluded so an
        old tree cannot be globbed. -->
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**;obj-count/**;bin-count/**;obj-count-nounk/**;bin-count-nounk/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**;obj-floor/**;bin-floor/**;obj-strict/**;bin-strict/**;obj-nounk/**;bin-nounk/**;obj-count/**;bin-count/**;obj-count-nounk/**;bin-count-nounk/**;obj-roe/**;bin-roe/**;obj-roe-nounk/**;bin-roe-nounk/**;obj-roe-count/**;bin-roe-count/**;obj-roe-count-nounk/**;bin-roe-count-nounk/**;obj-roebench/**;bin-roebench/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- FIX-PLAN WP5 step 10: the NO-UNKNOWN build, `dotnet build /p:AkNounk=true`. Unknown
@@ -54,6 +54,46 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(AkNounk)' != 'true'">
     <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedNounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- s16 (owner, 2026-10-10): reset-on-entry, a MEASUREMENT EXPERIMENT (gen/generate.py
+       roe_targets). Default builds compile none of these files. `/p:AkRoe=true` (with or
+       without AkNounk / AkHostCount): GeneratedRoe[Nounk]/CoreFfi.cs REPLACES the default
+       host, for the variant's checks and counts, against a core built with the
+       reset-on-entry feature (gen/s16_cores.sh). `/p:AkRoeBench=true`: the default host AND
+       GeneratedRoeBench/ (the second binding, namespace Armonik.Ffi.HarnessRoe, and RoeOps),
+       for RoeBench.cs's in-process comparison. Their own output directories. -->
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' != 'true' And '$(AkHostCount)' != 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-roe/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-roe/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' == 'true' And '$(AkHostCount)' != 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-roe-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-roe-nounk/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' != 'true' And '$(AkHostCount)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-roe-count/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-roe-count/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' == 'true' And '$(AkHostCount)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-roe-count-nounk/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-roe-count-nounk/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoeBench)' == 'true'">
+    <BaseOutputPath>$(MSBuildProjectDirectory)/bin-roebench/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)/obj-roebench/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedRoe/**;GeneratedRoeNounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);Generated/CoreFfi.cs;GeneratedRoeNounk/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoe)' == 'true' And '$(AkNounk)' == 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedNounk/CoreFfi.cs;GeneratedRoe/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AkRoeBench)' != 'true'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);GeneratedRoeBench/**;RoeBench/**</DefaultItemExcludes>
   </PropertyGroup>
 
 </Project>
