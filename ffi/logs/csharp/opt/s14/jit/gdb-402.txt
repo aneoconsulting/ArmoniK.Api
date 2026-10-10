@@ -1,0 +1,511 @@
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d525f550:	endbr64
+#0  0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d53463f6 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc556d7aaf0 in ?? ()
+#3  0x00007ffe17b0f300 in ?? ()
+#4  0x0000000000212cf6 in ?? ()
+#5  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7a90a in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7a90a:	mov    0x8(%rax),%rdi
+#0  0x00007fc556d7a90a in ?? ()
+#1  0x00007ffe17b0f300 in ?? ()
+#2  0x0000000000212cf6 in ?? ()
+#3  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007fc5573ca520 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52262d8:	mov    0x20(%rdi,%r13,1),%r12
+#0  0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7a9b3 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7c0b6 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7c0b6:	movslq %edi,%rax
+#0  0x00007fc556d7c0b6 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7a610 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7a610:	push   %rbp
+#0  0x00007fc556d7a610 in ?? ()
+#1  0x00007fc556d7d6da in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d5226289 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d5226289:	mov    $0xffffffff,%ebx
+#0  0x00007fc5d5226289 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7aaf0 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7bb37 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7bb37:	vxorps %xmm0,%xmm0,%xmm0
+#0  0x00007fc556d7bb37 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a83b in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7ccbf in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7ccbf:	movb   $0x1,0xc(%r15)
+#0  0x00007fc556d7ccbf in ?? ()
+#1  0x00007fc5c25bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x0000000000212cf6 in ?? ()
+#3  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007fc5573cb188 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7bb88 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7bb88:	vmovdqu %xmm0,(%rbx)
+#0  0x00007fc556d7bb88 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a83b in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7bb88 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7bb88:	vmovdqu %xmm0,(%rbx)
+#0  0x00007fc556d7bb88 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a83b in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52a7c65 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52a7c65:	pop    %rbp
+#0  0x00007fc5d52a7c65 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d52b34c5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d534637e in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7a9a2 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__memset_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:210
+__memset_avx512_unaligned_erms + 94 in section .text of /lib/x86_64-linux-gnu/libc.so.6
+=> 0x7fc5d59a1bde <__memset_avx512_unaligned_erms+94>:	kmovq  %rcx,%k1
+#0  __memset_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:210
+#1  0x00007fc5c25bee82 in ak_enc_reset () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007fc556d7a6f8 in ?? ()
+#3  0x00007ffe17b0f300 in ?? ()
+#4  0x0000000000212cf6 in ?? ()
+#5  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d525f550:	endbr64
+#0  0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d52b3494 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d534637e in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7aaf0 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7a697 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7a697:	mov    %rax,%r14
+#0  0x00007fc556d7a697 in ?? ()
+#1  0x00007ffe17b0f300 in ?? ()
+#2  0x0000000000212cf6 in ?? ()
+#3  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7a7c1 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7a7c1:	mov    0x40(%rax),%edi
+#0  0x00007fc556d7a7c1 in ?? ()
+#1  0x00007ffe17b0f300 in ?? ()
+#2  0x0000000000212cf6 in ?? ()
+#3  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007fc5573ca520 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52262dd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52262dd:	movabs $0x7fffffffffffffff,%rax
+#0  0x00007fc5d52262dd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7a9a2 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7bb88 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7bb88:	vmovdqu %xmm0,(%rbx)
+#0  0x00007fc556d7bb88 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a83b in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12695]
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d5226289 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d5226289:	mov    $0xffffffff,%ebx
+#0  0x00007fc5d5226289 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7aace in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52262d8:	mov    0x20(%rdi,%r13,1),%r12
+#0  0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7a9b3 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:358
+__memmove_avx512_unaligned_erms + 177 in section .text of /lib/x86_64-linux-gnu/libc.so.6
+=> 0x7fc5d59a13f1 <__memcpy_avx512_unaligned_erms+177>:	ret
+#0  __memcpy_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:358
+#1  0x00007fc5c24d7c85 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a8d8 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52b2855 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52b2855:	movzbl 0x18(%rbx,%rax,1),%eax
+#0  0x00007fc5d52b2855 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d5346391 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc556d7aaf0 in ?? ()
+#3  0x00007ffe17b0f300 in ?? ()
+#4  0x0000000000212cf6 in ?? ()
+#5  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc556d7bb88 in ?? ()
+No symbol matches $pc.
+=> 0x7fc556d7bb88:	vmovdqu %xmm0,(%rbx)
+#0  0x00007fc556d7bb88 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007fc5c252598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007fc556d7a83b in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d52262d8:	mov    0x20(%rdi,%r13,1),%r12
+#0  0x00007fc5d52262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d51f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d5346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7ab37 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d525f550:	endbr64
+#0  0x00007fc5d525f550 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc5d52b3494 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007fc5d534637e in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007fc556d7a9a2 in ?? ()
+#4  0x00007ffe17b0f300 in ?? ()
+#5  0x0000000000212cf6 in ?? ()
+[Inferior 1 (process 12686) detached]
+----
+[New LWP 12694]
+[New LWP 12693]
+[New LWP 12692]
+[New LWP 12691]
+[New LWP 12690]
+[New LWP 12689]
+[New LWP 12688]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007fc5d5346368 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+No symbol matches $pc.
+=> 0x7fc5d5346368:	mov    (%rax),%rdi
+#0  0x00007fc5d5346368 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007fc556d7a9b3 in ?? ()
+#2  0x00007ffe17b0f300 in ?? ()
+#3  0x0000000000212cf6 in ?? ()
+#4  0x00007fc5d56977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 12686) detached]
+----

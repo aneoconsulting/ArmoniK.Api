@@ -1,0 +1,71 @@
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- -----------------------
+ 46.88    0.091804         956        96        11 futex
+ 28.11    0.055049       27524         2           poll
+  7.83    0.015342          10      1428           read
+  6.80    0.013315          10      1306           lseek
+  1.90    0.003721           3      1150           mprotect
+  1.76    0.003440           9       375       355 readlink
+  1.58    0.003085          10       290           rt_sigprocmask
+  1.22    0.002395           5       451           mmap
+  0.54    0.001060           6       159        47 openat
+  0.41    0.000803           8        99           close
+  0.37    0.000732           3       191           munmap
+  0.30    0.000582           5       103           fstat
+  0.20    0.000387          43         9           clone3
+  0.14    0.000280          21        13        11 execve
+  0.14    0.000271          24        11           prctl
+  0.14    0.000270          18        15           write
+  0.14    0.000267          12        22           rt_sigaction
+  0.11    0.000225           4        56           fcntl
+  0.11    0.000211           8        24           membarrier
+  0.10    0.000187           3        48           pread64
+  0.08    0.000166           2        62           brk
+  0.08    0.000154          14        11           rseq
+  0.07    0.000143           8        17        10 access
+  0.07    0.000140           5        26           madvise
+  0.07    0.000137          13        10           getpid
+  0.06    0.000117           6        17           sched_getaffinity
+  0.06    0.000117          10        11           set_robust_list
+  0.06    0.000116          11        10           getgid
+  0.06    0.000114           4        26           clock_gettime
+  0.05    0.000107           8        12           getuid
+  0.05    0.000101           2        38        12 newfstatat
+  0.05    0.000100           9        11           geteuid
+  0.05    0.000099          14         7           pipe2
+  0.05    0.000092           9        10           getegid
+  0.04    0.000070           8         8           getdents64
+  0.03    0.000066           6        10           prlimit64
+  0.03    0.000061          12         5         2 unlink
+  0.03    0.000055          18         3         3 ioctl
+  0.03    0.000055           4        12           sigaltstack
+  0.02    0.000043          14         3           socket
+  0.02    0.000043          21         2         2 connect
+  0.02    0.000036           4         8           gettid
+  0.02    0.000035          11         3           getcwd
+  0.02    0.000034           4         7           sched_setaffinity
+  0.02    0.000030          30         1           sched_getparam
+  0.01    0.000025          12         2           setsockopt
+  0.01    0.000021          10         2           arch_prctl
+  0.01    0.000020           6         3           statfs
+  0.01    0.000019          19         1           memfd_create
+  0.01    0.000013           4         3           ftruncate
+  0.01    0.000013          13         1           sched_setscheduler
+  0.01    0.000012          12         1           sysinfo
+  0.01    0.000011           5         2           getsid
+  0.01    0.000010          10         1           sched_get_priority_max
+  0.01    0.000010           5         2           set_tid_address
+  0.01    0.000010           5         2           getrandom
+  0.00    0.000009           9         1           sched_getscheduler
+  0.00    0.000009           9         1           sched_get_priority_min
+  0.00    0.000001           0        19           sched_yield
+  0.00    0.000000           0         2           pwrite64
+  0.00    0.000000           0         1           bind
+  0.00    0.000000           0         1           listen
+  0.00    0.000000           0         4           flock
+  0.00    0.000000           0         1           fchmod
+  0.00    0.000000           0         2           fstatfs
+  0.00    0.000000           0         1           get_mempolicy
+  0.00    0.000000           0         2           mknodat
+------ ----------- ----------- --------- --------- -----------------------
+100.00    0.195840          31      6233       453 total

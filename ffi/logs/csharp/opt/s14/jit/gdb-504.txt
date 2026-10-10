@@ -1,0 +1,604 @@
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f622a62b12e in simdutf::convert_utf16le_to_utf8(char16_t const*, unsigned long, char*) () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+From                To                  Syms Read   Shared Object Library
+0x00007f623dca55c0  0x00007f623dde4ce2  Yes (*)     /lib/x86_64-linux-gnu/libstdc++.so.6
+0x00007f623db27420  0x00007f623dba53a6  Yes         /lib/x86_64-linux-gnu/libm.so.6
+0x00007f623daed780  0x00007f623db10745  Yes (*)     /lib/x86_64-linux-gnu/libgcc_s.so.1
+0x00007f623d828800  0x00007f623d9afd39  Yes         /lib/x86_64-linux-gnu/libc.so.6
+0x00007f623deb4000  0x00007f623dede195  Yes         /lib64/ld-linux-x86-64.so.2
+0x00007f623dab0570  0x00007f623dae4d7c  Yes (*)     /usr/lib/dotnet/host/fxr/8.0.31/libhostfxr.so
+0x00007f623da5f950  0x00007f623da990dc  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libhostpolicy.so
+0x00007f623d1acaa0  0x00007f623d6837eb  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+0x00007f623da32460  0x00007f623da387c7  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust-tracepoint.so.1
+0x00007f623de8e6c0  0x00007f623de94b68  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust-common.so.1
+0x00007f623d7b6fe0  0x00007f623d7e0c70  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclrtraceptprovider.so
+0x00007f623cf8a2e0  0x00007f623cfd3545  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust.so.1
+0x00007f623de81820  0x00007f623de87036  Yes (*)     /lib/x86_64-linux-gnu/libnuma.so.1
+0x00007f62386ae7e0  0x00007f62388cee6b  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libclrjit.so
+0x00007f623965bdf0  0x00007f6239665b32  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libSystem.Native.so
+0x00007f622a4d72a0  0x00007f622a7245e8  Yes (*)     /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+(*): Shared library is missing debugging information.
+[Inferior 1 (process 13933) detached]
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:35
+#0  __tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:35
+#1  0x00007f623d352fc4 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f61bed6a6b7 in ?? ()
+#3  0x00007ffde03cabd0 in ?? ()
+#4  0x0000000000229abe in ?? ()
+#5  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#6  0xffffffffffffffff in ?? ()
+#7  0x00007f61bf3bb188 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262dd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262dd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346903 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab00 in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d8ec95b in __GI___clock_gettime (clock_id=2, tp=0x7ffde03cad18) at ../sysdeps/unix/sysv/linux/clock_gettime.c:38
+#0  0x00007f623d8ec95b in __GI___clock_gettime (clock_id=2, tp=0x7ffde03cad18) at ../sysdeps/unix/sysv/linux/clock_gettime.c:38
+#1  0x00007f61bed7fe77 in ?? ()
+#2  0x0000000000229abe in ?? ()
+#3  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f61bf401280 in ?? ()
+#6  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6a7f8 in ?? ()
+#0  0x00007f61bed6a7f8 in ?? ()
+#1  0x00007ffde03cabd0 in ?? ()
+#2  0x0000000000229abe in ?? ()
+#3  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f61bf3ba520 in ?? ()
+#6  0x00007ffde03cabe0 in ?? ()
+#7  0x00007ffde03cabd0 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6a9d3 in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bdca in ?? ()
+#0  0x00007f61bed6bdca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13942]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d21afb2 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d21afb2 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d3465bf in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f61bed6ab8b in ?? ()
+#3  0x00007ffde03cabd0 in ?? ()
+#4  0x0000000000229abe in ?? ()
+#5  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#6  0xffffffffffffffff in ?? ()
+#7  0x00007f61bf3ba520 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab10 in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6a674 in ?? ()
+#0  0x00007f61bed6a674 in ?? ()
+#1  0x00007ffde03cabd0 in ?? ()
+#2  0x0000000000229abe in ?? ()
+#3  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f61bf3bb188 in ?? ()
+#6  0x00007ffde03cabe0 in ?? ()
+#7  0x00007ffde03cabd0 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2261a0 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2261a0 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6aaee in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bdca in ?? ()
+#0  0x00007f61bed6bdca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab24 in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bdca in ?? ()
+#0  0x00007f61bed6bdca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bd48 in ?? ()
+#0  0x00007f61bed6bd48 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f622a52598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f61bed6a85b in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d352fd7 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d352fd7 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f61bed6ce48 in ?? ()
+#2  0x00007f622a5bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x0000000000229abe in ?? ()
+#4  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0x000000000048c7a1 in ?? ()
+#6  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bd85 in ?? ()
+#0  0x00007f61bed6bd85 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab8b in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6a630 in ?? ()
+#0  0x00007f61bed6a630 in ?? ()
+#1  0x00007f61bed6db13 in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f622a525a00 in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f622a525a00 in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f61bed6a8f8 in ?? ()
+#2  0x00007ffde03cabd0 in ?? ()
+#3  0x0000000000229abe in ?? ()
+#4  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f61bf3bb188 in ?? ()
+#7  0x00007ffde03cabe0 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2b34bd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2b34bd in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d34637e in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f61bed6a9c2 in ?? ()
+#3  0x00007ffde03cabd0 in ?? ()
+#4  0x0000000000229abe in ?? ()
+#5  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#6  0xffffffffffffffff in ?? ()
+#7  0x00007f61bf3ba520 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bdca in ?? ()
+#0  0x00007f61bed6bdca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6cc20 in ?? ()
+#0  0x00007f61bed6cc20 in ?? ()
+#1  0x00007f61bed6c0bc in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6cf9a in ?? ()
+#0  0x00007f61bed6cf9a in ?? ()
+#1  0x00007f6238207830 in ?? ()
+#2  0x00007ffde03cad50 in ?? ()
+#3  0x00007f61bed6ac1c in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:35
+#0  __tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:35
+#1  0x00007f61bed6a76e in ?? ()
+#2  0x00007ffde03cabd0 in ?? ()
+#3  0x0000000000229abe in ?? ()
+#4  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f61bf3ba520 in ?? ()
+#7  0x00007ffde03cabe0 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 14025]
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f622a5ea430 in simdutf::icelake::implementation::convert_utf16le_to_utf8(char16_t const*, unsigned long, char*) const () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f622a5ea430 in simdutf::icelake::implementation::convert_utf16le_to_utf8(char16_t const*, unsigned long, char*) const () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f622a5bd29b in ak_core::utf16_to_utf8_into () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f622a5bd9bb in ak_core::tc_utf16 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f622a4d7a68 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f622a52598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#5  0x00007f61bed6cf61 in ?? ()
+#6  0x00007f622a5bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#7  0x0000000000229abe in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6a6b7 in ?? ()
+#0  0x00007f61bed6a6b7 in ?? ()
+#1  0x00007ffde03cabd0 in ?? ()
+#2  0x0000000000229abe in ?? ()
+#3  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab8b in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f61bed6bdca in ?? ()
+#0  0x00007f61bed6bdca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d352fc4 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d352fc4 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f61bed6a6b7 in ?? ()
+#2  0x00007ffde03cabd0 in ?? ()
+#3  0x0000000000229abe in ?? ()
+#4  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f61bf3bb188 in ?? ()
+#7  0x00007ffde03cabe0 in ?? ()
+[Inferior 1 (process 13933) detached]
+----
+[New LWP 13941]
+[New LWP 13940]
+[New LWP 13939]
+[New LWP 13938]
+[New LWP 13937]
+[New LWP 13936]
+[New LWP 13935]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#0  0x00007f623d2262d8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#1  0x00007f623d1f00d5 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f623d346373 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#3  0x00007f61bed6ab8b in ?? ()
+#4  0x00007ffde03cabd0 in ?? ()
+#5  0x0000000000229abe in ?? ()
+#6  0x00007f623d6977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13933) detached]
+----

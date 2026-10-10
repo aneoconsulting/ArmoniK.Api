@@ -1,0 +1,486 @@
+[New LWP 12451]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5594e5 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5594e5:	vxorps %ymm0,%ymm0,%ymm0
+#0  0x00007f0cfd5594e5 in ?? ()
+#1  0x00007ffca9bd8020 in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12451]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd558066 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd558066:	xor    %edx,%edx
+#0  0x00007f0cfd558066 in ?? ()
+#1  0x00007ffca9bd8030 in ?? ()
+#2  0x000000000020e6da in ?? ()
+#3  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f0cfdbaa520 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12451]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f00464d79b0 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+ak_core::enc_blob + 640 in section .text of /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+=> 0x7f00464d79b0 <_ZN7ak_core8enc_blob17h6d76840625c6fde3E+640>:	movzbl (%rax,%rdi,1),%r13d
+#0  0x00007f00464d79b0 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f004652598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f0cfd559d1b in ?? ()
+#3  0x00007f00465bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x000000000020e6da in ?? ()
+#5  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12451]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:29
+__tls_get_addr in section .text of /lib64/ld-linux-x86-64.so.2
+=> 0x7f0d7c7cc820 <__tls_get_addr>:	endbr64
+#0  __tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:29
+#1  0x00007f0cfd557fae in ?? ()
+#2  0x00007ffca9bd8030 in ?? ()
+#3  0x000000000020e6da in ?? ()
+#4  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12451]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559580 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559580:	movq   $0x1,-0x30(%rbp)
+#0  0x00007f0cfd559580 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5595aa in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5595aa:	vmovdqu %xmm0,0x30(%rbx)
+#0  0x00007f0cfd5595aa in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559acc in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559acc:	vmovdqu %xmm0,(%rbx)
+#0  0x00007f0cfd559acc in ?? ()
+#1  0x0000000000030000 in ?? ()
+#2  0x0000000000000030 in ?? ()
+#3  0x00007f00465bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f006c80d3f8 in ?? ()
+#5  0x0000000001a67e36 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5594e5 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5594e5:	vxorps %ymm0,%ymm0,%ymm0
+#0  0x00007f0cfd5594e5 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f004652598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f0cfd5580ce in ?? ()
+#4  0x00007ffca9bd8030 in ?? ()
+#5  0x000000000020e6da in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5594e5 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5594e5:	vxorps %ymm0,%ymm0,%ymm0
+#0  0x00007f0cfd5594e5 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f004652598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f0cfd5580ce in ?? ()
+#4  0x00007ffca9bd8030 in ?? ()
+#5  0x000000000020e6da in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:39
+__tls_get_addr + 32 in section .text of /lib64/ld-linux-x86-64.so.2
+=> 0x7f0d7c7cc840 <__tls_get_addr+32>:	mov    (%rdx,%rax,1),%rax
+#0  __tls_get_addr () at ../sysdeps/x86_64/tls_get_addr.S:39
+#1  0x00007f0d7bb52fc4 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#2  0x00007f0cfd557ef7 in ?? ()
+#3  0x00007ffca9bd8030 in ?? ()
+#4  0x000000000020e6da in ?? ()
+#5  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd55938b in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd55938b:	mov    0x10(%rax,%rcx,8),%rax
+#0  0x00007f0cfd55938b in ?? ()
+#1  0x00007ffca9bd81b0 in ?? ()
+#2  0x00007f0cfd557f8f in ?? ()
+#3  0x00007ffca9bd8030 in ?? ()
+#4  0x000000000020e6da in ?? ()
+#5  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5586d4 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5586d4:	pop    %r14
+#0  0x00007f0cfd5586d4 in ?? ()
+#1  0x00007f006c80b3b8 in ?? ()
+#2  0x00007f006c80d2c8 in ?? ()
+#3  0x00007ffca9bd82c0 in ?? ()
+#4  0x00007f0cfd55d53a in ?? ()
+#5  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd55820a in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd55820a:	movabs $0x7f0d7bea2498,%rdi
+#0  0x00007f0cfd55820a in ?? ()
+#1  0x00007ffca9bd8030 in ?? ()
+#2  0x000000000020e6da in ?? ()
+#3  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f0cfdbaa520 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5594e5 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5594e5:	vxorps %ymm0,%ymm0,%ymm0
+#0  0x00007f0cfd5594e5 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f004652598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f0cfd5580ce in ?? ()
+#4  0x00007ffca9bd8030 in ?? ()
+#5  0x000000000020e6da in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559565 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559565:	vmovdqu %xmm0,0x18(%rbx)
+#0  0x00007f0cfd559565 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559acc in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559acc:	vmovdqu %xmm0,(%rbx)
+#0  0x00007f0cfd559acc in ?? ()
+#1  0x0000000000030000 in ?? ()
+#2  0x0000000000000030 in ?? ()
+#3  0x00007f00465bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f006c80d3f8 in ?? ()
+#5  0x0000000001cb75f7 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559580 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559580:	movq   $0x1,-0x30(%rbp)
+#0  0x00007f0cfd559580 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd55952c in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd55952c:	mov    -0x38(%rbp),%rsi
+#0  0x00007f0cfd55952c in ?? ()
+#1  0x00007ffca9bd8020 in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5581bb in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5581bb:	mov    0x8(%rax),%rdi
+#0  0x00007f0cfd5581bb in ?? ()
+#1  0x00007ffca9bd8030 in ?? ()
+#2  0x000000000020e6da in ?? ()
+#3  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f0cfdbaa520 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559580 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559580:	movq   $0x1,-0x30(%rbp)
+#0  0x00007f0cfd559580 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559c2a in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559c2a:	mov    0x8(%r14),%rdi
+#0  0x00007f0cfd559c2a in ?? ()
+#1  0x00007f00465bd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x000000000020e6da in ?? ()
+#3  0x00007f0d7be977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559580 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559580:	movq   $0x1,-0x30(%rbp)
+#0  0x00007f0cfd559580 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd55bd6b in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd55bd6b:	mov    %rdx,%rax
+#0  0x00007f0cfd55bd6b in ?? ()
+#1  0x00007f006c80d3f8 in ?? ()
+#2  0x0000000000000030 in ?? ()
+#3  0x00007ffca9bd7fb0 in ?? ()
+#4  0x00007f0cfd559813 in ?? ()
+#5  0x00007f006c821d30 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd559565 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd559565:	vmovdqu %xmm0,0x18(%rbx)
+#0  0x00007f0cfd559565 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----
+[New LWP 12518]
+[New LWP 12450]
+[New LWP 12449]
+[New LWP 12448]
+[New LWP 12447]
+[New LWP 12446]
+[New LWP 12445]
+[New LWP 12444]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f0cfd5594e5 in ?? ()
+No symbol matches $pc.
+=> 0x7f0cfd5594e5:	vxorps %ymm0,%ymm0,%ymm0
+#0  0x00007f0cfd5594e5 in ?? ()
+#1  0x00007ffca9bd8020 in ?? ()
+#2  0x0000000000000000 in ?? ()
+[Inferior 1 (process 12442) detached]
+----

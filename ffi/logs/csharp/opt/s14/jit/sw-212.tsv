@@ -1,0 +1,7 @@
+content	len	utf8_bytes	path	round	cpu_ns_per_op	wall_ns_per_op	ops
+ascii	48	48	E1R	1	175.4	223.1	186995
+ascii	48	48	E1R	2	106.2	165.4	186995
+ascii	48	48	E1R	3	101.9	107.5	186995
+ascii	48	48	E1R	4	101.5	102.4	186995
+ascii	48	48	E1R	5	100.9	102.3	186995
+ascii	48	48	E1R	6	101.7	103.5	186995

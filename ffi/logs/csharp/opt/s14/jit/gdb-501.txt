@@ -1,0 +1,577 @@
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77ecc1ca2e in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+From                To                  Syms Read   Shared Object Library
+0x00007f77ed6a55c0  0x00007f77ed7e4ce2  Yes (*)     /lib/x86_64-linux-gnu/libstdc++.so.6
+0x00007f77ed527420  0x00007f77ed5a53a6  Yes         /lib/x86_64-linux-gnu/libm.so.6
+0x00007f77ed8de780  0x00007f77ed901745  Yes (*)     /lib/x86_64-linux-gnu/libgcc_s.so.1
+0x00007f77ed228800  0x00007f77ed3afd39  Yes         /lib/x86_64-linux-gnu/libc.so.6
+0x00007f77ed91e000  0x00007f77ed948195  Yes         /lib64/ld-linux-x86-64.so.2
+0x00007f77ed89c570  0x00007f77ed8d0d7c  Yes (*)     /usr/lib/dotnet/host/fxr/8.0.31/libhostfxr.so
+0x00007f77ed4d8950  0x00007f77ed5120dc  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libhostpolicy.so
+0x00007f77ecbacaa0  0x00007f77ed0837eb  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+0x00007f77ed4ab460  0x00007f77ed4b17c7  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust-tracepoint.so.1
+0x00007f77ed49e6c0  0x00007f77ed4a4b68  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust-common.so.1
+0x00007f77ed1b6fe0  0x00007f77ed1e0c70  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclrtraceptprovider.so
+0x00007f77ed4262e0  0x00007f77ed46f545  Yes (*)     /lib/x86_64-linux-gnu/liblttng-ust.so.1
+0x00007f77ed159820  0x00007f77ed15f036  Yes (*)     /lib/x86_64-linux-gnu/libnuma.so.1
+0x00007f77dbcae7e0  0x00007f77dbecee6b  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libclrjit.so
+0x00007f77e90b4df0  0x00007f77e90beb32  Yes (*)     /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libSystem.Native.so
+0x00007f77d9cd72a0  0x00007f77d9f245e8  Yes (*)     /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+(*): Shared library is missing debugging information.
+[Inferior 1 (process 13035) detached]
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9e49010 in simdutf_convert_utf16le_to_utf8 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9e49010 in simdutf_convert_utf16le_to_utf8 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f77d9dbd29b in ak_core::utf16_to_utf8_into () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f77d9dbd9bb in ak_core::tc_utf16 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f77d9cd7a68 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#5  0x00007f776e77d041 in ?? ()
+#6  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#7  0x000000000021d312 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77a630 in ?? ()
+#0  0x00007f776e77a630 in ?? ()
+#1  0x00007f776e77deaa in ?? ()
+#2  0x00007f77db807830 in ?? ()
+#3  0x00007f6adc80d780 in ?? ()
+#4  0x00007f6adc80d370 in ?? ()
+#5  0x00007f6adc820af8 in ?? ()
+#6  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9dbd950 in ak_core::tc_utf16 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9dbd950 in ak_core::tc_utf16 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f77d9cd7a68 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f776e77d041 in ?? ()
+#4  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#5  0x000000000021d312 in ?? ()
+#6  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776da40030 in ?? ()
+#0  0x00007f776da40030 in ?? ()
+#1  0x00007f776e77ac3e in ?? ()
+#2  0x00007ffe2b1a5ff0 in ?? ()
+#3  0x000000000021d312 in ?? ()
+#4  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f776edca520 in ?? ()
+#7  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77becf in ?? ()
+#0  0x00007f776e77becf in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77cef6 in ?? ()
+#0  0x00007f776e77cef6 in ?? ()
+#1  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007ffe2b1a60e8 in ?? ()
+#3  0x0000000001bc39da in ?? ()
+#4  0x0000000001bc39da in ?? ()
+#5  0x00007f6adc80d7a0 in ?? ()
+#6  0x00007f6adc80d3f8 in ?? ()
+#7  0x00007ffe2b1a5fe0 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e7792cb in ?? ()
+#0  0x00007f776e7792cb in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77c061 in ?? ()
+#0  0x00007f776e77c061 in ?? ()
+#1  0x0000000000000006 in ?? ()
+#2  0x0000000000000001 in ?? ()
+#3  0x00007ffe0000004c in ?? ()
+#4  0x00007ffe2b1a60e8 in ?? ()
+#5  0x00005609aa88da10 in ?? ()
+#6  0x00005609aa61aa70 in ?? ()
+#7  0x3fbc67e4b5f39b00 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9d258dd in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9d258dd in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f776e77a8f6 in ?? ()
+#2  0x00007ffe2b1a5ff0 in ?? ()
+#3  0x000000000021d312 in ?? ()
+#4  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f776edcb188 in ?? ()
+#7  0x00007ffe2b1a6000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77a716 in ?? ()
+#0  0x00007f776e77a716 in ?? ()
+#1  0x00007ffe2b1a5ff0 in ?? ()
+#2  0x000000000021d312 in ?? ()
+#3  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f776edca520 in ?? ()
+#6  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be85 in ?? ()
+#0  0x00007f776e77be85 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77cdec in ?? ()
+#0  0x00007f776e77cdec in ?? ()
+#1  0x0000000000030000 in ?? ()
+#2  0x0000000000000030 in ?? ()
+#3  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f6adc80d3f8 in ?? ()
+#5  0x0000000001d51d60 in ?? ()
+#6  0x0000000001d51d60 in ?? ()
+#7  0x00007ffe2b1a5f98 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77cd2c in ?? ()
+#0  0x00007f776e77cd2c in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9d25945 in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9d25945 in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f776e77a8f6 in ?? ()
+#2  0x00007ffe2b1a5ff0 in ?? ()
+#3  0x000000000021d312 in ?? ()
+#4  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f776edcb188 in ?? ()
+#7  0x00007ffe2b1a6000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77cdec in ?? ()
+#0  0x00007f776e77cdec in ?? ()
+#1  0x0000000000030000 in ?? ()
+#2  0x0000000000000030 in ?? ()
+#3  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f6adc80d3f8 in ?? ()
+#5  0x0000000001e7b81c in ?? ()
+#6  0x0000000001e7b81c in ?? ()
+#7  0x00007ffe2b1a5f98 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13044]
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77beca in ?? ()
+#0  0x00007f776e77beca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be85 in ?? ()
+#0  0x00007f776e77be85 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77c061 in ?? ()
+#0  0x00007f776e77c061 in ?? ()
+#1  0x00007f6adc8236e8 in ?? ()
+#2  0x00007f77db806d5c in ?? ()
+#3  0x00007ffe2b1a6170 in ?? ()
+#4  0x00005609aa8aea60 in ?? ()
+#5  0x00007f6adc80d774 in ?? ()
+#6  0x00007f77d9cd7c85 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#7  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be8a in ?? ()
+#0  0x00007f776e77be8a in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be85 in ?? ()
+#0  0x00007f776e77be85 in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+__memset_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:158
+#0  __memset_avx512_unaligned_erms () at ../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:158
+#1  0x00007f77d9dbee82 in ak_enc_reset () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f776e77a718 in ?? ()
+#3  0x00007ffe2b1a5ff0 in ?? ()
+#4  0x000000000021d312 in ?? ()
+#5  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#6  0xffffffffffffffff in ?? ()
+#7  0x00007f776edca520 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77a655 in ?? ()
+#0  0x00007f776e77a655 in ?? ()
+#1  0x00007ffe2b1a5ff0 in ?? ()
+#2  0x000000000021d312 in ?? ()
+#3  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#4  0xffffffffffffffff in ?? ()
+#5  0x00007f776edca520 in ?? ()
+#6  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77beca in ?? ()
+#0  0x00007f776e77beca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9e2b030 in simdutf::get_default_implementation() () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9e2b030 in simdutf::get_default_implementation() () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f77d9e2b136 in simdutf::convert_utf16le_to_utf8(char16_t const*, unsigned long, char*) () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#2  0x00007f77d9dbd29b in ak_core::utf16_to_utf8_into () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f77d9dbd9bb in ak_core::tc_utf16 () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#4  0x00007f77d9cd7a68 in ak_core::enc_blob () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#5  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#6  0x00007f776e77d041 in ?? ()
+#7  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be48 in ?? ()
+#0  0x00007f776e77be48 in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f776e77a859 in ?? ()
+#4  0x00007ffe2b1a5ff0 in ?? ()
+#5  0x000000000021d312 in ?? ()
+#6  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f77d9d25a7e in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#0  0x00007f77d9d25a7e in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#1  0x00007f776e77d041 in ?? ()
+#2  0x00007f77d9dbd920 in ?? () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x000000000021d312 in ?? ()
+#4  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#5  0xffffffffffffffff in ?? ()
+#6  0x00007f776edcb188 in ?? ()
+#7  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77beca in ?? ()
+#0  0x00007f776e77beca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77be4c in ?? ()
+#0  0x00007f776e77be4c in ?? ()
+#1  0x0000000000000007 in ?? ()
+#2  0x00007f77d9d2598a in ak_encode_UploadResultDataMessage () from /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s14p1/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/libak_core.so
+#3  0x00007f776e77a859 in ?? ()
+#4  0x00007ffe2b1a5ff0 in ?? ()
+#5  0x000000000021d312 in ?? ()
+#6  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#7  0xffffffffffffffff in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77bca0 in ?? ()
+#0  0x00007f776e77bca0 in ?? ()
+#1  0x00007ffe2b1a6170 in ?? ()
+#2  0x00007f776e77a74f in ?? ()
+#3  0x00007ffe2b1a5ff0 in ?? ()
+#4  0x000000000021d312 in ?? ()
+#5  0x00007f77ed0977c8 in ?? () from /usr/lib/dotnet/shared/Microsoft.NETCore.App/8.0.31/libcoreclr.so
+#6  0xffffffffffffffff in ?? ()
+#7  0x00007f776edca520 in ?? ()
+[Inferior 1 (process 13035) detached]
+----
+[New LWP 13043]
+[New LWP 13042]
+[New LWP 13041]
+[New LWP 13040]
+[New LWP 13039]
+[New LWP 13038]
+[New LWP 13037]
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+0x00007f776e77beca in ?? ()
+#0  0x00007f776e77beca in ?? ()
+#1  0x0000000000000000 in ?? ()
+[Inferior 1 (process 13035) detached]
+----

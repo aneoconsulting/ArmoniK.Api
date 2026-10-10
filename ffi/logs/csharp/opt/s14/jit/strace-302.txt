@@ -1,0 +1,71 @@
+% time     seconds  usecs/call     calls    errors syscall
+------ ----------- ----------- --------- --------- -----------------------
+ 44.17    0.102733        1070        96        12 futex
+ 28.97    0.067381       33690         2           poll
+  6.65    0.015456          10      1428           read
+  5.68    0.013220          10      1306           lseek
+  5.28    0.012287          27       452           mmap
+  2.30    0.005350           4      1151           mprotect
+  1.39    0.003229          11       290           rt_sigprocmask
+  0.92    0.002129           5       375       355 readlink
+  0.70    0.001635          10       159        47 openat
+  0.67    0.001563          27        56           fcntl
+  0.44    0.001021           5       192           munmap
+  0.41    0.000961           9        99           close
+  0.30    0.000691          76         9           clone3
+  0.27    0.000627           6       103           fstat
+  0.21    0.000481           7        62           brk
+  0.12    0.000285          21        13        11 execve
+  0.12    0.000270          24        11           set_robust_list
+  0.10    0.000231          21        11           prctl
+  0.10    0.000221           4        48           pread64
+  0.09    0.000220           8        26           madvise
+  0.09    0.000208          18        11           rseq
+  0.09    0.000198          11        17           sched_getaffinity
+  0.08    0.000197           5        38        12 newfstatat
+  0.06    0.000151           6        22           rt_sigaction
+  0.06    0.000149          14        10           prlimit64
+  0.06    0.000132          12        11           geteuid
+  0.06    0.000131          10        12           getuid
+  0.05    0.000111          11        10           getpid
+  0.04    0.000096           9        10           getgid
+  0.04    0.000094           7        12           sigaltstack
+  0.04    0.000093          13         7           sched_setaffinity
+  0.03    0.000081           4        17        10 access
+  0.03    0.000080           8        10           getegid
+  0.03    0.000078          26         3           socket
+  0.03    0.000075           3        24           membarrier
+  0.03    0.000062          31         2         2 connect
+  0.03    0.000059           7         8           gettid
+  0.02    0.000058           3        15           write
+  0.02    0.000058          58         1           bind
+  0.02    0.000050          16         3           ftruncate
+  0.02    0.000050          25         2           mknodat
+  0.02    0.000048           6         7           pipe2
+  0.02    0.000044           8         5         2 unlink
+  0.02    0.000035          11         3           statfs
+  0.01    0.000032           4         8           getdents64
+  0.01    0.000028          14         2           arch_prctl
+  0.01    0.000023          11         2           setsockopt
+  0.01    0.000021           7         3           getcwd
+  0.01    0.000017          17         1           memfd_create
+  0.01    0.000015           3         4           flock
+  0.01    0.000013          13         1           sysinfo
+  0.01    0.000012           6         2           fstatfs
+  0.01    0.000012           6         2           getrandom
+  0.00    0.000011          11         1           fchmod
+  0.00    0.000011           5         2           getsid
+  0.00    0.000010          10         1           listen
+  0.00    0.000010           5         2           set_tid_address
+  0.00    0.000010          10         1           get_mempolicy
+  0.00    0.000004           4         1           sched_get_priority_max
+  0.00    0.000001           1         1           sched_getparam
+  0.00    0.000001           1         1           sched_setscheduler
+  0.00    0.000001           1         1           sched_get_priority_min
+  0.00    0.000000           0         3         3 ioctl
+  0.00    0.000000           0         2           pwrite64
+  0.00    0.000000           0        17           sched_yield
+  0.00    0.000000           0         1           sched_getscheduler
+  0.00    0.000000           0        26           clock_gettime
+------ ----------- ----------- --------- --------- -----------------------
+100.00    0.232561          37      6234       454 total
