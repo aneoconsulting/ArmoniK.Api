@@ -3035,3 +3035,86 @@ Part 2, the ladder:
   alone costs more than this step by whatever that encode costs; it grows with the row (P2.4 > P2.2;
   P2.4's strings sit in repeated fields: 24,480 of 26,267). The guard (the two thread-static
   counters and the end check) is at most a few ns and not resolved from zero on any row.
+
+## 86. s15: D26, no thread-local storage; the host's explicit contexts (2026-10-10)
+
+Owner decision D26 (FIX-PLAN 83c8a647, amended 2578181f, and the coordinator's follow-up the
+same day: the core context is part of the host context). Logs `ffi/logs/csharp/opt/s15/`.
+
+Built (4552710f; cs_host.py, the shared C# backend, plus this slice's glue and harness):
+- **Encode host context** `CoreFfi_<Root>.EncCtx : EncHost`, one per binding instance, created
+  in the binding's constructor (with the core encode context): it owns `ak_enc_ctx` (Ctx), the
+  native block `Run_<Root>` (the loop callbacks' `obj`), and through `EncHost` the `Stage`
+  (string and bytes staging, E2's string table, E1C's handle list, the guard counters
+  Marked / Patched / RepPatched / MapPatched, the counting build's stack probe) and ONE GCHandle
+  to itself, allocated in the constructor. `Run_<Root>` gained `Host` (that handle, written
+  once) and `Defer` (the call's E1R / E1C mode). Per call (Go): `ak_enc_reset`, `Stage.Reset`
+  (blocks rewound, E1 pins released, the E2 table cleared with its storage kept, E1C handles
+  released, the four counters zeroed); under E1R / E1C with at least one mark, `Root = src` and
+  `Run->Defer = mode` for the call, cleared after it (the context does not keep the message
+  alive). The loop callbacks read `run->Defer` from native memory; only when it is non-zero do
+  they reach the managed context (`GCHandle.FromIntPtr(run->Host).Target`), and every frame
+  takes the Stage as a parameter. E2 / E3 strings: `data` points at a 16-byte record in the
+  staging (the context's handle, the string's index), the transcoder's `src`. Dispose frees the
+  core context, the Run block and its element arrays, the staging, and the handle.
+- **Decode host context** `CoreFfi_<Root>.DecCtx`, created on the first decode (EnsureDec,
+  with the core decode context and its pvt bits) and kept: it owns `ak_dec_ctx_<Root>` (Ctx),
+  the native block `DecRun` (the push callbacks' `obj`: Host = its one GCHandle, written once;
+  Buf = the call's input; Arena = the call's arena, null in drop mode), the unknown-field
+  options (native; `host` = the arena, which the core hands to grow as `sink`) and the arena,
+  now a native struct (`UnkArena`, its chunk table included). Per call: `Root` set to the new
+  facade root and cleared after; the arena rewound (Begin) and named in DecRun for a retained
+  decode, cleared after. `G.Take` / `G.Drop` and every `D_` / `F_` function take the arena as a
+  parameter (pull's Replay and the FSM consumer pass the context's); `UnkHost.Grow` reads it
+  from `sink`. The binding's former `_ctx`, `_dctx`, `_run`, `_drun`, `_uo`, `_arena`, `_th`
+  fields are gone (the core contexts' pointers live in the host contexts).
+- **RPC harness**: the thread-static caches (`_core`, `_buf`, `_he` in Campaign.cs and
+  Upload.cs) are a `Caller` object (Caller.cs): one per CallerPool thread, one per RunCell async
+  loop (kept by the pool), one for setup / check / counting; every Cell delegate takes it.
+  Grpc.Net marshallers (cells D, F) get no caller state, so they rent a Caller (or a SerBuf for
+  host-gen's serializer) per call from a ConcurrentQueue; the ConcurrentBag used before keeps
+  per-thread lists in thread-local storage and is gone. cs_campaign.py: `SerHost(SerBuf, ...)`,
+  the codec suite holding one SerBuf per Ops instance. cs_values.py: `SHA256.HashData` (one
+  object per call on the floors) instead of a thread-static SHA256.
+- **Gate step 1b** (gen/no_tls.py): fails on `ThreadStatic`, `ThreadLocal`, `AsyncLocal` or
+  `ConcurrentBag` in any .cs under src/ (comments stripped, string literals kept); a planted
+  file is its control. Before s15 it finds 112 sites; after, 0.
+- Plant anchors: the FSM "token ignored" plant's anchor in gate.sh and s10_checks.sh follows the
+  new call form (`[(int)ev->token], b` -> `[0], b`).
+
+Checks (`s15/checks/`): s7_checks (Verify both builds; verify-mt per path both builds; pin
+stress; the corpus per path; planted short string; early-unpin; K bound; counts E3 E3L E1R E1C
+E1R:128 E0), counts E1 E2 ETH:256 both builds and E0 no-unknown, verify-mt E0 both builds,
+s10_checks (layout, verify, verify-fsm against the Rust events, corpus both builds, the
+unknown-field controls, counts, the four FSM plants): passed, except the two corpus pin-stress
+runs, which hit the corpus's 20 s per-row limit on C-elemu-512 and C-leaf-2048. The code before
+s15 hits it too on this container (2.10 GHz since the restart): 71-75 s and 26 s for both codes
+(`pinstress-rows.log`), and both full runs pass at a 300 s limit (`pinstress-corpus.log`);
+s7_checks.sh now passes `--timeout-ms 300000` to those two runs only. Every count file is
+unchanged: no GCHandle is created per call, and none is an ABI entry.
+Gate: the full gate at 4552710f from a clean worktree, stock and h2-batch: GATE PASSED for each
+(`gate-stock.log`, `gate-h2-batch.log`; step 1b and its control included; the RPC counts, the
+delivery counts and the upload check through the per-caller objects unchanged).
+
+Measurements (container instrumentation; the container had restarted at 09:18, same 2.10 GHz
+Xeon; the code before D26 from a worktree at 2578181f in the same session; absolute times):
+- Distribution (`dist/summary.md`, 60 processes per configuration): the steady E1R slow mode
+  (all rounds about 690-700 ns, E0 normal) in 8 of 60 processes of the code before D26 and in 0
+  of 60 of the D26 code, default configuration both. E1R ASCII per-process medians: D26 default
+  94-387 ns (q1-q3 97-101), D26 TieredPGO=0 102-124 (106-109), before D26 98-696 (103-107). The
+  387 is a start-up transient in one D26 process (E0 and E1R alike, decaying over its first
+  ASCII rounds). JIT output (`jit/summary.txt`): 58 thread-static helper references in the
+  slice's compiled methods before D26, 0 after. Consistent with s14's location of the slow
+  mode (the thread-static helpers' slow path); the runtime mechanism stays unnamed.
+- Ladder rows (`ladder/table.md`): E1R - E0 per string on the ASCII rows, D26 vs before:
+  TieredPGO=0 P2.2 25/24 vs 32/28 ns (drop/retain), P2.4 38/38 vs 42/37, U-deep 33/31 vs 38/30;
+  default P2.2 17/13 vs 21/18, P2.4 34/33 vs 38/36, U-deep 28/28 vs 32/32. E0 within about 3 %.
+  The guard on the D26 code: -4 to +5 ns per string, not resolved.
+- Codec grid (`codec/table.md`; follow-ups `codec-p22/`, `codec-small/`): most rows within the
+  per-process spread; the D26 encode lower on most large rows; P2.2 ascii decode differences
+  change sign between runs (process variation); P5.4 decode bimodal per process in both codes.
+  Small messages (7 processes each): P5.1 (no reverse call) equal within about 5 ns of 100 ns;
+  P1.1 (one loop callback) D26 medians about 30 ns (drop) and 90 ns (retain) higher, ranges
+  overlapping: a fixed per-call cost is not resolved; the GCHandle lookup does not run on E0 and
+  the reset work is common to P5.1, so neither is a candidate; the loop callback's changed body
+  or code layout is, untested. The owner closed the measuring there (no further runs).
