@@ -31,3 +31,5 @@
 # rep 3 new-r3g-dflt full: rc=0 72 s; tree /home/user/ArmoniK.Api/ffi/poc/csharp; core 7b8ed0b888940ab7 (AK_CORE_LIB); env X_S15=1 AK_STR_NOGUARD=1; boot 2026-10-10 09:18:10; quiet: load1 0.48, no process above 10 % (waited 60 s); # correctness:    4525 pre-timing checks passed (byte identi
 # rep 3 base-r0-dflt full: rc=0 73 s; tree /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s15base/ffi/poc/csharp; core 7b8ed0b888940ab7 (AK_CORE_LIB); env X_S15=1; boot 2026-10-10 09:18:10; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
 # rep 3 base-r3-dflt full: rc=0 63 s; tree /tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/wt-s15base/ffi/poc/csharp; core 7b8ed0b888940ab7 (AK_CORE_LIB); env X_S15=1; boot 2026-10-10 09:18:10; quiet: load1 0.47, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 3 committed ed6955ca
+# s15_grid.sh (ladder) done 2026-10-10T14:08:56Z
