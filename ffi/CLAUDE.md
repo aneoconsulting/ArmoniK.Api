@@ -105,6 +105,15 @@ classifier is right to refuse when someone else tries.
   never race on the same branch.
 - Commit raw logs. A figure with no log behind it does not go in the report.
 
+## Checks, not gates, per change
+
+From 2026-10-10 (owner): do not run a slice's full gate (both h2 variants, the toolchain
+floor, every build) for every modification. Per change, run the fast checks that cover what
+the change touches: the relevant differential, byte identity on the affected paths, the
+corpus when decode or encode changed, the crossing counts when calls changed, the planted
+controls of the check you rely on. The full gate runs only when the owner asks for it or
+before a campaign run. A STATE says which checks ran and which gate steps did not.
+
 ## Scope of findings
 
 From 2026-09-26 (owner): a defect is worth raising and fixing only if it could affect the runtime performance the campaign measures: what a timed arm or cell does or costs, whether two arms or slices do the same work, or a gate that would let a wrong output be timed. Anything else (wording, stated-fact slips in documents, guard hygiene, style, latent defects on paths the campaign never times) gets at most one line in the finder's JOURNAL and no fix.
