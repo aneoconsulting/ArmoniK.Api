@@ -1,0 +1,1173 @@
+# engine:         BenchmarkDotNet 0.15.8.0 (CAMPAIGN.md 22a), toolchain BDN's default, ONE CHILD PROCESS PER CASE (the campaign's native isolation, req 22a as amended e6c909630); process CPU per iteration from the child's clock reads, each pair checked against BDN's wall measurement; the JIT tier is NOT read back (the children's JIT events are not visible here), so the jit check below is vacuous in this mode, pinned by the runner
+# grid:           core (CAMPAIGN section 4.0, D18; AK_CAMPAIGN_GRID=core): arms incumbent-prod (full build only), core-ffi (FSM decode, D24) and host-gen (retain in the full build, no-unknown in its build); encode-transport-hot (end state ii, one hot graph) and decode-read; the 16 shapes, P7.1 decode only; Latin-1 and wide on P2.2 only; U-* rows U-nested-before, U-deep-u-repeated, U-oneof-u-repeated, U-wire-ListTaskSummaryResponse-tasks-as-wt5, U-wire-UploadResultDataMessage-upload-as-wt5, U-wire-ListMetricsResponse-batches-as-wt0, U-wire-DualResponse-left-as-wt5 (encode-transport-hot and decode-read). Extras left out (AK_CAMPAIGN_GRID=full runs them): incumbent-best, core-ffi-push (push decode), core-ffi-pull, bare decode, encode at end state (i) and with a pool input, decode-reencode, the drop mode, the incumbent in the no-unknown build, content sets on P1.2 and P2.4, the other U-* rows timed (all stay in the correctness checks)
+# allocator:      default (readback at process start: a 16 MiB malloc came from the mmapped (mallinfo2; the block kept, never freed); no heap pre-grow (owner, 2026-10-03): BDN's warm-up runs the real call path, and minflt per row shows whether it sufficed; under the default toolchain each child probes once, on its case's first row as alloc_probe; GLIBC_TUNABLES=unset; CAMPAIGN req 25 as amended 2026-10-03, D9: the main figures run glibc's default allocator as production does; the pinned pass (glibc.malloc.trim_threshold=268435456:glibc.malloc.mmap_threshold=33554432) is a labelled diagnostic; every row carries `alloc` and `minflt`, the process's minor page faults over the iteration (getrusage, read by the job's clock beside the CPU clock), so faults per call = minflt / iters)
+# runtime:        .NET 8.0.31; TieredCompilation=default TieredPGO=0 (net8.0 defaults unless set); GC server=False, concurrent (default)
+# incumbent:      Google.Protobuf 3.32.0
+# build:          full (WP5 step 10; the loaded core checked to be the same variant by its u-family exports)
+# managed codec:  plan utf8=reject unknown=drop
+# job:            launch 1; 6 actual iterations (rounds) per case, 25 warm-up iterations (the same for every case) after BDN's jitting stage (1 overhead + 1 workload jitting invocation per case, logged by BDN in the .bdn.log, not exported) and pilot, iteration time 40 ms (the pilot picks the invocation count per case), strategy Throughput, EvaluateOverhead=false (no overhead subtraction anywhere)
+# clocks:         per iteration (every row with round >= 1): wall (Stopwatch) AND process CPU (CLOCK_PROCESS_CPUTIME_ID of this process: every thread, GC and JIT included; CAMPAIGN req 21 as amended, R-H25), both read by the job's clock (CpuClock, Job.WithClock) at the start and end of the same iteration window, exported RAW (no outlier removal, no overhead subtraction); BDN's forced GCs between iterations are outside the window; the round-0 row of each case is a summary of the whole actual stage (span_cpu_ns, span_wall_ns), not a sample
+# threads:        thread pool min 2 worker / 1 IO, max 32767 worker / 1000 IO, 0 pool thread(s) now; 2 logical CPUs visible; the codec suite creates no core runtime (no RPC call is made); the timed loop runs on BDN's one thread
+# encode:         CAMPAIGN req 11 (R-H29): dir encode = pool input + reused buffer; encode-hot = one graph + reused buffer; encode-transport = pool + the Grpc.Net form; encode-transport-hot = one graph + the Grpc.Net form. Reused buffer: incumbent-prod CalculateSize + WriteTo(IBufferWriter) and incumbent-best WriteTo(IBufferWriter) into one BufWriter, host-gen into its one Enc, core-ffi into the core's encode buffer (ak_encode_*/ak_uencode_*; that buffer is also what cell C hands the core's transport, and host-gen's Enc what cell E hands it, so their transport forms on the core's transport ARE the buffer rows). Grpc.Net form (cells A, F, D): the serializer the RPC grid's marshaller runs (RootOps.SerInc/SerHost/SerFfi), into a frame like Grpc.Net.Client 2.71's GrpcCallSerializationContext: one ArrayPool array, the 5-byte gRPC header, the body, the array returned after (GrpcFrame.cs); incumbent-best has no gRPC path and no transport row. Pool: distinct graphs built in the case's setup whose RETAINED heap is >= 28835840 bytes (2 x AK_LLC_BYTES, default 13.75 MB; AK_POOL_BYTES overrides; per row pool_graphs and pool_bytes), round robin one graph per call; a hot input is a pool of one (the same Next() per call); graph construction is never in the timed window
+# U-* rows:       CAMPAIGN req 7 (R-H27): the 92 accepted, non-disputed U-* rows at the shapes core's 7 ABI roots, through this timed shapes core: encode-hot (a graph the arm decoded from the row, untimed; retain arms re-emit the unknown fields, drop arms the dropped form), decode, decode-read, and decode-reencode (a labelled extra; no incumbent-best row)
+# content sets:   CAMPAIGN req 7 (R-H26): ascii, latin1 and wide on P1.2, P2.2, P2.4; ascii only elsewhere
+# order:          seeded shuffles (below); ratios, where the aggregation forms them, come from per-launch medians (CAMPAIGN req 30): every unit is its own process
+# process unit:   all cases; this launch's unit order: core-ffi:retain, core-ffi:drop (a seeded shuffle, seed 7919; within this process the cases run in a seeded shuffle too, seed 104729, the 2 prime cases first; requirement 22 as amended, R-H23)
+# warm-up:        BenchmarkDotNet's own, per case: its jitting stage, pilot and the warm-up iterations of the job line (req 24; WP9 addendum: no hand-written pre-warm and no settle wait; the 2 prime cases below are BDN cases); the JIT tier is read back per case and a case that measured hot code at tier 0 fails the unit outside --smoke (the jit check below)
+# correctness:    4525 pre-timing checks passed (byte identity of every encode arm per payload and content set; every arm accepts every unknown row; on every unknown row core-ffi retain and host-gen retain re-encode to the incumbent's bytes, i.e. the unknown fields are kept: requirement 10)
+# cases:          10 exported, after 2 prime case(s) run first and not exported (copies of the first cases, content "prime"): BDN cases like any other, kept because without them the first case of a process measures BDN's own first-touched runtime helpers (SpanHelpers.Fill) at tier 0 (JOURNAL 51, 62)
+# strings:        D21 string encode path AK_STR_ENC=E1R (K 64) (E0 .NET UTF-8 into native staging + ak_tc_bytes; E1 the string pinned + ak_tc_utf16; E2 the C# transcoder callback into the core's buffer; ETH:<n> E1 from n UTF-16 units, E0 below); Cases.Verify checks every path's bytes
+# memory:         AK_BDN_MEMORY=1: BenchmarkDotNet's MemoryDiagnoser (an exploration switch, not a campaign setting): one extra workload iteration per case AFTER the actual stage, at the actual stage's invocation count, outside the job's clock (no exported sample is affected); on each case's first sample row mem_alloc_bytes_per_op (GC.GetTotalAllocatedBytes(precise), every thread, divided by its operations), mem_gen = [gen0, gen1, gen2] collections during it, mem_ops its operations, mem_alloc_bytes its total
+# cpus:           this process: 2 CPU(s) in its affinity mask (sched_getaffinity), Environment.ProcessorCount 2; single-CPU guard (JOURNAL 73): a timed process (host or BDN child) with ONE CPU is refused unless AK_ALLOW_SINGLE_CPU=1 (here: unset); each case's first row carries cpus_affinity, cpus_runtime and single_cpu_override as its own process saw them
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 12 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+Unable to find .sln or .csproj file. Will use current directory /home/user/ArmoniK.Api/ffi/poc/csharp to search for project file. If you don't use .sln file on purpose it should not be a problem.
+// start dotnet  restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/" /p:OutDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0/" /p:OutputPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0/" /p:PublishDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/publish/" in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1
+// command took 1.97 sec and exited with 0
+// start dotnet  build -c Release --no-restore --nodeReuse:false /p:UseSharedCompilation=false /p:Deterministic=true /p:Optimize=true /p:ArtifactsPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/" /p:OutDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0/" /p:OutputPath="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0/" /p:PublishDir="/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/publish/" --output "/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0/" in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1
+// command took 18.99 sec and exited with 0
+// ***** Done, took 00:00:21 (21.06 sec)   *****
+// Found 12 benchmarks:
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [43]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [54]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [39]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [41]]
+//   CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [56]]
+
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|prime|retain\")" --job campaign --benchmarkId 0 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 258173.00 ns, 258.1730 us/op
+WorkloadJitting  1: 1 op, 16541407.00 ns, 16.5414 ms/op
+
+WorkloadPilot    1: 4 op, 16442319.00 ns, 4.1106 ms/op
+WorkloadPilot    2: 10 op, 24931017.00 ns, 2.4931 ms/op
+WorkloadPilot    3: 16 op, 36259885.00 ns, 2.2662 ms/op
+WorkloadPilot    4: 18 op, 33541135.00 ns, 1.8634 ms/op
+WorkloadPilot    5: 21 op, 38978872.00 ns, 1.8561 ms/op
+
+WorkloadWarmup   1: 21 op, 30335857.00 ns, 1.4446 ms/op
+WorkloadWarmup   2: 21 op, 33249622.00 ns, 1.5833 ms/op
+WorkloadWarmup   3: 21 op, 35292150.00 ns, 1.6806 ms/op
+WorkloadWarmup   4: 21 op, 40893823.00 ns, 1.9473 ms/op
+WorkloadWarmup   5: 21 op, 37349143.00 ns, 1.7785 ms/op
+WorkloadWarmup   6: 21 op, 34811970.00 ns, 1.6577 ms/op
+WorkloadWarmup   7: 21 op, 34944884.00 ns, 1.6640 ms/op
+WorkloadWarmup   8: 21 op, 29477566.00 ns, 1.4037 ms/op
+WorkloadWarmup   9: 21 op, 28898218.00 ns, 1.3761 ms/op
+WorkloadWarmup  10: 21 op, 40620167.00 ns, 1.9343 ms/op
+WorkloadWarmup  11: 21 op, 33749268.00 ns, 1.6071 ms/op
+WorkloadWarmup  12: 21 op, 39204767.00 ns, 1.8669 ms/op
+WorkloadWarmup  13: 21 op, 30637802.00 ns, 1.4589 ms/op
+WorkloadWarmup  14: 21 op, 31139785.00 ns, 1.4828 ms/op
+WorkloadWarmup  15: 21 op, 31665364.00 ns, 1.5079 ms/op
+WorkloadWarmup  16: 21 op, 28920246.00 ns, 1.3772 ms/op
+WorkloadWarmup  17: 21 op, 30588827.00 ns, 1.4566 ms/op
+WorkloadWarmup  18: 21 op, 33239696.00 ns, 1.5828 ms/op
+WorkloadWarmup  19: 21 op, 30701095.00 ns, 1.4620 ms/op
+WorkloadWarmup  20: 21 op, 30983310.00 ns, 1.4754 ms/op
+WorkloadWarmup  21: 21 op, 32692700.00 ns, 1.5568 ms/op
+WorkloadWarmup  22: 21 op, 30177794.00 ns, 1.4370 ms/op
+WorkloadWarmup  23: 21 op, 31254768.00 ns, 1.4883 ms/op
+WorkloadWarmup  24: 21 op, 29637355.00 ns, 1.4113 ms/op
+WorkloadWarmup  25: 21 op, 29855427.00 ns, 1.4217 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 21 op, 28595624.00 ns, 1.3617 ms/op
+WorkloadActual   2: 21 op, 32931852.00 ns, 1.5682 ms/op
+WorkloadActual   3: 21 op, 30216945.00 ns, 1.4389 ms/op
+WorkloadActual   4: 21 op, 32013517.00 ns, 1.5245 ms/op
+WorkloadActual   5: 21 op, 30290044.00 ns, 1.4424 ms/op
+WorkloadActual   6: 21 op, 28604394.00 ns, 1.3621 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 21 op, 28595624.00 ns, 1.3617 ms/op
+WorkloadResult   2: 21 op, 32931852.00 ns, 1.5682 ms/op
+WorkloadResult   3: 21 op, 30216945.00 ns, 1.4389 ms/op
+WorkloadResult   4: 21 op, 32013517.00 ns, 1.5245 ms/op
+WorkloadResult   5: 21 op, 30290044.00 ns, 1.4424 ms/op
+WorkloadResult   6: 21 op, 28604394.00 ns, 1.3621 ms/op
+// GC:  0 0 0 0 21
+// Threading:  0 0 21
+
+// AfterAll
+// Benchmark Process 15455 has exited with code 0.
+
+Mean = 1.450 ms, StdErr = 0.034 ms (2.36%), N = 6, StdDev = 0.084 ms
+Min = 1.362 ms, Q1 = 1.381 ms, Median = 1.441 ms, Q3 = 1.504 ms, Max = 1.568 ms
+IQR = 0.123 ms, LowerFence = 1.197 ms, UpperFence = 1.688 ms
+ConfidenceInterval = [1.214 ms; 1.685 ms] (CI 99.9%), Margin = 0.235 ms (16.23% of Mean)
+Skewness = 0.21, Kurtosis = 1.17, MValue = 2
+
+// ** Remained 11 (91.7 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|prime|drop\")" --job campaign --benchmarkId 1 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 250284.00 ns, 250.2840 us/op
+WorkloadJitting  1: 1 op, 14700759.00 ns, 14.7008 ms/op
+
+WorkloadPilot    1: 4 op, 14622085.00 ns, 3.6555 ms/op
+WorkloadPilot    2: 11 op, 23281564.00 ns, 2.1165 ms/op
+WorkloadPilot    3: 19 op, 31748742.00 ns, 1.6710 ms/op
+WorkloadPilot    4: 24 op, 41228543.00 ns, 1.7179 ms/op
+
+WorkloadWarmup   1: 24 op, 39886936.00 ns, 1.6620 ms/op
+WorkloadWarmup   2: 24 op, 38790321.00 ns, 1.6163 ms/op
+WorkloadWarmup   3: 24 op, 39722726.00 ns, 1.6551 ms/op
+WorkloadWarmup   4: 24 op, 34170558.00 ns, 1.4238 ms/op
+WorkloadWarmup   5: 24 op, 32466493.00 ns, 1.3528 ms/op
+WorkloadWarmup   6: 24 op, 32806753.00 ns, 1.3669 ms/op
+WorkloadWarmup   7: 24 op, 32002171.00 ns, 1.3334 ms/op
+WorkloadWarmup   8: 24 op, 32931992.00 ns, 1.3722 ms/op
+WorkloadWarmup   9: 24 op, 32448061.00 ns, 1.3520 ms/op
+WorkloadWarmup  10: 24 op, 32989030.00 ns, 1.3745 ms/op
+WorkloadWarmup  11: 24 op, 34166581.00 ns, 1.4236 ms/op
+WorkloadWarmup  12: 24 op, 35751519.00 ns, 1.4896 ms/op
+WorkloadWarmup  13: 24 op, 32551541.00 ns, 1.3563 ms/op
+WorkloadWarmup  14: 24 op, 36114072.00 ns, 1.5048 ms/op
+WorkloadWarmup  15: 24 op, 32728882.00 ns, 1.3637 ms/op
+WorkloadWarmup  16: 24 op, 32494711.00 ns, 1.3539 ms/op
+WorkloadWarmup  17: 24 op, 32962496.00 ns, 1.3734 ms/op
+WorkloadWarmup  18: 24 op, 31815315.00 ns, 1.3256 ms/op
+WorkloadWarmup  19: 24 op, 32638890.00 ns, 1.3600 ms/op
+WorkloadWarmup  20: 24 op, 40421758.00 ns, 1.6842 ms/op
+WorkloadWarmup  21: 24 op, 34783743.00 ns, 1.4493 ms/op
+WorkloadWarmup  22: 24 op, 32341147.00 ns, 1.3475 ms/op
+WorkloadWarmup  23: 24 op, 31960127.00 ns, 1.3317 ms/op
+WorkloadWarmup  24: 24 op, 31733928.00 ns, 1.3222 ms/op
+WorkloadWarmup  25: 24 op, 31545456.00 ns, 1.3144 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 24 op, 32032227.00 ns, 1.3347 ms/op
+WorkloadActual   2: 24 op, 33169725.00 ns, 1.3821 ms/op
+WorkloadActual   3: 24 op, 33309824.00 ns, 1.3879 ms/op
+WorkloadActual   4: 24 op, 33668311.00 ns, 1.4028 ms/op
+WorkloadActual   5: 24 op, 34320158.00 ns, 1.4300 ms/op
+WorkloadActual   6: 24 op, 38068559.00 ns, 1.5862 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 24 op, 32032227.00 ns, 1.3347 ms/op
+WorkloadResult   2: 24 op, 33169725.00 ns, 1.3821 ms/op
+WorkloadResult   3: 24 op, 33309824.00 ns, 1.3879 ms/op
+WorkloadResult   4: 24 op, 33668311.00 ns, 1.4028 ms/op
+WorkloadResult   5: 24 op, 34320158.00 ns, 1.4300 ms/op
+// GC:  0 0 0 0 24
+// Threading:  0 0 24
+
+// AfterAll
+// Benchmark Process 15465 has exited with code 0.
+
+Mean = 1.388 ms, StdErr = 0.016 ms (1.12%), N = 5, StdDev = 0.035 ms
+Min = 1.335 ms, Q1 = 1.382 ms, Median = 1.388 ms, Q3 = 1.403 ms, Max = 1.430 ms
+IQR = 0.021 ms, LowerFence = 1.351 ms, UpperFence = 1.434 ms
+ConfidenceInterval = [1.253 ms; 1.522 ms] (CI 99.9%), Margin = 0.134 ms (9.68% of Mean)
+Skewness = -0.32, Kurtosis = 1.5, MValue = 2
+
+// ** Remained 10 (83.3 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [43]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|latin1|retain\")" --job campaign --benchmarkId 2 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 273854.00 ns, 273.8540 us/op
+WorkloadJitting  1: 1 op, 23941257.00 ns, 23.9413 ms/op
+
+WorkloadPilot    1: 4 op, 18606124.00 ns, 4.6515 ms/op
+WorkloadPilot    2: 9 op, 29385800.00 ns, 3.2651 ms/op
+WorkloadPilot    3: 12 op, 37353413.00 ns, 3.1128 ms/op
+
+WorkloadWarmup   1: 12 op, 21502536.00 ns, 1.7919 ms/op
+WorkloadWarmup   2: 12 op, 21630235.00 ns, 1.8025 ms/op
+WorkloadWarmup   3: 12 op, 21165921.00 ns, 1.7638 ms/op
+WorkloadWarmup   4: 12 op, 20615003.00 ns, 1.7179 ms/op
+WorkloadWarmup   5: 12 op, 20812537.00 ns, 1.7344 ms/op
+WorkloadWarmup   6: 12 op, 25206419.00 ns, 2.1005 ms/op
+WorkloadWarmup   7: 12 op, 19658426.00 ns, 1.6382 ms/op
+WorkloadWarmup   8: 12 op, 16600588.00 ns, 1.3834 ms/op
+WorkloadWarmup   9: 12 op, 21469189.00 ns, 1.7891 ms/op
+WorkloadWarmup  10: 12 op, 18005604.00 ns, 1.5005 ms/op
+WorkloadWarmup  11: 12 op, 18205614.00 ns, 1.5171 ms/op
+WorkloadWarmup  12: 12 op, 16682869.00 ns, 1.3902 ms/op
+WorkloadWarmup  13: 12 op, 19531531.00 ns, 1.6276 ms/op
+WorkloadWarmup  14: 12 op, 21550867.00 ns, 1.7959 ms/op
+WorkloadWarmup  15: 12 op, 20356741.00 ns, 1.6964 ms/op
+WorkloadWarmup  16: 12 op, 17198343.00 ns, 1.4332 ms/op
+WorkloadWarmup  17: 12 op, 16955153.00 ns, 1.4129 ms/op
+WorkloadWarmup  18: 12 op, 16545512.00 ns, 1.3788 ms/op
+WorkloadWarmup  19: 12 op, 16448438.00 ns, 1.3707 ms/op
+WorkloadWarmup  20: 12 op, 16586917.00 ns, 1.3822 ms/op
+WorkloadWarmup  21: 12 op, 16442086.00 ns, 1.3702 ms/op
+WorkloadWarmup  22: 12 op, 24660944.00 ns, 2.0551 ms/op
+WorkloadWarmup  23: 12 op, 21886568.00 ns, 1.8239 ms/op
+WorkloadWarmup  24: 12 op, 16436087.00 ns, 1.3697 ms/op
+WorkloadWarmup  25: 12 op, 16736240.00 ns, 1.3947 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 12 op, 16853542.00 ns, 1.4045 ms/op
+WorkloadActual   2: 12 op, 16573879.00 ns, 1.3812 ms/op
+WorkloadActual   3: 12 op, 16108018.00 ns, 1.3423 ms/op
+WorkloadActual   4: 12 op, 16813228.00 ns, 1.4011 ms/op
+WorkloadActual   5: 12 op, 16237556.00 ns, 1.3531 ms/op
+WorkloadActual   6: 12 op, 17859667.00 ns, 1.4883 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 12 op, 16853542.00 ns, 1.4045 ms/op
+WorkloadResult   2: 12 op, 16573879.00 ns, 1.3812 ms/op
+WorkloadResult   3: 12 op, 16108018.00 ns, 1.3423 ms/op
+WorkloadResult   4: 12 op, 16813228.00 ns, 1.4011 ms/op
+WorkloadResult   5: 12 op, 16237556.00 ns, 1.3531 ms/op
+// GC:  0 0 0 0 12
+// Threading:  0 0 12
+
+// AfterAll
+// Benchmark Process 15477 has exited with code 0.
+
+Mean = 1.376 ms, StdErr = 0.012 ms (0.91%), N = 5, StdDev = 0.028 ms
+Min = 1.342 ms, Q1 = 1.353 ms, Median = 1.381 ms, Q3 = 1.401 ms, Max = 1.404 ms
+IQR = 0.048 ms, LowerFence = 1.281 ms, UpperFence = 1.473 ms
+ConfidenceInterval = [1.269 ms; 1.484 ms] (CI 99.9%), Margin = 0.108 ms (7.82% of Mean)
+Skewness = -0.14, Kurtosis = 0.86, MValue = 2
+
+// ** Remained 9 (75.0 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|ascii|drop\")" --job campaign --benchmarkId 3 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 241450.00 ns, 241.4500 us/op
+WorkloadJitting  1: 1 op, 18839406.00 ns, 18.8394 ms/op
+
+WorkloadPilot    1: 4 op, 15603052.00 ns, 3.9008 ms/op
+WorkloadPilot    2: 10 op, 24095445.00 ns, 2.4095 ms/op
+WorkloadPilot    3: 17 op, 29314738.00 ns, 1.7244 ms/op
+WorkloadPilot    4: 23 op, 46740110.00 ns, 2.0322 ms/op
+WorkloadPilot    5: 20 op, 28937806.00 ns, 1.4469 ms/op
+WorkloadPilot    6: 28 op, 41531295.00 ns, 1.4833 ms/op
+
+WorkloadWarmup   1: 28 op, 37973574.00 ns, 1.3562 ms/op
+WorkloadWarmup   2: 28 op, 39750390.00 ns, 1.4197 ms/op
+WorkloadWarmup   3: 28 op, 57230797.00 ns, 2.0440 ms/op
+WorkloadWarmup   4: 28 op, 35684274.00 ns, 1.2744 ms/op
+WorkloadWarmup   5: 28 op, 39025695.00 ns, 1.3938 ms/op
+WorkloadWarmup   6: 28 op, 37073926.00 ns, 1.3241 ms/op
+WorkloadWarmup   7: 28 op, 54609186.00 ns, 1.9503 ms/op
+WorkloadWarmup   8: 28 op, 46660021.00 ns, 1.6664 ms/op
+WorkloadWarmup   9: 28 op, 40919425.00 ns, 1.4614 ms/op
+WorkloadWarmup  10: 28 op, 39186349.00 ns, 1.3995 ms/op
+WorkloadWarmup  11: 28 op, 39441205.00 ns, 1.4086 ms/op
+WorkloadWarmup  12: 28 op, 43921918.00 ns, 1.5686 ms/op
+WorkloadWarmup  13: 28 op, 44166345.00 ns, 1.5774 ms/op
+WorkloadWarmup  14: 28 op, 37088237.00 ns, 1.3246 ms/op
+WorkloadWarmup  15: 28 op, 35873288.00 ns, 1.2812 ms/op
+WorkloadWarmup  16: 28 op, 41026169.00 ns, 1.4652 ms/op
+WorkloadWarmup  17: 28 op, 38580981.00 ns, 1.3779 ms/op
+WorkloadWarmup  18: 28 op, 37541143.00 ns, 1.3408 ms/op
+WorkloadWarmup  19: 28 op, 42336760.00 ns, 1.5120 ms/op
+WorkloadWarmup  20: 28 op, 38072249.00 ns, 1.3597 ms/op
+WorkloadWarmup  21: 28 op, 37286289.00 ns, 1.3317 ms/op
+WorkloadWarmup  22: 28 op, 37342048.00 ns, 1.3336 ms/op
+WorkloadWarmup  23: 28 op, 41284000.00 ns, 1.4744 ms/op
+WorkloadWarmup  24: 28 op, 36871419.00 ns, 1.3168 ms/op
+WorkloadWarmup  25: 28 op, 36519318.00 ns, 1.3043 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 28 op, 43265907.00 ns, 1.5452 ms/op
+WorkloadActual   2: 28 op, 45457250.00 ns, 1.6235 ms/op
+WorkloadActual   3: 28 op, 39201305.00 ns, 1.4000 ms/op
+WorkloadActual   4: 28 op, 44015127.00 ns, 1.5720 ms/op
+WorkloadActual   5: 28 op, 37344364.00 ns, 1.3337 ms/op
+WorkloadActual   6: 28 op, 39619175.00 ns, 1.4150 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 28 op, 43265907.00 ns, 1.5452 ms/op
+WorkloadResult   2: 28 op, 45457250.00 ns, 1.6235 ms/op
+WorkloadResult   3: 28 op, 39201305.00 ns, 1.4000 ms/op
+WorkloadResult   4: 28 op, 44015127.00 ns, 1.5720 ms/op
+WorkloadResult   5: 28 op, 37344364.00 ns, 1.3337 ms/op
+WorkloadResult   6: 28 op, 39619175.00 ns, 1.4150 ms/op
+// GC:  0 0 0 0 28
+// Threading:  0 0 28
+
+// AfterAll
+// Benchmark Process 15486 has exited with code 0.
+
+Mean = 1.482 ms, StdErr = 0.047 ms (3.15%), N = 6, StdDev = 0.114 ms
+Min = 1.334 ms, Q1 = 1.404 ms, Median = 1.480 ms, Q3 = 1.565 ms, Max = 1.623 ms
+IQR = 0.162 ms, LowerFence = 1.162 ms, UpperFence = 1.808 ms
+ConfidenceInterval = [1.161 ms; 1.802 ms] (CI 99.9%), Margin = 0.320 ms (21.63% of Mean)
+Skewness = -0.02, Kurtosis = 1.01, MValue = 2
+
+// ** Remained 8 (66.7 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.4|ascii|retain\")" --job campaign --benchmarkId 4 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 254383.00 ns, 254.3830 us/op
+WorkloadJitting  1: 1 op, 15409219.00 ns, 15.4092 ms/op
+
+WorkloadPilot    1: 4 op, 14294355.00 ns, 3.5736 ms/op
+WorkloadPilot    2: 11 op, 28895306.00 ns, 2.6268 ms/op
+WorkloadPilot    3: 15 op, 35029710.00 ns, 2.3353 ms/op
+WorkloadPilot    4: 17 op, 39173020.00 ns, 2.3043 ms/op
+
+WorkloadWarmup   1: 17 op, 36114868.00 ns, 2.1244 ms/op
+WorkloadWarmup   2: 17 op, 36201385.00 ns, 2.1295 ms/op
+WorkloadWarmup   3: 17 op, 44353990.00 ns, 2.6091 ms/op
+WorkloadWarmup   4: 17 op, 37083191.00 ns, 2.1814 ms/op
+WorkloadWarmup   5: 17 op, 36110876.00 ns, 2.1242 ms/op
+WorkloadWarmup   6: 17 op, 37409578.00 ns, 2.2006 ms/op
+WorkloadWarmup   7: 17 op, 33004455.00 ns, 1.9414 ms/op
+WorkloadWarmup   8: 17 op, 35970586.00 ns, 2.1159 ms/op
+WorkloadWarmup   9: 17 op, 32336822.00 ns, 1.9022 ms/op
+WorkloadWarmup  10: 17 op, 33096432.00 ns, 1.9468 ms/op
+WorkloadWarmup  11: 17 op, 34572904.00 ns, 2.0337 ms/op
+WorkloadWarmup  12: 17 op, 35100238.00 ns, 2.0647 ms/op
+WorkloadWarmup  13: 17 op, 43757367.00 ns, 2.5740 ms/op
+WorkloadWarmup  14: 17 op, 40672108.00 ns, 2.3925 ms/op
+WorkloadWarmup  15: 17 op, 42538292.00 ns, 2.5023 ms/op
+WorkloadWarmup  16: 17 op, 35153692.00 ns, 2.0679 ms/op
+WorkloadWarmup  17: 17 op, 34599104.00 ns, 2.0352 ms/op
+WorkloadWarmup  18: 17 op, 42986401.00 ns, 2.5286 ms/op
+WorkloadWarmup  19: 17 op, 31607569.00 ns, 1.8593 ms/op
+WorkloadWarmup  20: 17 op, 37496149.00 ns, 2.2057 ms/op
+WorkloadWarmup  21: 17 op, 33129448.00 ns, 1.9488 ms/op
+WorkloadWarmup  22: 17 op, 33134402.00 ns, 1.9491 ms/op
+WorkloadWarmup  23: 17 op, 33277437.00 ns, 1.9575 ms/op
+WorkloadWarmup  24: 17 op, 34837243.00 ns, 2.0492 ms/op
+WorkloadWarmup  25: 17 op, 31553828.00 ns, 1.8561 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 17 op, 32416505.00 ns, 1.9069 ms/op
+WorkloadActual   2: 17 op, 34489785.00 ns, 2.0288 ms/op
+WorkloadActual   3: 17 op, 35277296.00 ns, 2.0751 ms/op
+WorkloadActual   4: 17 op, 34098661.00 ns, 2.0058 ms/op
+WorkloadActual   5: 17 op, 39549314.00 ns, 2.3264 ms/op
+WorkloadActual   6: 17 op, 38646809.00 ns, 2.2733 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 17 op, 32416505.00 ns, 1.9069 ms/op
+WorkloadResult   2: 17 op, 34489785.00 ns, 2.0288 ms/op
+WorkloadResult   3: 17 op, 35277296.00 ns, 2.0751 ms/op
+WorkloadResult   4: 17 op, 34098661.00 ns, 2.0058 ms/op
+WorkloadResult   5: 17 op, 39549314.00 ns, 2.3264 ms/op
+WorkloadResult   6: 17 op, 38646809.00 ns, 2.2733 ms/op
+// GC:  0 0 0 0 17
+// Threading:  0 0 17
+
+// AfterAll
+// Benchmark Process 15495 has exited with code 0.
+
+Mean = 2.103 ms, StdErr = 0.067 ms (3.17%), N = 6, StdDev = 0.163 ms
+Min = 1.907 ms, Q1 = 2.012 ms, Median = 2.052 ms, Q3 = 2.224 ms, Max = 2.326 ms
+IQR = 0.212 ms, LowerFence = 1.693 ms, UpperFence = 2.542 ms
+ConfidenceInterval = [1.645 ms; 2.560 ms] (CI 99.9%), Margin = 0.458 ms (21.76% of Mean)
+Skewness = 0.28, Kurtosis = 1.16, MValue = 2
+
+// ** Remained 7 (58.3 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|ascii|retain\")" --job campaign --benchmarkId 5 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 308294.00 ns, 308.2940 us/op
+WorkloadJitting  1: 1 op, 17083180.00 ns, 17.0832 ms/op
+
+WorkloadPilot    1: 4 op, 22262205.00 ns, 5.5656 ms/op
+WorkloadPilot    2: 7 op, 19679082.00 ns, 2.8113 ms/op
+WorkloadPilot    3: 14 op, 27922380.00 ns, 1.9945 ms/op
+WorkloadPilot    4: 20 op, 36249197.00 ns, 1.8125 ms/op
+WorkloadPilot    5: 22 op, 46059032.00 ns, 2.0936 ms/op
+WorkloadPilot    6: 19 op, 26166998.00 ns, 1.3772 ms/op
+WorkloadPilot    7: 29 op, 38891125.00 ns, 1.3411 ms/op
+
+WorkloadWarmup   1: 29 op, 39229858.00 ns, 1.3528 ms/op
+WorkloadWarmup   2: 29 op, 39102144.00 ns, 1.3483 ms/op
+WorkloadWarmup   3: 29 op, 39120271.00 ns, 1.3490 ms/op
+WorkloadWarmup   4: 29 op, 42309610.00 ns, 1.4590 ms/op
+WorkloadWarmup   5: 29 op, 39535140.00 ns, 1.3633 ms/op
+WorkloadWarmup   6: 29 op, 39165843.00 ns, 1.3505 ms/op
+WorkloadWarmup   7: 29 op, 39065012.00 ns, 1.3471 ms/op
+WorkloadWarmup   8: 29 op, 46299838.00 ns, 1.5965 ms/op
+WorkloadWarmup   9: 29 op, 41883929.00 ns, 1.4443 ms/op
+WorkloadWarmup  10: 29 op, 43892491.00 ns, 1.5135 ms/op
+WorkloadWarmup  11: 29 op, 42599708.00 ns, 1.4690 ms/op
+WorkloadWarmup  12: 29 op, 43977159.00 ns, 1.5165 ms/op
+WorkloadWarmup  13: 29 op, 44661502.00 ns, 1.5401 ms/op
+WorkloadWarmup  14: 29 op, 52190703.00 ns, 1.7997 ms/op
+WorkloadWarmup  15: 29 op, 47677997.00 ns, 1.6441 ms/op
+WorkloadWarmup  16: 29 op, 39775534.00 ns, 1.3716 ms/op
+WorkloadWarmup  17: 29 op, 45230263.00 ns, 1.5597 ms/op
+WorkloadWarmup  18: 29 op, 40026399.00 ns, 1.3802 ms/op
+WorkloadWarmup  19: 29 op, 40757978.00 ns, 1.4054 ms/op
+WorkloadWarmup  20: 29 op, 39362461.00 ns, 1.3573 ms/op
+WorkloadWarmup  21: 29 op, 40978011.00 ns, 1.4130 ms/op
+WorkloadWarmup  22: 29 op, 42051124.00 ns, 1.4500 ms/op
+WorkloadWarmup  23: 29 op, 47503883.00 ns, 1.6381 ms/op
+WorkloadWarmup  24: 29 op, 46217443.00 ns, 1.5937 ms/op
+WorkloadWarmup  25: 29 op, 45367519.00 ns, 1.5644 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 29 op, 51381255.00 ns, 1.7718 ms/op
+WorkloadActual   2: 29 op, 56427604.00 ns, 1.9458 ms/op
+WorkloadActual   3: 29 op, 43949451.00 ns, 1.5155 ms/op
+WorkloadActual   4: 29 op, 42393553.00 ns, 1.4618 ms/op
+WorkloadActual   5: 29 op, 50781860.00 ns, 1.7511 ms/op
+WorkloadActual   6: 29 op, 41218037.00 ns, 1.4213 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 29 op, 51381255.00 ns, 1.7718 ms/op
+WorkloadResult   2: 29 op, 56427604.00 ns, 1.9458 ms/op
+WorkloadResult   3: 29 op, 43949451.00 ns, 1.5155 ms/op
+WorkloadResult   4: 29 op, 42393553.00 ns, 1.4618 ms/op
+WorkloadResult   5: 29 op, 50781860.00 ns, 1.7511 ms/op
+WorkloadResult   6: 29 op, 41218037.00 ns, 1.4213 ms/op
+// GC:  0 0 0 0 29
+// Threading:  0 0 29
+
+// AfterAll
+// Benchmark Process 15504 has exited with code 0.
+
+Mean = 1.645 ms, StdErr = 0.085 ms (5.19%), N = 6, StdDev = 0.209 ms
+Min = 1.421 ms, Q1 = 1.475 ms, Median = 1.633 ms, Q3 = 1.767 ms, Max = 1.946 ms
+IQR = 0.291 ms, LowerFence = 1.038 ms, UpperFence = 2.204 ms
+ConfidenceInterval = [1.059 ms; 2.230 ms] (CI 99.9%), Margin = 0.586 ms (35.62% of Mean)
+Skewness = 0.21, Kurtosis = 1.09, MValue = 2
+
+// ** Remained 6 (50.0 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [54]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|U-deep-u-repeated|corpus|drop\")" --job campaign --benchmarkId 6 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 284528.00 ns, 284.5280 us/op
+WorkloadJitting  1: 1 op, 10673824.00 ns, 10.6738 ms/op
+
+WorkloadPilot    1: 4 op, 33604.00 ns, 8.4010 us/op
+WorkloadPilot    2: 4761 op, 20385968.00 ns, 4.2819 us/op
+WorkloadPilot    3: 9342 op, 34160682.00 ns, 3.6567 us/op
+WorkloadPilot    4: 10939 op, 38674133.00 ns, 3.5354 us/op
+WorkloadPilot    5: 11314 op, 38444362.00 ns, 3.3979 us/op
+WorkloadPilot    6: 11772 op, 32415210.00 ns, 2.7536 us/op
+WorkloadPilot    7: 14527 op, 43596050.00 ns, 3.0010 us/op
+WorkloadPilot    8: 13329 op, 31946812.00 ns, 2.3968 us/op
+WorkloadPilot    9: 16689 op, 38893542.00 ns, 2.3305 us/op
+WorkloadPilot   10: 17164 op, 41067235.00 ns, 2.3926 us/op
+WorkloadPilot   11: 16718 op, 39296892.00 ns, 2.3506 us/op
+WorkloadPilot   12: 17017 op, 38679807.00 ns, 2.2730 us/op
+WorkloadPilot   13: 17598 op, 41136363.00 ns, 2.3376 us/op
+
+WorkloadWarmup   1: 17598 op, 40558434.00 ns, 2.3047 us/op
+WorkloadWarmup   2: 17598 op, 41241952.00 ns, 2.3436 us/op
+WorkloadWarmup   3: 17598 op, 41287207.00 ns, 2.3461 us/op
+WorkloadWarmup   4: 17598 op, 47773997.00 ns, 2.7147 us/op
+WorkloadWarmup   5: 17598 op, 40827428.00 ns, 2.3200 us/op
+WorkloadWarmup   6: 17598 op, 38929001.00 ns, 2.2121 us/op
+WorkloadWarmup   7: 17598 op, 39010689.00 ns, 2.2168 us/op
+WorkloadWarmup   8: 17598 op, 39013465.00 ns, 2.2169 us/op
+WorkloadWarmup   9: 17598 op, 42216466.00 ns, 2.3989 us/op
+WorkloadWarmup  10: 17598 op, 39049464.00 ns, 2.2190 us/op
+WorkloadWarmup  11: 17598 op, 39365292.00 ns, 2.2369 us/op
+WorkloadWarmup  12: 17598 op, 40269445.00 ns, 2.2883 us/op
+WorkloadWarmup  13: 17598 op, 43743095.00 ns, 2.4857 us/op
+WorkloadWarmup  14: 17598 op, 43699667.00 ns, 2.4832 us/op
+WorkloadWarmup  15: 17598 op, 40414828.00 ns, 2.2966 us/op
+WorkloadWarmup  16: 17598 op, 41619703.00 ns, 2.3650 us/op
+WorkloadWarmup  17: 17598 op, 39989781.00 ns, 2.2724 us/op
+WorkloadWarmup  18: 17598 op, 39823807.00 ns, 2.2630 us/op
+WorkloadWarmup  19: 17598 op, 40238121.00 ns, 2.2865 us/op
+WorkloadWarmup  20: 17598 op, 41053731.00 ns, 2.3329 us/op
+WorkloadWarmup  21: 17598 op, 39911337.00 ns, 2.2679 us/op
+WorkloadWarmup  22: 17598 op, 40162804.00 ns, 2.2822 us/op
+WorkloadWarmup  23: 17598 op, 40256772.00 ns, 2.2876 us/op
+WorkloadWarmup  24: 17598 op, 40205191.00 ns, 2.2846 us/op
+WorkloadWarmup  25: 17598 op, 40552771.00 ns, 2.3044 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 17598 op, 39987241.00 ns, 2.2723 us/op
+WorkloadActual   2: 17598 op, 39550557.00 ns, 2.2474 us/op
+WorkloadActual   3: 17598 op, 42562077.00 ns, 2.4186 us/op
+WorkloadActual   4: 17598 op, 43448715.00 ns, 2.4690 us/op
+WorkloadActual   5: 17598 op, 40543972.00 ns, 2.3039 us/op
+WorkloadActual   6: 17598 op, 39082311.00 ns, 2.2208 us/op
+
+// AfterActualRun
+WorkloadResult   1: 17598 op, 39987241.00 ns, 2.2723 us/op
+WorkloadResult   2: 17598 op, 39550557.00 ns, 2.2474 us/op
+WorkloadResult   3: 17598 op, 42562077.00 ns, 2.4186 us/op
+WorkloadResult   4: 17598 op, 43448715.00 ns, 2.4690 us/op
+WorkloadResult   5: 17598 op, 40543972.00 ns, 2.3039 us/op
+WorkloadResult   6: 17598 op, 39082311.00 ns, 2.2208 us/op
+// GC:  0 0 0 0 17598
+// Threading:  0 0 17598
+
+// AfterAll
+// Benchmark Process 15513 has exited with code 0.
+
+Mean = 2.322 us, StdErr = 0.041 us (1.75%), N = 6, StdDev = 0.100 us
+Min = 2.221 us, Q1 = 2.254 us, Median = 2.288 us, Q3 = 2.390 us, Max = 2.469 us
+IQR = 0.136 us, LowerFence = 2.049 us, UpperFence = 2.594 us
+ConfidenceInterval = [2.043 us; 2.601 us] (CI 99.9%), Margin = 0.279 us (12.02% of Mean)
+Skewness = 0.42, Kurtosis = 1.18, MValue = 2
+
+// ** Remained 5 (41.7 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [41]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|wide|retain\")" --job campaign --benchmarkId 7 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 403492.00 ns, 403.4920 us/op
+WorkloadJitting  1: 1 op, 25872483.00 ns, 25.8725 ms/op
+
+WorkloadPilot    1: 4 op, 20658462.00 ns, 5.1646 ms/op
+WorkloadPilot    2: 8 op, 24033946.00 ns, 3.0042 ms/op
+WorkloadPilot    3: 13 op, 24929969.00 ns, 1.9177 ms/op
+WorkloadPilot    4: 21 op, 48240115.00 ns, 2.2971 ms/op
+WorkloadPilot    5: 17 op, 36508208.00 ns, 2.1475 ms/op
+WorkloadPilot    6: 19 op, 39214539.00 ns, 2.0639 ms/op
+
+WorkloadWarmup   1: 19 op, 36143330.00 ns, 1.9023 ms/op
+WorkloadWarmup   2: 19 op, 38135595.00 ns, 2.0071 ms/op
+WorkloadWarmup   3: 19 op, 37528668.00 ns, 1.9752 ms/op
+WorkloadWarmup   4: 19 op, 35454423.00 ns, 1.8660 ms/op
+WorkloadWarmup   5: 19 op, 45925727.00 ns, 2.4171 ms/op
+WorkloadWarmup   6: 19 op, 30882079.00 ns, 1.6254 ms/op
+WorkloadWarmup   7: 19 op, 31865517.00 ns, 1.6771 ms/op
+WorkloadWarmup   8: 19 op, 33582566.00 ns, 1.7675 ms/op
+WorkloadWarmup   9: 19 op, 36394788.00 ns, 1.9155 ms/op
+WorkloadWarmup  10: 19 op, 29367683.00 ns, 1.5457 ms/op
+WorkloadWarmup  11: 19 op, 30778961.00 ns, 1.6199 ms/op
+WorkloadWarmup  12: 19 op, 29171958.00 ns, 1.5354 ms/op
+WorkloadWarmup  13: 19 op, 32463557.00 ns, 1.7086 ms/op
+WorkloadWarmup  14: 19 op, 45780943.00 ns, 2.4095 ms/op
+WorkloadWarmup  15: 19 op, 33308967.00 ns, 1.7531 ms/op
+WorkloadWarmup  16: 19 op, 31291026.00 ns, 1.6469 ms/op
+WorkloadWarmup  17: 19 op, 30950160.00 ns, 1.6290 ms/op
+WorkloadWarmup  18: 19 op, 30174057.00 ns, 1.5881 ms/op
+WorkloadWarmup  19: 19 op, 32138104.00 ns, 1.6915 ms/op
+WorkloadWarmup  20: 19 op, 36201399.00 ns, 1.9053 ms/op
+WorkloadWarmup  21: 19 op, 35098861.00 ns, 1.8473 ms/op
+WorkloadWarmup  22: 19 op, 29239920.00 ns, 1.5389 ms/op
+WorkloadWarmup  23: 19 op, 28514881.00 ns, 1.5008 ms/op
+WorkloadWarmup  24: 19 op, 32993035.00 ns, 1.7365 ms/op
+WorkloadWarmup  25: 19 op, 44827326.00 ns, 2.3593 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 19 op, 33885610.00 ns, 1.7835 ms/op
+WorkloadActual   2: 19 op, 31137198.00 ns, 1.6388 ms/op
+WorkloadActual   3: 19 op, 30708797.00 ns, 1.6163 ms/op
+WorkloadActual   4: 19 op, 29848521.00 ns, 1.5710 ms/op
+WorkloadActual   5: 19 op, 47565710.00 ns, 2.5035 ms/op
+WorkloadActual   6: 19 op, 31063268.00 ns, 1.6349 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 19 op, 33885610.00 ns, 1.7835 ms/op
+WorkloadResult   2: 19 op, 31137198.00 ns, 1.6388 ms/op
+WorkloadResult   3: 19 op, 30708797.00 ns, 1.6163 ms/op
+WorkloadResult   4: 19 op, 29848521.00 ns, 1.5710 ms/op
+WorkloadResult   5: 19 op, 31063268.00 ns, 1.6349 ms/op
+// GC:  0 0 0 0 19
+// Threading:  0 0 19
+
+// AfterAll
+// Benchmark Process 15522 has exited with code 0.
+
+Mean = 1.649 ms, StdErr = 0.036 ms (2.17%), N = 5, StdDev = 0.080 ms
+Min = 1.571 ms, Q1 = 1.616 ms, Median = 1.635 ms, Q3 = 1.639 ms, Max = 1.783 ms
+IQR = 0.023 ms, LowerFence = 1.582 ms, UpperFence = 1.673 ms
+ConfidenceInterval = [1.341 ms; 1.957 ms] (CI 99.9%), Margin = 0.308 ms (18.66% of Mean)
+Skewness = 0.75, Kurtosis = 1.8, MValue = 2
+
+// ** Remained 4 (33.3 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [39]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|wide|drop\")" --job campaign --benchmarkId 8 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 267258.00 ns, 267.2580 us/op
+WorkloadJitting  1: 1 op, 14607368.00 ns, 14.6074 ms/op
+
+WorkloadPilot    1: 4 op, 15263179.00 ns, 3.8158 ms/op
+WorkloadPilot    2: 10 op, 23041165.00 ns, 2.3041 ms/op
+WorkloadPilot    3: 17 op, 29515443.00 ns, 1.7362 ms/op
+WorkloadPilot    4: 23 op, 41097249.00 ns, 1.7868 ms/op
+
+WorkloadWarmup   1: 23 op, 41411843.00 ns, 1.8005 ms/op
+WorkloadWarmup   2: 23 op, 39792031.00 ns, 1.7301 ms/op
+WorkloadWarmup   3: 23 op, 44816087.00 ns, 1.9485 ms/op
+WorkloadWarmup   4: 23 op, 35325886.00 ns, 1.5359 ms/op
+WorkloadWarmup   5: 23 op, 34928835.00 ns, 1.5186 ms/op
+WorkloadWarmup   6: 23 op, 36464458.00 ns, 1.5854 ms/op
+WorkloadWarmup   7: 23 op, 41403102.00 ns, 1.8001 ms/op
+WorkloadWarmup   8: 23 op, 41365890.00 ns, 1.7985 ms/op
+WorkloadWarmup   9: 23 op, 44059326.00 ns, 1.9156 ms/op
+WorkloadWarmup  10: 23 op, 34346472.00 ns, 1.4933 ms/op
+WorkloadWarmup  11: 23 op, 35399353.00 ns, 1.5391 ms/op
+WorkloadWarmup  12: 23 op, 35731967.00 ns, 1.5536 ms/op
+WorkloadWarmup  13: 23 op, 34839133.00 ns, 1.5147 ms/op
+WorkloadWarmup  14: 23 op, 35205175.00 ns, 1.5307 ms/op
+WorkloadWarmup  15: 23 op, 34545782.00 ns, 1.5020 ms/op
+WorkloadWarmup  16: 23 op, 44355172.00 ns, 1.9285 ms/op
+WorkloadWarmup  17: 23 op, 33430227.00 ns, 1.4535 ms/op
+WorkloadWarmup  18: 23 op, 33914068.00 ns, 1.4745 ms/op
+WorkloadWarmup  19: 23 op, 35222100.00 ns, 1.5314 ms/op
+WorkloadWarmup  20: 23 op, 34944502.00 ns, 1.5193 ms/op
+WorkloadWarmup  21: 23 op, 34135335.00 ns, 1.4841 ms/op
+WorkloadWarmup  22: 23 op, 40147908.00 ns, 1.7456 ms/op
+WorkloadWarmup  23: 23 op, 33908218.00 ns, 1.4743 ms/op
+WorkloadWarmup  24: 23 op, 33509264.00 ns, 1.4569 ms/op
+WorkloadWarmup  25: 23 op, 33621821.00 ns, 1.4618 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 23 op, 47792860.00 ns, 2.0780 ms/op
+WorkloadActual   2: 23 op, 42520638.00 ns, 1.8487 ms/op
+WorkloadActual   3: 23 op, 34110126.00 ns, 1.4830 ms/op
+WorkloadActual   4: 23 op, 39180711.00 ns, 1.7035 ms/op
+WorkloadActual   5: 23 op, 41215300.00 ns, 1.7920 ms/op
+WorkloadActual   6: 23 op, 47706546.00 ns, 2.0742 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 23 op, 47792860.00 ns, 2.0780 ms/op
+WorkloadResult   2: 23 op, 42520638.00 ns, 1.8487 ms/op
+WorkloadResult   3: 23 op, 34110126.00 ns, 1.4830 ms/op
+WorkloadResult   4: 23 op, 39180711.00 ns, 1.7035 ms/op
+WorkloadResult   5: 23 op, 41215300.00 ns, 1.7920 ms/op
+WorkloadResult   6: 23 op, 47706546.00 ns, 2.0742 ms/op
+// GC:  0 0 0 0 23
+// Threading:  0 0 23
+
+// AfterAll
+// Benchmark Process 15531 has exited with code 0.
+
+Mean = 1.830 ms, StdErr = 0.093 ms (5.08%), N = 6, StdDev = 0.228 ms
+Min = 1.483 ms, Q1 = 1.726 ms, Median = 1.820 ms, Q3 = 2.018 ms, Max = 2.078 ms
+IQR = 0.292 ms, LowerFence = 1.287 ms, UpperFence = 2.456 ms
+ConfidenceInterval = [1.191 ms; 2.468 ms] (CI 99.9%), Margin = 0.639 ms (34.90% of Mean)
+Skewness = -0.2, Kurtosis = 1.37, MValue = 2
+
+// ** Remained 3 (25.0 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.4|ascii|drop\")" --job campaign --benchmarkId 9 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 249238.00 ns, 249.2380 us/op
+WorkloadJitting  1: 1 op, 14566397.00 ns, 14.5664 ms/op
+
+WorkloadPilot    1: 4 op, 14017250.00 ns, 3.5043 ms/op
+WorkloadPilot    2: 11 op, 24268745.00 ns, 2.2062 ms/op
+WorkloadPilot    3: 18 op, 37192212.00 ns, 2.0662 ms/op
+
+WorkloadWarmup   1: 18 op, 39066223.00 ns, 2.1703 ms/op
+WorkloadWarmup   2: 18 op, 41915779.00 ns, 2.3287 ms/op
+WorkloadWarmup   3: 18 op, 41602611.00 ns, 2.3113 ms/op
+WorkloadWarmup   4: 18 op, 42519764.00 ns, 2.3622 ms/op
+WorkloadWarmup   5: 18 op, 33574000.00 ns, 1.8652 ms/op
+WorkloadWarmup   6: 18 op, 32219707.00 ns, 1.7900 ms/op
+WorkloadWarmup   7: 18 op, 32601288.00 ns, 1.8112 ms/op
+WorkloadWarmup   8: 18 op, 32608155.00 ns, 1.8116 ms/op
+WorkloadWarmup   9: 18 op, 33775535.00 ns, 1.8764 ms/op
+WorkloadWarmup  10: 18 op, 45628794.00 ns, 2.5349 ms/op
+WorkloadWarmup  11: 18 op, 33780093.00 ns, 1.8767 ms/op
+WorkloadWarmup  12: 18 op, 33895806.00 ns, 1.8831 ms/op
+WorkloadWarmup  13: 18 op, 33239029.00 ns, 1.8466 ms/op
+WorkloadWarmup  14: 18 op, 35704580.00 ns, 1.9836 ms/op
+WorkloadWarmup  15: 18 op, 32779515.00 ns, 1.8211 ms/op
+WorkloadWarmup  16: 18 op, 34302303.00 ns, 1.9057 ms/op
+WorkloadWarmup  17: 18 op, 33970185.00 ns, 1.8872 ms/op
+WorkloadWarmup  18: 18 op, 34575556.00 ns, 1.9209 ms/op
+WorkloadWarmup  19: 18 op, 33192948.00 ns, 1.8441 ms/op
+WorkloadWarmup  20: 18 op, 35068534.00 ns, 1.9483 ms/op
+WorkloadWarmup  21: 18 op, 33753959.00 ns, 1.8752 ms/op
+WorkloadWarmup  22: 18 op, 33686871.00 ns, 1.8715 ms/op
+WorkloadWarmup  23: 18 op, 50220883.00 ns, 2.7900 ms/op
+WorkloadWarmup  24: 18 op, 34830198.00 ns, 1.9350 ms/op
+WorkloadWarmup  25: 18 op, 34509977.00 ns, 1.9172 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 18 op, 34458969.00 ns, 1.9144 ms/op
+WorkloadActual   2: 18 op, 42892925.00 ns, 2.3829 ms/op
+WorkloadActual   3: 18 op, 31850401.00 ns, 1.7695 ms/op
+WorkloadActual   4: 18 op, 33983995.00 ns, 1.8880 ms/op
+WorkloadActual   5: 18 op, 33339067.00 ns, 1.8522 ms/op
+WorkloadActual   6: 18 op, 44694033.00 ns, 2.4830 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 18 op, 34458969.00 ns, 1.9144 ms/op
+WorkloadResult   2: 18 op, 42892925.00 ns, 2.3829 ms/op
+WorkloadResult   3: 18 op, 31850401.00 ns, 1.7695 ms/op
+WorkloadResult   4: 18 op, 33983995.00 ns, 1.8880 ms/op
+WorkloadResult   5: 18 op, 33339067.00 ns, 1.8522 ms/op
+WorkloadResult   6: 18 op, 44694033.00 ns, 2.4830 ms/op
+// GC:  0 0 0 0 18
+// Threading:  0 0 18
+
+// AfterAll
+// Benchmark Process 15543 has exited with code 0.
+
+Mean = 2.048 ms, StdErr = 0.124 ms (6.05%), N = 6, StdDev = 0.304 ms
+Min = 1.769 ms, Q1 = 1.861 ms, Median = 1.901 ms, Q3 = 2.266 ms, Max = 2.483 ms
+IQR = 0.405 ms, LowerFence = 1.254 ms, UpperFence = 2.873 ms
+ConfidenceInterval = [1.197 ms; 2.900 ms] (CI 99.9%), Margin = 0.851 ms (41.56% of Mean)
+Skewness = 0.5, Kurtosis = 1.11, MValue = 3
+
+// ** Remained 2 (16.7 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [41]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|P2.2|latin1|drop\")" --job campaign --benchmarkId 10 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 263317.00 ns, 263.3170 us/op
+WorkloadJitting  1: 1 op, 15215055.00 ns, 15.2151 ms/op
+
+WorkloadPilot    1: 4 op, 16600477.00 ns, 4.1501 ms/op
+WorkloadPilot    2: 10 op, 24698266.00 ns, 2.4698 ms/op
+WorkloadPilot    3: 16 op, 25671942.00 ns, 1.6045 ms/op
+WorkloadPilot    4: 25 op, 41076316.00 ns, 1.6431 ms/op
+
+WorkloadWarmup   1: 25 op, 41577704.00 ns, 1.6631 ms/op
+WorkloadWarmup   2: 25 op, 44480926.00 ns, 1.7792 ms/op
+WorkloadWarmup   3: 25 op, 44270127.00 ns, 1.7708 ms/op
+WorkloadWarmup   4: 25 op, 43442308.00 ns, 1.7377 ms/op
+WorkloadWarmup   5: 25 op, 43107270.00 ns, 1.7243 ms/op
+WorkloadWarmup   6: 25 op, 33377527.00 ns, 1.3351 ms/op
+WorkloadWarmup   7: 25 op, 39394989.00 ns, 1.5758 ms/op
+WorkloadWarmup   8: 25 op, 35961867.00 ns, 1.4385 ms/op
+WorkloadWarmup   9: 25 op, 36653823.00 ns, 1.4662 ms/op
+WorkloadWarmup  10: 25 op, 36711981.00 ns, 1.4685 ms/op
+WorkloadWarmup  11: 25 op, 35298497.00 ns, 1.4119 ms/op
+WorkloadWarmup  12: 25 op, 34987022.00 ns, 1.3995 ms/op
+WorkloadWarmup  13: 25 op, 34559576.00 ns, 1.3824 ms/op
+WorkloadWarmup  14: 25 op, 34943296.00 ns, 1.3977 ms/op
+WorkloadWarmup  15: 25 op, 34566212.00 ns, 1.3826 ms/op
+WorkloadWarmup  16: 25 op, 42507526.00 ns, 1.7003 ms/op
+WorkloadWarmup  17: 25 op, 35128099.00 ns, 1.4051 ms/op
+WorkloadWarmup  18: 25 op, 37449425.00 ns, 1.4980 ms/op
+WorkloadWarmup  19: 25 op, 33032628.00 ns, 1.3213 ms/op
+WorkloadWarmup  20: 25 op, 34147897.00 ns, 1.3659 ms/op
+WorkloadWarmup  21: 25 op, 35418467.00 ns, 1.4167 ms/op
+WorkloadWarmup  22: 25 op, 36810497.00 ns, 1.4724 ms/op
+WorkloadWarmup  23: 25 op, 37116664.00 ns, 1.4847 ms/op
+WorkloadWarmup  24: 25 op, 39332808.00 ns, 1.5733 ms/op
+WorkloadWarmup  25: 25 op, 37202060.00 ns, 1.4881 ms/op
+
+// BeforeActualRun
+WorkloadActual   1: 25 op, 40239309.00 ns, 1.6096 ms/op
+WorkloadActual   2: 25 op, 34866312.00 ns, 1.3947 ms/op
+WorkloadActual   3: 25 op, 33411679.00 ns, 1.3365 ms/op
+WorkloadActual   4: 25 op, 33233539.00 ns, 1.3293 ms/op
+WorkloadActual   5: 25 op, 33112580.00 ns, 1.3245 ms/op
+WorkloadActual   6: 25 op, 33524254.00 ns, 1.3410 ms/op
+
+// AfterActualRun
+WorkloadResult   1: 25 op, 34866312.00 ns, 1.3947 ms/op
+WorkloadResult   2: 25 op, 33411679.00 ns, 1.3365 ms/op
+WorkloadResult   3: 25 op, 33233539.00 ns, 1.3293 ms/op
+WorkloadResult   4: 25 op, 33112580.00 ns, 1.3245 ms/op
+WorkloadResult   5: 25 op, 33524254.00 ns, 1.3410 ms/op
+// GC:  0 0 0 0 25
+// Threading:  0 0 25
+
+// AfterAll
+// Benchmark Process 15553 has exited with code 0.
+
+Mean = 1.345 ms, StdErr = 0.013 ms (0.94%), N = 5, StdDev = 0.028 ms
+Min = 1.325 ms, Q1 = 1.329 ms, Median = 1.336 ms, Q3 = 1.341 ms, Max = 1.395 ms
+IQR = 0.012 ms, LowerFence = 1.312 ms, UpperFence = 1.358 ms
+ConfidenceInterval = [1.236 ms; 1.454 ms] (CI 99.9%), Margin = 0.109 ms (8.12% of Mean)
+Skewness = 0.94, Kurtosis = 1.93, MValue = 2
+
+// ** Remained 1 (8.3 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+// **************************
+// Benchmark: CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [56]]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet BenchDotNet-campaign-1.dll --anonymousPipes 138 139 --benchmarkName "Armonik.Ffi.Bdn.CodecSuite.Run(Case: \"core-ffi|encode-core-hot|U-deep-u-repeated|corpus|retain\")" --job campaign --benchmarkId 11 in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet-campaign-1/bin/Release/net8.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.15.8
+// Runtime=.NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+// GC=Concurrent Workstation
+// HardwareIntrinsics=AVX512 IFMA+VBMI,AVX512 F+BW+CD+DQ+VL,AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256
+// Job: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25)
+
+OverheadJitting  1: 1 op, 261064.00 ns, 261.0640 us/op
+WorkloadJitting  1: 1 op, 10555486.00 ns, 10.5555 ms/op
+
+WorkloadPilot    1: 4 op, 32645.00 ns, 8.1613 us/op
+WorkloadPilot    2: 4901 op, 15332047.00 ns, 3.1284 us/op
+WorkloadPilot    3: 12786 op, 40412616.00 ns, 3.1607 us/op
+WorkloadPilot    4: 12655 op, 39847047.00 ns, 3.1487 us/op
+WorkloadPilot    5: 12704 op, 40248580.00 ns, 3.1682 us/op
+WorkloadPilot    6: 12626 op, 39627758.00 ns, 3.1386 us/op
+WorkloadPilot    7: 12745 op, 39303521.00 ns, 3.0838 us/op
+WorkloadPilot    8: 12971 op, 35652725.00 ns, 2.7486 us/op
+WorkloadPilot    9: 14553 op, 39341544.00 ns, 2.7033 us/op
+WorkloadPilot   10: 14797 op, 39424306.00 ns, 2.6643 us/op
+WorkloadPilot   11: 15013 op, 40923163.00 ns, 2.7258 us/op
+
+WorkloadWarmup   1: 15013 op, 42297894.00 ns, 2.8174 us/op
+WorkloadWarmup   2: 15013 op, 40997279.00 ns, 2.7308 us/op
+WorkloadWarmup   3: 15013 op, 40215261.00 ns, 2.6787 us/op
+WorkloadWarmup   4: 15013 op, 41975317.00 ns, 2.7959 us/op
+WorkloadWarmup   5: 15013 op, 41837591.00 ns, 2.7868 us/op
+WorkloadWarmup   6: 15013 op, 40177465.00 ns, 2.6762 us/op
+WorkloadWarmup   7: 15013 op, 40212570.00 ns, 2.6785 us/op
+WorkloadWarmup   8: 15013 op, 41244518.00 ns, 2.7473 us/op
+WorkloadWarmup   9: 15013 op, 43912265.00 ns, 2.9249 us/op
+WorkloadWarmup  10: 15013 op, 52264970.00 ns, 3.4813 us/op
+WorkloadWarmup  11: 15013 op, 40497300.00 ns, 2.6975 us/op
+WorkloadWarmup  12: 15013 op, 39600690.00 ns, 2.6378 us/op
+WorkloadWarmup  13: 15013 op, 40686590.00 ns, 2.7101 us/op
+WorkloadWarmup  14: 15013 op, 43873232.00 ns, 2.9223 us/op
+WorkloadWarmup  15: 15013 op, 48341127.00 ns, 3.2200 us/op
+WorkloadWarmup  16: 15013 op, 41306399.00 ns, 2.7514 us/op
+WorkloadWarmup  17: 15013 op, 65647240.00 ns, 4.3727 us/op
+WorkloadWarmup  18: 15013 op, 48431211.00 ns, 3.2260 us/op
+WorkloadWarmup  19: 15013 op, 49097090.00 ns, 3.2703 us/op
+WorkloadWarmup  20: 15013 op, 41746557.00 ns, 2.7807 us/op
+WorkloadWarmup  21: 15013 op, 49779768.00 ns, 3.3158 us/op
+WorkloadWarmup  22: 15013 op, 51215267.00 ns, 3.4114 us/op
+WorkloadWarmup  23: 15013 op, 61258825.00 ns, 4.0804 us/op
+WorkloadWarmup  24: 15013 op, 45532295.00 ns, 3.0329 us/op
+WorkloadWarmup  25: 15013 op, 43518534.00 ns, 2.8987 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 15013 op, 52216224.00 ns, 3.4781 us/op
+WorkloadActual   2: 15013 op, 40345921.00 ns, 2.6874 us/op
+WorkloadActual   3: 15013 op, 39867060.00 ns, 2.6555 us/op
+WorkloadActual   4: 15013 op, 46378319.00 ns, 3.0892 us/op
+WorkloadActual   5: 15013 op, 41449501.00 ns, 2.7609 us/op
+WorkloadActual   6: 15013 op, 40498502.00 ns, 2.6976 us/op
+
+// AfterActualRun
+WorkloadResult   1: 15013 op, 52216224.00 ns, 3.4781 us/op
+WorkloadResult   2: 15013 op, 40345921.00 ns, 2.6874 us/op
+WorkloadResult   3: 15013 op, 39867060.00 ns, 2.6555 us/op
+WorkloadResult   4: 15013 op, 46378319.00 ns, 3.0892 us/op
+WorkloadResult   5: 15013 op, 41449501.00 ns, 2.7609 us/op
+WorkloadResult   6: 15013 op, 40498502.00 ns, 2.6976 us/op
+// GC:  0 0 0 0 15013
+// Threading:  0 0 15013
+
+// AfterAll
+// Benchmark Process 15562 has exited with code 0.
+
+Mean = 2.895 us, StdErr = 0.134 us (4.61%), N = 6, StdDev = 0.327 us
+Min = 2.656 us, Q1 = 2.690 us, Median = 2.729 us, Q3 = 3.007 us, Max = 3.478 us
+IQR = 0.317 us, LowerFence = 2.214 us, UpperFence = 3.483 us
+ConfidenceInterval = [1.977 us; 3.812 us] (CI 99.9%), Margin = 0.917 us (31.69% of Mean)
+Skewness = 0.82, Kurtosis = 1.81, MValue = 2
+
+// ** Remained 0 (0.0 %) benchmark(s) to run. Estimated finish 2026-10-10 13:10 (0h 0m from now) **
+Run time: 00:00:24 (24.26 sec), executed benchmarks: 12
+
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  home/user/ArmoniK.Api/ffi/logs/csharp/opt/s15/ladder/new-r3-pgo0-full-r1.jsonl
+
+// * Detailed results *
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.450 ms, StdErr = 0.034 ms (2.36%), N = 6, StdDev = 0.084 ms
+Min = 1.362 ms, Q1 = 1.381 ms, Median = 1.441 ms, Q3 = 1.504 ms, Max = 1.568 ms
+IQR = 0.123 ms, LowerFence = 1.197 ms, UpperFence = 1.688 ms
+ConfidenceInterval = [1.214 ms; 1.685 ms] (CI 99.9%), Margin = 0.235 ms (16.23% of Mean)
+Skewness = 0.21, Kurtosis = 1.17, MValue = 2
+-------------------- Histogram --------------------
+[1.341 ms ; 1.486 ms) | @@@@
+[1.486 ms ; 1.629 ms) | @@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.388 ms, StdErr = 0.016 ms (1.12%), N = 5, StdDev = 0.035 ms
+Min = 1.335 ms, Q1 = 1.382 ms, Median = 1.388 ms, Q3 = 1.403 ms, Max = 1.430 ms
+IQR = 0.021 ms, LowerFence = 1.351 ms, UpperFence = 1.434 ms
+ConfidenceInterval = [1.253 ms; 1.522 ms] (CI 99.9%), Margin = 0.134 ms (9.68% of Mean)
+Skewness = -0.32, Kurtosis = 1.5, MValue = 2
+-------------------- Histogram --------------------
+[1.308 ms ; 1.379 ms) | @
+[1.379 ms ; 1.433 ms) | @@@@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.482 ms, StdErr = 0.047 ms (3.15%), N = 6, StdDev = 0.114 ms
+Min = 1.334 ms, Q1 = 1.404 ms, Median = 1.480 ms, Q3 = 1.565 ms, Max = 1.623 ms
+IQR = 0.162 ms, LowerFence = 1.162 ms, UpperFence = 1.808 ms
+ConfidenceInterval = [1.161 ms; 1.802 ms] (CI 99.9%), Margin = 0.320 ms (21.63% of Mean)
+Skewness = -0.02, Kurtosis = 1.01, MValue = 2
+-------------------- Histogram --------------------
+[1.292 ms ; 1.457 ms) | @@@
+[1.457 ms ; 1.667 ms) | @@@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.645 ms, StdErr = 0.085 ms (5.19%), N = 6, StdDev = 0.209 ms
+Min = 1.421 ms, Q1 = 1.475 ms, Median = 1.633 ms, Q3 = 1.767 ms, Max = 1.946 ms
+IQR = 0.291 ms, LowerFence = 1.038 ms, UpperFence = 2.204 ms
+ConfidenceInterval = [1.059 ms; 2.230 ms] (CI 99.9%), Margin = 0.586 ms (35.62% of Mean)
+Skewness = 0.21, Kurtosis = 1.09, MValue = 2
+-------------------- Histogram --------------------
+[1.318 ms ; 1.619 ms) | @@@
+[1.619 ms ; 1.999 ms) | @@@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [39]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.830 ms, StdErr = 0.093 ms (5.08%), N = 6, StdDev = 0.228 ms
+Min = 1.483 ms, Q1 = 1.726 ms, Median = 1.820 ms, Q3 = 2.018 ms, Max = 2.078 ms
+IQR = 0.292 ms, LowerFence = 1.287 ms, UpperFence = 2.456 ms
+ConfidenceInterval = [1.191 ms; 2.468 ms] (CI 99.9%), Margin = 0.639 ms (34.90% of Mean)
+Skewness = -0.2, Kurtosis = 1.37, MValue = 2
+-------------------- Histogram --------------------
+[1.429 ms ; 1.770 ms) | @@
+[1.770 ms ; 2.099 ms) | @@@@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [43]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.376 ms, StdErr = 0.012 ms (0.91%), N = 5, StdDev = 0.028 ms
+Min = 1.342 ms, Q1 = 1.353 ms, Median = 1.381 ms, Q3 = 1.401 ms, Max = 1.404 ms
+IQR = 0.048 ms, LowerFence = 1.281 ms, UpperFence = 1.473 ms
+ConfidenceInterval = [1.269 ms; 1.484 ms] (CI 99.9%), Margin = 0.108 ms (7.82% of Mean)
+Skewness = -0.14, Kurtosis = 0.86, MValue = 2
+-------------------- Histogram --------------------
+[1.321 ms ; 1.371 ms) | @@
+[1.371 ms ; 1.414 ms) | @@@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [42]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 2.103 ms, StdErr = 0.067 ms (3.17%), N = 6, StdDev = 0.163 ms
+Min = 1.907 ms, Q1 = 2.012 ms, Median = 2.052 ms, Q3 = 2.224 ms, Max = 2.326 ms
+IQR = 0.212 ms, LowerFence = 1.693 ms, UpperFence = 2.542 ms
+ConfidenceInterval = [1.645 ms; 2.560 ms] (CI 99.9%), Margin = 0.458 ms (21.76% of Mean)
+Skewness = 0.28, Kurtosis = 1.16, MValue = 2
+-------------------- Histogram --------------------
+[1.873 ms ; 2.182 ms) | @@@@
+[2.182 ms ; 2.444 ms) | @@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [41]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.649 ms, StdErr = 0.036 ms (2.17%), N = 5, StdDev = 0.080 ms
+Min = 1.571 ms, Q1 = 1.616 ms, Median = 1.635 ms, Q3 = 1.639 ms, Max = 1.783 ms
+IQR = 0.023 ms, LowerFence = 1.582 ms, UpperFence = 1.673 ms
+ConfidenceInterval = [1.341 ms; 1.957 ms] (CI 99.9%), Margin = 0.308 ms (18.66% of Mean)
+Skewness = 0.75, Kurtosis = 1.8, MValue = 2
+-------------------- Histogram --------------------
+[1.544 ms ; 1.666 ms) | @@@@
+[1.666 ms ; 1.722 ms) | 
+[1.722 ms ; 1.845 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [41]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 1.345 ms, StdErr = 0.013 ms (0.94%), N = 5, StdDev = 0.028 ms
+Min = 1.325 ms, Q1 = 1.329 ms, Median = 1.336 ms, Q3 = 1.341 ms, Max = 1.395 ms
+IQR = 0.012 ms, LowerFence = 1.312 ms, UpperFence = 1.358 ms
+ConfidenceInterval = [1.236 ms; 1.454 ms] (CI 99.9%), Margin = 0.109 ms (8.12% of Mean)
+Skewness = 0.94, Kurtosis = 1.93, MValue = 2
+-------------------- Histogram --------------------
+[1.311 ms ; 1.373 ms) | @@@@
+[1.373 ms ; 1.416 ms) | @
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [54]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 2.322 us, StdErr = 0.041 us (1.75%), N = 6, StdDev = 0.100 us
+Min = 2.221 us, Q1 = 2.254 us, Median = 2.288 us, Q3 = 2.390 us, Max = 2.469 us
+IQR = 0.136 us, LowerFence = 2.049 us, UpperFence = 2.594 us
+ConfidenceInterval = [2.043 us; 2.601 us] (CI 99.9%), Margin = 0.279 us (12.02% of Mean)
+Skewness = 0.42, Kurtosis = 1.18, MValue = 2
+-------------------- Histogram --------------------
+[2.190 us ; 2.372 us) | @@@@
+[2.372 us ; 2.541 us) | @@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)|drop [40]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 2.048 ms, StdErr = 0.124 ms (6.05%), N = 6, StdDev = 0.304 ms
+Min = 1.769 ms, Q1 = 1.861 ms, Median = 1.901 ms, Q3 = 2.266 ms, Max = 2.483 ms
+IQR = 0.405 ms, LowerFence = 1.254 ms, UpperFence = 2.873 ms
+ConfidenceInterval = [1.197 ms; 2.900 ms] (CI 99.9%), Margin = 0.851 ms (41.56% of Mean)
+Skewness = 0.5, Kurtosis = 1.11, MValue = 3
+-------------------- Histogram --------------------
+[1.623 ms ; 2.061 ms) | @@@@
+[2.061 ms ; 2.214 ms) | 
+[2.214 ms ; 2.702 ms) | @@
+---------------------------------------------------
+
+CodecSuite.Run: campaign(EvaluateOverhead=False, Clock=Armonik.Ffi.Bdn.CpuClock, IterationCount=6, IterationTime=40ms, LaunchCount=1, RunStrategy=Throughput, WarmupCount=25) [Case=core-(...)etain [56]]
+Runtime = .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4; GC = Concurrent Workstation
+Mean = 2.895 us, StdErr = 0.134 us (4.61%), N = 6, StdDev = 0.327 us
+Min = 2.656 us, Q1 = 2.690 us, Median = 2.729 us, Q3 = 3.007 us, Max = 3.478 us
+IQR = 0.317 us, LowerFence = 2.214 us, UpperFence = 3.483 us
+ConfidenceInterval = [1.977 us; 3.812 us] (CI 99.9%), Margin = 0.917 us (31.69% of Mean)
+Skewness = 0.82, Kurtosis = 1.81, MValue = 2
+-------------------- Histogram --------------------
+[2.636 us ; 3.242 us) | @@@@@
+[3.242 us ; 3.714 us) | @
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.4 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 8.0.131
+  [Host]   : .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+  campaign : .NET 8.0.31 (8.0.31, 8.0.3126.42015), X64 RyuJIT x86-64-v4
+
+Job=campaign  EvaluateOverhead=False  Clock=Armonik.Ffi.Bdn.CpuClock  
+IterationCount=6  IterationTime=40ms  LaunchCount=1  
+RunStrategy=Throughput  WarmupCount=25  
+
+| Method | Case                 | Mean         | Error       | StdDev      | Allocated |
+|------- |--------------------- |-------------:|------------:|------------:|----------:|
+| Run    | core-(...)etain [42] | 1,449.622 us | 235.3259 us |  83.9195 us |         - |
+| Run    | core-(...)|drop [40] | 1,387.502 us | 134.2532 us |  34.8651 us |         - |
+| Run    | core-(...)|drop [40] | 1,481.566 us | 320.4577 us | 114.2783 us |         - |
+| Run    | core-(...)etain [42] | 1,644.550 us | 585.7278 us | 208.8762 us |         - |
+| Run    | core-(...)|drop [39] | 1,829.900 us | 638.5715 us | 227.7207 us |         - |
+| Run    | core-(...)etain [43] | 1,376.437 us | 107.5811 us |  27.9385 us |         - |
+| Run    | core-(...)etain [42] | 2,102.729 us | 457.5864 us | 163.1797 us |         - |
+| Run    | core-(...)etain [41] | 1,648.878 us | 307.6934 us |  79.9070 us |         - |
+| Run    | core-(...)|drop [41] | 1,345.187 us | 109.2448 us |  28.3705 us |         - |
+| Run    | core-(...)|drop [54] |     2.322 us |   0.2791 us |   0.0995 us |         - |
+| Run    | core-(...)|drop [40] | 2,048.328 us | 851.2852 us | 303.5765 us |         - |
+| Run    | core-(...)etain [56] |     2.895 us |   0.9174 us |   0.3271 us |         - |
+
+// * Legends *
+  Case      : Value of the 'Case' parameter
+  Mean      : Arithmetic mean of all measurements
+  Error     : Half of 99.9% confidence interval
+  StdDev    : Standard deviation of all measurements
+  Allocated : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  1 us      : 1 Microsecond (0.000001 sec)
+
+// * Diagnostic Output - AkProcessCpu *
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Global total time: 00:00:46 (46 sec), executed benchmarks: 12
+// * Artifacts cleanup *
+Artifacts cleanup is finished
