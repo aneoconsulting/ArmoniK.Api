@@ -2943,3 +2943,95 @@ Container instrumentation. Logs `ffi/logs/csharp/opt/s13-tc-scalar/`.
   E1R per core against E0 per core, E1R:128 as a control (E0's path on every row). Two container
   restarts: the grid was rerun cell by cell with gen/s13_grid.sh (resume at cell granularity,
   quiet wait per cell, commit per rep), the cut cells kept under grid-INTERRUPTED/.
+
+## 85. s14: the E1R bimodality and the E0 -> E1R ladder (2026-10-10)
+
+Container instrumentation (owner unit s14). Logs `ffi/logs/csharp/opt/s14/`. The container had
+restarted before the unit: the machine is now an Intel Xeon at 2.10 GHz with AVX-512
+(Vector512.IsHardwareAccelerated=True), where s13 ran on a 2.80 GHz part without it; no absolute
+here compares with s13's.
+
+Part 1, the bimodality (run from a worktree at be79f6a1, the s13 binding, target-core linked):
+- Distribution (`dist/summary.md`, gen/s14_dist.sh, 20 processes per configuration, one-string
+  sweep, ASCII and Latin-1 at 48 units, E0 and E1R interleaved, 6 rounds; per-process medians):
+  default 2 of 20 slow (E1R ascii 102-660 ns, q1-q3 103-110; latin1 106-663); TieredPGO=0 0 of 20
+  (114-121 / 118-127); TieredCompilation=0 0 of 20 (116-149 / 118-152); TC_OnStackReplacement=0
+  0 of 20 (102-112 / 106-120); ReadyToRun=0 6 of 20 (102-673 / 106-666). E0 is never slow. A slow
+  process is slow in every round and for both contents. With a slow share near 10 % under the
+  default, 0 of 20 in one configuration is not by itself evidence that the configuration removes
+  the mode (about 12 % chance at 10 %); PGO=0 and TC=0 also move the fast mode up by 10 to 15 ns,
+  OSR=0 does not.
+- Cause (`jit/`): JitDisasmSummary in 34 default processes; JitDisasm of the hot methods in two
+  fast and two slow processes (fast101, fast102, slow107, slow110). The hot methods reach the same
+  final tiers in both modes (EncodeInto, Go, RootPinR_e, Stage.*, G.E_*: Tier1 with Dynamic PGO;
+  StrSweep.Run Tier1-OSR). The code differs: the slow EncodeInto (1977 bytes, identical across the
+  slow processes) inlines more of Go and carries 13 thread-static base helper calls (9 NONGC + 4 GC)
+  against 8 in the fast one. No inline TLS access in either (no fs: reference): every thread-static
+  read is a helper call. strace: no syscall difference. gdb stack sampling with perf maps
+  (gdb-4xx, gdb-5xx): slow processes 12 of 25 and 12 of 30 samples in libcoreclr, called from
+  EncodeInto right after its thread-static helper call sites, in a runtime function doing a hashed
+  lookup (div, mfence); fast processes 0 to 1 of 30. libcoreclr has no symbols here, so the
+  function is unnamed. Reading: in a slow process the thread-static base helpers take a runtime
+  slow path on every encode. Location: medium confidence (two slow processes sampled, 30 samples
+  each). Why only some processes, and why the configurations move it: not established.
+- The BDN grid's E1R spread (`grid-spread/`, P2.2 E1R retain, ascii / latin1 / wide, 6 BDN host
+  processes per configuration, default and TieredPGO=0): no slow mode in these 12 hosts (default
+  1317-1407 us ascii, 1365-1428 latin1, 1482-1741 wide; PGO=0 1429-1589, 1452-1538, 1591-1863).
+  s13's 1,205 vs 1,819 us is not reproduced, so whether it was this effect stays open. JitDisasmSummary
+  in BDN's children was not taken (the host and its children would write one JitStdOutFile).
+
+Part 2, the ladder:
+- Core (cde67864, then c6e29dbe): features tc-measure-generic (ak_tc_bytes returns tc_copy_generic,
+  an identity copy that is not the trusted passthrough, so E0's strings take the generic transcoder
+  path) and tc-measure-u16stub (ak_tc_utf16 returns a stub that copies len raw bytes, plus the
+  marker export ak_measure_tc_stub); default OFF, the default build byte-identical
+  (7b8ed0b888940ab7). Binding (7f6841ee): AK_STR_NOGUARD=1 (Stage.NoGuard) makes E1R's frames skip
+  the patch counters and Go skip the marks == patches check; Marked++ stays (it decides whether the
+  frames run). MeasureCore: the stub core is detected by its marker export and byte checks are
+  skipped and said so.
+- DEFECT FOUND BEFORE THE NUMBERS WERE USED: the first stub core folded tc_utf16_stub into
+  tc_utf8_trusted (identical bodies, one address after linking), so ak_tc_utf16 returned the
+  trusted passthrough and the encoder's fast path took it: the first 30 stub/stubng sweep processes
+  timed E1R on the one-pass fast path, not the rung. Found by disassembling the stub core while
+  asking whether each rung was in the build. Fixed (c6e29dbe: the stub copies with ptr::copy; the
+  test asserts it is not the trusted passthrough); gen/s14_cores.sh now refuses a measurement core
+  whose getter returns the trusted passthrough's address (cores2.log). The stub files were deleted
+  and rerun.
+- Each rung checked in the build (`checks-rungs/summary.txt`): gdb hits tc_copy_generic from
+  enc_blob under R1 and tc_utf16_stub under R2; under NOGUARD RootPinR_e's Tier1 code drops from
+  514 to 371 bytes and from 2 thread-static helper calls to 0, Go from 2220 to 2086 bytes.
+  Byte identity: `checks-ladder.log` (Cases.Verify under default E0 / E1R / E1R+NOGUARD and the
+  generic core E0 / E1R: passed); R2 not checked by design.
+- Sweep (`ladder-sweep/table.md`, gen/s14_ladder_sweep.sh: 8 processes per kind x configuration;
+  kinds simd, noguard, generic, stub, stubng; every process runs E0 and E1R, so E1R - E0 is taken
+  inside each process; default-configuration processes in the slow mode (E1R >= 300 ns) were set
+  aside and rerun: 4 of 44, in the noguard, stubng (2) and generic kinds, so the slow mode also
+  occurs with the patch counters removed and with the generic core). ASCII, 48 units, medians of
+  the in-process differences (IQR), ns per string: TieredPGO=0: R3-R0 38.7 (35-42), R1-R0 about 2,
+  R2-R1 about 21, R3-R2 about 16, guard (R3-R3g) about 4 (R3g-R0 34.4, 33-37), guard under the
+  stub about 0.5. Default, fast-mode processes: R3-R0 28.8 (28-31), R1-R0 about 3, R2-R1 about 12,
+  R3-R2 about 13, guard 0 to 2. 40 units: the same within 1 to 4 ns. Latin-1: E0 itself varies
+  between processes (e.g. 96 vs 118 ns at 48 units under the default), the in-process IQRs are 10
+  to 20 ns wide, and the stub writes 48 bytes where the real output is 96, so Latin-1's steps are
+  not attributed beyond R3-R2 (simdutf over the raw copy) 11 to 16 ns.
+- Grid (`grid/table.md`, gen/s14_grid.sh: rows P2.2 ascii / latin1 / wide, P2.4, U-deep-u-repeated,
+  encode-core-hot, core-ffi drop and retain; 3 BDN host processes per variant; each cell's rows
+  record the core the children mapped; checks passed in every cell but R2's, skipped by design).
+  Per string (step / strings per encode: P2.2 17,167, P2.4 26,267, U-deep 31), ASCII rows, TieredPGO=0
+  then default: R3-R0 P2.2 28 to 30 / 20 to 25, P2.4 42 / 36, U-deep 33 to 40 / 29 to 31;
+  R1-R0 3 to 6 / 3 to 8; R2-R1 13 to 19 / 4 to 16 on P2.2, 27 to 30 / 23 on P2.4, 20 to 25 / 13 to
+  21 on U-deep; R3-R2 3 to 12 / 4 to 8 on P2.2, 9 to 11 / 9 to 10 on P2.4, 4 to 15 / 4 to 13 on
+  U-deep; R3-R3g 0 to 6 / 0 to 9. The per-rep medians of one variant differ by about 3 to 5 ns
+  per string on P2.2 and 2 to 4 on P2.4, so a step under about 5 ns is not resolved. Latin-1 and
+  wide R2 sit at or under R0 (the stub writes fewer bytes) and are not attributed.
+- What the ladder says about E1R's excess over E0 (s7: 26 to 46 ns per string on the corrected
+  build; here 29 to 42 ASCII, sweep and grid), as measured, not as a cause established beyond the
+  rungs: the generic transcoder path (placeholder, indirect call, room check, length after) is
+  about 2 to 6 ns of it; the UTF-16 conversion itself (simdutf against a raw copy of the same
+  units) about 9 to 16 ns; the largest share, R2-R1, about 12 to 30 ns, is E1R's structure (the
+  root and per-element fixed frames, the mark per string, the patch test and write, the extra
+  element calls and chunked blob calls of the counts: P2.4 403 -> 724 crossings per encode under
+  E1R) NET of E0's own work it replaces (.NET's UTF-8 encode into the staging), so the structure
+  alone costs more than this step by whatever that encode costs; it grows with the row (P2.4 > P2.2;
+  P2.4's strings sit in repeated fields: 24,480 of 26,267). The guard (the two thread-static
+  counters and the end check) is at most a few ns and not resolved from zero on any row.
