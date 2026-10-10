@@ -819,7 +819,38 @@ pub extern "C" fn ak_tc_utf8_trusted() -> ak_transcode_fn {
 }
 #[no_mangle]
 pub extern "C" fn ak_tc_bytes() -> ak_transcode_fn {
+    #[cfg(feature = "tc-measure-generic")]
+    return tc_copy_generic;
+    #[cfg(not(feature = "tc-measure-generic"))]
     tc_utf8_trusted
+}
+
+/// s14, `tc-measure-generic` only: the trusted passthrough's contract as a DIFFERENT function,
+/// so the encoder's `tc == tc_utf8_trusted` fast path does not take it (its body uses
+/// `ptr::copy`, so the compiler cannot fold it into tc_utf8_trusted's address).
+#[cfg(feature = "tc-measure-generic")]
+unsafe extern "C" fn tc_copy_generic(
+    src: *const c_void,
+    len: usize,
+    mut dst: *mut u8,
+    mut cap: i32,
+    grow: ak_grow_fn,
+    sink: *mut c_void,
+) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if (len as i64) > cap as i64 {
+        let rc = grow(sink, len as i32, &mut dst, &mut cap);
+        if rc < 0 {
+            return rc;
+        }
+        if (len as i64) > cap as i64 {
+            return AK_ERR_CAPACITY;
+        }
+    }
+    core::ptr::copy(src as *const u8, dst, len);
+    len as i32
 }
 
 // ---- the converting transcoders ABI v1 section 4 specifies for a managed host -------
@@ -1200,7 +1231,46 @@ unsafe extern "C" fn tc_latin1(
 
 #[no_mangle]
 pub extern "C" fn ak_tc_utf16() -> ak_transcode_fn {
+    #[cfg(feature = "tc-measure-u16stub")]
+    return tc_utf16_stub;
+    #[cfg(not(feature = "tc-measure-u16stub"))]
     tc_utf16
+}
+
+/// s14, `tc-measure-u16stub` only: a TIMING STUB in place of the UTF-16 transcoder: `len`
+/// raw bytes of the source copied (no conversion; the output is wrong), with the same grow
+/// contract, so the frames, marks, patches and element calls around it are timed without it.
+#[cfg(feature = "tc-measure-u16stub")]
+unsafe extern "C" fn tc_utf16_stub(
+    src: *const c_void,
+    len: usize,
+    mut dst: *mut u8,
+    mut cap: i32,
+    grow: ak_grow_fn,
+    sink: *mut c_void,
+) -> i32 {
+    if len == 0 {
+        return 0;
+    }
+    if (len as i64) > cap as i64 {
+        let rc = grow(sink, len as i32, &mut dst, &mut cap);
+        if rc < 0 {
+            return rc;
+        }
+        if (len as i64) > cap as i64 {
+            return AK_ERR_CAPACITY;
+        }
+    }
+    core::ptr::copy_nonoverlapping(src as *const u8, dst, len);
+    len as i32
+}
+
+/// s14, `tc-measure-u16stub` only: present in that build, absent otherwise, so a host can see
+/// it has loaded the stub core (whose UTF-16 output is wrong) and skip its byte checks.
+#[cfg(feature = "tc-measure-u16stub")]
+#[no_mangle]
+pub extern "C" fn ak_measure_tc_stub() -> i32 {
+    1
 }
 
 /// D19, additive: the pre-D19 scalar UTF-16 transcoder (`tc_utf16_scalar`), exported so the
@@ -2222,5 +2292,36 @@ mod s13_scalar_tc_tests {
             }
         }
         assert!(checked > 7000);
+    }
+}
+
+#[cfg(all(test, any(feature = "tc-measure-generic", feature = "tc-measure-u16stub")))]
+mod s14_measure_tests {
+    //! s14: the measurement-only transcoders are what they say: the generic copy is NOT the
+    //! trusted passthrough (so the encoder's fast path cannot take it) and copies exactly; the
+    //! UTF-16 stub copies `len` raw bytes.
+    use super::*;
+    unsafe extern "C" fn no_grow(_s: *mut c_void, _w: i32, _d: *mut *mut u8, _c: *mut i32) -> i32 {
+        AK_ERR_CAPACITY
+    }
+    #[cfg(feature = "tc-measure-generic")]
+    #[test]
+    fn generic_copy_is_not_the_trusted_passthrough() {
+        let f = ak_tc_bytes();
+        assert_ne!(f as usize, tc_utf8_trusted as usize);
+        let src = b"hello, world";
+        let mut d = [0u8; 32];
+        let n = unsafe { f(src.as_ptr() as *const c_void, src.len(), d.as_mut_ptr(), 32, no_grow, core::ptr::null_mut()) };
+        assert_eq!(&d[..n as usize], &src[..]);
+    }
+    #[cfg(feature = "tc-measure-u16stub")]
+    #[test]
+    fn u16_stub_copies_len_raw_bytes() {
+        let u: [u16; 4] = [0x41, 0x42, 0x43, 0x44];
+        let mut d = [0u8; 16];
+        let n = unsafe { ak_tc_utf16()(u.as_ptr() as *const c_void, 4, d.as_mut_ptr(), 16, no_grow, core::ptr::null_mut()) };
+        assert_eq!(n, 4);
+        assert_eq!(&d[..4], &[0x41, 0, 0x42, 0]);
+        assert_eq!(ak_measure_tc_stub(), 1);
     }
 }
