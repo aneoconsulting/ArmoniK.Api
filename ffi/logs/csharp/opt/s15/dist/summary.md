@@ -2,15 +2,15 @@
 
 | configuration | content | path | processes | min | q1 | median | q3 | max | fast | slow |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| D26 code, default JIT configuration | ascii | E0 | 20 | 77 | 78 | 79 | 82 | 114 | 20 | 0 |
-| D26 code, default JIT configuration | ascii | E1R | 20 | 94 | 96 | 97 | 101 | 129 | 20 | 0 |
-| D26 code, default JIT configuration | latin1 | E0 | 20 | 96 | 100 | 104 | 112 | 136 | 20 | 0 |
-| D26 code, default JIT configuration | latin1 | E1R | 20 | 98 | 100 | 100 | 103 | 133 | 20 | 0 |
-| D26 code, DOTNET_TieredPGO=0 | ascii | E0 | 20 | 80 | 82 | 83 | 86 | 94 | 20 | 0 |
-| D26 code, DOTNET_TieredPGO=0 | ascii | E1R | 20 | 104 | 106 | 107 | 108 | 118 | 20 | 0 |
-| D26 code, DOTNET_TieredPGO=0 | latin1 | E0 | 20 | 100 | 100 | 102 | 103 | 112 | 20 | 0 |
-| D26 code, DOTNET_TieredPGO=0 | latin1 | E1R | 20 | 109 | 110 | 111 | 116 | 120 | 20 | 0 |
-| code before D26 (control), default JIT configuration | ascii | E0 | 20 | 76 | 77 | 79 | 82 | 108 | 20 | 0 |
-| code before D26 (control), default JIT configuration | ascii | E1R | 20 | 98 | 102 | 104 | 106 | 696 | 19 | 1 |
-| code before D26 (control), default JIT configuration | latin1 | E0 | 20 | 93 | 97 | 109 | 111 | 124 | 20 | 0 |
-| code before D26 (control), default JIT configuration | latin1 | E1R | 20 | 103 | 105 | 107 | 110 | 704 | 19 | 1 |
+| D26 code, default JIT configuration | ascii | E0 | 60 | 76 | 78 | 79 | 80 | 417 | 59 | 1 |
+| D26 code, default JIT configuration | ascii | E1R | 60 | 94 | 97 | 98 | 101 | 387 | 59 | 1 |
+| D26 code, default JIT configuration | latin1 | E0 | 60 | 95 | 100 | 108 | 112 | 136 | 60 | 0 |
+| D26 code, default JIT configuration | latin1 | E1R | 60 | 97 | 100 | 102 | 105 | 133 | 60 | 0 |
+| D26 code, DOTNET_TieredPGO=0 | ascii | E0 | 60 | 79 | 82 | 83 | 85 | 102 | 60 | 0 |
+| D26 code, DOTNET_TieredPGO=0 | ascii | E1R | 60 | 102 | 106 | 107 | 109 | 124 | 60 | 0 |
+| D26 code, DOTNET_TieredPGO=0 | latin1 | E0 | 60 | 100 | 101 | 102 | 104 | 129 | 60 | 0 |
+| D26 code, DOTNET_TieredPGO=0 | latin1 | E1R | 60 | 106 | 110 | 111 | 114 | 140 | 60 | 0 |
+| code before D26 (control), default JIT configuration | ascii | E0 | 60 | 74 | 77 | 78 | 79 | 108 | 60 | 0 |
+| code before D26 (control), default JIT configuration | ascii | E1R | 60 | 98 | 103 | 104 | 107 | 696 | 52 | 8 |
+| code before D26 (control), default JIT configuration | latin1 | E0 | 60 | 93 | 96 | 99 | 111 | 124 | 60 | 0 |
+| code before D26 (control), default JIT configuration | latin1 | E1R | 60 | 103 | 106 | 108 | 112 | 704 | 52 | 8 |

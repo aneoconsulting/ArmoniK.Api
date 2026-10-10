@@ -1,0 +1,3 @@
+# s15: thread-static base helper calls (CORINFO_HELP_GET*THREADSTATIC*) in every JIT-compiled method of the slice's code (Armonik.*), one one-string sweep process each, default JIT configuration, DOTNET_JitDisasm='*' (dis-all-*.txt.gz)
+new: 283 methods compiled; THREADSTATIC helper references in Armonik methods: 0
+base: 276 methods compiled; THREADSTATIC helper references in Armonik methods: 58
