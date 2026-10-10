@@ -322,7 +322,7 @@ pub struct EncCtxImpl {
     pub open_obj: *const c_void,
     /// The direct argument of the call (ABI v1 section 8), if this message tree has one.
     pub direct: *const u8,
-    pub direct_len: usize, #[cfg(feature = "reset-on-entry")] pub roe: bool,
+    pub direct_len: usize,
 }
 
 #[repr(C)]
@@ -354,7 +354,7 @@ pub struct DecCtxImpl {
     /// FIX-PLAN D23: the FSM family's state (frames, run arena, groups under
     /// construction), allocated on the first `ak_fsm_begin_*` and reused after. Neither
     /// push nor pull reads it.
-    pub fsm: Option<Box<fsm::FsmCx>>, #[cfg(feature = "reset-on-entry")] pub roe: bool,
+    pub fsm: Option<Box<fsm::FsmCx>>,
 }
 
 #[no_mangle]
@@ -383,7 +383,7 @@ pub extern "C" fn ak_enc_ctx_new() -> *mut ak_enc_ctx {
         open_vt: core::ptr::null(),
         open_obj: core::ptr::null(),
         direct: core::ptr::null(),
-        direct_len: 0, #[cfg(feature = "reset-on-entry")] roe: true,
+        direct_len: 0,
     });
     Box::into_raw(b) as *mut ak_enc_ctx
 }
@@ -395,11 +395,36 @@ pub unsafe extern "C" fn ak_enc_ctx_free(ctx: *mut ak_enc_ctx) {
     }
 }
 
+/// FIX-PLAN D27 (owner, 2026-10-10): every top-level encode entry resets its context on entry
+/// (`enc_reset_on_entry`), so a host need not call this before an encode; it stays as an
+/// optional early release.
 #[no_mangle]
 pub unsafe extern "C" fn ak_enc_reset(ctx: *mut ak_enc_ctx) {
     let cx = &mut *(ctx as *mut EncCtxImpl);
     cx.e.reset();
     cx.hdr.err = AK_OK;
+}
+
+/// FIX-PLAN D27: the reset the first call of an encode makes, exactly what `ak_enc_reset` does
+/// (buffer, spare ring and sticky slot; learned widths kept). The output stays valid until the
+/// next operation on the context.
+#[inline(always)]
+pub(crate) unsafe fn enc_reset_on_entry(cx: *mut EncCtxImpl) {
+    (*cx).e.reset();
+    (*cx).hdr.err = AK_OK;
+}
+
+/// FIX-PLAN D27: the re-arm the first call of a decode makes (push decode, pull parse,
+/// `ak_fsm_begin`): the unknown-field positions from the options the context points to (given to
+/// `ak_dec_ctx_new_<Root>`, changed by `ak_dec_reset_<Root>`), the host's struct re-read with the
+/// reset's own code; NULL (drop) re-arms nothing. So retention is decided at each decode's entry
+/// (R-H20 as amended by D27).
+#[cfg(feature = "unknown-fields")]
+#[inline(always)]
+pub(crate) unsafe fn rearm_on_entry(dcx: *mut DecCtxImpl, layout: &[(usize, bool)]) {
+    if !(*dcx).unk_opts.is_null() {
+        unk_arm(dcx, (*dcx).unk_opts, layout);
+    }
 }
 
 #[no_mangle]
@@ -451,7 +476,7 @@ pub(crate) fn dec_ctx_alloc(root: u32) -> *mut ak_dec_ctx {
         unk_opts: core::ptr::null_mut(),
         #[cfg(feature = "unknown-fields")]
         unk: Vec::new(),
-        fsm: None, #[cfg(feature = "reset-on-entry")] roe: true,
+        fsm: None,
     })) as *mut ak_dec_ctx
 }
 
@@ -2328,76 +2353,4 @@ mod s14_measure_tests {
         assert_eq!(&d[..4], &[0x41, 0, 0x42, 0]);
         assert_eq!(ak_measure_tc_stub(), 1);
     }
-}
-
-// ---- reset-on-entry (owner, 2026-10-10): a MEASUREMENT EXPERIMENT, feature default OFF ----
-//
-// With `reset-on-entry`, the FIRST call of each operation resets its context, so a host need
-// not call `ak_enc_reset` before every encode nor `ak_dec_reset_<Root>` before every retained
-// decode (both stay: an optional early release, and for the decode the way to change the
-// options pointer):
-//   encode  every top-level encode entry (`ak_encode_<Root>`, `ak_uencode_<Root>`) resets the
-//           context on entry exactly as `ak_enc_reset` does (buffer, spare ring and sticky
-//           slot; learned widths kept); the output stays valid until the next operation;
-//   decode  every decode entry (`ak_decode_<Root>`, `ak_parse_<Root>`, `ak_fsm_begin_<Root>`)
-//           re-arms from the options pointer the context holds (given to
-//           `ak_dec_ctx_new_<Root>` or to the last `ak_dec_reset_<Root>`), re-reading the
-//           host's struct with the reset's semantics (`unk_arm`); NULL (drop) re-arms nothing.
-// Everything this adds sits at the END of this file or on an EXISTING line (the `roe` fields
-// and their initialisers above; the macro calls in the generated entries), and without the
-// feature the macros expand to nothing: no line number of the default build moves, so its
-// shared object is byte-identical (checked: logs/rust/opt/reset-on-entry/). MEASUREMENT
-// ONLY: each context carries `roe` (true at creation) and `ak_measure_{enc,dec}_set_roe`
-// turns it off, so one process times the explicit-reset path and this one on one core.
-#[cfg(feature = "reset-on-entry")]
-#[macro_export]
-macro_rules! reset_on_entry_enc {
-    ($cx:expr) => {
-        if (*$cx).roe {
-            (*$cx).e.reset();
-            (*$cx).hdr.err = AK_OK;
-        }
-    };
-}
-#[cfg(not(feature = "reset-on-entry"))]
-#[macro_export]
-macro_rules! reset_on_entry_enc {
-    ($cx:expr) => {};
-}
-#[cfg(all(feature = "reset-on-entry", feature = "unknown-fields"))]
-#[macro_export]
-macro_rules! rearm_on_entry {
-    ($dcx:expr, $layout:expr) => {
-        if (*$dcx).roe && !(*$dcx).unk_opts.is_null() {
-            $crate::unk_arm($dcx, (*$dcx).unk_opts, &$layout);
-        }
-    };
-}
-#[cfg(not(all(feature = "reset-on-entry", feature = "unknown-fields")))]
-#[macro_export]
-macro_rules! rearm_on_entry {
-    ($dcx:expr, $layout:expr) => {};
-}
-
-/// reset-on-entry's marker: a host binding rendered for this core references it, so it
-/// cannot load a core without the feature (the symbol exists only in this build).
-#[cfg(feature = "reset-on-entry")]
-#[no_mangle]
-pub extern "C" fn ak_measure_reset_on_entry() -> u32 {
-    1
-}
-
-/// reset-on-entry, MEASUREMENT ONLY: `on` = 0 makes this encode context behave as the
-/// default build's (no reset on entry; the host resets).
-#[cfg(feature = "reset-on-entry")]
-#[no_mangle]
-pub unsafe extern "C" fn ak_measure_enc_set_roe(ctx: *mut ak_enc_ctx, on: i32) {
-    (*(ctx as *mut EncCtxImpl)).roe = on != 0;
-}
-
-/// The same for a decode context (no re-arm on entry when 0).
-#[cfg(feature = "reset-on-entry")]
-#[no_mangle]
-pub unsafe extern "C" fn ak_measure_dec_set_roe(ctx: *mut ak_dec_ctx, on: i32) {
-    (*(ctx as *mut DecCtxImpl)).roe = on != 0;
 }

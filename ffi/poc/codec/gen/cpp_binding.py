@@ -798,8 +798,9 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
          "int32_t ak_init_once();",
          "",
          "// CAMPAIGN req 19 (R-H31): exported entry points this binding calls that the core's",
-         "// counters do not see (ak_enc_reset inside every encode_into_*, the two",
-         "// ak_dec_reset_<Root> of an armed decode). Counted in the counting build",
+         "// counters do not see (ak_dec_reset_<Root> where the options pointer is set or",
+         "// changed: since FIX-PLAN D27 the core resets every context in the first call of an",
+         "// operation, so no ak_enc_reset and no per-decode reset). Counted in the counting build",
          "// (AK_COUNTING) only; returns the count since the last call and restarts it.",
          "uint64_t host_calls_take();",
          "// X-2, counting build: the pull records the replay dispatched since the last call.",
@@ -862,6 +863,16 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
     o.append("// Decision 11 rule 6: a decode context is BOUND to its root. `DecRoot<T>` names the")
     o.append("// root's context constructor, reset, options and decodes, for code generic over T.")
     o.append("template <class T> struct DecRoot;")
+    o.append("// FIX-PLAN D27: a bound context created through the binding. The binding arms a context")
+    o.append("// ONCE (the core re-arms on every decode entry) and remembers the contexts it armed; a")
+    o.append("// context released with a raw ak_dec_ctx_free stays in that list, so a new context at the")
+    o.append("// same address is forgotten here, before it can be taken for an armed one.")
+    for root in ir.roots:
+        o.append("ak_dec_ctx *bound_ctx_new_%s(struct %s *o);" % (snake(root), unk_opts_name(root)))
+    o.append("// The same for a reset through DecRoot<T>::reset: the context then points at the caller's")
+    o.append("// options, so the binding forgets it as armed with its own.")
+    for root in ir.roots:
+        o.append("int32_t bound_reset_%s(ak_dec_ctx *c, struct %s *o);" % (snake(root), unk_opts_name(root)))
     for root in ir.roots:
         rs, on = snake(root), unk_opts_name(root)
         mem = unk_opts_layout(ir, root)
@@ -871,8 +882,8 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
         o.append("  typedef struct %s Opts;" % on)
         o.append("  enum { kPositions = %d, kIndex = %d };" % (len(mem), ir.roots.index(root)))
         o.append("  static const char *name() { return \"%s\"; }" % root)
-        o.append("  static ak_dec_ctx *ctx_new(Opts *o) { return ak_dec_ctx_new_%s(o); }" % root)
-        o.append("  static int32_t reset(ak_dec_ctx *c, Opts *o) { return ak_dec_reset_%s(c, o); }" % root)
+        o.append("  static ak_dec_ctx *ctx_new(Opts *o) { return bound_ctx_new_%s(o); }" % rs)
+        o.append("  static int32_t reset(ak_dec_ctx *c, Opts *o) { return bound_reset_%s(c, o); }" % rs)
         o.append("  static void opts(Opts *o, int zero) { unk_opts_%s(o, zero); }" % rs)
         o.append("  static void clear(%s &v, int pos) { unk_clear_%s(v, pos); }" % (root, rs))
         o.append("  static bool is_entry(int pos) {")
@@ -917,7 +928,7 @@ def emit_header(ir, ns="shapes", guard="AK_BINDING_H", types_h="generated/types.
     o.append("  ak_dec_ctx *c[%d];" % len(ir.roots))
     o.append("  DecCtxs() {")
     for i, root in enumerate(ir.roots):
-        o.append("    c[%d] = ak_dec_ctx_new_%s(NULL);" % (i, root))
+        o.append("    c[%d] = bound_ctx_new_%s(NULL);" % (i, snake(root)))
     o.append("  }")
     o.append("  ~DecCtxs() {")
     o.append("    for (int i = 0; i < %d; ++i) dec_ctx_free(c[i]);" % len(ir.roots))
@@ -1275,7 +1286,7 @@ Tcs tcs_host() {
             o.append("intptr_t encode_into_%s%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {"
                      % (snake(root), suffix, root))
             o.append("  AK_INIT_OR_RETURN();")
-            o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
+            o.append("  // D27: the core's encode entry resets the context (no ak_enc_reset).")
             o.append("  EncObj_%s h;" % root)
             o.append("  h.o = &o;")
             o.append("  h.t = t;")
@@ -1762,7 +1773,7 @@ def _emit_encode_unk(ir, o, root):
         o.append("intptr_t encode_into_%s_unk%s(ak_enc_ctx *ctx, const %s &o, const Tcs &t) {"
                  % (rs, suffix, root))
         o.append("  AK_INIT_OR_RETURN();")
-        o.append("  AK_HOST_CALL(); ak_enc_reset(ctx);")
+        o.append("  // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("  EncObj_%s h;" % root)
         o.append("  h.o = &o;")
         o.append("  h.t = t;")
@@ -1897,19 +1908,14 @@ def _emit_pull(ir, o, root, slots, nu):
     o.append("")
     if not nu:
         on = unk_opts_name(root)
-        o.append("// Decision 11 on the pull family: armed as decode_with_%s_unk arms (one reset," % rs)
-        o.append("// left armed, rule 7); the unknown buffers ride in the records' groups and are")
-        o.append("// delivered by the same host functions.")
+        o.append("// Decision 11 on the pull family: armed as decode_with_%s_unk arms (once, left" % rs)
+        o.append("// armed, D27); the unknown buffers ride in the records' groups and are delivered by")
+        o.append("// the same host functions.")
         o.append("int32_t pull_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {" % (rs, root))
         o.append("  AK_INIT_OR_RETURN();")
         o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
-        o.append("  unk_opts_%s(opts, -1);" % rs)
-        o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // the one reset: arms" % root)
-        o.append("  if (rc != AK_OK) {")
-        o.append("    unk_untrack_opts_%s(opts);" % rs)
-        o.append("    return rc;")
-        o.append("  }")
-        o.append("  unk_armed_note_%s(ctx);" % rs)
+        o.append("  int32_t rc = unk_arm_once_%s(ctx);" % rs)
+        o.append("  if (rc != AK_OK) return rc;")
         o.append("  rc = pull_impl_%s(ctx, b, n, out, false);" % rs)
         o.append("  unk_untrack_opts_%s(opts);" % rs)
         o.append("  unk_reclaim();")
@@ -1919,8 +1925,8 @@ def _emit_pull(ir, o, root, slots, nu):
 
 
 def _emit_unk_armed(ir, o, root):
-    """Rule 7 (one reset per decode): the per-thread options `decode_with_<root>_unk` arms
-    its context with, and the contexts it left armed. Only a context the caller passes in
+    """FIX-PLAN D27 (superseding rule 7's one reset per decode): the per-thread options
+    `decode_with_<root>_unk` arms its context with ONCE, and the contexts it left armed. Only a context the caller passes in
     (so live) is ever reset; a freed one's stale entry is never dereferenced."""
     rs, on = snake(root), unk_opts_name(root)
     o.append("static thread_local struct %s t_unk_opts_%s;" % (on, rs))
@@ -1935,6 +1941,37 @@ def _emit_unk_armed(ir, o, root):
     o.append("  for (size_t i = 0; i < a.size(); ++i)")
     o.append("    if (a[i] == ctx) { a[i] = a.back(); a.pop_back(); return true; }")
     o.append("  return false;")
+    o.append("}")
+    o.append("static inline bool unk_armed_has_%s(ak_dec_ctx *ctx) {" % rs)
+    o.append("  const std::vector<ak_dec_ctx *> &a = t_unk_armed_%s;" % rs)
+    o.append("  for (size_t i = 0; i < a.size(); ++i) if (a[i] == ctx) return true;")
+    o.append("  return false;")
+    o.append("}")
+    o.append("// FIX-PLAN D27: arm `ctx` with the per-thread options ONCE (they stay at their stable")
+    o.append("// address and the core re-reads them on every decode entry); a reset only sets the")
+    o.append("// pointer. Returns AK_OK or the refusal.")
+    o.append("static void unk_untrack_opts_%s(struct %s *opts);" % (rs, on))
+    o.append("static inline int32_t unk_arm_once_%s(ak_dec_ctx *ctx) {" % rs)
+    o.append("  if (unk_armed_has_%s(ctx)) return AK_OK;" % rs)
+    o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
+    o.append("  unk_opts_%s(opts, -1);" % rs)
+    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);" % root)
+    o.append("  if (rc != AK_OK) {")
+    o.append("    // Refused (another root's context, or the core uninitialized): nothing consumed (R-H7).")
+    o.append("    unk_untrack_opts_%s(opts);" % rs)
+    o.append("    return rc;")
+    o.append("  }")
+    o.append("  unk_armed_note_%s(ctx);" % rs)
+    o.append("  return AK_OK;")
+    o.append("}")
+    o.append("ak_dec_ctx *bound_ctx_new_%s(struct %s *o) {" % (rs, on))
+    o.append("  ak_dec_ctx *c = ak_dec_ctx_new_%s(o);" % root)
+    o.append("  if (c != NULL) unk_armed_forget_%s(c);  // D27: a stale entry at a reused address" % rs)
+    o.append("  return c;")
+    o.append("}")
+    o.append("int32_t bound_reset_%s(ak_dec_ctx *c, struct %s *o) {" % (rs, on))
+    o.append("  if (c != NULL) unk_armed_forget_%s(c);" % rs)
+    o.append("  AK_HOST_CALL(); return ak_dec_reset_%s(c, o);" % root)
     o.append("}")
     o.append("static inline void unk_disarm_%s(ak_dec_ctx *ctx) {" % rs)
     o.append("  if (!t_unk_armed_%s.empty() && unk_armed_forget_%s(ctx)) {" % (rs, rs))
@@ -2002,22 +2039,16 @@ def _emit_decode_unk(ir, o, root):
     o.append("  return rc;")
     o.append("}")
     o.append("")
-    o.append("// Decision 11: retain everywhere (every position grows on demand). Rule 7: ONE reset")
-    o.append("// per decode. The options live at a stable per-thread address, so the context is")
-    o.append("// left armed after the decode (no disarming reset); a drop decode through")
-    o.append("// `decode_with_%s` disarms it first." % rs)
+    o.append("// Decision 11: retain everywhere (every position grows on demand). FIX-PLAN D27: the")
+    o.append("// options live at a stable per-thread address and the core re-reads them on every")
+    o.append("// decode entry, so the context is armed ONCE and left armed (no reset per decode); a")
+    o.append("// drop decode through `decode_with_%s` disarms it first." % rs)
     o.append("int32_t decode_with_%s_unk(ak_dec_ctx *ctx, const uint8_t *b, size_t n, %s *out) {"
              % (rs, root))
     o.append("  AK_INIT_OR_RETURN();")
     o.append("  struct %s *opts = &t_unk_opts_%s;" % (on, rs))
-    o.append("  unk_opts_%s(opts, -1);" % rs)
-    o.append("  AK_HOST_CALL(); int32_t rc = ak_dec_reset_%s(ctx, opts);  // the one reset: arms" % root)
-    o.append("  if (rc != AK_OK) {")
-    o.append("    // Refused: nothing consumed, the context's state is unchanged (R-H7).")
-    o.append("    unk_untrack_opts_%s(opts);" % rs)
-    o.append("    return rc;")
-    o.append("  }")
-    o.append("  unk_armed_note_%s(ctx);" % rs)
+    o.append("  int32_t rc = unk_arm_once_%s(ctx);" % rs)
+    o.append("  if (rc != AK_OK) return rc;")
     o.append("  rc = decode_impl_%s(ctx, b, n, out, NULL, NULL);" % rs)
     o.append("  unk_untrack_opts_%s(opts);" % rs)
     o.append("  unk_reclaim();")

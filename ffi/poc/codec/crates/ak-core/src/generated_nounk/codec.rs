@@ -920,7 +920,9 @@ pub unsafe extern "C" fn ak_encode_ListResultsResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -954,7 +956,9 @@ pub unsafe extern "C" fn ak_encode_ListTasksDetailedResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -989,7 +993,9 @@ pub unsafe extern "C" fn ak_encode_ListProbeResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -1021,7 +1027,9 @@ pub unsafe extern "C" fn ak_encode_ListTaskSummaryResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -1056,7 +1064,9 @@ pub unsafe extern "C" fn ak_encode_UploadResultDataMessage(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     (*cx).direct = direct;
@@ -1094,7 +1104,9 @@ pub unsafe extern "C" fn ak_encode_ListMetricsResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -1127,7 +1139,9 @@ pub unsafe extern "C" fn ak_encode_DualResponse(
     if !crate::ak_init_ok() {
         return AK_ERR_UNINITIALIZED as isize;
     }
-    let cx = ctx as *mut EncCtxImpl; crate::reset_on_entry_enc!(cx);
+    let cx = ctx as *mut EncCtxImpl;
+    // D27: reset on entry, as `ak_enc_reset` does; the output stays valid until the next operation.
+    crate::enc_reset_on_entry(cx);
     ak_rt::bump!((*cx).e.c, forward);
     (*cx).open_obj = obj;
     let g = &*fix;
@@ -2960,7 +2974,7 @@ pub unsafe extern "C" fn ak_decode_ListResultsResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTRESULTSRESPONSE);
+    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3079,7 +3093,7 @@ pub unsafe extern "C" fn ak_decode_ListTasksDetailedResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
+    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3167,7 +3181,7 @@ pub unsafe extern "C" fn ak_decode_ListProbeResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTPROBERESPONSE);
+    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3278,7 +3292,7 @@ pub unsafe extern "C" fn ak_decode_ListTaskSummaryResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
+    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3358,7 +3372,7 @@ pub unsafe extern "C" fn ak_decode_UploadResultDataMessage(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
+    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3469,7 +3483,7 @@ pub unsafe extern "C" fn ak_decode_ListMetricsResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTMETRICSRESPONSE);
+    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -3549,7 +3563,7 @@ pub unsafe extern "C" fn ak_decode_DualResponse(
     // and takes the obligation off the binding author.
     (*dcx).hdr.err = AK_OK;
     // Decision 11 rule 6: the context is bound to its root; another root is refused.
-    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_DUALRESPONSE);
+    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     // R-D9: spans are (u32, u32) into this buffer, so a buffer longer than
     // u32::MAX would alias offsets and lengths. Reject at entry rather than
     // truncate. `usize` is 64-bit on every host this ships to.
@@ -5135,7 +5149,7 @@ pub unsafe extern "C" fn ak_parse_ListResultsResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTRESULTSRESPONSE);
+    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5256,7 +5270,7 @@ pub unsafe extern "C" fn ak_parse_ListTasksDetailedResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
+    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5347,7 +5361,7 @@ pub unsafe extern "C" fn ak_parse_ListProbeResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTPROBERESPONSE);
+    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5460,7 +5474,7 @@ pub unsafe extern "C" fn ak_parse_ListTaskSummaryResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
+    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5543,7 +5557,7 @@ pub unsafe extern "C" fn ak_parse_UploadResultDataMessage(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
+    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5657,7 +5671,7 @@ pub unsafe extern "C" fn ak_parse_ListMetricsResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_LISTMETRICSRESPONSE);
+    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {
@@ -5740,7 +5754,7 @@ pub unsafe extern "C" fn ak_parse_DualResponse(
     // Decision 11 rule 6: the context is bound to its root; another root is refused,
     // BEFORE the records are reset, so a refused parse leaves an earlier parse's
     // records readable (FIX-PLAN R-H10).
-    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, UNK_LAYOUT_DUALRESPONSE);
+    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
     (*dcx).bdr.reset();
     // R-D9: reject a buffer longer than u32::MAX before it can alias a span.
     if len > u32::MAX as usize {

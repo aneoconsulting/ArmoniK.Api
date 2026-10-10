@@ -463,7 +463,9 @@ pub unsafe extern "C" fn ak_fsm_begin_ListResultsResponse(ctx: *mut ak_dec_ctx, 
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_LISTRESULTSRESPONSE);
+    if (*dcx).root != 1 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_LISTRESULTSRESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -1324,7 +1326,9 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTasksDetailedResponse(ctx: *mut ak_dec
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
+    if (*dcx).root != 2 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_LISTTASKSDETAILEDRESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -1498,7 +1502,9 @@ pub unsafe extern "C" fn ak_fsm_begin_ListProbeResponse(ctx: *mut ak_dec_ctx, bu
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_LISTPROBERESPONSE);
+    if (*dcx).root != 3 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_LISTPROBERESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -1912,7 +1918,9 @@ pub unsafe extern "C" fn ak_fsm_begin_ListTaskSummaryResponse(ctx: *mut ak_dec_c
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
+    if (*dcx).root != 4 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_LISTTASKSUMMARYRESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -2112,7 +2120,9 @@ pub unsafe extern "C" fn ak_fsm_begin_UploadResultDataMessage(ctx: *mut ak_dec_c
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
+    if (*dcx).root != 5 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_UPLOADRESULTDATAMESSAGE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -2580,7 +2590,9 @@ pub unsafe extern "C" fn ak_fsm_begin_ListMetricsResponse(ctx: *mut ak_dec_ctx, 
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_LISTMETRICSRESPONSE);
+    if (*dcx).root != 6 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_LISTMETRICSRESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {
@@ -2767,7 +2779,9 @@ pub unsafe extern "C" fn ak_fsm_begin_DualResponse(ctx: *mut ak_dec_ctx, buf: *c
     ak_rt::bump!((*dcx).c, forward);
     // A new operation clears the sticky slot (the rule of the other families).
     (*dcx).hdr.err = AK_OK;
-    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; } crate::rearm_on_entry!(dcx, crate::generated::codec::UNK_LAYOUT_DUALRESPONSE);
+    if (*dcx).root != 7 { (*dcx).hdr.err = AK_ERR_INVALID_STATE; return AK_ERR_INVALID_STATE; }
+    // D27: re-arm from the options the context points to (NULL: nothing); retention is decided here.
+    crate::rearm_on_entry(dcx, &crate::generated::codec::UNK_LAYOUT_DUALRESPONSE);
     let f = fsm_of(dcx);
     // R-D9: spans are (u32, u32), so a longer buffer is refused at entry.
     if len > u32::MAX as usize {

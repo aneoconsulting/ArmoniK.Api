@@ -247,10 +247,11 @@ use facade::*;
 //
 // The core's context counters see the codec's own entry points (`ak_encode_*`,
 // `ak_decode_*`, `ak_parse_*`, the runs, the drains) and every reverse call. They do not
-// see a handful of plain exports the binding also calls: `ak_enc_reset` (before every
-// encode), `ak_dec_reset_<Root>` (before a retain decode, arming the options, and after it,
-// disarming with NULL), `ak_enc_take` (reading the encoded bytes) and `ak_dec_err` (after a
-// pull). The counting build (`count` feature) tallies those here, at the call site, so the
+// see a handful of plain exports the binding also calls: `ak_dec_reset_<Root>` (FIX-PLAN
+// D27: only to set the options pointer, when a retain decode follows a drop one, and to
+// disarm with NULL when a drop decode follows a retain one; the core resets every context on
+// entry, so no `ak_enc_reset` and no per-decode reset), `ak_enc_take` (reading the encoded
+// bytes) and `ak_dec_err` (after a decode). The counting build (`count` feature) tallies those here, at the call site, so the
 // counts cover every exported call; in any other build these are empty inline functions.
 #[cfg(feature = "count")]
 thread_local! {
@@ -513,44 +514,22 @@ def _lifecycle(p):
         "        };",
         "        let mut e = ak_err::default();",
         "        let rc = %s(&o, &mut e);" % lc.init[0],
-    ] + (["        // reset-on-entry: refuse a core that does not reset on entry (and need its marker).",
-          "        if ak_measure_reset_on_entry() != 1 { return AK_ERR_ABI; }"] if ROE else []) + [
         "        if rc == %s || rc == %s { AK_OK } else { rc }" % lc.success,
         "    }",
         "}",
         "",
-    ] + ([
-        "// reset-on-entry: the core's marker (the symbol exists only in that build).",
-        "extern \"C\" {",
-        "    fn ak_measure_reset_on_entry() -> u32;",
-        "}",
-        "/// The core this binding loads resets on entry (always 1: a core without the feature",
-        "/// has no such symbol, so the binding does not load).",
-        "pub fn core_resets_on_entry() -> u32 {",
-        "    unsafe { ak_measure_reset_on_entry() }",
-        "}",
-        "/// This binding calls no per-operation reset (reset-on-entry).",
-        "pub const RESET_ON_ENTRY: bool = true;",
-        "",
-    ] if ROE else [])
+    ]
 
 
-ROE_HEAD = """// reset-on-entry (owner, 2026-10-10; a MEASUREMENT EXPERIMENT): this binding is rendered for
-// a core built with the `reset-on-entry` feature, whose encode entries reset the context and
-// whose decode entries re-arm from the options pointer the context holds. So it calls no
-// `ak_enc_reset` before an encode and no `ak_dec_reset_<Root>` before a retained decode while
-// the context is already armed with this binding's options (kept at their stable address in
-// `DecCtxs`); it still resets to change the pointer (arm once, disarm to NULL for drop). It
-// references the core's marker export, so it cannot load a core without the feature.
-"""
 
 
-def emit_binding(ir, reset_on_entry=False):
-    """`reset_on_entry` (default False, the committed bindings): render the variant for a core
-    built with `reset-on-entry` (see ROE_HEAD); the default text is unchanged."""
+def emit_binding(ir):
+    """FIX-PLAN D27 (owner, 2026-10-10): the core resets every context on entry, so the binding
+    calls no `ak_enc_reset` before an encode and `ak_dec_reset_<Root>` only to set or change the
+    options pointer (armed once with the options at their stable address in `DecCtxs`,
+    disarmed to NULL for drop)."""
     ir = as_plan(ir)
-    global NOUNK, ROE
-    ROE = reset_on_entry
+    global NOUNK
     # WP5 step 10: the NO-UNKNOWN variant's binding (plan: THE NO-UNKNOWN VARIANT): no
     # u-groups, no bags handed to the core or taken from it, no options, no `_unk` family.
     NOUNK = unknown_compiled_out(ir)
@@ -561,8 +540,6 @@ def emit_binding(ir, reset_on_entry=False):
     prelude = BINDING_PRELUDE.replace("@S_OF_UTF8@", S_OF_REJECT if ir.options.utf8 == "reject" else S_OF_LOSSY)
     head, tail = prelude.split('use facade::*;\n\n', 1)
     o = [HEAD, head + 'use facade::*;\n\n' + ("" if NOUNK else BINDING_UNK_PRELUDE) + tail, ""]
-    if ROE:
-        o[0] = HEAD + ROE_HEAD
     o += _lifecycle(ir)
     o += _dec_ctxs(ir)
 
@@ -974,7 +951,7 @@ def emit_binding(ir, reset_on_entry=False):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        // reset-on-entry: the core's encode entry resets the context." if ROE else "        host_reset(); ak_enc_reset(ctx);")
+        o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -1003,7 +980,7 @@ def emit_binding(ir, reset_on_entry=False):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        // reset-on-entry: the core's encode entry resets the context." if ROE else "        host_reset(); ak_enc_reset(ctx);")
+        o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -1031,7 +1008,7 @@ def emit_binding(ir, reset_on_entry=False):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        // reset-on-entry: the core's encode entry resets the context." if ROE else "        host_reset(); ak_enc_reset(ctx);")
+        o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -1060,7 +1037,7 @@ def emit_binding(ir, reset_on_entry=False):
                  % (rs, root))
         o.append("    unsafe {")
         o.append("        TCS.with(|c| c.set((Some(t.utf8), Some(t.bytes))));")
-        o.append("        // reset-on-entry: the core's encode entry resets the context." if ROE else "        host_reset(); ak_enc_reset(ctx);")
+        o.append("        // D27: the core's encode entry resets the context (no ak_enc_reset).")
         o.append("        let vt = ak_evt_%s {" % root)
         if not loop_slots(ir, root):
             o.append("            _reserved: ::core::ptr::null(),")
@@ -1300,18 +1277,17 @@ def emit_binding(ir, reset_on_entry=False):
         o.append("    r")
         o.append("}")
         o.append("")
-        o.append("/// Optimisation U1: arm this root's context with the options at their STABLE address")
-        o.append("/// in `DecCtxs` (every position grow-backed: nothing in them is consumed, so they")
-        o.append("/// need no refill), one reset per decode (decision 11 rule 7). The context stays")
-        o.append("/// armed afterwards; the drop-mode entries disarm it when they next run.")
+        o.append("/// Optimisation U1 and FIX-PLAN D27: arm this root's context with the options at their")
+        o.append("/// STABLE address in `DecCtxs` (every position grow-backed: nothing in them is consumed,")
+        o.append("/// so they need no refill), ONCE: the core re-arms from them on every decode entry. The")
+        o.append("/// context stays armed afterwards; the drop-mode entries disarm it when they next run.")
         o.append("#[inline(always)]")
         o.append("fn arm_%s(ctxs: DecCtxs) -> i32 {" % rs)
         o.append("    unsafe {")
         o.append("        let st = &*ctxs.unk;")
-        if ROE:
-            o.append("        // reset-on-entry: already armed with these options (stable address), the")
-            o.append("        // decode entry re-arms from them; reset only to set the pointer.")
-            o.append("        if st.%s_armed.get() { return AK_OK; }" % rs)
+        o.append("        // D27: already armed with these options (stable address): the decode entry")
+        o.append("        // re-arms from them; a reset only sets the pointer.")
+        o.append("        if st.%s_armed.get() { return AK_OK; }" % rs)
         o.append("        host_reset();")
         o.append("        let rc = ak_dec_reset_%s(ctxs.%s, st.%s_opts.get());" % (root, rs, rs))
         o.append("        if rc == AK_OK { st.%s_armed.set(true); }" % rs)
@@ -1585,24 +1561,19 @@ def emit_binding(ir, reset_on_entry=False):
     # FIX-PLAN D23: the FSM family's host side, from its own emitter, APPENDED (the text
     # above is unchanged by it).
     o += rust_fsm.emit_binding_fsm(ir)
-    if ROE:
-        o += _emit_roe_checks(ir)
+    o += _emit_roe_checks(ir)
     return "\n".join(o)
 
 
 def _emit_roe_checks(ir):
-    """reset-on-entry (variant binding only): the re-arm check per root. Measurement
-    experiment; the default binding has none of it."""
+    """FIX-PLAN D27: the checks of reset on entry per root (gate step 11h, bin roe_check)."""
     o = ["",
-         "// ---- reset-on-entry checks (variant binding only) ----",
-         "extern \"C\" {",
-         "    fn ak_measure_dec_set_roe(ctx: *mut ak_dec_ctx, on: i32);",
-         "}",
+         "// ---- FIX-PLAN D27 checks (reset on entry; gate step 11h) ----",
          ""]
     if NOUNK:
         return o
     o += [
-        "/// reset-on-entry check: the host's error, reported through `ak_fail` from a grow.",
+        "/// D27 check: the host's error, reported through `ak_fail` from a grow.",
         "pub const ROE_HOST_FAIL: i32 = -4242;",
         "/// A grow that fails: `ak_fail(host, ROE_HOST_FAIL)` (the host pointer is the context).",
         "pub unsafe extern \"C\" fn roe_fail_grow(host: *mut c_void, _want: i32, _dst: *mut *mut u8, _cap: *mut i32) -> i32 {",
@@ -1615,7 +1586,7 @@ def _emit_roe_checks(ir):
         rs = snake(root)
         up = root.upper()
         o += [
-            "/// reset-on-entry check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose",
+            "/// D27 check: one decode in family `fam` (0 push, 1 pull walk, 2 FSM) whose",
             "/// every grow fails through `ak_fail` (the host's error, on the context's sticky slot),",
             "/// armed with an explicit reset and disarmed after it (no pointer outlives the call).",
             "/// Returns the decode's return code (0 = it decoded: no unknown field asked for a grow).",
@@ -1640,21 +1611,19 @@ def _emit_roe_checks(ir):
             "",
         ]
         o += [
-            "/// reset-on-entry: every unknown-field position is re-read on each decode entry. Per",
-            "/// family (push, pull walk, FSM) and position p, the reference is today's path (an",
-            "/// explicit `ak_dec_reset_%s` with the options, then the decode); the variant arms ONCE" % root,
-            "/// with options at a stable address, then the host rewrites its struct in place and",
-            "/// decodes with NO reset: all grow -> p zero (discard) -> all grow, and p zero -> all",
-            "/// grow. `roe` false turns the core's re-arm off on this context (the control: it must",
-            "/// then fail where a position matters). Returns (comparisons, positions where zeroing",
-            "/// changed the value) or the first mismatch. Run on a context of its own.",
-            "pub fn roe_rearm_check_%s(ctxs: DecCtxs, b: &[u8], roe: bool) -> Result<(usize, usize), String> {" % rs,
+            "/// D27: every unknown-field position is re-read on each decode entry. Per family (push,",
+            "/// pull walk, FSM) and position p, the reference is an explicit `ak_dec_reset_%s` with" % root,
+            "/// the options, then the decode; the check arms ONCE with options at a stable address,",
+            "/// then the host rewrites its struct in place and decodes with NO reset: all grow -> p",
+            "/// zero (discard) -> all grow, and p zero -> all grow. Returns (comparisons, positions",
+            "/// where zeroing changed the value) or the first mismatch. Run on a context of its own;",
+            "/// its control is gate step 11h's plant (the re-arm removed from the core).",
+            "pub fn roe_rearm_check_%s(ctxs: DecCtxs, b: &[u8]) -> Result<(usize, usize), String> {" % rs,
             "    let ctx = ctxs.%s;" % rs,
             "    let mut toks: Vec<i64> = Vec::new();",
             "    let (mut n, mut bite) = (0usize, 0usize);",
             "    let mut bad: Option<String> = None;",
             "    unsafe {",
-            "        ak_measure_dec_set_roe(ctx, roe as i32);",
             "        'fam: for fam in 0..3u32 {",
             "            let run = |toks: &mut Vec<i64>| -> Result<%s, i32> {" % root,
             "                let r = match fam {",
@@ -1699,7 +1668,6 @@ def _emit_roe_checks(ir):
             "            }",
             "        }",
             "        ak_dec_reset_%s(ctx, ::core::ptr::null_mut());" % root,
-            "        ak_measure_dec_set_roe(ctx, 1);",
             "    }",
             "    match bad { Some(m) => Err(m), None => Ok((n, bite)) }",
             "}",
@@ -2168,7 +2136,6 @@ def _run_call(ir, f, et, n, done, bag=False):
 
 
 NOUNK = False
-ROE = False
 
 
 def _emit_unk_clear(ir, root):
