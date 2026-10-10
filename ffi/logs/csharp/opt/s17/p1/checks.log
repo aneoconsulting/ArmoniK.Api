@@ -1,0 +1,333 @@
+# s17_checks.sh p1 at 60afe577 + uncommitted; 2026-10-10T19:09:58Z; boot 2026-10-10 09:18:10
+## 0. generators current; no thread-local storage; every build (the four codec builds, the corpus, RPC, the s16 variant builds)
+$ bash -c ! grep -q '^wrote' '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1/gen.out'
+exit status: 0
+$ python3 -I gen/no_tls.py src
+no_tls: 128 C# files scanned under src; 0 thread-local site(s)
+exit status: 0
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+#   C# warnings: 0
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0
+#   C# warnings: 26
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
+#   C# warnings: 26
+$ dotnet build src/Rpc/akrpc.csproj -c Release
+#   C# warnings: 0
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoe=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoe=true -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkRoeBench=true
+#   C# warnings: 6
+# cores: BenchDotNet/bin 7b8ed0b888940ab7; BenchDotNet/bin-nounk 17dbc6ebe8b31736; BenchDotNet/bin-count 2f20b77861538179; BenchDotNet/bin-count-nounk ad54a874c21b7842; Harness/bin-count 2f20b77861538179; Corpus/bin 44c28bac239c673c; Corpus/bin-nounk e3c5817010ba5cba; 
+## 1. the host tally is in the counting builds' IL only (an IL walk of the built host assembly)
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --il-tally --expect none | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/il-tally-timed.txt' | grep -E '^il-tally'; exit ${PIPESTATUS[0]}
+il-tally (full build, timed): 3043 methods read; tally call sites (CountF, CountR, CountReset) 0; tally stores (_fwd, _rev, _resets, UnkHost.Grows) 0
+il-tally: expected none: ok
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll' --il-tally --expect none | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/il-tally-timed-nounk.txt' | grep -E '^il-tally'; exit ${PIPESTATUS[0]}
+il-tally (no-unknown build, timed): 2832 methods read; tally call sites (CountF, CountR, CountReset) 0; tally stores (_fwd, _rev, _resets, UnkHost.Grows) 0
+il-tally: expected none: ok
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --il-tally --expect some | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/il-tally-count.txt' | grep -E '^il-tally'; exit ${PIPESTATUS[0]}
+il-tally (full build, counting): 3183 methods read; tally call sites (CountF, CountR, CountReset) 146; tally stores (_fwd, _rev, _resets, UnkHost.Grows) 45
+il-tally: expected some: ok
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --il-tally --expect some | tee '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/il-tally-count-nounk.txt' | grep -E '^il-tally'; exit ${PIPESTATUS[0]}
+il-tally (no-unknown build, counting): 2951 methods read; tally call sites (CountF, CountR, CountReset) 132; tally stores (_fwd, _rev, _resets, UnkHost.Grows) 28
+il-tally: expected some: ok
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll --il-tally --expect none   # a CONTROL: must fail
+  VerifyFsm._bad in VerifyFsm.Fail: 1
+il-tally: expected none: FAILED
+exit status: 1
+control il-tally: the counting build is not 'none': failed, as required
+## 2. byte identity: Cases.Verify (every arm, every string path, retain and drop) in the timed and the counting builds
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 3. the counts, counting build, against the committed files (base and every string path's file)
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts.txt'
+equal to counts.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-nounk.txt'
+equal to counts-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1.txt'
+equal to counts-str-e1.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1-nounk.txt'
+equal to counts-str-e1-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e2.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e2.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e2.txt'
+equal to counts-str-e2.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e2-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e2-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e2-nounk.txt'
+equal to counts-str-e2-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-eth256.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-eth256.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-eth256.txt'
+equal to counts-str-eth256.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-eth256-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-eth256-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-eth256-nounk.txt'
+equal to counts-str-eth256-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e3.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3.txt'
+equal to counts-str-e3.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e3-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3-nounk.txt'
+equal to counts-str-e3-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3l.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e3l.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3l.txt'
+equal to counts-str-e3l.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3l-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e3l-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e3l-nounk.txt'
+equal to counts-str-e3l-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1r.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r.txt'
+equal to counts-str-e1r.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1r-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r-nounk.txt'
+equal to counts-str-e1r-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1c.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1c.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1c.txt'
+equal to counts-str-e1c.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1c-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1c-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1c-nounk.txt'
+equal to counts-str-e1c-nounk.txt: 646 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r128.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1r128.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r128.txt'
+equal to counts-str-e1r128.txt: 1241 rows
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r128-nounk.txt' > /dev/null && cmpf () 
+{ 
+    if diff "$1" "$2" > "$SCRATCH/d.txt"; then
+        echo "equal to $(basename "$1"): $(grep -vc '^#' "$1") rows";
+    else
+        echo "DIFFERS from $(basename "$1")";
+        head -n 12 "$SCRATCH/d.txt";
+        return 1;
+    fi
+}; SCRATCH='/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p1' cmpf gen/counts-str-e1r128-nounk.txt '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/counts-str-e1r128-nounk.txt'
+equal to counts-str-e1r128-nounk.txt: 646 rows
+exit status: 0
+## 4. the coreffi crossings and R5 on the counting harness; the timed harness refuses the check
+$ bash -c AK_CROSSINGS_EXPECT='/home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings.txt' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-count/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-count.log' 2>&1; rc=$?; grep -E '^Crossing|^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-count.log'; exit $rc
+Crossing counts against /home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings.txt: compared on every row, every committed row produced
+R5: the host's tally and the core's counters are compared above and equal on every row.
+exit status: 0
+$ bash -c AK_CROSSINGS_EXPECT='/home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings-nounk.txt' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-count-nounk/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-count-nounk.log' 2>&1; rc=$?; grep -E '^Crossing|^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-count-nounk.log'; exit $rc
+Crossing counts against /home/user/ArmoniK.Api/ffi/poc/csharp/gen/crossings-nounk.txt: compared on every row, every committed row produced
+R5: the host's tally and the core's counters are compared above and equal on every row.
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-count/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
+
+1 failure(s)
+exit status: 1
+control crossing check, a committed row not produced (R-H3): failed, as required
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll coreffi   # a CONTROL: must fail
+host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)
+AK_CROSSINGS_EXPECT needs the counting build (-p:AkHostCount=true): the timed build has no host tally
+exit status: 2
+control the timed harness refuses the crossing check: failed, as required
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-timed.log' 2>&1; rc=$?; grep -E '^host tally|^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/coreffi-timed.log'; exit $rc
+host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)
+R5: the host's tally and the core's counters are not compared -- the host tally is compiled into the counting build only (s17).
+host tally cannot see is a TRANSCODER call, and both string forms this
+exit status: 0
+## 5. verify-fsm: the graphs on the timed builds; the counts and the Rust events on the counting builds
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --verify-fsm | tail -n 2; exit ${PIPESTATUS[0]}
+malformed variants: 20676 decodes per family (18626 refused by pull, FSM code == pull code required; 2050 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm | tail -n 2; exit ${PIPESTATUS[0]}
+malformed variants: 10338 decodes per family (9313 refused by pull, FSM code == pull code required; 1025 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-fsm --variants 0 --rust-events /home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt   # a CONTROL: must fail
+--verify-fsm --events / --rust-events need the counting build (-p:AkHostCount=true): the timed build has no host tally
+exit status: 2
+control verify-fsm --rust-events on the timed build: failed, as required
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --verify-fsm --variants 0 --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/events-full.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tail -n 2; exit ${PIPESTATUS[0]}
+malformed variants: 0 decodes per family (0 refused by pull, FSM code == pull code required; 0 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm --variants 0 --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p1/events-nounk.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tail -n 2; exit ${PIPESTATUS[0]}
+malformed variants: 0 decodes per family (0 refused by pull, FSM code == pull code required; 0 accepted by all, graphs compared); push's code differs from pull's on 0
+verify-fsm: 0 failure(s)
+exit status: 0
+gen/s17_checks.sh: line 93: syntax error near unexpected token `('
+gen/s17_checks.sh: line 93: `echo "## 1. the lazy render is the one built: Go stages no slot (no Arr.Ensure of an S_ / I_ array outside a loop callback)"'

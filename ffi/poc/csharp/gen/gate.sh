@@ -40,6 +40,11 @@ FAILS=0
 LEVELS="${AK_GATE_LEVELS:-8 6}"
 H8="$SLICE/src/Harness/bin/Release/net8.0"
 H6="$SLICE/src/Harness/bin/publish-net6"
+# s17 (owner, 2026-10-10): the host tally (ForwardCalls / ReverseCalls / ResetCalls) is compiled
+# into the counting build only (-p:AkHostCount=true), so the coreffi crossing and R5 checks run
+# on the counting harness builds; the timed builds refuse AK_CROSSINGS_EXPECT.
+HC8="$SLICE/src/Harness/bin-count/Release/net8.0"; HC6="$SLICE/src/Harness/bin-count/publish-net6"
+HCN8="$SLICE/src/Harness/bin-count-nounk/Release/net8.0"; HCN6="$SLICE/src/Harness/bin-count-nounk/publish-net6"
 C8="$SLICE/src/Corpus/bin/Release/net8.0"
 C6="$SLICE/src/Corpus/bin/publish-net6"
 R8="$SLICE/src/Rpc/bin/Release/net8.0"
@@ -108,6 +113,8 @@ step "3. builds"
 b() { echo "\$ dotnet $*"; dotnet "$@" > "$SCRATCH/build.out" 2>&1; local rc=$?; grep -E " error |Build succeeded|->" "$SCRATCH/build.out" | sed "s|$REPO/||" | grep -v "^ *$" | tail -4; echo "exit status: $rc"; [ $rc -eq 0 ] || { cat "$SCRATCH/build.out" | tail -30; FAILS=$((FAILS+1)); }; }
 b build src/Harness/Harness.csproj -c Release -f net8.0
 [[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$H6"
+b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkHostCount=true
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkHostCount=true -o "$HC6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0
 [[ " $LEVELS " == *" 6 "* ]] && b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -o "$C6"
 b build src/Rpc/akrpc.csproj -c Release
@@ -138,13 +145,16 @@ for lvl in $LEVELS; do
   run "net$lvl layout" "${HX[@]}" layout "$LAY"
   control "net$lvl layout plant" "${HX[@]}" layout "$LAY" --plant
   AK_LAYOUT_PROBE="$LAY" run "net$lvl coreffi" "${HX[@]}" coreffi
-  core "$H" target-core-count
-  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" run "net$lvl coreffi counting (R5, counts = gen/crossings.txt)" "${HX[@]}" coreffi
+  # s17: the counting harness (the host tally exists there only); the timed one must refuse.
+  if [ $lvl = 8 ]; then HCD="$HC8"; HCX=(dotnet "$HC8/harness.dll"); else HCD="$HC6"; HCX=("$HC6/harness"); fi
+  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" control "net$lvl timed harness refuses the crossing check (no host tally, s17)" "${HX[@]}" coreffi
+  core "$HCD" target-core-count
+  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings.txt" run "net$lvl coreffi counting (R5, counts = gen/crossings.txt)" "${HCX[@]}" coreffi
   # R-H3: the crossing gate must fail on a committed row this run does not produce, and on
   # an empty expect file.
   { cat "$SLICE/gen/crossings.txt"; echo "P9.9 1 1 1 1 1 1"; } > "$SCRATCH/cx-extra.txt"; : > "$SCRATCH/cx-empty.txt"
-  AK_CROSSINGS_EXPECT="$SCRATCH/cx-extra.txt" control "net$lvl crossing gate, a committed row not produced (R-H3)" "${HX[@]}" coreffi
-  AK_CROSSINGS_EXPECT="$SCRATCH/cx-empty.txt" control "net$lvl crossing gate, an empty expect file (R-H3)" "${HX[@]}" coreffi
+  AK_CROSSINGS_EXPECT="$SCRATCH/cx-extra.txt" control "net$lvl crossing gate, a committed row not produced (R-H3)" "${HCX[@]}" coreffi
+  AK_CROSSINGS_EXPECT="$SCRATCH/cx-empty.txt" control "net$lvl crossing gate, an empty expect file (R-H3)" "${HCX[@]}" coreffi
   core "$H" target-core
   AK_GATE_PLANT_NO_INIT=1 control "net$lvl coreffi without ak_init (init-guard core)" "${HX[@]}" coreffi
 done
@@ -222,6 +232,8 @@ HN8="$SLICE/src/Harness/bin-nounk/Release/net8.0"; HN6="$SLICE/src/Harness/bin-n
 CN8="$SLICE/src/Corpus/bin-nounk/Release/net8.0"; CN6="$SLICE/src/Corpus/bin-nounk/publish-net6"
 b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true
 [[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$HN6"
+b build src/Harness/Harness.csproj -c Release -f net8.0 -p:AkNounk=true -p:AkHostCount=true
+[[ " $LEVELS " == *" 6 "* ]] && b publish src/Harness/Harness.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -p:AkHostCount=true -o "$HCN6"
 b build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
 [[ " $LEVELS " == *" 6 "* ]] && b publish src/Corpus/Corpus.csproj -c Release -f net6.0 -r linux-x64 --self-contained -p:AkNounk=true -o "$CN6"
 b build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
@@ -238,8 +250,9 @@ for lvl in $LEVELS; do
   run "net$lvl nounk coreffi (the loaded core is the variant)" "${HX[@]}" coreffi
   core "$H" target-core
   control "net$lvl nounk binding on the FULL core (the variant check must refuse it)" "${HX[@]}" coreffi
-  core "$H" target-core-count-nounk
-  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings-nounk.txt" run "net$lvl nounk coreffi counting (counts = gen/crossings-nounk.txt)" "${HX[@]}" coreffi
+  if [ $lvl = 8 ]; then HCD="$HCN8"; HCX=(dotnet "$HCN8/harness.dll"); else HCD="$HCN6"; HCX=("$HCN6/harness"); fi
+  core "$HCD" target-core-count-nounk
+  AK_CROSSINGS_EXPECT="$SLICE/gen/crossings-nounk.txt" run "net$lvl nounk coreffi counting (counts = gen/crossings-nounk.txt)" "${HCX[@]}" coreffi
   core "$H" target-core-nounk
   core "$C" target-core-corpus-nounk
   run "net$lvl nounk corpus variant" "${CX[@]}" --variant
@@ -308,8 +321,18 @@ RUST_EV="$REPO/ffi/logs/rust/opt/d23-fsm/checks/events-counting.txt"
 [ -f "$RUST_EV" ] && EVARG=(--rust-events "$RUST_EV") || { EVARG=(); echo "# $RUST_EV absent: the FSM calls are not compared with the Rust slice's events"; }
 run "pre-timing byte identity, full build (BenchDotNet --verify)" dotnet "$B8/BenchDotNet.dll" --verify
 run "pre-timing byte identity, no-unknown build" dotnet "$BN8/BenchDotNet.dll" --verify
-run "verify-fsm, full build" dotnet "$B8/BenchDotNet.dll" --verify-fsm "${EVARG[@]}"
-run "verify-fsm, no-unknown build" dotnet "$BN8/BenchDotNet.dll" --verify-fsm "${EVARG[@]}"
+run "verify-fsm, full build" dotnet "$B8/BenchDotNet.dll" --verify-fsm
+run "verify-fsm, no-unknown build" dotnet "$BN8/BenchDotNet.dll" --verify-fsm
+# s17: the per-family counts and the Rust events comparison need the host tally: the counting builds.
+core "$BC" target-core; core "$BCN" target-core-nounk
+[ ${#EVARG[@]} -ne 0 ] && control "verify-fsm with the Rust events on the timed build (no host tally: must refuse)" dotnet "$B8/BenchDotNet.dll" --verify-fsm --variants 0 "${EVARG[@]}"
+run "verify-fsm counts, full counting build" dotnet "$BC/BenchDotNet.dll" --verify-fsm --variants 0 "${EVARG[@]}"
+run "verify-fsm counts, no-unknown counting build" dotnet "$BCN/BenchDotNet.dll" --verify-fsm --variants 0 "${EVARG[@]}"
+core "$BC" target-core-count; core "$BCN" target-core-count-nounk
+# s17: the host tally is in the counting builds' IL and in no timed build's.
+run "il-tally: no tally call or store in the timed build" dotnet "$B8/BenchDotNet.dll" --il-tally --expect none
+run "il-tally: no tally call or store in the timed no-unknown build" dotnet "$BN8/BenchDotNet.dll" --il-tally --expect none
+run "il-tally: the counting build has them (the walk sees them)" dotnet "$BC/BenchDotNet.dll" --il-tally --expect some
 GEN="$SLICE/src/Harness/Generated/CoreFfi.cs"
 cp "$GEN" "$SCRATCH/CoreFfi.orig"
 plant_fsm() {  # name from to: plant into the generated FSM consumer, rebuild, the differential must fail

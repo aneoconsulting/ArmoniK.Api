@@ -1,0 +1,9 @@
+s17 part 1 checks (gen/s17_checks.sh p1, net8.0, the fast checks of the change; not the gate).
+checks.log ends with a bash syntax error at "line 93" after the last check, and has no
+"S17 p1 CHECKS PASSED" summary line: gen/s17_checks.sh was edited (the part 2 section added)
+while this run was executing, and bash reads a script by byte offset, so after the p1 block
+it read a fragment of the new file. Every check of the p1 block had already run: 35 runs
+"exit status: 0", 4 controls "failed, as required", no "CHECK: ... FAILED", no "DID NOT FAIL".
+The script as committed in the part 1 commit is the p1 version that produced this log.
+Cores: the slice's target-core* built before D27 (9653cd87); part 1 changes no call and no
+byte, and the counts compared are the host's tally.

@@ -564,7 +564,9 @@ public static unsafe class UnkHost
             if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
             *dst = a->Grow(*dst, c, (int)nc);
             *cap = (int)nc;
-            Grows++;
+#if AK_HOST_COUNT
+            Grows++;   // s17: the counting build only (a process-wide write on every grow)
+#endif
             return 0;
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -1728,12 +1730,42 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_Timestamp(bool utf16 = false)
     {
@@ -1831,7 +1863,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             var fix = new ak_ufix_Timestamp();
             G.U_Timestamp(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_Timestamp(_run, _ctx, &vt, &fix);
         }
@@ -1840,7 +1872,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             var fix = new ak_efix_Timestamp();
             G.E_Timestamp(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_Timestamp(_run, _ctx, &vt, &fix);
         }
@@ -1915,7 +1947,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Timestamp* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Timestamp(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -1932,8 +1964,19 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -1962,7 +2005,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Timestamp(h.Ctx, null); }
         h.Arena->Begin();
@@ -2049,7 +2092,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Timestamp(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -2126,12 +2169,12 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Timestamp(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -2190,7 +2233,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Timestamp(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -2204,7 +2247,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Timestamp(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -2264,12 +2307,42 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_Duration(bool utf16 = false)
     {
@@ -2367,7 +2440,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             var fix = new ak_ufix_Duration();
             G.U_Duration(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_Duration(_run, _ctx, &vt, &fix);
         }
@@ -2376,7 +2449,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             var fix = new ak_efix_Duration();
             G.E_Duration(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_Duration(_run, _ctx, &vt, &fix);
         }
@@ -2451,7 +2524,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Duration* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Duration(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -2468,8 +2541,19 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -2498,7 +2582,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Duration(h.Ctx, null); }
         h.Arena->Begin();
@@ -2585,7 +2669,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Duration(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -2662,12 +2746,12 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Duration(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -2726,7 +2810,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Duration(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -2740,7 +2824,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Duration(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -2800,12 +2884,42 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_ResultRaw(bool utf16 = false)
     {
@@ -2961,7 +3075,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             var fix = new ak_ufix_ResultRaw();
             G.U_ResultRaw(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ResultRaw(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -2971,7 +3085,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             var fix = new ak_efix_ResultRaw();
             G.E_ResultRaw(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ResultRaw(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -3047,7 +3161,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ResultRaw* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ResultRaw(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -3064,8 +3178,19 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -3096,7 +3221,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ResultRaw(h.Ctx, null); }
         h.Arena->Begin();
@@ -3199,7 +3324,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ResultRaw(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -3276,12 +3401,12 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ResultRaw(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -3340,7 +3465,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ResultRaw(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -3354,7 +3479,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ResultRaw(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -3415,12 +3540,42 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_options;
 
     public CoreFfi_TaskOptions(bool utf16 = false)
@@ -3466,13 +3621,13 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_options(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskOptions*)obj;
             int n = run->N_options;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->S_options, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -3605,7 +3760,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             var fix = new ak_ufix_TaskOptions();
             G.U_TaskOptions(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskOptions(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -3615,7 +3770,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             var fix = new ak_efix_TaskOptions();
             G.E_TaskOptions(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskOptions(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -3691,7 +3846,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskOptions* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskOptions(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -3699,7 +3854,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_options(IntPtr ctx, void* obj, long token, ak_dfix_TaskOptionsOptionsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -3726,8 +3881,19 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -3758,7 +3924,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskOptions(h.Ctx, null); }
         h.Arena->Begin();
@@ -3859,7 +4025,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_TaskOptions(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -3937,12 +4103,12 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_TaskOptions(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -4010,7 +4176,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_TaskOptions(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -4024,7 +4190,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_TaskOptions(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -4096,12 +4262,42 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_TaskOutput(bool utf16 = false)
     {
@@ -4241,7 +4437,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             var fix = new ak_ufix_TaskOutput();
             G.U_TaskOutput(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskOutput(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -4251,7 +4447,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             var fix = new ak_efix_TaskOutput();
             G.E_TaskOutput(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskOutput(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -4327,7 +4523,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskOutput* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskOutput(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -4344,8 +4540,19 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -4374,7 +4581,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskOutput(h.Ctx, null); }
         h.Arena->Begin();
@@ -4461,7 +4668,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_TaskOutput(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -4538,12 +4745,12 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_TaskOutput(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -4602,7 +4809,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_TaskOutput(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -4616,7 +4823,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_TaskOutput(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -4681,12 +4888,42 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_parent_task_ids;
     private int _cap_data_dependencies;
     private int _cap_expected_output_ids;
@@ -4744,7 +4981,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -4757,7 +4994,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -4779,14 +5016,14 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_parent_task_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskDetailed*)obj;
             int n = run->N_parent_task_ids;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_parent_task_ids(ctx, (ak_str*)run->S_parent_task_ids, h.St, h.Root.ParentTaskIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_parent_task_ids, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -4799,7 +5036,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -4812,7 +5049,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -4834,14 +5071,14 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_data_dependencies(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskDetailed*)obj;
             int n = run->N_data_dependencies;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_data_dependencies(ctx, (ak_str*)run->S_data_dependencies, h.St, h.Root.DataDependencies, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_data_dependencies, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -4854,7 +5091,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -4867,7 +5104,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -4889,14 +5126,14 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_expected_output_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskDetailed*)obj;
             int n = run->N_expected_output_ids;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_expected_output_ids(ctx, (ak_str*)run->S_expected_output_ids, h.St, h.Root.ExpectedOutputIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_expected_output_ids, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -4909,7 +5146,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -4922,7 +5159,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -4944,14 +5181,14 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_retry_of_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskDetailed*)obj;
             int n = run->N_retry_of_ids;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_retry_of_ids(ctx, (ak_str*)run->S_retry_of_ids, h.St, h.Root.RetryOfIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_retry_of_ids, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -4960,13 +5197,13 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_options_options(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskDetailed*)obj;
             int n = run->N_options_options;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->S_options_options, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -5187,7 +5424,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             var fix = new ak_ufix_TaskDetailed();
             G.U_TaskDetailed(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskDetailed(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -5197,7 +5434,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             var fix = new ak_efix_TaskDetailed();
             G.E_TaskDetailed(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskDetailed(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -5273,7 +5510,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskDetailed* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskDetailed(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -5281,7 +5518,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_parent_task_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -5297,7 +5534,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_data_dependencies(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -5313,7 +5550,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_expected_output_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -5329,7 +5566,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_retry_of_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -5345,7 +5582,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_options_options(IntPtr ctx, void* obj, long token, ak_dfix_TaskOptionsOptionsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -5372,8 +5609,19 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -5418,7 +5666,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskDetailed(h.Ctx, null); }
         h.Arena->Begin();
@@ -5641,7 +5889,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_TaskDetailed(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -5723,12 +5971,12 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_TaskDetailed(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -5824,7 +6072,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_TaskDetailed(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -5838,7 +6086,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_TaskDetailed(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -5939,12 +6187,42 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_options_options;
 
     public CoreFfi_TaskSummary(bool utf16 = false)
@@ -5990,13 +6268,13 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_options_options(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_TaskSummary*)obj;
             int n = run->N_options_options;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->S_options_options, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -6149,7 +6427,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             var fix = new ak_ufix_TaskSummary();
             G.U_TaskSummary(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_TaskSummary(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -6159,7 +6437,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             var fix = new ak_efix_TaskSummary();
             G.E_TaskSummary(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_TaskSummary(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -6235,7 +6513,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_TaskSummary* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_TaskSummary(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -6243,7 +6521,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_options_options(IntPtr ctx, void* obj, long token, ak_dfix_TaskOptionsOptionsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -6270,8 +6548,19 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -6304,7 +6593,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskSummary(h.Ctx, null); }
         h.Arena->Begin();
@@ -6427,7 +6716,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_TaskSummary(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -6505,12 +6794,12 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_TaskSummary(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -6578,7 +6867,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_TaskSummary(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -6592,7 +6881,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_TaskSummary(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -6664,12 +6953,42 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_Probe(bool utf16 = false)
     {
@@ -6817,7 +7136,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             var fix = new ak_ufix_Probe();
             G.U_Probe(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Probe(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -6827,7 +7146,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             var fix = new ak_efix_Probe();
             G.E_Probe(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Probe(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -6903,7 +7222,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Probe* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Probe(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -6920,8 +7239,19 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -6951,7 +7281,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Probe(h.Ctx, null); }
         h.Arena->Begin();
@@ -7044,7 +7374,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Probe(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -7121,12 +7451,12 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Probe(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -7185,7 +7515,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Probe(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -7199,7 +7529,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Probe(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -7259,12 +7589,42 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_Empty(bool utf16 = false)
     {
@@ -7362,7 +7722,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             var fix = new ak_ufix_Empty();
             G.U_Empty(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_Empty(_run, _ctx, &vt, &fix);
         }
@@ -7371,7 +7731,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             var fix = new ak_efix_Empty();
             G.E_Empty(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_Empty(_run, _ctx, &vt, &fix);
         }
@@ -7446,7 +7806,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Empty* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Empty(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -7463,8 +7823,19 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -7493,7 +7864,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Empty(h.Ctx, null); }
         h.Arena->Begin();
@@ -7580,7 +7951,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Empty(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -7657,12 +8028,12 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Empty(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -7721,7 +8092,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Empty(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -7735,7 +8106,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Empty(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -7795,12 +8166,42 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_UploadResultData(bool utf16 = false)
     {
@@ -7946,7 +8347,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             var fix = new ak_ufix_UploadResultData();
             G.U_UploadResultData(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultData(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct, _st);
@@ -7956,7 +8357,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             var fix = new ak_efix_UploadResultData();
             G.E_UploadResultData(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultData(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct, _st);
@@ -8032,7 +8433,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultData* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultData(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -8049,8 +8450,19 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -8079,7 +8491,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultData(h.Ctx, null); }
         h.Arena->Begin();
@@ -8166,7 +8578,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_UploadResultData(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -8243,12 +8655,12 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_UploadResultData(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -8307,7 +8719,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_UploadResultData(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -8321,7 +8733,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_UploadResultData(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -8386,12 +8798,42 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_ticks;
     private int _cap_values;
     private int _cap_codes;
@@ -8445,13 +8887,13 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_ticks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_MetricsBatch*)obj;
             int n = run->N_ticks;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)run->S_ticks, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -8460,13 +8902,13 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_values(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_MetricsBatch*)obj;
             int n = run->N_values;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_f64(ctx, (double*)run->S_values, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -8475,13 +8917,13 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_codes(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_MetricsBatch*)obj;
             int n = run->N_codes;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i32(ctx, (int*)run->S_codes, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -8490,13 +8932,13 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_flags(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_MetricsBatch*)obj;
             int n = run->N_flags;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_u8(ctx, (byte*)run->S_flags, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -8505,13 +8947,13 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_statuses(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_MetricsBatch*)obj;
             int n = run->N_statuses;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i32(ctx, (int*)run->S_statuses, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -8670,7 +9112,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             var fix = new ak_ufix_MetricsBatch();
             G.U_MetricsBatch(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_MetricsBatch(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -8680,7 +9122,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             var fix = new ak_efix_MetricsBatch();
             G.E_MetricsBatch(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_MetricsBatch(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -8756,7 +9198,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_MetricsBatch* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_MetricsBatch(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -8764,7 +9206,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_ticks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -8780,7 +9222,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_values(IntPtr ctx, void* obj, long token, double* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -8796,7 +9238,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_codes(IntPtr ctx, void* obj, long token, int* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -8812,7 +9254,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_flags(IntPtr ctx, void* obj, long token, byte* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -8828,7 +9270,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_statuses(IntPtr ctx, void* obj, long token, int* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -8853,8 +9295,19 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -8883,7 +9336,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_MetricsBatch(h.Ctx, null); }
         h.Arena->Begin();
@@ -8975,7 +9428,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_MetricsBatch(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -9057,12 +9510,12 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_MetricsBatch(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -9156,7 +9609,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_MetricsBatch(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -9170,7 +9623,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_MetricsBatch(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -9270,12 +9723,42 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_Pair(bool utf16 = false)
     {
@@ -9415,7 +9898,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             var fix = new ak_ufix_Pair();
             G.U_Pair(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Pair(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -9425,7 +9908,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             var fix = new ak_efix_Pair();
             G.E_Pair(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Pair(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -9501,7 +9984,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Pair* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Pair(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -9518,8 +10001,19 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -9548,7 +10042,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Pair(h.Ctx, null); }
         h.Arena->Begin();
@@ -9635,7 +10129,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Pair(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -9712,12 +10206,12 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Pair(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -9776,7 +10270,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Pair(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -9790,7 +10284,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Pair(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -9851,12 +10345,42 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_results;
 
     public CoreFfi_ListResultsResponse(bool utf16 = false)
@@ -9909,7 +10433,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k) : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
         }
         var __e = lst[off + i];
@@ -9964,7 +10488,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k) : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -9973,7 +10497,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_results(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListResultsResponse*)obj;
@@ -9993,7 +10517,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_ResultRaw(ctx, (ak_ufix_ResultRaw*)((ak_ufix_ResultRaw*)run->S_results + off), k)
                     : Abi.ak_elem_ResultRaw(ctx, (ak_efix_ResultRaw*)((ak_efix_ResultRaw*)run->S_results + off), k);
@@ -10072,7 +10596,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             var fix = new ak_ufix_ListResultsResponse();
             G.U_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
@@ -10081,7 +10605,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             var fix = new ak_efix_ListResultsResponse();
             G.E_ListResultsResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListResultsResponse(_run, _ctx, &vt, &fix);
         }
@@ -10156,7 +10680,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListResultsResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListResultsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -10164,7 +10688,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_results(IntPtr ctx, void* obj, long token, ak_dfix_ResultRaw* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -10189,8 +10713,19 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -10222,7 +10757,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -10340,7 +10875,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ListResultsResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -10418,12 +10953,12 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ListResultsResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -10489,7 +11024,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ListResultsResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -10503,7 +11038,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ListResultsResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -10582,12 +11117,42 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_tasks;
     private int _cap_tasks_parent_task_ids, _capo_tasks_parent_task_ids;
     private int _cap_tasks_data_dependencies, _capo_tasks_data_dependencies;
@@ -10657,7 +11222,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
         }
         var __e = lst[off + i];
@@ -10756,7 +11321,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
         st.ReleaseChunk(__h);
         return rc;
@@ -10769,7 +11334,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -10782,7 +11347,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -10808,7 +11373,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -10821,7 +11386,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -10847,7 +11412,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -10860,7 +11425,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -10886,7 +11451,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -10899,7 +11464,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -10923,7 +11488,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
@@ -10945,7 +11510,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -10967,7 +11532,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -10987,7 +11552,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelemu_TaskDetailed(ctx, (ak_ufix_TaskDetailed*)((ak_ufix_TaskDetailed*)run->S_tasks + off), k, off)
                     : Abi.ak_elemu_TaskDetailed(ctx, (ak_efix_TaskDetailed*)((ak_efix_TaskDetailed*)run->S_tasks + off), k, off);
@@ -11001,7 +11566,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_parent_task_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -11009,7 +11574,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->C_tasks_parent_task_ids[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_parent_task_ids(ctx, (ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e], h.St, h.Root.Tasks[e].ParentTaskIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_parent_task_ids + run->O_tasks_parent_task_ids[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -11018,7 +11583,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_data_dependencies(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -11026,7 +11591,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->C_tasks_data_dependencies[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_data_dependencies(ctx, (ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e], h.St, h.Root.Tasks[e].DataDependencies, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_data_dependencies + run->O_tasks_data_dependencies[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -11035,7 +11600,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_expected_output_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -11043,7 +11608,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->C_tasks_expected_output_ids[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_expected_output_ids(ctx, (ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e], h.St, h.Root.Tasks[e].ExpectedOutputIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_expected_output_ids + run->O_tasks_expected_output_ids[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -11052,7 +11617,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_retry_of_ids(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -11060,7 +11625,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->C_tasks_retry_of_ids[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_tasks_retry_of_ids(ctx, (ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e], h.St, h.Root.Tasks[e].RetryOfIds, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_tasks_retry_of_ids + run->O_tasks_retry_of_ids[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -11069,7 +11634,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_options_options(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTasksDetailedResponse*)obj;
@@ -11077,7 +11642,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], h.St, h.Root.Tasks[e].Options?.Options, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -11239,7 +11804,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var fix = new ak_ufix_ListTasksDetailedResponse();
             G.U_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
@@ -11248,7 +11813,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             var fix = new ak_efix_ListTasksDetailedResponse();
             G.E_ListTasksDetailedResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListTasksDetailedResponse(_run, _ctx, &vt, &fix);
         }
@@ -11323,7 +11888,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTasksDetailedResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTasksDetailedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -11331,7 +11896,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_tasks(IntPtr ctx, void* obj)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskDetailed()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
@@ -11339,7 +11904,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Apply_tasks(IntPtr ctx, void* obj, long token, ak_dfix_TaskDetailed* fix)
     {
-        _rev++;
+        CountR();
         try { var lst = Tgt(obj).Tasks; G.D_TaskDetailed(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -11347,7 +11912,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_parent_task_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -11363,7 +11928,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_data_dependencies(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -11379,7 +11944,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_expected_output_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -11395,7 +11960,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_retry_of_ids(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -11411,7 +11976,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_options_options(IntPtr ctx, void* obj, long token, ak_dfix_TaskOptionsOptionsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -11438,8 +12003,19 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -11485,7 +12061,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -11766,7 +12342,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ListTasksDetailedResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -11850,12 +12426,12 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ListTasksDetailedResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -11954,7 +12530,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ListTasksDetailedResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -11968,7 +12544,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ListTasksDetailedResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -12084,12 +12660,42 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_tasks;
     private int _cap_tasks_options_options, _capo_tasks_options_options;
     private ak_evt_TaskSummary* _evt_tasks;
@@ -12147,7 +12753,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
         }
         var __e = lst[off + i];
@@ -12224,7 +12830,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off) : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
         st.ReleaseChunk(__h);
         return rc;
@@ -12235,7 +12841,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
@@ -12257,7 +12863,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -12279,7 +12885,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTaskSummaryResponse*)obj;
@@ -12299,7 +12905,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelemu_TaskSummary(ctx, (ak_ufix_TaskSummary*)((ak_ufix_TaskSummary*)run->S_tasks + off), k, off)
                     : Abi.ak_elemu_TaskSummary(ctx, (ak_efix_TaskSummary*)((ak_efix_TaskSummary*)run->S_tasks + off), k, off);
@@ -12313,7 +12919,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_tasks_options_options(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListTaskSummaryResponse*)obj;
@@ -12321,7 +12927,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             int n = run->C_tasks_options_options[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinMap_tasks_options_options(ctx, (ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e], h.St, h.Root.Tasks[e].Options?.Options, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_TaskOptionsOptionsEntry(ctx, (ak_efix_TaskOptionsOptionsEntry*)((ak_efix_TaskOptionsOptionsEntry*)run->I_tasks_options_options + run->O_tasks_options_options[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -12411,7 +13017,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             var fix = new ak_ufix_ListTaskSummaryResponse();
             G.U_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
@@ -12420,7 +13026,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             var fix = new ak_efix_ListTaskSummaryResponse();
             G.E_ListTaskSummaryResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListTaskSummaryResponse(_run, _ctx, &vt, &fix);
         }
@@ -12495,7 +13101,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListTaskSummaryResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListTaskSummaryResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -12503,7 +13109,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_tasks(IntPtr ctx, void* obj)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Tasks; lst.Add(new TaskSummary()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
@@ -12511,7 +13117,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Apply_tasks(IntPtr ctx, void* obj, long token, ak_dfix_TaskSummary* fix)
     {
-        _rev++;
+        CountR();
         try { var lst = Tgt(obj).Tasks; G.D_TaskSummary(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -12519,7 +13125,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_tasks_options_options(IntPtr ctx, void* obj, long token, ak_dfix_TaskOptionsOptionsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -12546,8 +13152,19 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -12581,7 +13198,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -12726,7 +13343,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ListTaskSummaryResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -12806,12 +13423,12 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ListTaskSummaryResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -12881,7 +13498,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ListTaskSummaryResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -12895,7 +13512,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ListTaskSummaryResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -12981,12 +13598,42 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_probes;
 
     public CoreFfi_ListProbeResponse(bool utf16 = false)
@@ -13039,7 +13686,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k) : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
         }
         var __e = lst[off + i];
@@ -13086,7 +13733,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k) : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -13095,7 +13742,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_probes(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListProbeResponse*)obj;
@@ -13115,7 +13762,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_Probe(ctx, (ak_ufix_Probe*)((ak_ufix_Probe*)run->S_probes + off), k)
                     : Abi.ak_elem_Probe(ctx, (ak_efix_Probe*)((ak_efix_Probe*)run->S_probes + off), k);
@@ -13194,7 +13841,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             var fix = new ak_ufix_ListProbeResponse();
             G.U_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
@@ -13203,7 +13850,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             var fix = new ak_efix_ListProbeResponse();
             G.E_ListProbeResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListProbeResponse(_run, _ctx, &vt, &fix);
         }
@@ -13278,7 +13925,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListProbeResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListProbeResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -13286,7 +13933,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_probes(IntPtr ctx, void* obj, long token, ak_dfix_Probe* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -13311,8 +13958,19 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -13343,7 +14001,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -13448,7 +14106,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ListProbeResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -13526,12 +14184,12 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ListProbeResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -13597,7 +14255,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ListProbeResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -13611,7 +14269,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ListProbeResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -13689,12 +14347,42 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_batches;
     private int _cap_batches_ticks, _capo_batches_ticks;
     private int _cap_batches_values, _capo_batches_values;
@@ -13764,7 +14452,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off) : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
         }
         var __e = lst[off + i];
@@ -13803,7 +14491,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off) : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
         st.ReleaseChunk(__h);
         return rc;
@@ -13812,7 +14500,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
@@ -13832,7 +14520,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelemu_MetricsBatch(ctx, (ak_ufix_MetricsBatch*)((ak_ufix_MetricsBatch*)run->S_batches + off), k, off)
                     : Abi.ak_elemu_MetricsBatch(ctx, (ak_efix_MetricsBatch*)((ak_efix_MetricsBatch*)run->S_batches + off), k, off);
@@ -13846,14 +14534,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches_ticks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
             int e = (int)token;
             int n = run->C_batches_ticks[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)((long*)run->I_batches_ticks + run->O_batches_ticks[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -13862,14 +14550,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches_values(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
             int e = (int)token;
             int n = run->C_batches_values[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_f64(ctx, (double*)((double*)run->I_batches_values + run->O_batches_values[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -13878,14 +14566,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches_codes(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
             int e = (int)token;
             int n = run->C_batches_codes[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i32(ctx, (int*)((int*)run->I_batches_codes + run->O_batches_codes[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -13894,14 +14582,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches_flags(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
             int e = (int)token;
             int n = run->C_batches_flags[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_u8(ctx, (byte*)((byte*)run->I_batches_flags + run->O_batches_flags[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -13910,14 +14598,14 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_batches_statuses(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ListMetricsResponse*)obj;
             int e = (int)token;
             int n = run->C_batches_statuses[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i32(ctx, (int*)((int*)run->I_batches_statuses + run->O_batches_statuses[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -14082,7 +14770,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var fix = new ak_ufix_ListMetricsResponse();
             G.U_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
@@ -14091,7 +14779,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             var fix = new ak_efix_ListMetricsResponse();
             G.E_ListMetricsResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ListMetricsResponse(_run, _ctx, &vt, &fix);
         }
@@ -14166,7 +14854,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ListMetricsResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ListMetricsResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -14174,7 +14862,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_batches(IntPtr ctx, void* obj)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Batches; lst.Add(new MetricsBatch()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
@@ -14182,7 +14870,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Apply_batches(IntPtr ctx, void* obj, long token, ak_dfix_MetricsBatch* fix)
     {
-        _rev++;
+        CountR();
         try { var lst = Tgt(obj).Batches; G.D_MetricsBatch(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -14190,7 +14878,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_batches_ticks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -14206,7 +14894,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_batches_values(IntPtr ctx, void* obj, long token, double* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -14222,7 +14910,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_batches_codes(IntPtr ctx, void* obj, long token, int* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -14238,7 +14926,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_batches_flags(IntPtr ctx, void* obj, long token, byte* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -14254,7 +14942,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_batches_statuses(IntPtr ctx, void* obj, long token, int* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -14279,8 +14967,19 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -14310,7 +15009,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -14412,7 +15111,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ListMetricsResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -14496,12 +15195,12 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ListMetricsResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -14597,7 +15296,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ListMetricsResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -14611,7 +15310,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ListMetricsResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -14725,12 +15424,42 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_UploadResultDataMessage(bool utf16 = false)
     {
@@ -14880,7 +15609,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             var fix = new ak_ufix_UploadResultDataMessage();
             G.U_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_uencode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, direct, _st);
@@ -14890,7 +15619,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             var fix = new ak_efix_UploadResultDataMessage();
             G.E_UploadResultDataMessage(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) fixed (byte* dp = direct) rc = Abi.ak_encode_UploadResultDataMessage(_run, _ctx, &vt, &fix, dp, (nuint)direct.Length);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, direct, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, direct, _st);
@@ -14966,7 +15695,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_UploadResultDataMessage* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_UploadResultDataMessage(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -14983,8 +15712,19 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -15014,7 +15754,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null); }
         h.Arena->Begin();
@@ -15109,7 +15849,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_UploadResultDataMessage(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -15186,12 +15926,12 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_UploadResultDataMessage(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -15250,7 +15990,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_UploadResultDataMessage(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -15264,7 +16004,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_UploadResultDataMessage(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -15326,12 +16066,42 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_left;
     private int _cap_right;
 
@@ -15386,7 +16156,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
         }
         var __e = lst[off + i];
@@ -15425,7 +16195,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -15434,7 +16204,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_left(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_DualResponse*)obj;
@@ -15454,7 +16224,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_left + off), k)
                     : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_left + off), k);
@@ -15475,7 +16245,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
         }
         var __e = lst[off + i];
@@ -15514,7 +16284,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k) : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -15523,7 +16293,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_right(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_DualResponse*)obj;
@@ -15543,7 +16313,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_Pair(ctx, (ak_ufix_Pair*)((ak_ufix_Pair*)run->S_right + off), k)
                     : Abi.ak_elem_Pair(ctx, (ak_efix_Pair*)((ak_efix_Pair*)run->S_right + off), k);
@@ -15634,7 +16404,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var fix = new ak_ufix_DualResponse();
             G.U_DualResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_DualResponse(_run, _ctx, &vt, &fix);
         }
@@ -15643,7 +16413,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             var fix = new ak_efix_DualResponse();
             G.E_DualResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_DualResponse(_run, _ctx, &vt, &fix);
         }
@@ -15718,7 +16488,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_DualResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_DualResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -15726,7 +16496,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_left(IntPtr ctx, void* obj, long token, ak_dfix_Pair* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -15742,7 +16512,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_right(IntPtr ctx, void* obj, long token, ak_dfix_Pair* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -15767,8 +16537,19 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -15799,7 +16580,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_DualResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -15904,7 +16685,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_DualResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -15983,12 +16764,12 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_DualResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -16061,7 +16842,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_DualResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -16075,7 +16856,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_DualResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -16154,12 +16935,42 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_ChunkLeaf(bool utf16 = false)
     {
@@ -16299,7 +17110,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             var fix = new ak_ufix_ChunkLeaf();
             G.U_ChunkLeaf(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ChunkLeaf(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -16309,7 +17120,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             var fix = new ak_efix_ChunkLeaf();
             G.E_ChunkLeaf(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ChunkLeaf(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -16385,7 +17196,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkLeaf* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkLeaf(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -16402,8 +17213,19 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -16432,7 +17254,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkLeaf(h.Ctx, null); }
         h.Arena->Begin();
@@ -16519,7 +17341,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ChunkLeaf(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -16596,12 +17418,12 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ChunkLeaf(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -16660,7 +17482,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ChunkLeaf(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -16674,7 +17496,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ChunkLeaf(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -16736,12 +17558,42 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_marks;
     private int _cap_leaves;
 
@@ -16789,13 +17641,13 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_marks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkInner*)obj;
             int n = run->N_marks;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)run->S_marks, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -16811,7 +17663,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_leaves + off), k);
         }
         var __e = lst[off + i];
@@ -16850,7 +17702,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_leaves + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -16859,7 +17711,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_leaves(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkInner*)obj;
@@ -16879,7 +17731,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_leaves + off), k)
                     : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_leaves + off), k);
@@ -16969,7 +17821,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             var fix = new ak_ufix_ChunkInner();
             G.U_ChunkInner(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ChunkInner(_run, _ctx, &vt, &fix);
         }
@@ -16978,7 +17830,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             var fix = new ak_efix_ChunkInner();
             G.E_ChunkInner(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ChunkInner(_run, _ctx, &vt, &fix);
         }
@@ -17053,7 +17905,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkInner* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -17061,7 +17913,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_marks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -17077,7 +17929,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_leaves(IntPtr ctx, void* obj, long token, ak_dfix_ChunkLeaf* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -17102,8 +17954,19 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -17133,7 +17996,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkInner(h.Ctx, null); }
         h.Arena->Begin();
@@ -17230,7 +18093,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ChunkInner(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -17309,12 +18172,12 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ChunkInner(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -17387,7 +18250,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ChunkInner(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -17401,7 +18264,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ChunkInner(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -17484,12 +18347,42 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_labels;
     private int _cap_attrs;
     private int _cap_inner_marks;
@@ -17545,7 +18438,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -17558,7 +18451,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -17580,14 +18473,14 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_labels(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkElement*)obj;
             int n = run->N_labels;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_labels(ctx, (ak_str*)run->S_labels, h.St, h.Root.Labels, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_labels, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -17596,13 +18489,13 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_attrs(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkElement*)obj;
             int n = run->N_attrs;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)run->S_attrs, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -17611,13 +18504,13 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_inner_marks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkElement*)obj;
             int n = run->N_inner_marks;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)run->S_inner_marks, (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -17633,7 +18526,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_inner_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_inner_leaves + off), k);
         }
         var __e = lst[off + i];
@@ -17672,7 +18565,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_inner_leaves + off), k) : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_inner_leaves + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -17681,7 +18574,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_inner_leaves(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkElement*)obj;
@@ -17701,7 +18594,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_ChunkLeaf(ctx, (ak_ufix_ChunkLeaf*)((ak_ufix_ChunkLeaf*)run->S_inner_leaves + off), k)
                     : Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->S_inner_leaves + off), k);
@@ -17853,7 +18746,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             var fix = new ak_ufix_ChunkElement();
             G.U_ChunkElement(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_ChunkElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -17863,7 +18756,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             var fix = new ak_efix_ChunkElement();
             G.E_ChunkElement(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_ChunkElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -17939,7 +18832,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkElement* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -17947,7 +18840,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_labels(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -17963,7 +18856,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_attrs(IntPtr ctx, void* obj, long token, ak_dfix_ChunkElementAttrsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -17981,7 +18874,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_inner_marks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -17997,7 +18890,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_inner_leaves(IntPtr ctx, void* obj, long token, ak_dfix_ChunkLeaf* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -18022,8 +18915,19 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -18055,7 +18959,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkElement(h.Ctx, null); }
         h.Arena->Begin();
@@ -18170,7 +19074,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ChunkElement(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -18251,12 +19155,12 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ChunkElement(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -18345,7 +19249,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ChunkElement(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -18359,7 +19263,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ChunkElement(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -18457,12 +19361,42 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_items;
     private int _cap_items_labels, _capo_items_labels;
     private int _cap_items_attrs, _capo_items_attrs;
@@ -18529,7 +19463,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
         }
         var __e = lst[off + i];
@@ -18568,7 +19502,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
         st.ReleaseChunk(__h);
         return rc;
@@ -18581,7 +19515,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -18594,7 +19528,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -18618,7 +19552,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
@@ -18640,7 +19574,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -18664,7 +19598,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k); }
         var __e = lst[off + j];
         fixed (char* __p0 = __e.K)
         {
@@ -18684,7 +19618,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             if (__g->k.data == Stage.PinPending) { __g->k.data = st.PinChunk(__e.K); }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -18706,7 +19640,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponse*)obj;
@@ -18726,7 +19660,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off)
                     : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
@@ -18740,7 +19674,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_labels(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponse*)obj;
@@ -18748,7 +19682,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             int n = run->C_items_labels[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_items_labels(ctx, (ak_str*)run->I_items_labels + run->O_items_labels[e], h.St, h.Root.Items[e].Labels, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_items_labels + run->O_items_labels[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -18757,7 +19691,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_attrs(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponse*)obj;
@@ -18765,7 +19699,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             int n = run->C_items_attrs[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinMap_items_attrs(ctx, (ak_efix_ChunkElementAttrsEntry*)run->I_items_attrs + run->O_items_attrs[e], h.St, h.Root.Items[e].Attrs, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)((ak_efix_ChunkElementAttrsEntry*)run->I_items_attrs + run->O_items_attrs[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -18774,14 +19708,14 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_inner_marks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponse*)obj;
             int e = (int)token;
             int n = run->C_items_inner_marks[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)((long*)run->I_items_inner_marks + run->O_items_inner_marks[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -18790,7 +19724,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_inner_leaves(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponse*)obj;
@@ -18798,7 +19732,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             int n = run->C_items_inner_leaves[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinElems_items_inner_leaves(ctx, (ak_efix_ChunkLeaf*)run->I_items_inner_leaves + run->O_items_inner_leaves[e], h.St, h.Root.Items[e].Inner?.Leaves, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->I_items_inner_leaves + run->O_items_inner_leaves[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -18942,7 +19876,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             var fix = new ak_ufix_ChunkedResponse();
             G.U_ChunkedResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ChunkedResponse(_run, _ctx, &vt, &fix);
         }
@@ -18951,7 +19885,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             var fix = new ak_efix_ChunkedResponse();
             G.E_ChunkedResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ChunkedResponse(_run, _ctx, &vt, &fix);
         }
@@ -19026,7 +19960,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkedResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkedResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -19034,7 +19968,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_items(IntPtr ctx, void* obj)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
@@ -19042,7 +19976,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Apply_items(IntPtr ctx, void* obj, long token, ak_dfix_ChunkElement* fix)
     {
-        _rev++;
+        CountR();
         try { var lst = Tgt(obj).Items; G.D_ChunkElement(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -19050,7 +19984,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_labels(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -19066,7 +20000,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_attrs(IntPtr ctx, void* obj, long token, ak_dfix_ChunkElementAttrsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -19084,7 +20018,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_inner_marks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -19100,7 +20034,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_inner_leaves(IntPtr ctx, void* obj, long token, ak_dfix_ChunkLeaf* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -19125,8 +20059,19 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -19159,7 +20104,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkedResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -19293,7 +20238,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ChunkedResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -19376,12 +20321,12 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ChunkedResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -19472,7 +20417,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ChunkedResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -19486,7 +20431,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ChunkedResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -19597,12 +20542,42 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_items;
     private int _cap_items_labels, _capo_items_labels;
     private int _cap_items_attrs, _capo_items_attrs;
@@ -19669,7 +20644,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
         }
         var __e = lst[off + i];
@@ -19708,7 +20683,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off) : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
         st.ReleaseChunk(__h);
         return rc;
@@ -19721,7 +20696,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -19734,7 +20709,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -19758,7 +20733,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k); }
         var kv = m.At(off + j);
         fixed (char* __p0 = kv.Key, __p1 = kv.Value)
         {
@@ -19780,7 +20755,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             if (__g->value.data == Stage.PinPending) { __g->value.data = st.PinChunk(kv.Value); st.MapPatched++; }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -19804,7 +20779,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k); }
+        if (j == k) { CountF(); return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k); }
         var __e = lst[off + j];
         fixed (char* __p0 = __e.K)
         {
@@ -19824,7 +20799,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             if (__g->k.data == Stage.PinPending) { __g->k.data = st.PinChunk(__e.K); }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)(arr + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -19846,7 +20821,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponseWide*)obj;
@@ -19866,7 +20841,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelemu_ChunkElement(ctx, (ak_ufix_ChunkElement*)((ak_ufix_ChunkElement*)run->S_items + off), k, off)
                     : Abi.ak_elemu_ChunkElement(ctx, (ak_efix_ChunkElement*)((ak_efix_ChunkElement*)run->S_items + off), k, off);
@@ -19880,7 +20855,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_labels(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponseWide*)obj;
@@ -19888,7 +20863,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             int n = run->C_items_labels[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_items_labels(ctx, (ak_str*)run->I_items_labels + run->O_items_labels[e], h.St, h.Root.Items[e].Labels, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)((ak_str*)run->I_items_labels + run->O_items_labels[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -19897,7 +20872,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_attrs(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponseWide*)obj;
@@ -19905,7 +20880,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             int n = run->C_items_attrs[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinMap_items_attrs(ctx, (ak_efix_ChunkElementAttrsEntry*)run->I_items_attrs + run->O_items_attrs[e], h.St, h.Root.Items[e].Attrs, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_ChunkElementAttrsEntry(ctx, (ak_efix_ChunkElementAttrsEntry*)((ak_efix_ChunkElementAttrsEntry*)run->I_items_attrs + run->O_items_attrs[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -19914,14 +20889,14 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_inner_marks(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponseWide*)obj;
             int e = (int)token;
             int n = run->C_items_inner_marks[e];
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_run_i64(ctx, (long*)((long*)run->I_items_inner_marks + run->O_items_inner_marks[e]), (nuint)n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -19930,7 +20905,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items_inner_leaves(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_ChunkedResponseWide*)obj;
@@ -19938,7 +20913,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             int n = run->C_items_inner_leaves[e];
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinElems_items_inner_leaves(ctx, (ak_efix_ChunkLeaf*)run->I_items_inner_leaves + run->O_items_inner_leaves[e], h.St, h.Root.Items[e].Inner?.Leaves, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_elem_ChunkLeaf(ctx, (ak_efix_ChunkLeaf*)((ak_efix_ChunkLeaf*)run->I_items_inner_leaves + run->O_items_inner_leaves[e]), n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -20082,7 +21057,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             var fix = new ak_ufix_ChunkedResponseWide();
             G.U_ChunkedResponseWide(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_ChunkedResponseWide(_run, _ctx, &vt, &fix);
         }
@@ -20091,7 +21066,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             var fix = new ak_efix_ChunkedResponseWide();
             G.E_ChunkedResponseWide(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_ChunkedResponseWide(_run, _ctx, &vt, &fix);
         }
@@ -20166,7 +21141,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_ChunkedResponseWide* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_ChunkedResponseWide(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -20174,7 +21149,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static long New_items(IntPtr ctx, void* obj)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (new)"); var lst = Tgt(obj).Items; lst.Add(new ChunkElement()); return lst.Count - 1; }
         catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }
     }
@@ -20182,7 +21157,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Apply_items(IntPtr ctx, void* obj, long token, ak_dfix_ChunkElement* fix)
     {
-        _rev++;
+        CountR();
         try { var lst = Tgt(obj).Items; G.D_ChunkElement(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -20190,7 +21165,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_labels(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -20206,7 +21181,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_attrs(IntPtr ctx, void* obj, long token, ak_dfix_ChunkElementAttrsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -20224,7 +21199,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_inner_marks(IntPtr ctx, void* obj, long token, long* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -20240,7 +21215,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items_inner_leaves(IntPtr ctx, void* obj, long token, ak_dfix_ChunkLeaf* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             byte* b = ((DecRun*)obj)->Buf;
@@ -20265,8 +21240,19 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -20299,7 +21285,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkedResponseWide(h.Ctx, null); }
         h.Arena->Begin();
@@ -20433,7 +21419,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_ChunkedResponseWide(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -20516,12 +21502,12 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_ChunkedResponseWide(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -20612,7 +21598,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_ChunkedResponseWide(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -20626,7 +21612,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_ChunkedResponseWide(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -20732,12 +21718,42 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_LeafElement(bool utf16 = false)
     {
@@ -20877,7 +21893,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             var fix = new ak_ufix_LeafElement();
             G.U_LeafElement(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_LeafElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -20887,7 +21903,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             var fix = new ak_efix_LeafElement();
             G.E_LeafElement(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_LeafElement(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -20963,7 +21979,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_LeafElement* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_LeafElement(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -20980,8 +21996,19 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -21011,7 +22038,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_LeafElement(h.Ctx, null); }
         h.Arena->Begin();
@@ -21106,7 +22133,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_LeafElement(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -21183,12 +22210,12 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_LeafElement(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -21247,7 +22274,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_LeafElement(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -21261,7 +22288,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_LeafElement(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -21322,12 +22349,42 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_items;
 
     public CoreFfi_LeafResponse(bool utf16 = false)
@@ -21380,7 +22437,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
 #endif
         if (i == k)
         {
-            _fwd++;
+            CountF();
             return run->Retain != 0 ? Abi.ak_uelem_LeafElement(ctx, (ak_ufix_LeafElement*)((ak_ufix_LeafElement*)run->S_items + off), k) : Abi.ak_elem_LeafElement(ctx, (ak_efix_LeafElement*)((ak_efix_LeafElement*)run->S_items + off), k);
         }
         var __e = lst[off + i];
@@ -21419,7 +22476,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             }
         }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = run->Retain != 0 ? Abi.ak_uelem_LeafElement(ctx, (ak_ufix_LeafElement*)((ak_ufix_LeafElement*)run->S_items + off), k) : Abi.ak_elem_LeafElement(ctx, (ak_efix_LeafElement*)((ak_efix_LeafElement*)run->S_items + off), k);
         st.ReleaseChunk(__h);
         return rc;
@@ -21428,7 +22485,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_items(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_LeafResponse*)obj;
@@ -21448,7 +22505,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                     if (rp < 0) return rp;
                     continue;
                 }
-                _fwd++;
+                CountF();
                 int rc = run->Retain != 0
                     ? Abi.ak_uelem_LeafElement(ctx, (ak_ufix_LeafElement*)((ak_ufix_LeafElement*)run->S_items + off), k)
                     : Abi.ak_elem_LeafElement(ctx, (ak_efix_LeafElement*)((ak_efix_LeafElement*)run->S_items + off), k);
@@ -21527,7 +22584,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             var fix = new ak_ufix_LeafResponse();
             G.U_LeafResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_uencode_LeafResponse(_run, _ctx, &vt, &fix);
         }
@@ -21536,7 +22593,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             var fix = new ak_efix_LeafResponse();
             G.E_LeafResponse(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             rc = Abi.ak_encode_LeafResponse(_run, _ctx, &vt, &fix);
         }
@@ -21611,7 +22668,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_LeafResponse* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_LeafResponse(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -21619,7 +22676,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_items(IntPtr ctx, void* obj, long token, ak_dfix_LeafElement* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -21644,8 +22701,19 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -21676,7 +22744,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_LeafResponse(h.Ctx, null); }
         h.Arena->Begin();
@@ -21783,7 +22851,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_LeafResponse(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -21861,12 +22929,12 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_LeafResponse(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -21932,7 +23000,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_LeafResponse(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -21946,7 +23014,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_LeafResponse(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -22020,12 +23088,42 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
     private int _cap_attrs;
     private int _cap_texts;
 
@@ -22073,13 +23171,13 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_attrs(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_Surrogate*)obj;
             int n = run->N_attrs;
             if (n == 0) return 0;
-            _fwd++;
+            CountF();
             return Abi.ak_elem_SurrogateAttrsEntry(ctx, (ak_efix_SurrogateAttrsEntry*)run->S_attrs, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -22092,7 +23190,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
 #if AK_HOST_COUNT
         st.Sp(j, (byte*)&j);
 #endif
-        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }
+        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }
         fixed (char* __p = l[off + j])
         {
             if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }
@@ -22105,7 +23203,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         int __h = st.ChunkMark();   // this chunk releases only the handles it adds
         for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }
         st.BeforeChunkCall(__h);
-        _fwd++;
+        CountF();
         int rc = Abi.ak_blob_run(ctx, arr + off, k);
         st.ReleaseChunk(__h);
         return rc;
@@ -22127,14 +23225,14 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static int Loop_texts(IntPtr ctx, void* obj, long token)
     {
-        _rev++;
+        CountR();
         try
         {
             var run = (Run_Surrogate*)obj;
             int n = run->N_texts;
             if (n == 0) return 0;
             if (run->Defer != 0) { var h = Host(run); return PinStrs_texts(ctx, (ak_str*)run->S_texts, h.St, h.Root.Texts, n, run->Defer); }
-            _fwd++;
+            CountF();
             return Abi.ak_blob_run(ctx, (ak_str*)run->S_texts, n);
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -22266,7 +23364,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             var fix = new ak_ufix_Surrogate();
             G.U_Surrogate(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_Surrogate(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -22276,7 +23374,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             var fix = new ak_efix_Surrogate();
             G.E_Surrogate(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_Surrogate(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -22352,7 +23450,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_Surrogate* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_Surrogate(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -22360,7 +23458,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_attrs(IntPtr ctx, void* obj, long token, ak_dfix_SurrogateAttrsEntry* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -22378,7 +23476,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Add_texts(IntPtr ctx, void* obj, long token, ak_span* xs, int n)
     {
-        _rev++;
+        CountR();
         try
         {
             if (G.PlantHostFail == 2) throw new InvalidOperationException("planted host failure (add)");
@@ -22403,8 +23501,19 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -22435,7 +23544,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Surrogate(h.Ctx, null); }
         h.Arena->Begin();
@@ -22537,7 +23646,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_Surrogate(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -22616,12 +23725,12 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_Surrogate(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -22696,7 +23805,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_Surrogate(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -22710,7 +23819,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_Surrogate(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -22789,12 +23898,42 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_SurrogateInner(bool utf16 = false)
     {
@@ -22934,7 +24073,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             var fix = new ak_ufix_SurrogateInner();
             G.U_SurrogateInner(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_SurrogateInner(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -22944,7 +24083,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             var fix = new ak_efix_SurrogateInner();
             G.E_SurrogateInner(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_SurrogateInner(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -23020,7 +24159,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_SurrogateInner* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_SurrogateInner(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -23037,8 +24176,19 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -23067,7 +24217,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_SurrogateInner(h.Ctx, null); }
         h.Arena->Begin();
@@ -23154,7 +24304,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_SurrogateInner(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -23231,12 +24381,12 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_SurrogateInner(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -23295,7 +24445,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_SurrogateInner(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -23309,7 +24459,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_SurrogateInner(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;
@@ -23369,12 +24519,42 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     private IntPtr _ctx => _eh.Ctx;
     private Stage _st => _eh.St;
     public int Chunk;
-    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per
-    /// context): one arm at a time.
+    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner
+    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so
+    /// never compiled into a timed build, where it was a shared write on every crossing of
+    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without
+    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed
+    /// build's accessors read 0.
+#if AK_HOST_COUNT
     private static long _fwd, _rev;
     public long ForwardCalls => _fwd;
     public long ReverseCalls => _rev;
     public void CallsReset() { _fwd = 0; _rev = 0; _resets = 0; }
+#else
+    public long ForwardCalls => 0;
+    public long ReverseCalls => 0;
+    public void CallsReset() { }
+#endif
+    public const bool Counting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountF()
+    {
+#if AK_HOST_COUNT
+        _fwd++;
+#endif
+    }
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountR()
+    {
+#if AK_HOST_COUNT
+        _rev++;
+#endif
+    }
 
     public CoreFfi_WireZoo(bool utf16 = false)
     {
@@ -23514,7 +24694,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             var fix = new ak_ufix_WireZoo();
             G.U_WireZoo(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_uencode_WireZoo(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_u(_run, _ctx, &vt, &fix, src, _st) : RootPinH_u(_run, _ctx, &vt, &fix, src, _st);
@@ -23524,7 +24704,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             var fix = new ak_efix_WireZoo();
             G.E_WireZoo(ref fix, src, _st);
             if (!call) return 0;
-            _fwd++;
+            CountF();
             if (__d != 0) { if (_st.Marked == 0) __d = 0; else { __h.Root = src; _run->Defer = __d; } }
             if (__d == 0) rc = Abi.ak_encode_WireZoo(_run, _ctx, &vt, &fix);
             else rc = __d == 1 ? RootPinR_e(_run, _ctx, &vt, &fix, src, _st) : RootPinH_e(_run, _ctx, &vt, &fix, src, _st);
@@ -23600,7 +24780,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_WireZoo* fix)
     {
-        _rev++;
+        CountR();
         try { if (G.PlantHostFail == 1) throw new InvalidOperationException("planted host failure (apply)"); G.D_WireZoo(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf, ((DecRun*)obj)->Arena); }
         catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }
     }
@@ -23617,8 +24797,19 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     public int Undelivered { get; private set; }
     /// The one reset that arms each decode (rule 7): a forward crossing, counted
     /// apart from ForwardCalls because the core's R5 counters do not count them.
+#if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
+#else
+    public long ResetCalls => 0;
+#endif
+    [System.Diagnostics.Conditional("AK_HOST_COUNT")]
+    private static void CountReset()
+    {
+#if AK_HOST_COUNT
+        _resets++;
+#endif
+    }
     public const bool UnknownCompiledOut = false;
 
     /// D26: the decode host context (and with it the core decode context) is created on the
@@ -23648,7 +24839,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        _resets++;
+        CountReset();
         var h = _dh;
         if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_WireZoo(h.Ctx, null); }
         h.Arena->Begin();
@@ -23743,7 +24934,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                 // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0.
                 byte* b = len == 0 ? one : b0;
                 h.Run->Buf = b;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_decode_WireZoo(h.Ctx, h.Run, b, (nuint)len, Vt);
             }
         }
@@ -23820,12 +25011,12 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             fixed (byte* one = One)
             {
                 byte* b = len == 0 ? one : b0;
-                _fwd++;
+                CountF();
                 rc = Abi.ak_parse_WireZoo(_dh.Ctx, b, (nuint)len);
                 if (rc >= 0)
                 {
                     byte* recs; nuint rlen;
-                    _fwd++;
+                    CountF();
                     rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);
                     if (rc == 0) { try { Replay(t, b, recs, (int)rlen, _dh.Run->Arena); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }
                 }
@@ -23884,7 +25075,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
             {
                 byte* b = len == 0 ? one : b0;
                 ak_fsm_ev ev;
-                _fwd++;
+                CountF();
                 UnkArena* a = _dh.Run->Arena;
                 int op = Abi.ak_fsm_begin_WireZoo(_dh.Ctx, b, (nuint)len, &ev);
                 try
@@ -23898,7 +25089,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
                             break;
                         }
                         FsmDispatch(t, b, (uint)op, &ev, a);
-                        _fwd++;
+                        CountF();
                         op = Abi.ak_fsm_next_WireZoo(_dh.Ctx, &ev);
                     }
                     rc = op < 0 ? op : 0;

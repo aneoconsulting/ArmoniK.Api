@@ -45,6 +45,16 @@ public static class VerifyFsm
 
     public static int Run(string eventsOut, string rustEvents, int variants)
     {
+#if !AK_HOST_COUNT
+        // s17 (owner, 2026-10-10): the host tally is compiled into the counting build only, so
+        // the per-family counts (and the comparison with the Rust slice's FSM events) need it;
+        // the graphs and the malformed variants are checked here as before.
+        if (eventsOut != null || rustEvents != null)
+        {
+            Console.Error.WriteLine("--verify-fsm --events / --rust-events need the counting build (-p:AkHostCount=true): the timed build has no host tally");
+            return 2;
+        }
+#endif
         var rows = new List<string>();
         var rust = ReadRust(rustEvents);
         int inputs = 0, graphs = 0, rustCompared = 0, rustMissing = 0;

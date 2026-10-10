@@ -24,6 +24,13 @@ internal sealed class Caller : IDisposable
     private byte[] _buf;
     /// host-gen's encoder (cells E and F's encode), reused across this caller's calls.
     public Enc He;
+    /// s17 (owner, 2026-10-10): the read cells' sink (what Touch returns, so the JIT keeps the
+    /// read), per caller. It was one process-wide static that every caller wrote after every
+    /// read call: a shared write on the timed path, contended at k = 8 / 16. Element 8 of a
+    /// 16-long array: the 64-byte line that holds it holds nothing of any other object.
+    private readonly long[] _sinkLine = new long[16];
+    public void Sink(long v) => _sinkLine[8] += v;
+    public long SinkValue => _sinkLine[8];
 
     /// The P2.2 grid's core-ffi binding of this caller (created on its first use).
     public CoreFfi_ListTasksDetailedResponse Core => _core ??= new CoreFfi_ListTasksDetailedResponse();

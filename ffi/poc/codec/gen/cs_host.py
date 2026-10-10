@@ -406,7 +406,9 @@ public static unsafe class UnkHost
             if (a == null) return Abi.AK_ERR_HOST;   // grow is armed only with an arena
             *dst = a->Grow(*dst, c, (int)nc);
             *cap = (int)nc;
-            Grows++;
+#if AK_HOST_COUNT
+            Grows++;   // s17: the counting build only (a process-wide write on every grow)
+#endif
             return 0;
         }
         catch { return Abi.AK_ERR_HOST; }
@@ -1176,7 +1178,7 @@ def _emit_pin_frames(o, p, root, s):
     o += "#endif"
     o += "        if (i == k)"
     o += "        {"
-    o += "            _fwd++;"
+    o += "            CountF();"
     if _NO:
         o += "            return %s;" % fwd_e
     else:
@@ -1224,7 +1226,7 @@ def _emit_pin_frames(o, p, root, s):
     o += "            }"
     o += "        }"
     o += "        st.BeforeChunkCall(__h);"
-    o += "        _fwd++;"
+    o += "        CountF();"
     if _NO:
         o += "        int rc = %s;" % fwd_e
     else:
@@ -1247,7 +1249,7 @@ def _emit_pin_elems_inner(o, p, s, i):
     o += "#if AK_HOST_COUNT"
     o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
-    o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        if (j == k) { CountF(); return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        var __e = lst[off + j];"
     for d in decls:
         o += "        %s" % d
@@ -1271,7 +1273,7 @@ def _emit_pin_elems_inner(o, p, s, i):
     _pin_patch_h(o, "            ", "__g", pins)
     o += "        }"
     o += "        st.BeforeChunkCall(__h);"
-    o += "        _fwd++;"
+    o += "        CountF();"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
@@ -1302,7 +1304,7 @@ def _emit_pin_map_inner(o, s, i):
     o += "#if AK_HOST_COUNT"
     o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
-    o += "        if (j == k) { _fwd++; return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
+    o += "        if (j == k) { CountF(); return %s; }" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        var kv = m.At(off + j);"
     o += "        fixed (char* __p0 = kv.Key, __p1 = kv.Value)"
     o += "        {"
@@ -1322,7 +1324,7 @@ def _emit_pin_map_inner(o, s, i):
     _pin_patch_h(o, "            ", "__g", [("kv.Key", "key"), ("kv.Value", "value")], " st.MapPatched++;")
     o += "        }"
     o += "        st.BeforeChunkCall(__h);"
-    o += "        _fwd++;"
+    o += "        CountF();"
     o += "        int rc = %s;" % _loop_forward(i, "(arr + off)", "k", None)
     o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
@@ -1353,7 +1355,7 @@ def _emit_pin_strs(o, name):
     o += "#if AK_HOST_COUNT"
     o += "        st.Sp(j, (byte*)&j);"
     o += "#endif"
-    o += "        if (j == k) { _fwd++; return Abi.ak_blob_run(ctx, arr + off, k); }"
+    o += "        if (j == k) { CountF(); return Abi.ak_blob_run(ctx, arr + off, k); }"
     o += "        fixed (char* __p = l[off + j])"
     o += "        {"
     o += "            if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = (IntPtr)__p; if (!Stage.NoGuard) { st.Patched++; st.RepPatched++; } }"
@@ -1366,7 +1368,7 @@ def _emit_pin_strs(o, name):
     o += "        int __h = st.ChunkMark();   // this chunk releases only the handles it adds"
     o += "        for (int j = 0; j < k; j++) if (arr[off + j].data == Stage.PinPending) { arr[off + j].data = st.PinChunk(l[off + j]); st.RepPatched++; }"
     o += "        st.BeforeChunkCall(__h);"
-    o += "        _fwd++;"
+    o += "        CountF();"
     o += "        int rc = Abi.ak_blob_run(ctx, arr + off, k);"
     o += "        st.ReleaseChunk(__h);"
     o += "        return rc;"
@@ -1511,12 +1513,42 @@ def _emit_root(o, p, root, facade_ns):
     o += "    private IntPtr _ctx => _eh.Ctx;"
     o += "    private Stage _st => _eh.St;"
     o += "    public int Chunk;"
-    o += "    /// Counted where each crossing happens (R5). Process-wide (not per thread, not per"
-    o += "    /// context): one arm at a time."
+    o += "    /// Counted where each crossing happens (R5), in the COUNTING BUILD ONLY (s17, owner"
+    o += "    /// 2026-10-10): process-wide (not per thread, not per context), one arm at a time, so"
+    o += "    /// never compiled into a timed build, where it was a shared write on every crossing of"
+    o += "    /// every caller (contended at k = 8 / 16). The calls are [Conditional]: without"
+    o += "    /// AK_HOST_COUNT the compiler emits no call and no argument evaluation at all. The timed"
+    o += "    /// build's accessors read 0."
+    o += "#if AK_HOST_COUNT"
     o += "    private static long _fwd, _rev;"
     o += "    public long ForwardCalls => _fwd;"
     o += "    public long ReverseCalls => _rev;"
     o += "    public void CallsReset() { _fwd = 0; _rev = 0;%s }" % ("" if _NO else " _resets = 0;")
+    o += "#else"
+    o += "    public long ForwardCalls => 0;"
+    o += "    public long ReverseCalls => 0;"
+    o += "    public void CallsReset() { }"
+    o += "#endif"
+    o += "    public const bool Counting ="
+    o += "#if AK_HOST_COUNT"
+    o += "        true;"
+    o += "#else"
+    o += "        false;"
+    o += "#endif"
+    o += "    [System.Diagnostics.Conditional(\"AK_HOST_COUNT\")]"
+    o += "    private static void CountF()"
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        _fwd++;"
+    o += "#endif"
+    o += "    }"
+    o += "    [System.Diagnostics.Conditional(\"AK_HOST_COUNT\")]"
+    o += "    private static void CountR()"
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        _rev++;"
+    o += "#endif"
+    o += "    }"
     for s in slots:
         o += "    private int _cap_%s;" % s.name
         for i in s.inner:
@@ -1553,7 +1585,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "    %s" % UCO
         o += "    private static int Loop_%s(IntPtr ctx, void* obj, long token)" % s.name
         o += "    {"
-        o += "        _rev++;"
+        o += "        CountR();"
         o += "        try"
         o += "        {"
         o += "            var run = (Run_%s*)obj;" % root
@@ -1577,7 +1609,7 @@ def _emit_root(o, p, root, facade_ns):
                 o += "                    if (rp < 0) return rp;"
                 o += "                    continue;"
                 o += "                }"
-            o += "                _fwd++;"
+            o += "                CountF();"
             if _NO:
                 o += "                int rc = %s;" % _loop_forward(s, "((%s*)run->S_%s + off)" % (s.cs_e, s.name), "k", "off")
             else:
@@ -1590,7 +1622,7 @@ def _emit_root(o, p, root, facade_ns):
         else:
             if s.kind == "blob" and s.f.kind == "string":
                 o += "            if (run->Defer != 0) { var h = Host(run); return PinStrs_%s(ctx, (ak_str*)run->S_%s, h.St, %s, n, run->Defer); }" % (s.name, s.name, _get("h.Root", p, root, s.path))
-            o += "            _fwd++;"
+            o += "            CountF();"
             o += "            return %s;" % _loop_forward(s, "run->S_%s" % s.name, "n", None)
         o += "        }"
         o += "        catch { return Abi.AK_ERR_HOST; }"
@@ -1600,7 +1632,7 @@ def _emit_root(o, p, root, facade_ns):
             o += "    %s" % UCO
             o += "    private static int Loop_%s_%s(IntPtr ctx, void* obj, long token)" % (s.name, i.name)
             o += "    {"
-            o += "        _rev++;"
+            o += "        CountR();"
             o += "        try"
             o += "        {"
             o += "            var run = (Run_%s*)obj;" % root
@@ -1619,7 +1651,7 @@ def _emit_root(o, p, root, facade_ns):
                 el = "%s[e]" % _get("h.Root", p, root, s.path)
                 o += "            if (run->Defer != 0) { var h = Host(run); return PinElems_%s_%s(ctx, (%s*)run->I_%s_%s + run->O_%s_%s[e], h.St, %s, n, run->Defer); }" % (
                     s.name, i.name, i.cs_e, s.name, i.name, s.name, i.name, _get(el, p, s.et, i.path))
-            o += "            _fwd++;"
+            o += "            CountF();"
             o += "            return %s;" % _loop_forward(
                 i, "((%s*)run->I_%s_%s + run->O_%s_%s[e])" % (i.cs_e, s.name, i.name, s.name, i.name), "n", None)
             o += "        }"
@@ -1746,7 +1778,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "            var fix = new ak_efix_%s();" % root
         o += "            G.E_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
-        o += "            _fwd++;"
+        o += "            CountF();"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
                    else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "e", ds)
         o += "        }"
@@ -1756,7 +1788,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "            var fix = new ak_ufix_%s();" % root
         o += "            G.U_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
-        o += "            _fwd++;"
+        o += "            CountF();"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
                    else ("rc = Abi.ak_uencode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "u", ds)
         o += "        }"
@@ -1765,7 +1797,7 @@ def _emit_root(o, p, root, facade_ns):
         o += "            var fix = new ak_efix_%s();" % root
         o += "            G.E_%s(ref fix, src, _st);" % root
         o += "            if (!call) return 0;"
-        o += "            _fwd++;"
+        o += "            CountF();"
         _root_call(o, "            ", ("fixed (byte* dp = direct) rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix%s);" % (root, dargs)) if ds
                    else ("rc = Abi.ak_encode_%s(_run, _ctx, &vt, &fix);" % root), rpins, "e", ds)
         o += "        }"
@@ -1891,7 +1923,7 @@ def _emit_decode(o, p, root, slots):
     o += "    %s" % UCO
     o += "    private static void ApplyRoot(IntPtr ctx, void* obj, ak_dfix_%s* fix)" % root
     o += "    {"
-    o += "        _rev++;"
+    o += "        CountR();"
     o += "        try { if (G.PlantHostFail == 1) throw new InvalidOperationException(\"planted host failure (apply)\"); G.D_%s(ref *fix, Tgt(obj), ((DecRun*)obj)->Buf%s); }" % (root, arg_a)
     o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
     o += "    }"
@@ -1902,7 +1934,7 @@ def _emit_decode(o, p, root, slots):
             o += "    %s" % UCO
             o += "    private static void Add_%s(IntPtr ctx, void* obj, long token, %s* xs, int n)" % (s.name, s.cs_d)
             o += "    {"
-            o += "        _rev++;"
+            o += "        CountR();"
             o += "        try"
             o += "        {"
             o += "            if (G.PlantHostFail == 2) throw new InvalidOperationException(\"planted host failure (add)\");"
@@ -1919,7 +1951,7 @@ def _emit_decode(o, p, root, slots):
         o += "    %s" % UCO
         o += "    private static long New_%s(IntPtr ctx, void* obj)" % s.name
         o += "    {"
-        o += "        _rev++;"
+        o += "        CountR();"
         o += "        try { if (G.PlantHostFail == 2) throw new InvalidOperationException(\"planted host failure (new)\"); var lst = %s; lst.Add(new %s()); return lst.Count - 1; }" % (lst, s.et)
         o += "        catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); return -1; }"
         o += "    }"
@@ -1927,7 +1959,7 @@ def _emit_decode(o, p, root, slots):
         o += "    %s" % UCO
         o += "    private static void Apply_%s(IntPtr ctx, void* obj, long token, ak_dfix_%s* fix)" % (s.name, s.et)
         o += "    {"
-        o += "        _rev++;"
+        o += "        CountR();"
         o += "        try { var lst = %s; G.D_%s(ref *fix, lst[(int)token], ((DecRun*)obj)->Buf%s); }" % (lst, s.et, arg_a)
         o += "        catch (DecoderFallbackException) { Abi.ak_fail(ctx, Abi.AK_ERR_TRANSCODE, null, 0); } catch { Abi.ak_fail(ctx, Abi.AK_ERR_HOST, null, 0); }"
         o += "    }"
@@ -1936,7 +1968,7 @@ def _emit_decode(o, p, root, slots):
             o += "    %s" % UCO
             o += "    private static void Add_%s_%s(IntPtr ctx, void* obj, long token, %s* xs, int n)" % (s.name, i.name, i.cs_d)
             o += "    {"
-            o += "        _rev++;"
+            o += "        CountR();"
             o += "        try"
             o += "        {"
             o += "            byte* b = ((DecRun*)obj)->Buf;"
@@ -2012,7 +2044,7 @@ def _emit_decode(o, p, root, slots):
     o += "                // (NULL, 0) is never handed to the core: an empty buffer is a valid pointer and 0."
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                h.Run->Buf = b;"
-    o += "                _fwd++;"
+    o += "                CountF();"
     o += "                rc = Abi.ak_decode_%s(h.Ctx, h.Run, b, (nuint)len, Vt);" % root
     o += "            }"
     o += "        }"
@@ -2147,8 +2179,19 @@ def _emit_unk(o, p, root):
     o += "    public int Undelivered { get; private set; }"
     o += "    /// The one reset that arms each decode (rule 7): a forward crossing, counted"
     o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
+    o += "#if AK_HOST_COUNT"
     o += "    private static long _resets;"
     o += "    public long ResetCalls => _resets;"
+    o += "#else"
+    o += "    public long ResetCalls => 0;"
+    o += "#endif"
+    o += "    [System.Diagnostics.Conditional(\"AK_HOST_COUNT\")]"
+    o += "    private static void CountReset()"
+    o += "    {"
+    o += "#if AK_HOST_COUNT"
+    o += "        _resets++;"
+    o += "#endif"
+    o += "    }"
     o += "    public const bool UnknownCompiledOut = false;"
     o += ""
     o += "    /// D26: the decode host context (and with it the core decode context) is created on the"
@@ -2188,19 +2231,19 @@ def _emit_unk(o, p, root):
         o += "            h.Run->Arena = null;"
         o += "            if (!h.CoreArmed) return 0;"
         o += "            h.CoreArmed = false;"
-        o += "            _resets++;"
+        o += "            CountReset();"
         o += "            return Abi.ak_dec_reset_%s(h.Ctx, null);" % root
         o += "        }"
         o += "        h.Arena->Begin();"
         o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
         o += "        var uo = Arm(mode);"
         o += "        if (h.CoreArmed) return 0;"
-        o += "        _resets++;"
+        o += "        CountReset();"
         o += "        int rr = Abi.ak_dec_reset_%s(h.Ctx, uo);" % root
         o += "        if (rr == 0) h.CoreArmed = true;"
         o += "        return rr;"
     else:
-        o += "        _resets++;"
+        o += "        CountReset();"
         o += "        var h = _dh;"
         o += "        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_%s(h.Ctx, null); }" % root
         o += "        h.Arena->Begin();"
@@ -2262,12 +2305,12 @@ def _emit_pull(o, p, root, slots):
     o += "            fixed (byte* one = One)"
     o += "            {"
     o += "                byte* b = len == 0 ? one : b0;"
-    o += "                _fwd++;"
+    o += "                CountF();"
     o += "                rc = Abi.ak_parse_%s(_dh.Ctx, b, (nuint)len);" % root
     o += "                if (rc >= 0)"
     o += "                {"
     o += "                    byte* recs; nuint rlen;"
-    o += "                    _fwd++;"
+    o += "                    CountF();"
     o += "                    rc = Abi.ak_bdr_ptr(_dh.Ctx, &recs, &rlen);"
     o += "                    if (rc == 0) { try { Replay(t, b, recs, (int)rlen%s); } catch (DecoderFallbackException) { rc = Abi.AK_ERR_TRANSCODE; } }" % ("" if _NO else ", _dh.Run->Arena")
     o += "                }"
@@ -2386,7 +2429,7 @@ def _emit_fsm(o, p, root, slots):
     o += "            {"
     o += "                byte* b = len == 0 ? one : b0;"
     o += "                ak_fsm_ev ev;"
-    o += "                _fwd++;"
+    o += "                CountF();"
     if not _NO:
         o += "                UnkArena* a = _dh.Run->Arena;"
     o += "                int op = Abi.ak_fsm_begin_%s(_dh.Ctx, b, (nuint)len, &ev);" % root
@@ -2401,7 +2444,7 @@ def _emit_fsm(o, p, root, slots):
     o += "                            break;"
     o += "                        }"
     o += "                        FsmDispatch(t, b, (uint)op, &ev%s);" % _aa()
-    o += "                        _fwd++;"
+    o += "                        CountF();"
     o += "                        op = Abi.ak_fsm_next_%s(_dh.Ctx, &ev);" % root
     o += "                    }"
     o += "                    rc = op < 0 ? op : 0;"

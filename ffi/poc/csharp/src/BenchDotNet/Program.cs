@@ -42,6 +42,7 @@ public static class Program
         var art = Opt(a, "--artifacts", "BenchmarkDotNet.Artifacts");
         if (a.Contains("--list-units")) { foreach (var u in Cases.Units(launch)) Console.WriteLine(u); return 0; }
         if (a.Contains("--counts")) return CountRun.Run(Opt(a, "--counts", "counts.txt"));
+        if (a.Contains("--il-tally")) return IlTally.Run(Opt(a, "--expect", "none"));
         if (a.Contains("--kernels"))
         {
             // D21 step 7 item 3: the vector widths .NET 8 uses here (its UTF-16 <-> UTF-8 and ASCII

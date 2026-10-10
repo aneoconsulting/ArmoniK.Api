@@ -147,8 +147,9 @@ public sealed class CoreChannel : IDisposable
     {
         var st = new CallState();
         var h = GCHandle.Alloc(st);
-        IntPtr call = StartCb(path, req, GCHandle.ToIntPtr(h),
-            (ulong)Interlocked.Increment(ref _tag));
+        // s17: the callback carries its state in `user`; the tag is unread here (OnDone takes
+        // the GCHandle), so it is 0, as in Deliveries: no shared counter written per call.
+        IntPtr call = StartCb(path, req, GCHandle.ToIntPtr(h), 0);
         if (call == IntPtr.Zero) { h.Free(); throw new InvalidOperationException("ak_call_unary_cb"); }
         await st.Tcs.Task.ConfigureAwait(false);
         AkRpc.ak_call_destroy(call);

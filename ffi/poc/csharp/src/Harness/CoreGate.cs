@@ -33,6 +33,13 @@ namespace Armonik.Ffi.Harness;
 
 public static class CoreGate
 {
+    /// s17: the host tally exists in the counting build only.
+    private const bool CoreFfiCounting =
+#if AK_HOST_COUNT
+        true;
+#else
+        false;
+#endif
     public static int Run(params string[] argv)
     {
         var rows = Manifest.Load();
@@ -87,6 +94,17 @@ public static class CoreGate
         var expect = new Dictionary<string, string>(StringComparer.Ordinal);
         var xpath = Environment.GetEnvironmentVariable("AK_CROSSINGS_EXPECT");
         bool checkCounts = !string.IsNullOrEmpty(xpath);
+#if !AK_HOST_COUNT
+        // s17 (owner, 2026-10-10): the host's tally (ForwardCalls / ReverseCalls) is compiled
+        // into the counting build only; here it reads 0, so the crossing columns, the
+        // no-reverse-call claims of the FSM and pull, and R5 are checked by the counting build.
+        Console.WriteLine("host tally: compiled out (timed build): crossings, the FSM's and pull's no-reverse-call claims and R5 are the counting build's checks (-p:AkHostCount=true)");
+        if (checkCounts)
+        {
+            Console.WriteLine("AK_CROSSINGS_EXPECT needs the counting build (-p:AkHostCount=true): the timed build has no host tally");
+            return 2;
+        }
+#endif
         if (!string.IsNullOrEmpty(xpath))
             foreach (var l in System.IO.File.ReadAllLines(xpath))
                 if (l.Length != 0 && l[0] != '#') { var f = l.Split(' ', 2); expect[f[0]] = f[1]; }
@@ -228,7 +246,7 @@ public static class CoreGate
                 catch (Exception ex) { pull = "THREW " + ex.GetType().Name; }
                 if (pull != "ok") bad++;
 
-                if (ec.forward != 0 || ec.reverse != 0 || dc.forward != 0 || dc.reverse != 0 || fc.forward != 0)
+                if (CoreFfiCounting && (ec.forward != 0 || ec.reverse != 0 || dc.forward != 0 || dc.reverse != 0 || fc.forward != 0))
                 {
                     coreCounts = true;
                     bool same = (long)ec.forward == ef && (long)ec.reverse == er
@@ -273,7 +291,8 @@ public static class CoreGate
         if (!string.IsNullOrEmpty(wr))
             System.IO.File.WriteAllLines(wr, new[] { "# payload  encode fwd rev  fsm-decode fwd rev  push-decode fwd rev  pull-decode fwd rev (whole run per element call; counting core; D24: the FSM is the target decode)" }.Concat(wrote));
         Console.WriteLine("R5: the host's tally and the core's counters are {0}.",
-            coreCounts ? "compared above and equal on every row"
+            !CoreFfiCounting ? "not compared -- the host tally is compiled into the counting build only (s17)"
+            : coreCounts ? "compared above and equal on every row"
                        : "not comparable here -- this core was not built with --features count");
         Console.WriteLine();
         Console.WriteLine("Reading the crossing columns. THEY ARE THE SAME QUANTITY as the core's own,");

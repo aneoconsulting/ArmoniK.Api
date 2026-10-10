@@ -193,7 +193,6 @@ public static class CampaignMain
     private sealed class Abort : Exception { public Abort(string m) : base(m) { } }
 
     private static byte[] _wire;
-    private static long _sink;
     // D26 (s15): the caches that were thread-static are the fields of the caller's object
     // (Caller.cs), passed to every call; cells D and F's marshallers rent one per call (they
     // run on whichever thread-pool thread Grpc.Net uses; the queue grows to the calls in flight
@@ -358,7 +357,7 @@ public static class CampaignMain
                 if (codec == 0)
                 {
                     var m = Gp.ListTasksDetailedResponse.Parser.ParseFrom(new ReadOnlySpan<byte>((void*)r.ptr, (int)r.len));
-                    if (read) _sink += Touch.G_ListTasksDetailedResponse(m);
+                    if (read) cl.Sink(Touch.G_ListTasksDetailedResponse(m));
                     return;
                 }
                 // The managed decoders take a managed buffer: the response is copied once
@@ -373,7 +372,7 @@ public static class CampaignMain
                     if (dr < 0) throw new Abort(cell + ": core FSM decode " + dr + (dr == CoreFfi_ListTasksDetailedResponse.UNDELIVERED ? " (UNDELIVERED)" : ""));
                 }
                 else fm = HostDecode(b, (int)r.len, retain, cell);
-                if (read) _sink += Touch.F_ListTasksDetailedResponse(fm);
+                if (read) cl.Sink(Touch.F_ListTasksDetailedResponse(fm));
             }
             finally { AkRpc.ak_bytes_free(&r); }
         }
@@ -459,7 +458,7 @@ public static class CampaignMain
             if (!keep(name)) return;
             var inv = GrpcCh(name);
             cells.Add(new Cell { Name = name, Dir = "a", Mode = ModeOf(name), OneAsync = async cl => { await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); } });
-            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), OneAsync = async cl => { var m = await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); _sink += touch(m); } });
+            cells.Add(new Cell { Name = name, Dir = "a+read", Mode = ModeOf(name), OneAsync = async cl => { var m = await inv.AsyncUnaryCall(down, null, new CallOptions(), Array.Empty<byte>()); cl.Sink(touch(m)); } });
             cells.Add(new Cell { Name = name, Dir = "b", Mode = ModeOf(name), OneAsync = async cl => { var r = await inv.AsyncUnaryCall(up, null, new CallOptions(), req); CheckLen(r.Length, 0, name + " up"); } });
         }
         var aDown = DownMethod(c => { CheckLen(c.PayloadLength, want, "A"); return Gp.ListTasksDetailedResponse.Parser.ParseFrom(c.PayloadAsReadOnlySequence()); });
@@ -544,7 +543,7 @@ public static class CampaignMain
                 {
                     CheckLen((int)r.len, want, name);
                     long h = Decode(cl, r, core, read);
-                    if (read) _sink += h;
+                    if (read) cl.Sink(h);
                 }
                 finally { CoreChannel.Release(ref r); }
             }
@@ -602,7 +601,7 @@ public static class CampaignMain
         try
         {
             if (d.Status != AkRpc.AK_OK) throw new Abort(cell + ": status " + d.Status + " grpc " + d.Grpc);
-            _sink += DecodeRead(cl, d.Bytes, codec, retain, want, cell);
+            cl.Sink(DecodeRead(cl, d.Bytes, codec, retain, want, cell));
         }
         finally { DeliveryChannel.Free(d.Bytes); }
     }
