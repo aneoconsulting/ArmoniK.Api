@@ -1,0 +1,12 @@
+# rep 1 dflt full: rc=0 64 s; core 7b8ed0b888940ab7; quiet: load1 0.40, no process above 10 % (waited 25 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 1 pgo0 full: rc=0 50 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 70 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 2 pgo0 full: rc=0 50 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 55 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 2 dflt full: rc=0 54 s; core 7b8ed0b888940ab7; quiet: load1 0.48, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 3 dflt full: rc=0 51 s; core 7b8ed0b888940ab7; quiet: load1 0.47, no process above 10 % (waited 35 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 3 pgo0 full: rc=0 49 s; core 7b8ed0b888940ab7; quiet: load1 0.49, no process above 10 % (waited 50 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 4 pgo0 full: rc=0 50 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 85 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 4 dflt full: rc=0 51 s; core 7b8ed0b888940ab7; quiet: load1 0.47, no process above 10 % (waited 55 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 5 dflt full: rc=0 52 s; core 7b8ed0b888940ab7; quiet: load1 0.47, no process above 10 % (waited 70 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 5 pgo0 full: rc=0 54 s; core 7b8ed0b888940ab7; quiet: load1 0.49, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 6 pgo0 full: rc=0 54 s; core 7b8ed0b888940ab7; quiet: load1 0.49, no process above 10 % (waited 45 s); # correctness:    4525 pre-timing checks passed (byte identi
+# rep 6 dflt full: rc=0 56 s; core 7b8ed0b888940ab7; quiet: load1 0.46, no process above 10 % (waited 50 s); # correctness:    4525 pre-timing checks passed (byte identi
