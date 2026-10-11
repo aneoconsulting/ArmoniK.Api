@@ -1,0 +1,16 @@
+s17, a follow-up probe of the grid's largest difference (CONTAINER INSTRUMENTATION, NOT quiet:
+load1 about 1.0 when it ran; one process per build and tiering setting, BDN's grouped
+toolchain, AK_BDN_ONLY=P1.1,U-nested-before, encode-core-hot, E0, drop and retain, 6 rounds).
+The grid (one child process per case) shows retain ~300-600 ns faster with the lazy render on
+the small rows that have elements (P1.1, P2.1, the U-* rows), drop about equal.
+Here, ns per op (median of rounds):
+  eager  TC=1: P1.1 drop 805 retain 1135; U-nested-before drop 233 retain 565
+  lazy   TC=1: P1.1 drop 709 retain 1014; U-nested-before drop 214 retain 393
+  eager  TC=0: P1.1 drop 782 retain 1108; U-nested-before drop 248 retain 563
+  lazy   TC=0: P1.1 drop 777 retain  818; U-nested-before drop 257 retain 250
+The ~300 ns retain excess is present for the eager render with and without tiered compilation,
+and present or absent for the lazy render depending on the process (here: with TC=1 in a
+grouped process it appears for lazy too). So it is a process-state-dependent cost of the
+retain encode, not attributed to the render; the grid's retain differences between the two
+renders are not explained by these runs. Counts and bytes of the two renders are identical
+(logs/csharp/opt/s17/p2).

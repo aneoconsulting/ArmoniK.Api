@@ -4,465 +4,921 @@
 
 | payload | content | dir | mode | eager | lazy |
 |---|---|---|---|---|---|
-| P1.1 | ascii | encode-core-hot | drop | 756.8 [756.8-756.8] (756.8) | 748.3 [748.3-748.3] (748.3) |
-| P1.1 | ascii | encode-core-hot | retain | 1060 [1060-1060] (1060) | 787.8 [787.8-787.8] (787.8) |
-| P1.1 | ascii | encode-transport | drop | 819.2 [819.2-819.2] (819.2) | 879.5 [879.5-879.5] (879.5) |
-| P1.1 | ascii | encode-transport | retain | 1221 [1221-1221] (1221) | 818.9 [818.9-818.9] (818.9) |
-| P1.2 | ascii | encode-core-hot | drop | 1.994e+05 [1.994e+05-1.994e+05] (1.994e+05) | 1.912e+05 [1.912e+05-1.912e+05] (1.912e+05) |
-| P1.2 | ascii | encode-core-hot | retain | 1.986e+05 [1.986e+05-1.986e+05] (1.986e+05) | 2.032e+05 [2.032e+05-2.032e+05] (2.032e+05) |
-| P1.2 | ascii | encode-transport | drop | 1.945e+05 [1.945e+05-1.945e+05] (1.945e+05) | 2.019e+05 [2.019e+05-2.019e+05] (2.019e+05) |
-| P1.2 | ascii | encode-transport | retain | 2.156e+05 [2.156e+05-2.156e+05] (2.156e+05) | 2.204e+05 [2.204e+05-2.204e+05] (2.204e+05) |
-| P1.2 | latin1 | encode-core-hot | drop | 2.536e+05 [2.536e+05-2.536e+05] (2.536e+05) | 2.753e+05 [2.753e+05-2.753e+05] (2.753e+05) |
-| P1.2 | latin1 | encode-core-hot | retain | 2.652e+05 [2.652e+05-2.652e+05] (2.652e+05) | 2.679e+05 [2.679e+05-2.679e+05] (2.679e+05) |
-| P1.2 | latin1 | encode-transport | drop | 4.202e+05 [4.202e+05-4.202e+05] (4.202e+05) | 2.746e+05 [2.746e+05-2.746e+05] (2.746e+05) |
-| P1.2 | latin1 | encode-transport | retain | 3.059e+05 [3.059e+05-3.059e+05] (3.059e+05) | 2.896e+05 [2.896e+05-2.896e+05] (2.896e+05) |
-| P1.2 | wide | encode-core-hot | drop | 3.504e+05 [3.504e+05-3.504e+05] (3.504e+05) | 3.69e+05 [3.69e+05-3.69e+05] (3.69e+05) |
-| P1.2 | wide | encode-core-hot | retain | 3.534e+05 [3.534e+05-3.534e+05] (3.534e+05) | 3.661e+05 [3.661e+05-3.661e+05] (3.661e+05) |
-| P1.2 | wide | encode-transport | drop | 3.713e+05 [3.713e+05-3.713e+05] (3.713e+05) | 4.021e+05 [4.021e+05-4.021e+05] (4.021e+05) |
-| P1.2 | wide | encode-transport | retain | 3.823e+05 [3.823e+05-3.823e+05] (3.823e+05) | 3.835e+05 [3.835e+05-3.835e+05] (3.835e+05) |
-| P1.3 | ascii | encode-core-hot | drop | 1.83e+04 [1.83e+04-1.83e+04] (1.83e+04) | 1.818e+04 [1.818e+04-1.818e+04] (1.818e+04) |
-| P1.3 | ascii | encode-core-hot | retain | 1.801e+04 [1.801e+04-1.801e+04] (1.801e+04) | 1.884e+04 [1.884e+04-1.884e+04] (1.884e+04) |
-| P1.3 | ascii | encode-transport | drop | 1.774e+04 [1.774e+04-1.774e+04] (1.774e+04) | 1.924e+04 [1.924e+04-1.924e+04] (1.924e+04) |
-| P1.3 | ascii | encode-transport | retain | 1.886e+04 [1.886e+04-1.886e+04] (1.886e+04) | 1.989e+04 [1.989e+04-1.989e+04] (1.989e+04) |
-| P2.1 | ascii | encode-core-hot | drop | 1328 [1328-1328] (1328) | 1253 [1253-1253] (1253) |
-| P2.1 | ascii | encode-core-hot | retain | 1647 [1647-1647] (1647) | 1281 [1281-1281] (1281) |
-| P2.1 | ascii | encode-transport | drop | 1474 [1474-1474] (1474) | 1557 [1557-1557] (1557) |
-| P2.1 | ascii | encode-transport | retain | 1901 [1901-1901] (1901) | 1669 [1669-1669] (1669) |
-| P2.2 | ascii | encode-core-hot | drop | 8.181e+05 [8.181e+05-8.181e+05] (8.181e+05) | 7.955e+05 [7.955e+05-7.955e+05] (7.955e+05) |
-| P2.2 | ascii | encode-core-hot | retain | 9.693e+05 [9.693e+05-9.693e+05] (9.693e+05) | 8.647e+05 [8.647e+05-8.647e+05] (8.647e+05) |
-| P2.2 | ascii | encode-transport | drop | 9.347e+05 [9.347e+05-9.347e+05] (9.347e+05) | 8.879e+05 [8.879e+05-8.879e+05] (8.879e+05) |
-| P2.2 | ascii | encode-transport | retain | 9.539e+05 [9.539e+05-9.539e+05] (9.539e+05) | 8.992e+05 [8.992e+05-8.992e+05] (8.992e+05) |
-| P2.2 | latin1 | encode-core-hot | drop | 1.011e+06 [1.011e+06-1.011e+06] (1.011e+06) | 1.048e+06 [1.048e+06-1.048e+06] (1.048e+06) |
-| P2.2 | latin1 | encode-core-hot | retain | 1.292e+06 [1.292e+06-1.292e+06] (1.292e+06) | 1.094e+06 [1.094e+06-1.094e+06] (1.094e+06) |
-| P2.2 | latin1 | encode-transport | drop | 1.175e+06 [1.175e+06-1.175e+06] (1.175e+06) | 1.141e+06 [1.141e+06-1.141e+06] (1.141e+06) |
-| P2.2 | latin1 | encode-transport | retain | 1.311e+06 [1.311e+06-1.311e+06] (1.311e+06) | 1.255e+06 [1.255e+06-1.255e+06] (1.255e+06) |
-| P2.2 | wide | encode-core-hot | drop | 1.293e+06 [1.293e+06-1.293e+06] (1.293e+06) | 1.283e+06 [1.283e+06-1.283e+06] (1.283e+06) |
-| P2.2 | wide | encode-core-hot | retain | 1.547e+06 [1.547e+06-1.547e+06] (1.547e+06) | 1.331e+06 [1.331e+06-1.331e+06] (1.331e+06) |
-| P2.2 | wide | encode-transport | drop | 1.504e+06 [1.504e+06-1.504e+06] (1.504e+06) | 1.345e+06 [1.345e+06-1.345e+06] (1.345e+06) |
-| P2.2 | wide | encode-transport | retain | 1.535e+06 [1.535e+06-1.535e+06] (1.535e+06) | 1.433e+06 [1.433e+06-1.433e+06] (1.433e+06) |
-| P2.3 | ascii | encode-core-hot | drop | 5.675e+05 [5.675e+05-5.675e+05] (5.675e+05) | 5.485e+05 [5.485e+05-5.485e+05] (5.485e+05) |
-| P2.3 | ascii | encode-core-hot | retain | 6.31e+05 [6.31e+05-6.31e+05] (6.31e+05) | 5.528e+05 [5.528e+05-5.528e+05] (5.528e+05) |
-| P2.3 | ascii | encode-transport | drop | 6.937e+05 [6.937e+05-6.937e+05] (6.937e+05) | 6.188e+05 [6.188e+05-6.188e+05] (6.188e+05) |
-| P2.3 | ascii | encode-transport | retain | 6.463e+05 [6.463e+05-6.463e+05] (6.463e+05) | 6.272e+05 [6.272e+05-6.272e+05] (6.272e+05) |
-| P2.4 | ascii | encode-core-hot | drop | 9.593e+05 [9.593e+05-9.593e+05] (9.593e+05) | 7.433e+05 [7.433e+05-7.433e+05] (7.433e+05) |
-| P2.4 | ascii | encode-core-hot | retain | 7.806e+05 [7.806e+05-7.806e+05] (7.806e+05) | 7.47e+05 [7.47e+05-7.47e+05] (7.47e+05) |
-| P2.4 | ascii | encode-transport | drop | 8.81e+05 [8.81e+05-8.81e+05] (8.81e+05) | 8.433e+05 [8.433e+05-8.433e+05] (8.433e+05) |
-| P2.4 | ascii | encode-transport | retain | 9.135e+05 [9.135e+05-9.135e+05] (9.135e+05) | 8.323e+05 [8.323e+05-8.323e+05] (8.323e+05) |
-| P2.4 | latin1 | encode-core-hot | drop | 1.398e+06 [1.398e+06-1.398e+06] (1.398e+06) | 1.294e+06 [1.294e+06-1.294e+06] (1.294e+06) |
-| P2.4 | latin1 | encode-core-hot | retain | 1.577e+06 [1.577e+06-1.577e+06] (1.577e+06) | 1.246e+06 [1.246e+06-1.246e+06] (1.246e+06) |
-| P2.4 | latin1 | encode-transport | drop | 1.501e+06 [1.501e+06-1.501e+06] (1.501e+06) | 1.669e+06 [1.669e+06-1.669e+06] (1.669e+06) |
-| P2.4 | latin1 | encode-transport | retain | 1.779e+06 [1.779e+06-1.779e+06] (1.779e+06) | 1.603e+06 [1.603e+06-1.603e+06] (1.603e+06) |
-| P2.4 | wide | encode-core-hot | drop | 1.974e+06 [1.974e+06-1.974e+06] (1.974e+06) | 1.942e+06 [1.942e+06-1.942e+06] (1.942e+06) |
-| P2.4 | wide | encode-core-hot | retain | 2.04e+06 [2.04e+06-2.04e+06] (2.04e+06) | 2.01e+06 [2.01e+06-2.01e+06] (2.01e+06) |
-| P2.4 | wide | encode-transport | drop | 2.235e+06 [2.235e+06-2.235e+06] (2.235e+06) | 2.136e+06 [2.136e+06-2.136e+06] (2.136e+06) |
-| P2.4 | wide | encode-transport | retain | 2.249e+06 [2.249e+06-2.249e+06] (2.249e+06) | 2.091e+06 [2.091e+06-2.091e+06] (2.091e+06) |
-| P2.5 | ascii | encode-core-hot | drop | 2.448e+04 [2.448e+04-2.448e+04] (2.448e+04) | 2.242e+04 [2.242e+04-2.242e+04] (2.242e+04) |
-| P2.5 | ascii | encode-core-hot | retain | 2.596e+04 [2.596e+04-2.596e+04] (2.596e+04) | 2.35e+04 [2.35e+04-2.35e+04] (2.35e+04) |
-| P2.5 | ascii | encode-transport | drop | 2.995e+04 [2.995e+04-2.995e+04] (2.995e+04) | 2.533e+04 [2.533e+04-2.533e+04] (2.533e+04) |
-| P2.5 | ascii | encode-transport | retain | 3.134e+04 [3.134e+04-3.134e+04] (3.134e+04) | 2.59e+04 [2.59e+04-2.59e+04] (2.59e+04) |
-| P3.1 | ascii | encode-core-hot | drop | 1.441e+04 [1.441e+04-1.441e+04] (1.441e+04) | 1.297e+04 [1.297e+04-1.297e+04] (1.297e+04) |
-| P3.1 | ascii | encode-core-hot | retain | 1.461e+04 [1.461e+04-1.461e+04] (1.461e+04) | 1.537e+04 [1.537e+04-1.537e+04] (1.537e+04) |
-| P3.1 | ascii | encode-transport | drop | 1.412e+04 [1.412e+04-1.412e+04] (1.412e+04) | 1.601e+04 [1.601e+04-1.601e+04] (1.601e+04) |
-| P3.1 | ascii | encode-transport | retain | 1.556e+04 [1.556e+04-1.556e+04] (1.556e+04) | 1.563e+04 [1.563e+04-1.563e+04] (1.563e+04) |
-| P4.1 | ascii | encode-core-hot | drop | 1.238e+05 [1.238e+05-1.238e+05] (1.238e+05) | 1.236e+05 [1.236e+05-1.236e+05] (1.236e+05) |
-| P4.1 | ascii | encode-core-hot | retain | 1.265e+05 [1.265e+05-1.265e+05] (1.265e+05) | 1.306e+05 [1.306e+05-1.306e+05] (1.306e+05) |
-| P4.1 | ascii | encode-transport | drop | 1.266e+05 [1.266e+05-1.266e+05] (1.266e+05) | 1.597e+05 [1.597e+05-1.597e+05] (1.597e+05) |
-| P4.1 | ascii | encode-transport | retain | 1.336e+05 [1.336e+05-1.336e+05] (1.336e+05) | 1.331e+05 [1.331e+05-1.331e+05] (1.331e+05) |
-| P5.1 | ascii | encode-core-hot | drop | 99.56 [99.56-99.56] (99.56) | 102.4 [102.4-102.4] (102.4) |
-| P5.1 | ascii | encode-core-hot | retain | 110.1 [110.1-110.1] (110.1) | 108.9 [108.9-108.9] (108.9) |
-| P5.1 | ascii | encode-transport | drop | 130.6 [130.6-130.6] (130.6) | 148.5 [148.5-148.5] (148.5) |
-| P5.1 | ascii | encode-transport | retain | 141.3 [141.3-141.3] (141.3) | 148.1 [148.1-148.1] (148.1) |
-| P5.2 | ascii | encode-core-hot | drop | 2001 [2001-2001] (2001) | 1955 [1955-1955] (1955) |
-| P5.2 | ascii | encode-core-hot | retain | 1926 [1926-1926] (1926) | 1899 [1899-1899] (1899) |
-| P5.2 | ascii | encode-transport | drop | 5285 [5285-5285] (5285) | 5260 [5260-5260] (5260) |
-| P5.2 | ascii | encode-transport | retain | 5286 [5286-5286] (5286) | 5084 [5084-5084] (5084) |
-| P5.3 | ascii | encode-core-hot | drop | 4.447e+04 [4.447e+04-4.447e+04] (4.447e+04) | 4.031e+04 [4.031e+04-4.031e+04] (4.031e+04) |
-| P5.3 | ascii | encode-core-hot | retain | 4.336e+04 [4.336e+04-4.336e+04] (4.336e+04) | 4.56e+04 [4.56e+04-4.56e+04] (4.56e+04) |
-| P5.3 | ascii | encode-transport | drop | 1.542e+05 [1.542e+05-1.542e+05] (1.542e+05) | 1.21e+05 [1.21e+05-1.21e+05] (1.21e+05) |
-| P5.3 | ascii | encode-transport | retain | 1.262e+05 [1.262e+05-1.262e+05] (1.262e+05) | 1.214e+05 [1.214e+05-1.214e+05] (1.214e+05) |
-| P5.4 | ascii | encode-core-hot | drop | 3.299e+05 [3.299e+05-3.299e+05] (3.299e+05) | 3.23e+05 [3.23e+05-3.23e+05] (3.23e+05) |
-| P5.4 | ascii | encode-core-hot | retain | 2.911e+05 [2.911e+05-2.911e+05] (2.911e+05) | 3.078e+05 [3.078e+05-3.078e+05] (3.078e+05) |
-| P5.4 | ascii | encode-transport | drop | 6.485e+05 [6.485e+05-6.485e+05] (6.485e+05) | 6.735e+05 [6.735e+05-6.735e+05] (6.735e+05) |
-| P5.4 | ascii | encode-transport | retain | 6.595e+05 [6.595e+05-6.595e+05] (6.595e+05) | 6.446e+05 [6.446e+05-6.446e+05] (6.446e+05) |
-| P6.1 | ascii | encode-core-hot | drop | 1.129e+05 [1.129e+05-1.129e+05] (1.129e+05) | 1.112e+05 [1.112e+05-1.112e+05] (1.112e+05) |
-| P6.1 | ascii | encode-core-hot | retain | 1.155e+05 [1.155e+05-1.155e+05] (1.155e+05) | 1.091e+05 [1.091e+05-1.091e+05] (1.091e+05) |
-| P6.1 | ascii | encode-transport | drop | 1.262e+05 [1.262e+05-1.262e+05] (1.262e+05) | 1.157e+05 [1.157e+05-1.157e+05] (1.157e+05) |
-| P6.1 | ascii | encode-transport | retain | 1.287e+05 [1.287e+05-1.287e+05] (1.287e+05) | 1.21e+05 [1.21e+05-1.21e+05] (1.21e+05) |
-| P7.1 | ascii | encode-core-hot | drop | 266.2 [266.2-266.2] (266.2) | 250 [250-250] (250) |
-| P7.1 | ascii | encode-core-hot | retain | 336.5 [336.5-336.5] (336.5) | 268.4 [268.4-268.4] (268.4) |
-| P7.1 | ascii | encode-transport | drop | 313.1 [313.1-313.1] (313.1) | 379.5 [379.5-379.5] (379.5) |
-| P7.1 | ascii | encode-transport | retain | 337.4 [337.4-337.4] (337.4) | 359.4 [359.4-359.4] (359.4) |
-| U-deep-all | corpus | encode-core-hot | drop | 1299 [1299-1299] (1299) | 1133 [1133-1133] (1133) |
-| U-deep-all | corpus | encode-core-hot | retain | 1602 [1602-1602] (1602) | 1185 [1185-1185] (1185) |
-| U-deep-all | corpus | encode-transport | drop | 1275 [1275-1275] (1275) | 1304 [1304-1304] (1304) |
-| U-deep-all | corpus | encode-transport | retain | 1619 [1619-1619] (1619) | 1264 [1264-1264] (1264) |
-| U-deep-u-fixed32 | corpus | encode-core-hot | drop | 1165 [1165-1165] (1165) | 1140 [1140-1140] (1140) |
-| U-deep-u-fixed32 | corpus | encode-core-hot | retain | 1562 [1562-1562] (1562) | 1215 [1215-1215] (1215) |
-| U-deep-u-fixed32 | corpus | encode-transport | drop | 1267 [1267-1267] (1267) | 1198 [1198-1198] (1198) |
-| U-deep-u-fixed32 | corpus | encode-transport | retain | 1768 [1768-1768] (1768) | 1264 [1264-1264] (1264) |
-| U-deep-u-fixed64 | corpus | encode-core-hot | drop | 1242 [1242-1242] (1242) | 1127 [1127-1127] (1127) |
-| U-deep-u-fixed64 | corpus | encode-core-hot | retain | 1740 [1740-1740] (1740) | 1232 [1232-1232] (1232) |
-| U-deep-u-fixed64 | corpus | encode-transport | drop | 1292 [1292-1292] (1292) | 1178 [1178-1178] (1178) |
-| U-deep-u-fixed64 | corpus | encode-transport | retain | 1701 [1701-1701] (1701) | 1229 [1229-1229] (1229) |
-| U-deep-u-len | corpus | encode-core-hot | drop | 1181 [1181-1181] (1181) | 1153 [1153-1153] (1153) |
-| U-deep-u-len | corpus | encode-core-hot | retain | 1635 [1635-1635] (1635) | 1169 [1169-1169] (1169) |
-| U-deep-u-len | corpus | encode-transport | drop | 1315 [1315-1315] (1315) | 1256 [1256-1256] (1256) |
-| U-deep-u-len | corpus | encode-transport | retain | 1760 [1760-1760] (1760) | 1257 [1257-1257] (1257) |
-| U-deep-u-msg | corpus | encode-core-hot | drop | 1208 [1208-1208] (1208) | 1082 [1082-1082] (1082) |
-| U-deep-u-msg | corpus | encode-core-hot | retain | 1632 [1632-1632] (1632) | 1169 [1169-1169] (1169) |
-| U-deep-u-msg | corpus | encode-transport | drop | 1251 [1251-1251] (1251) | 1228 [1228-1228] (1228) |
-| U-deep-u-msg | corpus | encode-transport | retain | 1650 [1650-1650] (1650) | 1286 [1286-1286] (1286) |
-| U-deep-u-packed | corpus | encode-core-hot | drop | 1168 [1168-1168] (1168) | 1130 [1130-1130] (1130) |
-| U-deep-u-packed | corpus | encode-core-hot | retain | 1732 [1732-1732] (1732) | 1166 [1166-1166] (1166) |
-| U-deep-u-packed | corpus | encode-transport | drop | 1261 [1261-1261] (1261) | 1200 [1200-1200] (1200) |
-| U-deep-u-packed | corpus | encode-transport | retain | 1800 [1800-1800] (1800) | 1309 [1309-1309] (1309) |
-| U-deep-u-repeated | corpus | encode-core-hot | drop | 1152 [1152-1152] (1152) | 1177 [1177-1177] (1177) |
-| U-deep-u-repeated | corpus | encode-core-hot | retain | 1662 [1662-1662] (1662) | 1211 [1211-1211] (1211) |
-| U-deep-u-repeated | corpus | encode-transport | drop | 1206 [1206-1206] (1206) | 1218 [1218-1218] (1218) |
-| U-deep-u-repeated | corpus | encode-transport | retain | 1795 [1795-1795] (1795) | 1249 [1249-1249] (1249) |
-| U-deep-u-varint | corpus | encode-core-hot | drop | 1172 [1172-1172] (1172) | 1137 [1137-1137] (1137) |
-| U-deep-u-varint | corpus | encode-core-hot | retain | 1524 [1524-1524] (1524) | 1162 [1162-1162] (1162) |
-| U-deep-u-varint | corpus | encode-transport | drop | 1224 [1224-1224] (1224) | 1231 [1231-1231] (1231) |
-| U-deep-u-varint | corpus | encode-transport | retain | 1742 [1742-1742] (1742) | 1265 [1265-1265] (1265) |
-| U-element-all | corpus | encode-core-hot | drop | 1596 [1596-1596] (1596) | 1089 [1089-1089] (1089) |
-| U-element-all | corpus | encode-core-hot | retain | 1496 [1496-1496] (1496) | 1180 [1180-1180] (1180) |
-| U-element-all | corpus | encode-transport | drop | 1480 [1480-1480] (1480) | 1217 [1217-1217] (1217) |
-| U-element-all | corpus | encode-transport | retain | 1692 [1692-1692] (1692) | 1232 [1232-1232] (1232) |
-| U-element-u-fixed32 | corpus | encode-core-hot | drop | 1155 [1155-1155] (1155) | 1161 [1161-1161] (1161) |
-| U-element-u-fixed32 | corpus | encode-core-hot | retain | 1581 [1581-1581] (1581) | 1168 [1168-1168] (1168) |
-| U-element-u-fixed32 | corpus | encode-transport | drop | 1254 [1254-1254] (1254) | 1195 [1195-1195] (1195) |
-| U-element-u-fixed32 | corpus | encode-transport | retain | 1747 [1747-1747] (1747) | 1256 [1256-1256] (1256) |
-| U-element-u-fixed64 | corpus | encode-core-hot | drop | 1157 [1157-1157] (1157) | 1208 [1208-1208] (1208) |
-| U-element-u-fixed64 | corpus | encode-core-hot | retain | 1656 [1656-1656] (1656) | 1312 [1312-1312] (1312) |
-| U-element-u-fixed64 | corpus | encode-transport | drop | 1225 [1225-1225] (1225) | 1187 [1187-1187] (1187) |
-| U-element-u-fixed64 | corpus | encode-transport | retain | 1771 [1771-1771] (1771) | 1310 [1310-1310] (1310) |
-| U-element-u-len | corpus | encode-core-hot | drop | 1182 [1182-1182] (1182) | 1157 [1157-1157] (1157) |
-| U-element-u-len | corpus | encode-core-hot | retain | 1592 [1592-1592] (1592) | 1185 [1185-1185] (1185) |
-| U-element-u-len | corpus | encode-transport | drop | 1214 [1214-1214] (1214) | 1256 [1256-1256] (1256) |
-| U-element-u-len | corpus | encode-transport | retain | 1742 [1742-1742] (1742) | 1249 [1249-1249] (1249) |
-| U-element-u-msg | corpus | encode-core-hot | drop | 1197 [1197-1197] (1197) | 1144 [1144-1144] (1144) |
-| U-element-u-msg | corpus | encode-core-hot | retain | 1610 [1610-1610] (1610) | 1178 [1178-1178] (1178) |
-| U-element-u-msg | corpus | encode-transport | drop | 1223 [1223-1223] (1223) | 1196 [1196-1196] (1196) |
-| U-element-u-msg | corpus | encode-transport | retain | 1642 [1642-1642] (1642) | 1287 [1287-1287] (1287) |
-| U-element-u-packed | corpus | encode-core-hot | drop | 1238 [1238-1238] (1238) | 1119 [1119-1119] (1119) |
-| U-element-u-packed | corpus | encode-core-hot | retain | 1679 [1679-1679] (1679) | 1257 [1257-1257] (1257) |
-| U-element-u-packed | corpus | encode-transport | drop | 1260 [1260-1260] (1260) | 1191 [1191-1191] (1191) |
-| U-element-u-packed | corpus | encode-transport | retain | 1801 [1801-1801] (1801) | 1238 [1238-1238] (1238) |
-| U-element-u-repeated | corpus | encode-core-hot | drop | 1241 [1241-1241] (1241) | 1125 [1125-1125] (1125) |
-| U-element-u-repeated | corpus | encode-core-hot | retain | 1723 [1723-1723] (1723) | 1141 [1141-1141] (1141) |
-| U-element-u-repeated | corpus | encode-transport | drop | 1204 [1204-1204] (1204) | 1366 [1366-1366] (1366) |
-| U-element-u-repeated | corpus | encode-transport | retain | 1837 [1837-1837] (1837) | 1230 [1230-1230] (1230) |
-| U-element-u-varint | corpus | encode-core-hot | drop | 1248 [1248-1248] (1248) | 1152 [1152-1152] (1152) |
-| U-element-u-varint | corpus | encode-core-hot | retain | 1659 [1659-1659] (1659) | 1223 [1223-1223] (1223) |
-| U-element-u-varint | corpus | encode-transport | drop | 1226 [1226-1226] (1226) | 1242 [1242-1242] (1242) |
-| U-element-u-varint | corpus | encode-transport | retain | 1632 [1632-1632] (1632) | 1277 [1277-1277] (1277) |
-| U-enum-value-127 | corpus | encode-core-hot | drop | 133.2 [133.2-133.2] (133.2) | 127.6 [127.6-127.6] (127.6) |
-| U-enum-value-127 | corpus | encode-core-hot | retain | 287.2 [287.2-287.2] (287.2) | 131.9 [131.9-131.9] (131.9) |
-| U-enum-value-127 | corpus | encode-transport | drop | 166.4 [166.4-166.4] (166.4) | 162.4 [162.4-162.4] (162.4) |
-| U-enum-value-127 | corpus | encode-transport | retain | 342.9 [342.9-342.9] (342.9) | 163.9 [163.9-163.9] (163.9) |
-| U-enum-value-2147483647 | corpus | encode-core-hot | drop | 133.5 [133.5-133.5] (133.5) | 129.7 [129.7-129.7] (129.7) |
-| U-enum-value-2147483647 | corpus | encode-core-hot | retain | 295.7 [295.7-295.7] (295.7) | 134.2 [134.2-134.2] (134.2) |
-| U-enum-value-2147483647 | corpus | encode-transport | drop | 199.2 [199.2-199.2] (199.2) | 159 [159-159] (159) |
-| U-enum-value-2147483647 | corpus | encode-transport | retain | 353 [353-353] (353) | 171.1 [171.1-171.1] (171.1) |
-| U-enum-value-999 | corpus | encode-core-hot | drop | 133.8 [133.8-133.8] (133.8) | 123.9 [123.9-123.9] (123.9) |
-| U-enum-value-999 | corpus | encode-core-hot | retain | 295 [295-295] (295) | 126.5 [126.5-126.5] (126.5) |
-| U-enum-value-999 | corpus | encode-transport | drop | 166.2 [166.2-166.2] (166.2) | 154.2 [154.2-154.2] (154.2) |
-| U-enum-value-999 | corpus | encode-transport | retain | 391.7 [391.7-391.7] (391.7) | 167.9 [167.9-167.9] (167.9) |
-| U-enum-value-packed | corpus | encode-core-hot | drop | 185.8 [185.8-185.8] (185.8) | 172 [172-172] (172) |
-| U-enum-value-packed | corpus | encode-core-hot | retain | 181.2 [181.2-181.2] (181.2) | 179.3 [179.3-179.3] (179.3) |
-| U-enum-value-packed | corpus | encode-transport | drop | 219.4 [219.4-219.4] (219.4) | 216.5 [216.5-216.5] (216.5) |
-| U-enum-value-packed | corpus | encode-transport | retain | 223.8 [223.8-223.8] (223.8) | 222.2 [222.2-222.2] (222.2) |
-| U-leaf-all | corpus | encode-core-hot | drop | 226.4 [226.4-226.4] (226.4) | 214.5 [214.5-214.5] (214.5) |
-| U-leaf-all | corpus | encode-core-hot | retain | 564.3 [564.3-564.3] (564.3) | 254.9 [254.9-254.9] (254.9) |
-| U-leaf-all | corpus | encode-transport | drop | 244 [244-244] (244) | 262.5 [262.5-262.5] (262.5) |
-| U-leaf-all | corpus | encode-transport | retain | 666.7 [666.7-666.7] (666.7) | 318.8 [318.8-318.8] (318.8) |
-| U-leaf-u-fixed32 | corpus | encode-core-hot | drop | 226.4 [226.4-226.4] (226.4) | 213 [213-213] (213) |
-| U-leaf-u-fixed32 | corpus | encode-core-hot | retain | 581.9 [581.9-581.9] (581.9) | 249.3 [249.3-249.3] (249.3) |
-| U-leaf-u-fixed32 | corpus | encode-transport | drop | 238 [238-238] (238) | 290.7 [290.7-290.7] (290.7) |
-| U-leaf-u-fixed32 | corpus | encode-transport | retain | 599.2 [599.2-599.2] (599.2) | 311.1 [311.1-311.1] (311.1) |
-| U-leaf-u-fixed64 | corpus | encode-core-hot | drop | 217.1 [217.1-217.1] (217.1) | 208.7 [208.7-208.7] (208.7) |
-| U-leaf-u-fixed64 | corpus | encode-core-hot | retain | 555.4 [555.4-555.4] (555.4) | 241.5 [241.5-241.5] (241.5) |
-| U-leaf-u-fixed64 | corpus | encode-transport | drop | 248 [248-248] (248) | 261.7 [261.7-261.7] (261.7) |
-| U-leaf-u-fixed64 | corpus | encode-transport | retain | 579.6 [579.6-579.6] (579.6) | 289.9 [289.9-289.9] (289.9) |
-| U-leaf-u-len | corpus | encode-core-hot | drop | 218.9 [218.9-218.9] (218.9) | 231 [231-231] (231) |
-| U-leaf-u-len | corpus | encode-core-hot | retain | 562 [562-562] (562) | 237.3 [237.3-237.3] (237.3) |
-| U-leaf-u-len | corpus | encode-transport | drop | 244.4 [244.4-244.4] (244.4) | 266.7 [266.7-266.7] (266.7) |
-| U-leaf-u-len | corpus | encode-transport | retain | 711.4 [711.4-711.4] (711.4) | 288.7 [288.7-288.7] (288.7) |
-| U-leaf-u-msg | corpus | encode-core-hot | drop | 224.8 [224.8-224.8] (224.8) | 208 [208-208] (208) |
-| U-leaf-u-msg | corpus | encode-core-hot | retain | 572.9 [572.9-572.9] (572.9) | 239.1 [239.1-239.1] (239.1) |
-| U-leaf-u-msg | corpus | encode-transport | drop | 249.5 [249.5-249.5] (249.5) | 273.2 [273.2-273.2] (273.2) |
-| U-leaf-u-msg | corpus | encode-transport | retain | 626.6 [626.6-626.6] (626.6) | 296.3 [296.3-296.3] (296.3) |
-| U-leaf-u-packed | corpus | encode-core-hot | drop | 215.8 [215.8-215.8] (215.8) | 218.2 [218.2-218.2] (218.2) |
-| U-leaf-u-packed | corpus | encode-core-hot | retain | 543.1 [543.1-543.1] (543.1) | 237.2 [237.2-237.2] (237.2) |
-| U-leaf-u-packed | corpus | encode-transport | drop | 251.8 [251.8-251.8] (251.8) | 254 [254-254] (254) |
-| U-leaf-u-packed | corpus | encode-transport | retain | 594.5 [594.5-594.5] (594.5) | 285.8 [285.8-285.8] (285.8) |
-| U-leaf-u-repeated | corpus | encode-core-hot | drop | 216.6 [216.6-216.6] (216.6) | 211.6 [211.6-211.6] (211.6) |
-| U-leaf-u-repeated | corpus | encode-core-hot | retain | 556.1 [556.1-556.1] (556.1) | 244.3 [244.3-244.3] (244.3) |
-| U-leaf-u-repeated | corpus | encode-transport | drop | 240.4 [240.4-240.4] (240.4) | 273.9 [273.9-273.9] (273.9) |
-| U-leaf-u-repeated | corpus | encode-transport | retain | 623.9 [623.9-623.9] (623.9) | 287.6 [287.6-287.6] (287.6) |
-| U-leaf-u-varint | corpus | encode-core-hot | drop | 227.6 [227.6-227.6] (227.6) | 217.1 [217.1-217.1] (217.1) |
-| U-leaf-u-varint | corpus | encode-core-hot | retain | 568.8 [568.8-568.8] (568.8) | 250.8 [250.8-250.8] (250.8) |
-| U-leaf-u-varint | corpus | encode-transport | drop | 239.1 [239.1-239.1] (239.1) | 250.4 [250.4-250.4] (250.4) |
-| U-leaf-u-varint | corpus | encode-transport | retain | 611.1 [611.1-611.1] (611.1) | 292.4 [292.4-292.4] (292.4) |
-| U-nested-all | corpus | encode-core-hot | drop | 224.7 [224.7-224.7] (224.7) | 212.1 [212.1-212.1] (212.1) |
-| U-nested-all | corpus | encode-core-hot | retain | 552 [552-552] (552) | 229 [229-229] (229) |
-| U-nested-all | corpus | encode-transport | drop | 232 [232-232] (232) | 254.6 [254.6-254.6] (254.6) |
-| U-nested-all | corpus | encode-transport | retain | 596.4 [596.4-596.4] (596.4) | 270.1 [270.1-270.1] (270.1) |
-| U-nested-before | corpus | encode-core-hot | drop | 237.5 [237.5-237.5] (237.5) | 211.7 [211.7-211.7] (211.7) |
-| U-nested-before | corpus | encode-core-hot | retain | 548.9 [548.9-548.9] (548.9) | 232 [232-232] (232) |
-| U-nested-before | corpus | encode-transport | drop | 246.4 [246.4-246.4] (246.4) | 268.6 [268.6-268.6] (268.6) |
-| U-nested-before | corpus | encode-transport | retain | 592.5 [592.5-592.5] (592.5) | 274.4 [274.4-274.4] (274.4) |
-| U-nested-group | corpus | encode-core-hot | drop | 226.1 [226.1-226.1] (226.1) | 215.4 [215.4-215.4] (215.4) |
-| U-nested-group | corpus | encode-core-hot | retain | 524.1 [524.1-524.1] (524.1) | 227.3 [227.3-227.3] (227.3) |
-| U-nested-group | corpus | encode-transport | drop | 238.2 [238.2-238.2] (238.2) | 256.3 [256.3-256.3] (256.3) |
-| U-nested-group | corpus | encode-transport | retain | 727.3 [727.3-727.3] (727.3) | 273.5 [273.5-273.5] (273.5) |
-| U-nested-interleaved | corpus | encode-core-hot | drop | 219.5 [219.5-219.5] (219.5) | 217.2 [217.2-217.2] (217.2) |
-| U-nested-interleaved | corpus | encode-core-hot | retain | 558.4 [558.4-558.4] (558.4) | 229.3 [229.3-229.3] (229.3) |
-| U-nested-interleaved | corpus | encode-transport | drop | 255.1 [255.1-255.1] (255.1) | 253.3 [253.3-253.3] (253.3) |
-| U-nested-interleaved | corpus | encode-transport | retain | 595.5 [595.5-595.5] (595.5) | 275.1 [275.1-275.1] (275.1) |
-| U-nested-u-fixed32 | corpus | encode-core-hot | drop | 216.5 [216.5-216.5] (216.5) | 210.5 [210.5-210.5] (210.5) |
-| U-nested-u-fixed32 | corpus | encode-core-hot | retain | 536.3 [536.3-536.3] (536.3) | 234 [234-234] (234) |
-| U-nested-u-fixed32 | corpus | encode-transport | drop | 244.7 [244.7-244.7] (244.7) | 258.5 [258.5-258.5] (258.5) |
-| U-nested-u-fixed32 | corpus | encode-transport | retain | 591.1 [591.1-591.1] (591.1) | 279.7 [279.7-279.7] (279.7) |
-| U-nested-u-fixed64 | corpus | encode-core-hot | drop | 209.9 [209.9-209.9] (209.9) | 226.3 [226.3-226.3] (226.3) |
-| U-nested-u-fixed64 | corpus | encode-core-hot | retain | 590.2 [590.2-590.2] (590.2) | 237.7 [237.7-237.7] (237.7) |
-| U-nested-u-fixed64 | corpus | encode-transport | drop | 236.2 [236.2-236.2] (236.2) | 256.9 [256.9-256.9] (256.9) |
-| U-nested-u-fixed64 | corpus | encode-transport | retain | 649.8 [649.8-649.8] (649.8) | 286 [286-286] (286) |
-| U-nested-u-len | corpus | encode-core-hot | drop | 219.7 [219.7-219.7] (219.7) | 216.2 [216.2-216.2] (216.2) |
-| U-nested-u-len | corpus | encode-core-hot | retain | 525.1 [525.1-525.1] (525.1) | 233.8 [233.8-233.8] (233.8) |
-| U-nested-u-len | corpus | encode-transport | drop | 238.1 [238.1-238.1] (238.1) | 280.3 [280.3-280.3] (280.3) |
-| U-nested-u-len | corpus | encode-transport | retain | 593.8 [593.8-593.8] (593.8) | 282.7 [282.7-282.7] (282.7) |
-| U-nested-u-msg | corpus | encode-core-hot | drop | 217.9 [217.9-217.9] (217.9) | 209.4 [209.4-209.4] (209.4) |
-| U-nested-u-msg | corpus | encode-core-hot | retain | 564.1 [564.1-564.1] (564.1) | 227.5 [227.5-227.5] (227.5) |
-| U-nested-u-msg | corpus | encode-transport | drop | 250.3 [250.3-250.3] (250.3) | 260.2 [260.2-260.2] (260.2) |
-| U-nested-u-msg | corpus | encode-transport | retain | 637.7 [637.7-637.7] (637.7) | 273.2 [273.2-273.2] (273.2) |
-| U-nested-u-packed | corpus | encode-core-hot | drop | 219.2 [219.2-219.2] (219.2) | 210.2 [210.2-210.2] (210.2) |
-| U-nested-u-packed | corpus | encode-core-hot | retain | 568.6 [568.6-568.6] (568.6) | 243.4 [243.4-243.4] (243.4) |
-| U-nested-u-packed | corpus | encode-transport | drop | 250.8 [250.8-250.8] (250.8) | 264.4 [264.4-264.4] (264.4) |
-| U-nested-u-packed | corpus | encode-transport | retain | 643.8 [643.8-643.8] (643.8) | 288.6 [288.6-288.6] (288.6) |
-| U-nested-u-repeated | corpus | encode-core-hot | drop | 210.1 [210.1-210.1] (210.1) | 220 [220-220] (220) |
-| U-nested-u-repeated | corpus | encode-core-hot | retain | 527.3 [527.3-527.3] (527.3) | 249.7 [249.7-249.7] (249.7) |
-| U-nested-u-repeated | corpus | encode-transport | drop | 261.6 [261.6-261.6] (261.6) | 254.3 [254.3-254.3] (254.3) |
-| U-nested-u-repeated | corpus | encode-transport | retain | 593 [593-593] (593) | 283.1 [283.1-283.1] (283.1) |
-| U-nested-u-varint | corpus | encode-core-hot | drop | 214.3 [214.3-214.3] (214.3) | 237.6 [237.6-237.6] (237.6) |
-| U-nested-u-varint | corpus | encode-core-hot | retain | 561.8 [561.8-561.8] (561.8) | 227.9 [227.9-227.9] (227.9) |
-| U-nested-u-varint | corpus | encode-transport | drop | 248.9 [248.9-248.9] (248.9) | 256.3 [256.3-256.3] (256.3) |
-| U-nested-u-varint | corpus | encode-transport | retain | 593.7 [593.7-593.7] (593.7) | 291.4 [291.4-291.4] (291.4) |
-| U-oneof-all | corpus | encode-core-hot | drop | 113.2 [113.2-113.2] (113.2) | 116.8 [116.8-116.8] (116.8) |
-| U-oneof-all | corpus | encode-core-hot | retain | 125.4 [125.4-125.4] (125.4) | 130.4 [130.4-130.4] (130.4) |
-| U-oneof-all | corpus | encode-transport | drop | 157.1 [157.1-157.1] (157.1) | 155.4 [155.4-155.4] (155.4) |
-| U-oneof-all | corpus | encode-transport | retain | 157 [157-157] (157) | 161.9 [161.9-161.9] (161.9) |
-| U-oneof-before | corpus | encode-core-hot | drop | 126.4 [126.4-126.4] (126.4) | 112.9 [112.9-112.9] (112.9) |
-| U-oneof-before | corpus | encode-core-hot | retain | 123.5 [123.5-123.5] (123.5) | 126.5 [126.5-126.5] (126.5) |
-| U-oneof-before | corpus | encode-transport | drop | 153.2 [153.2-153.2] (153.2) | 163.1 [163.1-163.1] (163.1) |
-| U-oneof-before | corpus | encode-transport | retain | 180.6 [180.6-180.6] (180.6) | 166.3 [166.3-166.3] (166.3) |
-| U-oneof-group | corpus | encode-core-hot | drop | 119.6 [119.6-119.6] (119.6) | 112.1 [112.1-112.1] (112.1) |
-| U-oneof-group | corpus | encode-core-hot | retain | 133 [133-133] (133) | 125.2 [125.2-125.2] (125.2) |
-| U-oneof-group | corpus | encode-transport | drop | 148.4 [148.4-148.4] (148.4) | 157.9 [157.9-157.9] (157.9) |
-| U-oneof-group | corpus | encode-transport | retain | 178.3 [178.3-178.3] (178.3) | 169.9 [169.9-169.9] (169.9) |
-| U-oneof-interleaved | corpus | encode-core-hot | drop | 106.9 [106.9-106.9] (106.9) | 112.6 [112.6-112.6] (112.6) |
-| U-oneof-interleaved | corpus | encode-core-hot | retain | 127.1 [127.1-127.1] (127.1) | 127.2 [127.2-127.2] (127.2) |
-| U-oneof-interleaved | corpus | encode-transport | drop | 151.1 [151.1-151.1] (151.1) | 152 [152-152] (152) |
-| U-oneof-interleaved | corpus | encode-transport | retain | 164.2 [164.2-164.2] (164.2) | 167.5 [167.5-167.5] (167.5) |
-| U-oneof-member-after-known | corpus | encode-core-hot | drop | 129.3 [129.3-129.3] (129.3) | 113.9 [113.9-113.9] (113.9) |
-| U-oneof-member-after-known | corpus | encode-core-hot | retain | 121.4 [121.4-121.4] (121.4) | 120.3 [120.3-120.3] (120.3) |
-| U-oneof-member-after-known | corpus | encode-transport | drop | 147 [147-147] (147) | 154.3 [154.3-154.3] (154.3) |
-| U-oneof-member-after-known | corpus | encode-transport | retain | 156.5 [156.5-156.5] (156.5) | 164.3 [164.3-164.3] (164.3) |
-| U-oneof-member-alone | corpus | encode-core-hot | drop | 104.8 [104.8-104.8] (104.8) | 111 [111-111] (111) |
-| U-oneof-member-alone | corpus | encode-core-hot | retain | 118 [118-118] (118) | 128.5 [128.5-128.5] (128.5) |
-| U-oneof-member-alone | corpus | encode-transport | drop | 138.8 [138.8-138.8] (138.8) | 153.1 [153.1-153.1] (153.1) |
-| U-oneof-member-alone | corpus | encode-transport | retain | 151.8 [151.8-151.8] (151.8) | 159.9 [159.9-159.9] (159.9) |
-| U-oneof-member-before-known | corpus | encode-core-hot | drop | 111.1 [111.1-111.1] (111.1) | 115.5 [115.5-115.5] (115.5) |
-| U-oneof-member-before-known | corpus | encode-core-hot | retain | 127.6 [127.6-127.6] (127.6) | 127 [127-127] (127) |
-| U-oneof-member-before-known | corpus | encode-transport | drop | 153.5 [153.5-153.5] (153.5) | 161.1 [161.1-161.1] (161.1) |
-| U-oneof-member-before-known | corpus | encode-transport | retain | 154.9 [154.9-154.9] (154.9) | 161.9 [161.9-161.9] (161.9) |
-| U-oneof-u-fixed32 | corpus | encode-core-hot | drop | 109.1 [109.1-109.1] (109.1) | 111.4 [111.4-111.4] (111.4) |
-| U-oneof-u-fixed32 | corpus | encode-core-hot | retain | 124.7 [124.7-124.7] (124.7) | 122.9 [122.9-122.9] (122.9) |
-| U-oneof-u-fixed32 | corpus | encode-transport | drop | 155.9 [155.9-155.9] (155.9) | 153.1 [153.1-153.1] (153.1) |
-| U-oneof-u-fixed32 | corpus | encode-transport | retain | 170.2 [170.2-170.2] (170.2) | 159.1 [159.1-159.1] (159.1) |
-| U-oneof-u-fixed64 | corpus | encode-core-hot | drop | 106.3 [106.3-106.3] (106.3) | 115.7 [115.7-115.7] (115.7) |
-| U-oneof-u-fixed64 | corpus | encode-core-hot | retain | 127.5 [127.5-127.5] (127.5) | 143.8 [143.8-143.8] (143.8) |
-| U-oneof-u-fixed64 | corpus | encode-transport | drop | 144.6 [144.6-144.6] (144.6) | 153.1 [153.1-153.1] (153.1) |
-| U-oneof-u-fixed64 | corpus | encode-transport | retain | 161.8 [161.8-161.8] (161.8) | 171.4 [171.4-171.4] (171.4) |
-| U-oneof-u-len | corpus | encode-core-hot | drop | 112.4 [112.4-112.4] (112.4) | 112.6 [112.6-112.6] (112.6) |
-| U-oneof-u-len | corpus | encode-core-hot | retain | 125.3 [125.3-125.3] (125.3) | 126.6 [126.6-126.6] (126.6) |
-| U-oneof-u-len | corpus | encode-transport | drop | 153 [153-153] (153) | 159.2 [159.2-159.2] (159.2) |
-| U-oneof-u-len | corpus | encode-transport | retain | 174.9 [174.9-174.9] (174.9) | 160.4 [160.4-160.4] (160.4) |
-| U-oneof-u-msg | corpus | encode-core-hot | drop | 125.6 [125.6-125.6] (125.6) | 112 [112-112] (112) |
-| U-oneof-u-msg | corpus | encode-core-hot | retain | 119.1 [119.1-119.1] (119.1) | 130.7 [130.7-130.7] (130.7) |
-| U-oneof-u-msg | corpus | encode-transport | drop | 144.5 [144.5-144.5] (144.5) | 159.8 [159.8-159.8] (159.8) |
-| U-oneof-u-msg | corpus | encode-transport | retain | 152.7 [152.7-152.7] (152.7) | 159.6 [159.6-159.6] (159.6) |
-| U-oneof-u-packed | corpus | encode-core-hot | drop | 107.4 [107.4-107.4] (107.4) | 111.6 [111.6-111.6] (111.6) |
-| U-oneof-u-packed | corpus | encode-core-hot | retain | 127.3 [127.3-127.3] (127.3) | 122.2 [122.2-122.2] (122.2) |
-| U-oneof-u-packed | corpus | encode-transport | drop | 151.9 [151.9-151.9] (151.9) | 156.7 [156.7-156.7] (156.7) |
-| U-oneof-u-packed | corpus | encode-transport | retain | 172.8 [172.8-172.8] (172.8) | 170.8 [170.8-170.8] (170.8) |
-| U-oneof-u-repeated | corpus | encode-core-hot | drop | 110.9 [110.9-110.9] (110.9) | 115.5 [115.5-115.5] (115.5) |
-| U-oneof-u-repeated | corpus | encode-core-hot | retain | 122 [122-122] (122) | 124.3 [124.3-124.3] (124.3) |
-| U-oneof-u-repeated | corpus | encode-transport | drop | 143.2 [143.2-143.2] (143.2) | 156.9 [156.9-156.9] (156.9) |
-| U-oneof-u-repeated | corpus | encode-transport | retain | 171.5 [171.5-171.5] (171.5) | 166.4 [166.4-166.4] (166.4) |
-| U-oneof-u-varint | corpus | encode-core-hot | drop | 111.1 [111.1-111.1] (111.1) | 115.3 [115.3-115.3] (115.3) |
-| U-oneof-u-varint | corpus | encode-core-hot | retain | 132.3 [132.3-132.3] (132.3) | 128.7 [128.7-128.7] (128.7) |
-| U-oneof-u-varint | corpus | encode-transport | drop | 146.7 [146.7-146.7] (146.7) | 159.3 [159.3-159.3] (159.3) |
-| U-oneof-u-varint | corpus | encode-transport | retain | 163 [163-163] (163) | 161.8 [161.8-161.8] (161.8) |
-| U-root-all | corpus | encode-core-hot | drop | 412.1 [412.1-412.1] (412.1) | 377.8 [377.8-377.8] (377.8) |
-| U-root-all | corpus | encode-core-hot | retain | 389.7 [389.7-389.7] (389.7) | 430.6 [430.6-430.6] (430.6) |
-| U-root-all | corpus | encode-transport | drop | 420.7 [420.7-420.7] (420.7) | 439.4 [439.4-439.4] (439.4) |
-| U-root-all | corpus | encode-transport | retain | 415.9 [415.9-415.9] (415.9) | 445.4 [445.4-445.4] (445.4) |
-| U-root-before | corpus | encode-core-hot | drop | 379.4 [379.4-379.4] (379.4) | 391.2 [391.2-391.2] (391.2) |
-| U-root-before | corpus | encode-core-hot | retain | 397.9 [397.9-397.9] (397.9) | 403.5 [403.5-403.5] (403.5) |
-| U-root-before | corpus | encode-transport | drop | 388.2 [388.2-388.2] (388.2) | 431.7 [431.7-431.7] (431.7) |
-| U-root-before | corpus | encode-transport | retain | 411.6 [411.6-411.6] (411.6) | 450.8 [450.8-450.8] (450.8) |
-| U-root-group | corpus | encode-core-hot | drop | 428.7 [428.7-428.7] (428.7) | 389.6 [389.6-389.6] (389.6) |
-| U-root-group | corpus | encode-core-hot | retain | 434 [434-434] (434) | 423.1 [423.1-423.1] (423.1) |
-| U-root-group | corpus | encode-transport | drop | 387.9 [387.9-387.9] (387.9) | 443.2 [443.2-443.2] (443.2) |
-| U-root-group | corpus | encode-transport | retain | 484.6 [484.6-484.6] (484.6) | 446.1 [446.1-446.1] (446.1) |
-| U-root-interleaved | corpus | encode-core-hot | drop | 390.3 [390.3-390.3] (390.3) | 445.7 [445.7-445.7] (445.7) |
-| U-root-interleaved | corpus | encode-core-hot | retain | 400.2 [400.2-400.2] (400.2) | 417 [417-417] (417) |
-| U-root-interleaved | corpus | encode-transport | drop | 398.4 [398.4-398.4] (398.4) | 438.4 [438.4-438.4] (438.4) |
-| U-root-interleaved | corpus | encode-transport | retain | 415.3 [415.3-415.3] (415.3) | 446.5 [446.5-446.5] (446.5) |
-| U-root-max-tag | corpus | encode-core-hot | drop | 390.5 [390.5-390.5] (390.5) | 383.6 [383.6-383.6] (383.6) |
-| U-root-max-tag | corpus | encode-core-hot | retain | 390.2 [390.2-390.2] (390.2) | 404.2 [404.2-404.2] (404.2) |
-| U-root-max-tag | corpus | encode-transport | drop | 403.8 [403.8-403.8] (403.8) | 440.1 [440.1-440.1] (440.1) |
-| U-root-max-tag | corpus | encode-transport | retain | 461.4 [461.4-461.4] (461.4) | 434.5 [434.5-434.5] (434.5) |
-| U-root-u-fixed32 | corpus | encode-core-hot | drop | 384.6 [384.6-384.6] (384.6) | 402.1 [402.1-402.1] (402.1) |
-| U-root-u-fixed32 | corpus | encode-core-hot | retain | 410.2 [410.2-410.2] (410.2) | 410 [410-410] (410) |
-| U-root-u-fixed32 | corpus | encode-transport | drop | 391.4 [391.4-391.4] (391.4) | 441.9 [441.9-441.9] (441.9) |
-| U-root-u-fixed32 | corpus | encode-transport | retain | 432.5 [432.5-432.5] (432.5) | 469 [469-469] (469) |
-| U-root-u-fixed64 | corpus | encode-core-hot | drop | 393.7 [393.7-393.7] (393.7) | 373.5 [373.5-373.5] (373.5) |
-| U-root-u-fixed64 | corpus | encode-core-hot | retain | 390.1 [390.1-390.1] (390.1) | 468.3 [468.3-468.3] (468.3) |
-| U-root-u-fixed64 | corpus | encode-transport | drop | 427.3 [427.3-427.3] (427.3) | 425.6 [425.6-425.6] (425.6) |
-| U-root-u-fixed64 | corpus | encode-transport | retain | 434 [434-434] (434) | 469.4 [469.4-469.4] (469.4) |
-| U-root-u-len | corpus | encode-core-hot | drop | 389.9 [389.9-389.9] (389.9) | 391.2 [391.2-391.2] (391.2) |
-| U-root-u-len | corpus | encode-core-hot | retain | 402.1 [402.1-402.1] (402.1) | 399.8 [399.8-399.8] (399.8) |
-| U-root-u-len | corpus | encode-transport | drop | 407.5 [407.5-407.5] (407.5) | 431.4 [431.4-431.4] (431.4) |
-| U-root-u-len | corpus | encode-transport | retain | 422 [422-422] (422) | 452.7 [452.7-452.7] (452.7) |
-| U-root-u-msg | corpus | encode-core-hot | drop | 414.4 [414.4-414.4] (414.4) | 402.8 [402.8-402.8] (402.8) |
-| U-root-u-msg | corpus | encode-core-hot | retain | 426.3 [426.3-426.3] (426.3) | 397.5 [397.5-397.5] (397.5) |
-| U-root-u-msg | corpus | encode-transport | drop | 402.6 [402.6-402.6] (402.6) | 439.6 [439.6-439.6] (439.6) |
-| U-root-u-msg | corpus | encode-transport | retain | 428.2 [428.2-428.2] (428.2) | 433.7 [433.7-433.7] (433.7) |
-| U-root-u-packed | corpus | encode-core-hot | drop | 434.8 [434.8-434.8] (434.8) | 439.2 [439.2-439.2] (439.2) |
-| U-root-u-packed | corpus | encode-core-hot | retain | 394.2 [394.2-394.2] (394.2) | 395.8 [395.8-395.8] (395.8) |
-| U-root-u-packed | corpus | encode-transport | drop | 395.2 [395.2-395.2] (395.2) | 488.9 [488.9-488.9] (488.9) |
-| U-root-u-packed | corpus | encode-transport | retain | 475.3 [475.3-475.3] (475.3) | 465.3 [465.3-465.3] (465.3) |
-| U-root-u-repeated | corpus | encode-core-hot | drop | 389.3 [389.3-389.3] (389.3) | 372 [372-372] (372) |
-| U-root-u-repeated | corpus | encode-core-hot | retain | 412.4 [412.4-412.4] (412.4) | 408.6 [408.6-408.6] (408.6) |
-| U-root-u-repeated | corpus | encode-transport | drop | 418.8 [418.8-418.8] (418.8) | 423.4 [423.4-423.4] (423.4) |
-| U-root-u-repeated | corpus | encode-transport | retain | 441.1 [441.1-441.1] (441.1) | 450.2 [450.2-450.2] (450.2) |
-| U-root-u-varint | corpus | encode-core-hot | drop | 414.3 [414.3-414.3] (414.3) | 378.5 [378.5-378.5] (378.5) |
-| U-root-u-varint | corpus | encode-core-hot | retain | 400.2 [400.2-400.2] (400.2) | 462.2 [462.2-462.2] (462.2) |
-| U-root-u-varint | corpus | encode-transport | drop | 416.5 [416.5-416.5] (416.5) | 455 [455-455] (455) |
-| U-root-u-varint | corpus | encode-transport | retain | 446.6 [446.6-446.6] (446.6) | 452.9 [452.9-452.9] (452.9) |
-| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | drop | 217.3 [217.3-217.3] (217.3) | 189.9 [189.9-189.9] (189.9) |
-| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | retain | 219.9 [219.9-219.9] (219.9) | 212 [212-212] (212) |
-| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | drop | 257.6 [257.6-257.6] (257.6) | 239.6 [239.6-239.6] (239.6) |
-| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | retain | 250.2 [250.2-250.2] (250.2) | 255.3 [255.3-255.3] (255.3) |
-| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | drop | 196.8 [196.8-196.8] (196.8) | 202.6 [202.6-202.6] (202.6) |
-| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | retain | 220 [220-220] (220) | 237 [237-237] (237) |
-| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | drop | 235.2 [235.2-235.2] (235.2) | 224.9 [224.9-224.9] (224.9) |
-| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | retain | 246.7 [246.7-246.7] (246.7) | 259.9 [259.9-259.9] (259.9) |
-| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | drop | 206.4 [206.4-206.4] (206.4) | 195.3 [195.3-195.3] (195.3) |
-| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | retain | 216.8 [216.8-216.8] (216.8) | 209.6 [209.6-209.6] (209.6) |
-| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | drop | 237.6 [237.6-237.6] (237.6) | 227.4 [227.4-227.4] (227.4) |
-| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | retain | 263.2 [263.2-263.2] (263.2) | 253.9 [253.9-253.9] (253.9) |
-| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | drop | 1119 [1119-1119] (1119) | 1125 [1125-1125] (1125) |
-| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | retain | 1144 [1144-1144] (1144) | 1135 [1135-1135] (1135) |
-| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | drop | 1178 [1178-1178] (1178) | 1195 [1195-1195] (1195) |
-| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | retain | 1201 [1201-1201] (1201) | 1207 [1207-1207] (1207) |
-| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | drop | 1131 [1131-1131] (1131) | 1089 [1089-1089] (1089) |
-| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | retain | 1187 [1187-1187] (1187) | 1148 [1148-1148] (1148) |
-| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | drop | 1167 [1167-1167] (1167) | 1172 [1172-1172] (1172) |
-| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | retain | 1198 [1198-1198] (1198) | 1234 [1234-1234] (1234) |
-| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | drop | 1102 [1102-1102] (1102) | 1124 [1124-1124] (1124) |
-| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | retain | 1152 [1152-1152] (1152) | 1154 [1154-1154] (1154) |
-| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | drop | 1177 [1177-1177] (1177) | 1230 [1230-1230] (1230) |
-| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | retain | 1215 [1215-1215] (1215) | 1237 [1237-1237] (1237) |
-| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | drop | 181.8 [181.8-181.8] (181.8) | 215.6 [215.6-215.6] (215.6) |
-| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | retain | 186.9 [186.9-186.9] (186.9) | 194.7 [194.7-194.7] (194.7) |
-| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | drop | 227.5 [227.5-227.5] (227.5) | 224.8 [224.8-224.8] (224.8) |
-| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | retain | 242.7 [242.7-242.7] (242.7) | 240.1 [240.1-240.1] (240.1) |
-| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | drop | 181.5 [181.5-181.5] (181.5) | 186.4 [186.4-186.4] (186.4) |
-| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | retain | 190.9 [190.9-190.9] (190.9) | 190.9 [190.9-190.9] (190.9) |
-| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | drop | 208.8 [208.8-208.8] (208.8) | 227.9 [227.9-227.9] (227.9) |
-| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | retain | 230.7 [230.7-230.7] (230.7) | 250.5 [250.5-250.5] (250.5) |
-| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | drop | 187 [187-187] (187) | 187.2 [187.2-187.2] (187.2) |
-| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | retain | 205.8 [205.8-205.8] (205.8) | 204.2 [204.2-204.2] (204.2) |
-| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | drop | 229.9 [229.9-229.9] (229.9) | 222.3 [222.3-222.3] (222.3) |
-| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | retain | 236.9 [236.9-236.9] (236.9) | 251.6 [251.6-251.6] (251.6) |
-| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | drop | 390.2 [390.2-390.2] (390.2) | 386.1 [386.1-386.1] (386.1) |
-| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | retain | 408.4 [408.4-408.4] (408.4) | 401.3 [401.3-401.3] (401.3) |
-| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | drop | 418.7 [418.7-418.7] (418.7) | 435.7 [435.7-435.7] (435.7) |
-| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | retain | 419 [419-419] (419) | 474.1 [474.1-474.1] (474.1) |
-| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | drop | 402.9 [402.9-402.9] (402.9) | 429.2 [429.2-429.2] (429.2) |
-| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | retain | 390.3 [390.3-390.3] (390.3) | 413.5 [413.5-413.5] (413.5) |
-| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | drop | 391.7 [391.7-391.7] (391.7) | 439.3 [439.3-439.3] (439.3) |
-| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | retain | 425.3 [425.3-425.3] (425.3) | 465 [465-465] (465) |
-| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | drop | 399.3 [399.3-399.3] (399.3) | 375.8 [375.8-375.8] (375.8) |
-| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | retain | 395.5 [395.5-395.5] (395.5) | 400.1 [400.1-400.1] (400.1) |
-| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | drop | 395.3 [395.3-395.3] (395.3) | 456.7 [456.7-456.7] (456.7) |
-| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | retain | 424.2 [424.2-424.2] (424.2) | 503 [503-503] (503) |
-| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | drop | 394.4 [394.4-394.4] (394.4) | 402.4 [402.4-402.4] (402.4) |
-| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | retain | 414 [414-414] (414) | 440.3 [440.3-440.3] (440.3) |
-| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | drop | 386.8 [386.8-386.8] (386.8) | 421.9 [421.9-421.9] (421.9) |
-| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | retain | 414.7 [414.7-414.7] (414.7) | 446.3 [446.3-446.3] (446.3) |
-| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | drop | 381.7 [381.7-381.7] (381.7) | 369.9 [369.9-369.9] (369.9) |
-| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | retain | 442.4 [442.4-442.4] (442.4) | 381 [381-381] (381) |
-| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | drop | 395.2 [395.2-395.2] (395.2) | 428.1 [428.1-428.1] (428.1) |
-| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | retain | 421.5 [421.5-421.5] (421.5) | 461 [461-461] (461) |
-| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | drop | 384.5 [384.5-384.5] (384.5) | 381.3 [381.3-381.3] (381.3) |
-| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | retain | 399.5 [399.5-399.5] (399.5) | 414.7 [414.7-414.7] (414.7) |
-| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | drop | 390.6 [390.6-390.6] (390.6) | 426.9 [426.9-426.9] (426.9) |
-| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | retain | 481.7 [481.7-481.7] (481.7) | 439.7 [439.7-439.7] (439.7) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 1071 [1071-1071] (1071) | 1090 [1090-1090] (1090) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 1106 [1106-1106] (1106) | 1110 [1110-1110] (1110) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | drop | 1080 [1080-1080] (1080) | 1198 [1198-1198] (1198) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | retain | 1166 [1166-1166] (1166) | 1173 [1173-1173] (1173) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 1076 [1076-1076] (1076) | 1137 [1137-1137] (1137) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 1117 [1117-1117] (1117) | 1142 [1142-1142] (1142) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | drop | 1127 [1127-1127] (1127) | 1176 [1176-1176] (1176) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | retain | 1175 [1175-1175] (1175) | 1214 [1214-1214] (1214) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 1089 [1089-1089] (1089) | 1120 [1120-1120] (1120) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 1187 [1187-1187] (1187) | 1121 [1121-1121] (1121) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | drop | 1733 [1733-1733] (1733) | 1175 [1175-1175] (1175) |
-| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | retain | 1181 [1181-1181] (1181) | 1200 [1200-1200] (1200) |
-| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | drop | 2390 [2390-2390] (2390) | 2226 [2226-2226] (2226) |
-| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | retain | 2488 [2488-2488] (2488) | 2359 [2359-2359] (2359) |
-| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | drop | 2407 [2407-2407] (2407) | 2370 [2370-2370] (2370) |
-| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | retain | 2408 [2408-2408] (2408) | 2570 [2570-2570] (2570) |
-| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | drop | 2328 [2328-2328] (2328) | 2238 [2238-2238] (2238) |
-| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | retain | 2352 [2352-2352] (2352) | 2358 [2358-2358] (2358) |
-| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | drop | 2348 [2348-2348] (2348) | 2386 [2386-2386] (2386) |
-| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | retain | 2485 [2485-2485] (2485) | 2451 [2451-2451] (2451) |
-| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | drop | 2427 [2427-2427] (2427) | 2339 [2339-2339] (2339) |
-| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | retain | 2421 [2421-2421] (2421) | 2407 [2407-2407] (2407) |
-| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | drop | 2417 [2417-2417] (2417) | 2304 [2304-2304] (2304) |
-| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | retain | 2436 [2436-2436] (2436) | 2525 [2525-2525] (2525) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 2444 [2444-2444] (2444) | 2210 [2210-2210] (2210) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 2361 [2361-2361] (2361) | 2374 [2374-2374] (2374) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | drop | 2376 [2376-2376] (2376) | 2388 [2388-2388] (2388) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | retain | 2510 [2510-2510] (2510) | 2448 [2448-2448] (2448) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 2350 [2350-2350] (2350) | 2158 [2158-2158] (2158) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 2454 [2454-2454] (2454) | 2369 [2369-2369] (2369) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | drop | 2417 [2417-2417] (2417) | 2470 [2470-2470] (2470) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | retain | 2477 [2477-2477] (2477) | 2709 [2709-2709] (2709) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 2335 [2335-2335] (2335) | 2280 [2280-2280] (2280) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 2398 [2398-2398] (2398) | 2353 [2353-2353] (2353) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | drop | 2425 [2425-2425] (2425) | 2391 [2391-2391] (2391) |
-| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | retain | 2622 [2622-2622] (2622) | 2358 [2358-2358] (2358) |
-| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | drop | 100.4 [100.4-100.4] (100.4) | 100.7 [100.7-100.7] (100.7) |
-| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | retain | 105.4 [105.4-105.4] (105.4) | 111.3 [111.3-111.3] (111.3) |
-| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | drop | 128.2 [128.2-128.2] (128.2) | 139.7 [139.7-139.7] (139.7) |
-| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | retain | 142.8 [142.8-142.8] (142.8) | 185.2 [185.2-185.2] (185.2) |
-| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | drop | 112.2 [112.2-112.2] (112.2) | 114.4 [114.4-114.4] (114.4) |
-| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | retain | 105.7 [105.7-105.7] (105.7) | 110.4 [110.4-110.4] (110.4) |
-| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | drop | 129 [129-129] (129) | 133.3 [133.3-133.3] (133.3) |
-| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | retain | 138.1 [138.1-138.1] (138.1) | 138.1 [138.1-138.1] (138.1) |
-| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | drop | 100.4 [100.4-100.4] (100.4) | 100.5 [100.5-100.5] (100.5) |
-| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | retain | 128.7 [128.7-128.7] (128.7) | 107.7 [107.7-107.7] (107.7) |
-| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | drop | 137.9 [137.9-137.9] (137.9) | 139.1 [139.1-139.1] (139.1) |
-| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | retain | 137.3 [137.3-137.3] (137.3) | 138.6 [138.6-138.6] (138.6) |
+| P1.1 | ascii | encode-core-hot | drop | 740.5 [722.9-780.9] (756.8 780.9 722.9) | 746.2 [735-771.1] (748.3 771.1 735) |
+| P1.1 | ascii | encode-core-hot | retain | 1047 [1035-1084] (1060 1035 1084) | 756.2 [697.3-787.8] (787.8 763.2 697.3) |
+| P1.1 | ascii | encode-transport | drop | 771.7 [737.8-819.2] (819.2 737.8 768.1) | 854.7 [814.2-879.5] (879.5 814.2 863.8) |
+| P1.1 | ascii | encode-transport | retain | 1175 [1163-1221] (1221 1168 1163) | 819.8 [818.9-823.9] (818.9 820.5 823.9) |
+| P1.2 | ascii | encode-core-hot | drop | 1.964e+05 [1.894e+05-2.005e+05] (1.994e+05 1.894e+05 2.005e+05) | 1.868e+05 [1.85e+05-1.912e+05] (1.912e+05 1.85e+05 1.872e+05) |
+| P1.2 | ascii | encode-core-hot | retain | 1.98e+05 [1.917e+05-2.01e+05] (1.986e+05 1.917e+05 2.01e+05) | 2.007e+05 [1.921e+05-2.032e+05] (2.032e+05 1.921e+05 1.995e+05) |
+| P1.2 | ascii | encode-transport | drop | 1.945e+05 [1.885e+05-2.157e+05] (1.945e+05 2.157e+05 1.885e+05) | 1.987e+05 [1.892e+05-2.019e+05] (2.019e+05 1.892e+05 1.972e+05) |
+| P1.2 | ascii | encode-transport | retain | 2.185e+05 [2.155e+05-2.294e+05] (2.156e+05 2.294e+05 2.155e+05) | 2.142e+05 [2.097e+05-2.254e+05] (2.204e+05 2.254e+05 2.097e+05) |
+| P1.2 | latin1 | encode-core-hot | drop | 2.573e+05 [2.497e+05-2.93e+05] (2.536e+05 2.93e+05 2.497e+05) | 2.614e+05 [2.474e+05-2.753e+05] (2.753e+05 2.474e+05 2.606e+05) |
+| P1.2 | latin1 | encode-core-hot | retain | 2.661e+05 [2.613e+05-2.676e+05] (2.652e+05 2.613e+05 2.676e+05) | 2.691e+05 [2.608e+05-2.757e+05] (2.679e+05 2.757e+05 2.608e+05) |
+| P1.2 | latin1 | encode-transport | drop | 3.039e+05 [2.784e+05-4.202e+05] (4.202e+05 2.784e+05 3.007e+05) | 2.96e+05 [2.746e+05-3.021e+05] (2.746e+05 3.021e+05 2.939e+05) |
+| P1.2 | latin1 | encode-transport | retain | 3.076e+05 [3.059e+05-3.143e+05] (3.059e+05 3.099e+05 3.143e+05) | 2.896e+05 [2.786e+05-3.129e+05] (2.896e+05 2.786e+05 3.129e+05) |
+| P1.2 | wide | encode-core-hot | drop | 3.668e+05 [3.504e+05-3.826e+05] (3.504e+05 3.668e+05 3.826e+05) | 3.63e+05 [3.595e+05-3.69e+05] (3.69e+05 3.595e+05 3.651e+05) |
+| P1.2 | wide | encode-core-hot | retain | 3.6e+05 [3.534e+05-3.798e+05] (3.534e+05 3.639e+05 3.798e+05) | 3.579e+05 [3.437e+05-3.661e+05] (3.661e+05 3.656e+05 3.437e+05) |
+| P1.2 | wide | encode-transport | drop | 3.735e+05 [3.699e+05-3.815e+05] (3.713e+05 3.699e+05 3.815e+05) | 3.807e+05 [3.792e+05-4.021e+05] (4.021e+05 3.792e+05 3.805e+05) |
+| P1.2 | wide | encode-transport | retain | 3.844e+05 [3.717e+05-4.07e+05] (3.823e+05 3.717e+05 4.07e+05) | 3.835e+05 [3.73e+05-3.891e+05] (3.835e+05 3.73e+05 3.891e+05) |
+| P1.3 | ascii | encode-core-hot | drop | 1.83e+04 [1.774e+04-1.838e+04] (1.83e+04 1.774e+04 1.838e+04) | 1.852e+04 [1.818e+04-1.994e+04] (1.818e+04 1.994e+04 1.856e+04) |
+| P1.3 | ascii | encode-core-hot | retain | 1.869e+04 [1.784e+04-1.939e+04] (1.801e+04 1.784e+04 1.939e+04) | 1.888e+04 [1.84e+04-1.959e+04] (1.884e+04 1.959e+04 1.84e+04) |
+| P1.3 | ascii | encode-transport | drop | 1.809e+04 [1.774e+04-1.853e+04] (1.774e+04 1.853e+04 1.797e+04) | 1.912e+04 [1.889e+04-1.924e+04] (1.924e+04 1.889e+04 1.894e+04) |
+| P1.3 | ascii | encode-transport | retain | 1.869e+04 [1.843e+04-1.913e+04] (1.886e+04 1.843e+04 1.913e+04) | 1.999e+04 [1.901e+04-2.021e+04] (1.989e+04 2.021e+04 1.901e+04) |
+| P2.1 | ascii | encode-core-hot | drop | 1308 [1244-1328] (1328 1244 1285) | 1233 [1206-1253] (1253 1232 1206) |
+| P2.1 | ascii | encode-core-hot | retain | 1682 [1635-1842] (1647 1842 1635) | 1285 [1257-1297] (1281 1297 1257) |
+| P2.1 | ascii | encode-transport | drop | 1439 [1396-1474] (1474 1396 1453) | 1357 [1331-1557] (1557 1331 1347) |
+| P2.1 | ascii | encode-transport | retain | 1894 [1891-1902] (1901 1891 1902) | 1454 [1356-1669] (1669 1356 1446) |
+| P2.2 | ascii | encode-core-hot | drop | 8.132e+05 [7.746e+05-8.544e+05] (8.181e+05 8.544e+05 7.746e+05) | 8.034e+05 [7.824e+05-8.489e+05] (7.955e+05 8.489e+05 7.824e+05) |
+| P2.2 | ascii | encode-core-hot | retain | 9.506e+05 [9.297e+05-9.693e+05] (9.693e+05 9.297e+05 9.506e+05) | 8.647e+05 [8.28e+05-8.901e+05] (8.647e+05 8.901e+05 8.28e+05) |
+| P2.2 | ascii | encode-transport | drop | 9.108e+05 [8.721e+05-9.347e+05] (9.347e+05 8.721e+05 9.242e+05) | 8.557e+05 [8.369e+05-8.879e+05] (8.879e+05 8.612e+05 8.369e+05) |
+| P2.2 | ascii | encode-transport | retain | 9.574e+05 [9.532e+05-9.823e+05] (9.539e+05 9.532e+05 9.823e+05) | 8.699e+05 [8.684e+05-8.992e+05] (8.992e+05 8.699e+05 8.684e+05) |
+| P2.2 | latin1 | encode-core-hot | drop | 1.038e+06 [1.011e+06-1.094e+06] (1.011e+06 1.011e+06 1.094e+06) | 1.078e+06 [1.048e+06-1.091e+06] (1.048e+06 1.074e+06 1.091e+06) |
+| P2.2 | latin1 | encode-core-hot | retain | 1.235e+06 [1.126e+06-1.292e+06] (1.292e+06 1.126e+06 1.242e+06) | 1.085e+06 [1.058e+06-1.126e+06] (1.094e+06 1.058e+06 1.126e+06) |
+| P2.2 | latin1 | encode-transport | drop | 1.175e+06 [1.129e+06-1.231e+06] (1.175e+06 1.129e+06 1.231e+06) | 1.135e+06 [1.119e+06-1.144e+06] (1.141e+06 1.144e+06 1.119e+06) |
+| P2.2 | latin1 | encode-transport | retain | 1.338e+06 [1.311e+06-1.374e+06] (1.311e+06 1.367e+06 1.374e+06) | 1.205e+06 [1.119e+06-1.255e+06] (1.255e+06 1.204e+06 1.119e+06) |
+| P2.2 | wide | encode-core-hot | drop | 1.286e+06 [1.266e+06-1.311e+06] (1.293e+06 1.266e+06 1.311e+06) | 1.295e+06 [1.247e+06-1.323e+06] (1.283e+06 1.323e+06 1.247e+06) |
+| P2.2 | wide | encode-core-hot | retain | 1.503e+06 [1.47e+06-1.547e+06] (1.547e+06 1.47e+06 1.48e+06) | 1.311e+06 [1.275e+06-1.331e+06] (1.331e+06 1.323e+06 1.275e+06) |
+| P2.2 | wide | encode-transport | drop | 1.405e+06 [1.388e+06-1.504e+06] (1.504e+06 1.388e+06 1.417e+06) | 1.377e+06 [1.345e+06-1.44e+06] (1.345e+06 1.361e+06 1.44e+06) |
+| P2.2 | wide | encode-transport | retain | 1.535e+06 [1.519e+06-1.566e+06] (1.535e+06 1.566e+06 1.519e+06) | 1.387e+06 [1.369e+06-1.433e+06] (1.433e+06 1.387e+06 1.369e+06) |
+| P2.3 | ascii | encode-core-hot | drop | 5.586e+05 [5.546e+05-5.851e+05] (5.675e+05 5.546e+05 5.851e+05) | 5.397e+05 [5.093e+05-5.485e+05] (5.485e+05 5.468e+05 5.093e+05) |
+| P2.3 | ascii | encode-core-hot | retain | 5.636e+05 [5.546e+05-6.31e+05] (6.31e+05 5.659e+05 5.546e+05) | 5.484e+05 [5.345e+05-5.528e+05] (5.528e+05 5.519e+05 5.345e+05) |
+| P2.3 | ascii | encode-transport | drop | 6.513e+05 [6.105e+05-6.937e+05] (6.937e+05 6.105e+05 6.66e+05) | 5.954e+05 [5.793e+05-6.188e+05] (6.188e+05 5.852e+05 5.793e+05) |
+| P2.3 | ascii | encode-transport | retain | 6.386e+05 [6.272e+05-6.463e+05] (6.463e+05 6.272e+05 6.356e+05) | 6.112e+05 [6.09e+05-6.272e+05] (6.272e+05 6.09e+05 6.186e+05) |
+| P2.4 | ascii | encode-core-hot | drop | 7.69e+05 [7.597e+05-9.593e+05] (9.593e+05 7.604e+05 7.597e+05) | 7.433e+05 [7.333e+05-7.515e+05] (7.433e+05 7.515e+05 7.333e+05) |
+| P2.4 | ascii | encode-core-hot | retain | 7.846e+05 [7.661e+05-7.966e+05] (7.806e+05 7.661e+05 7.966e+05) | 7.379e+05 [7.283e+05-7.658e+05] (7.47e+05 7.658e+05 7.283e+05) |
+| P2.4 | ascii | encode-transport | drop | 8.693e+05 [8.201e+05-8.892e+05] (8.81e+05 8.892e+05 8.201e+05) | 8.371e+05 [8.178e+05-8.54e+05] (8.433e+05 8.54e+05 8.178e+05) |
+| P2.4 | ascii | encode-transport | retain | 9.015e+05 [8.757e+05-9.335e+05] (9.135e+05 9.335e+05 8.757e+05) | 8.129e+05 [7.91e+05-8.323e+05] (8.323e+05 8.129e+05 7.91e+05) |
+| P2.4 | latin1 | encode-core-hot | drop | 1.374e+06 [1.355e+06-1.398e+06] (1.398e+06 1.379e+06 1.355e+06) | 1.277e+06 [1.242e+06-1.294e+06] (1.294e+06 1.279e+06 1.242e+06) |
+| P2.4 | latin1 | encode-core-hot | retain | 1.392e+06 [1.289e+06-1.577e+06] (1.577e+06 1.37e+06 1.289e+06) | 1.28e+06 [1.246e+06-1.314e+06] (1.246e+06 1.273e+06 1.314e+06) |
+| P2.4 | latin1 | encode-transport | drop | 1.671e+06 [1.501e+06-1.746e+06] (1.501e+06 1.746e+06 1.683e+06) | 1.568e+06 [1.52e+06-1.669e+06] (1.669e+06 1.52e+06 1.542e+06) |
+| P2.4 | latin1 | encode-transport | retain | 1.68e+06 [1.575e+06-1.779e+06] (1.779e+06 1.702e+06 1.575e+06) | 1.541e+06 [1.44e+06-1.603e+06] (1.603e+06 1.44e+06 1.464e+06) |
+| P2.4 | wide | encode-core-hot | drop | 1.878e+06 [1.851e+06-1.974e+06] (1.974e+06 1.855e+06 1.851e+06) | 1.886e+06 [1.865e+06-1.942e+06] (1.942e+06 1.865e+06 1.889e+06) |
+| P2.4 | wide | encode-core-hot | retain | 2.02e+06 [1.945e+06-2.04e+06] (2.04e+06 1.945e+06 2.034e+06) | 1.992e+06 [1.843e+06-2.063e+06] (2.01e+06 2.063e+06 1.843e+06) |
+| P2.4 | wide | encode-transport | drop | 2.277e+06 [2.195e+06-2.378e+06] (2.235e+06 2.195e+06 2.378e+06) | 2.128e+06 [2.092e+06-2.136e+06] (2.136e+06 2.117e+06 2.092e+06) |
+| P2.4 | wide | encode-transport | retain | 2.194e+06 [2.094e+06-2.249e+06] (2.249e+06 2.243e+06 2.094e+06) | 2.076e+06 [2.065e+06-2.091e+06] (2.091e+06 2.066e+06 2.065e+06) |
+| P2.5 | ascii | encode-core-hot | drop | 2.367e+04 [2.227e+04-2.477e+04] (2.448e+04 2.227e+04 2.477e+04) | 2.261e+04 [2.153e+04-2.34e+04] (2.242e+04 2.153e+04 2.34e+04) |
+| P2.5 | ascii | encode-core-hot | retain | 2.62e+04 [2.596e+04-2.656e+04] (2.596e+04 2.613e+04 2.656e+04) | 2.321e+04 [2.238e+04-2.35e+04] (2.35e+04 2.238e+04 2.243e+04) |
+| P2.5 | ascii | encode-transport | drop | 2.656e+04 [2.42e+04-2.995e+04] (2.995e+04 2.643e+04 2.42e+04) | 2.479e+04 [2.369e+04-2.533e+04] (2.533e+04 2.43e+04 2.369e+04) |
+| P2.5 | ascii | encode-transport | retain | 2.999e+04 [2.936e+04-3.134e+04] (3.134e+04 2.936e+04 3.018e+04) | 2.528e+04 [2.306e+04-2.59e+04] (2.59e+04 2.306e+04 2.583e+04) |
+| P3.1 | ascii | encode-core-hot | drop | 1.361e+04 [1.308e+04-1.441e+04] (1.441e+04 1.37e+04 1.308e+04) | 1.314e+04 [1.286e+04-1.387e+04] (1.297e+04 1.387e+04 1.286e+04) |
+| P3.1 | ascii | encode-core-hot | retain | 1.46e+04 [1.383e+04-1.631e+04] (1.461e+04 1.631e+04 1.383e+04) | 1.407e+04 [1.374e+04-1.537e+04] (1.537e+04 1.386e+04 1.374e+04) |
+| P3.1 | ascii | encode-transport | drop | 1.421e+04 [1.377e+04-1.521e+04] (1.412e+04 1.521e+04 1.377e+04) | 1.432e+04 [1.373e+04-1.601e+04] (1.601e+04 1.412e+04 1.373e+04) |
+| P3.1 | ascii | encode-transport | retain | 1.458e+04 [1.391e+04-1.556e+04] (1.556e+04 1.391e+04 1.458e+04) | 1.511e+04 [1.453e+04-1.609e+04] (1.563e+04 1.453e+04 1.609e+04) |
+| P4.1 | ascii | encode-core-hot | drop | 1.214e+05 [1.103e+05-1.238e+05] (1.238e+05 1.103e+05 1.214e+05) | 1.237e+05 [1.236e+05-1.269e+05] (1.236e+05 1.238e+05 1.269e+05) |
+| P4.1 | ascii | encode-core-hot | retain | 1.268e+05 [1.234e+05-1.282e+05] (1.265e+05 1.234e+05 1.282e+05) | 1.262e+05 [1.195e+05-1.306e+05] (1.306e+05 1.195e+05 1.262e+05) |
+| P4.1 | ascii | encode-transport | drop | 1.295e+05 [1.266e+05-1.326e+05] (1.266e+05 1.326e+05 1.269e+05) | 1.375e+05 [1.298e+05-1.597e+05] (1.597e+05 1.33e+05 1.298e+05) |
+| P4.1 | ascii | encode-transport | retain | 1.258e+05 [1.196e+05-1.336e+05] (1.336e+05 1.196e+05 1.258e+05) | 1.364e+05 [1.331e+05-1.403e+05] (1.331e+05 1.403e+05 1.363e+05) |
+| P5.1 | ascii | encode-core-hot | drop | 98.09 [97.61-99.56] (99.56 98.09 97.61) | 101.1 [98.42-102.4] (102.4 101.1 98.42) |
+| P5.1 | ascii | encode-core-hot | retain | 103.7 [103.7-110.1] (110.1 104.3 103.7) | 106.5 [104.2-108.9] (108.9 106.2 104.2) |
+| P5.1 | ascii | encode-transport | drop | 135.7 [130.6-143] (130.6 143 135.7) | 145.6 [140.4-148.5] (148.5 140.4 143.6) |
+| P5.1 | ascii | encode-transport | retain | 140.9 [140.1-141.3] (141.3 140.1 140.9) | 143.1 [138.9-148.1] (148.1 138.9 143.8) |
+| P5.2 | ascii | encode-core-hot | drop | 1965 [1881-2001] (2001 1965 1881) | 1931 [1890-1955] (1955 1890 1908) |
+| P5.2 | ascii | encode-core-hot | retain | 1871 [1828-1926] (1926 1828 1887) | 1875 [1853-1899] (1899 1853 1871) |
+| P5.2 | ascii | encode-transport | drop | 5271 [5032-5285] (5285 5276 5032) | 5147 [4930-5260] (5260 5103 4930) |
+| P5.2 | ascii | encode-transport | retain | 5133 [4983-5286] (5286 5144 4983) | 5104 [4996-5478] (5084 5478 4996) |
+| P5.3 | ascii | encode-core-hot | drop | 4.134e+04 [3.93e+04-4.447e+04] (4.447e+04 4.072e+04 3.93e+04) | 4.186e+04 [4.031e+04-4.233e+04] (4.031e+04 4.212e+04 4.233e+04) |
+| P5.3 | ascii | encode-core-hot | retain | 4.307e+04 [4.295e+04-4.336e+04] (4.336e+04 4.318e+04 4.295e+04) | 4.231e+04 [3.82e+04-4.56e+04] (4.56e+04 4.086e+04 3.82e+04) |
+| P5.3 | ascii | encode-transport | drop | 1.27e+05 [1.212e+05-1.542e+05] (1.542e+05 1.236e+05 1.212e+05) | 1.219e+05 [1.21e+05-1.234e+05] (1.21e+05 1.234e+05 1.224e+05) |
+| P5.3 | ascii | encode-transport | retain | 1.219e+05 [1.15e+05-1.262e+05] (1.262e+05 1.222e+05 1.15e+05) | 1.24e+05 [1.199e+05-1.277e+05] (1.214e+05 1.277e+05 1.199e+05) |
+| P5.4 | ascii | encode-core-hot | drop | 3.093e+05 [3.019e+05-3.299e+05] (3.299e+05 3.019e+05 3.093e+05) | 2.979e+05 [2.946e+05-3.23e+05] (3.23e+05 2.966e+05 2.946e+05) |
+| P5.4 | ascii | encode-core-hot | retain | 3.007e+05 [2.911e+05-3.036e+05] (2.911e+05 3.027e+05 3.036e+05) | 3.031e+05 [2.985e+05-3.078e+05] (3.078e+05 2.985e+05 3.05e+05) |
+| P5.4 | ascii | encode-transport | drop | 6.544e+05 [6.485e+05-6.772e+05] (6.485e+05 6.772e+05 6.528e+05) | 6.584e+05 [6.44e+05-6.735e+05] (6.735e+05 6.544e+05 6.44e+05) |
+| P5.4 | ascii | encode-transport | retain | 6.563e+05 [6.465e+05-6.595e+05] (6.595e+05 6.465e+05 6.567e+05) | 6.545e+05 [6.446e+05-6.715e+05] (6.446e+05 6.528e+05 6.715e+05) |
+| P6.1 | ascii | encode-core-hot | drop | 1.103e+05 [1.066e+05-1.129e+05] (1.129e+05 1.066e+05 1.097e+05) | 1.082e+05 [1.056e+05-1.112e+05] (1.112e+05 1.062e+05 1.056e+05) |
+| P6.1 | ascii | encode-core-hot | retain | 1.164e+05 [1.142e+05-1.184e+05] (1.155e+05 1.142e+05 1.184e+05) | 1.105e+05 [1.065e+05-1.171e+05] (1.091e+05 1.065e+05 1.171e+05) |
+| P6.1 | ascii | encode-transport | drop | 1.271e+05 [1.207e+05-1.313e+05] (1.262e+05 1.313e+05 1.207e+05) | 1.172e+05 [1.157e+05-1.185e+05] (1.157e+05 1.185e+05 1.169e+05) |
+| P6.1 | ascii | encode-transport | retain | 1.235e+05 [1.193e+05-1.287e+05] (1.287e+05 1.193e+05 1.231e+05) | 1.151e+05 [1.079e+05-1.21e+05] (1.21e+05 1.079e+05 1.118e+05) |
+| P7.1 | ascii | encode-core-hot | drop | 261.9 [258.9-267.6] (266.2 267.6 258.9) | 251.3 [250-261.6] (250 261.6 253.1) |
+| P7.1 | ascii | encode-core-hot | retain | 293.2 [282.6-336.5] (336.5 290.7 282.6) | 265.2 [263.1-268.4] (268.4 265.2 263.1) |
+| P7.1 | ascii | encode-transport | drop | 320.8 [311-332.2] (313.1 311 332.2) | 310.6 [291.2-379.5] (379.5 291.2 307.7) |
+| P7.1 | ascii | encode-transport | retain | 332.1 [308-341.8] (337.4 341.8 308) | 332.3 [307.6-359.4] (359.4 332.3 307.6) |
+| U-deep-all | corpus | encode-core-hot | drop | 1173 [1157-1299] (1299 1157 1173) | 1129 [1105-1133] (1133 1130 1105) |
+| U-deep-all | corpus | encode-core-hot | retain | 1594 [1560-1602] (1602 1560 1594) | 1133 [1107-1185] (1185 1107 1130) |
+| U-deep-all | corpus | encode-transport | drop | 1207 [1200-1275] (1275 1207 1200) | 1180 [1154-1304] (1304 1175 1154) |
+| U-deep-all | corpus | encode-transport | retain | 1643 [1619-1658] (1619 1658 1650) | 1258 [1205-1264] (1264 1205 1264) |
+| U-deep-u-fixed32 | corpus | encode-core-hot | drop | 1169 [1156-1227] (1165 1227 1156) | 1138 [1121-1146] (1140 1146 1121) |
+| U-deep-u-fixed32 | corpus | encode-core-hot | retain | 1585 [1549-1702] (1562 1549 1702) | 1200 [1174-1254] (1215 1254 1174) |
+| U-deep-u-fixed32 | corpus | encode-transport | drop | 1238 [1162-1267] (1267 1242 1162) | 1326 [1198-1739] (1198 1212 1739) |
+| U-deep-u-fixed32 | corpus | encode-transport | retain | 1680 [1631-1768] (1768 1680 1631) | 1250 [1215-1264] (1264 1250 1215) |
+| U-deep-u-fixed64 | corpus | encode-core-hot | drop | 1199 [1161-1242] (1242 1194 1161) | 1127 [1083-1159] (1127 1083 1159) |
+| U-deep-u-fixed64 | corpus | encode-core-hot | retain | 1663 [1535-1740] (1740 1589 1535) | 1195 [1156-1232] (1232 1156 1192) |
+| U-deep-u-fixed64 | corpus | encode-transport | drop | 1284 [1206-1318] (1292 1318 1206) | 1178 [1177-1184] (1178 1184 1177) |
+| U-deep-u-fixed64 | corpus | encode-transport | retain | 1676 [1621-1701] (1701 1673 1621) | 1276 [1229-1304] (1229 1270 1304) |
+| U-deep-u-len | corpus | encode-core-hot | drop | 1196 [1179-1237] (1181 1179 1237) | 1131 [1073-1153] (1153 1126 1073) |
+| U-deep-u-len | corpus | encode-core-hot | retain | 1556 [1506-1635] (1635 1506 1561) | 1169 [1119-1188] (1169 1188 1119) |
+| U-deep-u-len | corpus | encode-transport | drop | 1293 [1213-1362] (1315 1213 1362) | 1210 [1157-1256] (1256 1210 1157) |
+| U-deep-u-len | corpus | encode-transport | retain | 1706 [1652-1764] (1760 1764 1652) | 1232 [1199-1257] (1257 1199 1222) |
+| U-deep-u-msg | corpus | encode-core-hot | drop | 1197 [1159-1211] (1208 1159 1211) | 1113 [1082-1150] (1082 1150 1120) |
+| U-deep-u-msg | corpus | encode-core-hot | retain | 1607 [1562-1644] (1632 1562 1644) | 1168 [1137-1175] (1169 1137 1175) |
+| U-deep-u-msg | corpus | encode-transport | drop | 1258 [1225-1284] (1251 1225 1284) | 1203 [1172-1228] (1228 1172 1176) |
+| U-deep-u-msg | corpus | encode-transport | retain | 1659 [1601-1727] (1650 1727 1601) | 1229 [1146-1286] (1286 1225 1146) |
+| U-deep-u-packed | corpus | encode-core-hot | drop | 1163 [1162-1180] (1168 1180 1162) | 1142 [1118-1158] (1130 1118 1158) |
+| U-deep-u-packed | corpus | encode-core-hot | retain | 1733 [1730-1733] (1732 1730 1733) | 1164 [1130-1166] (1166 1130 1164) |
+| U-deep-u-packed | corpus | encode-transport | drop | 1235 [1224-1261] (1261 1224 1232) | 1200 [1153-1273] (1200 1153 1273) |
+| U-deep-u-packed | corpus | encode-transport | retain | 1802 [1782-1805] (1800 1782 1805) | 1251 [1221-1309] (1309 1233 1221) |
+| U-deep-u-repeated | corpus | encode-core-hot | drop | 1159 [1152-1172] (1152 1172 1159) | 1122 [1087-1177] (1177 1087 1119) |
+| U-deep-u-repeated | corpus | encode-core-hot | retain | 1701 [1662-1710] (1662 1705 1710) | 1163 [1127-1211] (1211 1127 1163) |
+| U-deep-u-repeated | corpus | encode-transport | drop | 1217 [1196-1242] (1206 1196 1242) | 1168 [1122-1218] (1218 1122 1162) |
+| U-deep-u-repeated | corpus | encode-transport | retain | 1765 [1754-1795] (1795 1757 1754) | 1232 [1203-1249] (1249 1213 1203) |
+| U-deep-u-varint | corpus | encode-core-hot | drop | 1164 [1142-1197] (1172 1197 1142) | 1117 [1093-1137] (1137 1112 1093) |
+| U-deep-u-varint | corpus | encode-core-hot | retain | 1591 [1524-1616] (1524 1616 1603) | 1158 [1132-1162] (1162 1132 1158) |
+| U-deep-u-varint | corpus | encode-transport | drop | 1228 [1224-1296] (1224 1296 1227) | 1179 [1125-1231] (1231 1179 1125) |
+| U-deep-u-varint | corpus | encode-transport | retain | 1645 [1626-1742] (1742 1626 1678) | 1242 [1196-1265] (1265 1196 1252) |
+| U-element-all | corpus | encode-core-hot | drop | 1206 [1179-1596] (1596 1206 1179) | 1108 [1089-1183] (1089 1089 1183) |
+| U-element-all | corpus | encode-core-hot | retain | 1557 [1496-1592] (1496 1592 1553) | 1179 [1124-1193] (1180 1124 1193) |
+| U-element-all | corpus | encode-transport | drop | 1266 [1194-1480] (1480 1257 1194) | 1210 [1194-1217] (1217 1208 1194) |
+| U-element-all | corpus | encode-transport | retain | 1662 [1649-1692] (1692 1649 1651) | 1231 [1223-1266] (1232 1223 1266) |
+| U-element-u-fixed32 | corpus | encode-core-hot | drop | 1175 [1155-1199] (1155 1199 1171) | 1125 [1078-1161] (1161 1078 1131) |
+| U-element-u-fixed32 | corpus | encode-core-hot | retain | 1581 [1563-1613] (1581 1613 1563) | 1181 [1168-1214] (1168 1214 1169) |
+| U-element-u-fixed32 | corpus | encode-transport | drop | 1254 [1220-1310] (1254 1220 1310) | 1168 [1127-1195] (1195 1127 1175) |
+| U-element-u-fixed32 | corpus | encode-transport | retain | 1732 [1681-1747] (1747 1693 1681) | 1250 [1195-1312] (1256 1312 1195) |
+| U-element-u-fixed64 | corpus | encode-core-hot | drop | 1170 [1157-1178] (1157 1178 1175) | 1194 [1103-1296] (1208 1296 1103) |
+| U-element-u-fixed64 | corpus | encode-core-hot | retain | 1617 [1596-1656] (1656 1596 1616) | 1252 [1122-1312] (1312 1254 1122) |
+| U-element-u-fixed64 | corpus | encode-transport | drop | 1217 [1210-1225] (1225 1216 1210) | 1164 [1133-1187] (1187 1133 1158) |
+| U-element-u-fixed64 | corpus | encode-transport | retain | 1724 [1652-1771] (1771 1687 1652) | 1267 [1197-1310] (1310 1197 1273) |
+| U-element-u-len | corpus | encode-core-hot | drop | 1187 [1182-1222] (1182 1222 1191) | 1120 [1092-1157] (1157 1092 1122) |
+| U-element-u-len | corpus | encode-core-hot | retain | 1606 [1592-1626] (1592 1626 1609) | 1160 [1116-1185] (1185 1116 1167) |
+| U-element-u-len | corpus | encode-transport | drop | 1223 [1214-1381] (1214 1216 1381) | 1249 [1223-1265] (1256 1223 1265) |
+| U-element-u-len | corpus | encode-transport | retain | 1726 [1686-1762] (1742 1686 1762) | 1248 [1235-1250] (1249 1235 1250) |
+| U-element-u-msg | corpus | encode-core-hot | drop | 1181 [1158-1197] (1197 1181 1158) | 1128 [1093-1144] (1144 1093 1119) |
+| U-element-u-msg | corpus | encode-core-hot | retain | 1551 [1531-1610] (1610 1531 1550) | 1185 [1165-1195] (1178 1195 1165) |
+| U-element-u-msg | corpus | encode-transport | drop | 1224 [1210-1237] (1223 1237 1210) | 1203 [1192-1233] (1196 1192 1233) |
+| U-element-u-msg | corpus | encode-transport | retain | 1675 [1642-1727] (1642 1677 1727) | 1273 [1226-1292] (1287 1292 1226) |
+| U-element-u-packed | corpus | encode-core-hot | drop | 1183 [1158-1238] (1238 1186 1158) | 1106 [1065-1119] (1119 1065 1112) |
+| U-element-u-packed | corpus | encode-core-hot | retain | 1708 [1679-1717] (1679 1713 1717) | 1208 [1201-1257] (1257 1201 1235) |
+| U-element-u-packed | corpus | encode-transport | drop | 1242 [1223-1260] (1260 1223 1224) | 1191 [1175-1217] (1191 1175 1217) |
+| U-element-u-packed | corpus | encode-transport | retain | 1771 [1750-1860] (1801 1750 1860) | 1249 [1238-1265] (1238 1263 1265) |
+| U-element-u-repeated | corpus | encode-core-hot | drop | 1155 [1102-1241] (1241 1102 1155) | 1122 [1084-1161] (1125 1161 1084) |
+| U-element-u-repeated | corpus | encode-core-hot | retain | 1723 [1707-1740] (1723 1740 1707) | 1184 [1141-1204] (1141 1197 1204) |
+| U-element-u-repeated | corpus | encode-transport | drop | 1202 [1190-1287] (1204 1190 1287) | 1181 [1166-1366] (1366 1166 1172) |
+| U-element-u-repeated | corpus | encode-transport | retain | 1814 [1800-1837] (1837 1800 1822) | 1252 [1230-1301] (1230 1301 1246) |
+| U-element-u-varint | corpus | encode-core-hot | drop | 1181 [1126-1248] (1248 1186 1126) | 1149 [1123-1152] (1152 1150 1123) |
+| U-element-u-varint | corpus | encode-core-hot | retain | 1607 [1466-1659] (1659 1607 1466) | 1191 [1169-1223] (1223 1204 1169) |
+| U-element-u-varint | corpus | encode-transport | drop | 1235 [1221-1298] (1226 1298 1221) | 1203 [1160-1242] (1242 1203 1160) |
+| U-element-u-varint | corpus | encode-transport | retain | 1633 [1626-1638] (1632 1638 1626) | 1266 [1244-1334] (1277 1244 1334) |
+| U-enum-value-127 | corpus | encode-core-hot | drop | 129.7 [126.8-133.2] (133.2 126.8 132.3) | 127.7 [125.9-130.2] (127.6 130.2 125.9) |
+| U-enum-value-127 | corpus | encode-core-hot | retain | 295.6 [284.2-304.6] (287.2 304.6 284.2) | 131.5 [128.1-131.9] (131.9 128.1 129) |
+| U-enum-value-127 | corpus | encode-transport | drop | 165.1 [156.5-173.7] (166.4 173.7 156.5) | 161.8 [151.8-163.7] (162.4 163.7 151.8) |
+| U-enum-value-127 | corpus | encode-transport | retain | 336.9 [330.3-353.2] (342.9 330.3 353.2) | 167.7 [163.9-175.7] (163.9 175.7 167.7) |
+| U-enum-value-2147483647 | corpus | encode-core-hot | drop | 137.6 [133.5-153] (133.5 133.6 153) | 125 [123.6-129.7] (129.7 123.6 125.5) |
+| U-enum-value-2147483647 | corpus | encode-core-hot | retain | 307.9 [293-314.2] (295.7 314.2 293) | 132.6 [129.3-134.2] (134.2 129.3 132.1) |
+| U-enum-value-2147483647 | corpus | encode-transport | drop | 173.1 [169.6-199.2] (199.2 169.6 173.1) | 158.5 [156.1-159.3] (159 156.1 159.3) |
+| U-enum-value-2147483647 | corpus | encode-transport | retain | 358.7 [343.6-362.4] (353 343.6 362.4) | 164.5 [160.5-171.1] (171.1 160.5 163.2) |
+| U-enum-value-999 | corpus | encode-core-hot | drop | 128.6 [126-133.8] (133.8 128.4 126) | 127.5 [123.9-129.3] (123.9 129.3 126.3) |
+| U-enum-value-999 | corpus | encode-core-hot | retain | 299.1 [291.9-302.2] (295 302.2 291.9) | 127.5 [126.5-130.5] (126.5 130.5 128.5) |
+| U-enum-value-999 | corpus | encode-transport | drop | 166.1 [162.6-166.9] (166.2 162.6 166.9) | 158.1 [154.2-163.5] (154.2 156.7 163.5) |
+| U-enum-value-999 | corpus | encode-transport | retain | 373.9 [348.7-391.7] (391.7 348.7 355.9) | 164.3 [158.5-167.9] (167.9 160.5 158.5) |
+| U-enum-value-packed | corpus | encode-core-hot | drop | 179.8 [175.7-185.8] (185.8 180.8 175.7) | 169.2 [168.4-172] (172 169.3 168.4) |
+| U-enum-value-packed | corpus | encode-core-hot | retain | 180.1 [179.6-181.2] (181.2 180.7 179.6) | 175.8 [172.3-179.3] (179.3 172.3 174) |
+| U-enum-value-packed | corpus | encode-transport | drop | 220.3 [219.1-222.9] (219.4 222.9 219.1) | 215.9 [212.5-216.5] (216.5 214.5 212.5) |
+| U-enum-value-packed | corpus | encode-transport | retain | 221.7 [216.7-223.8] (223.8 223 216.7) | 219.5 [215.3-222.2] (222.2 215.3 218.9) |
+| U-leaf-all | corpus | encode-core-hot | drop | 220.5 [213.1-226.4] (226.4 213.1 215.4) | 214.5 [201.5-228] (214.5 228 201.5) |
+| U-leaf-all | corpus | encode-core-hot | retain | 599.2 [564.3-618.5] (564.3 576.1 618.5) | 255.2 [247.6-260.8] (254.9 247.6 260.8) |
+| U-leaf-all | corpus | encode-transport | drop | 244 [238.8-252.6] (244 238.8 252.6) | 250.9 [246.9-262.5] (262.5 246.9 247.3) |
+| U-leaf-all | corpus | encode-transport | retain | 653.1 [649.5-668.2] (666.7 649.5 668.2) | 318.2 [310.2-318.8] (318.8 310.2 316) |
+| U-leaf-u-fixed32 | corpus | encode-core-hot | drop | 223.3 [212.3-227.5] (226.4 227.5 212.3) | 210.5 [209.1-213] (213 211.5 209.1) |
+| U-leaf-u-fixed32 | corpus | encode-core-hot | retain | 556.3 [534.7-581.9] (581.9 556.3 534.7) | 241.4 [230.8-249.3] (249.3 230.8 233.3) |
+| U-leaf-u-fixed32 | corpus | encode-transport | drop | 243.3 [238-250.7] (238 248.5 250.7) | 261.8 [250.3-290.7] (290.7 261.5 250.3) |
+| U-leaf-u-fixed32 | corpus | encode-transport | retain | 599.8 [599.2-600.6] (599.2 600.6 600.6) | 293.4 [287.5-320.4] (311.1 287.5 320.4) |
+| U-leaf-u-fixed64 | corpus | encode-core-hot | drop | 219.5 [217.1-226.3] (217.1 226.3 220.7) | 217.2 [208.7-227.1] (208.7 219.3 227.1) |
+| U-leaf-u-fixed64 | corpus | encode-core-hot | retain | 550.9 [545.4-555.4] (555.4 548.1 545.4) | 240.9 [225.7-249.4] (241.5 249.4 225.7) |
+| U-leaf-u-fixed64 | corpus | encode-transport | drop | 247.3 [246.2-249.8] (248 246.2 249.8) | 262.2 [252.7-273] (261.7 273 252.7) |
+| U-leaf-u-fixed64 | corpus | encode-transport | retain | 614.1 [579.6-663.5] (579.6 663.5 612) | 286.4 [283-289.9] (289.9 283.1 283) |
+| U-leaf-u-len | corpus | encode-core-hot | drop | 221.7 [212.8-227] (218.9 227 212.8) | 218.2 [205.4-231] (231 218.2 205.4) |
+| U-leaf-u-len | corpus | encode-core-hot | retain | 554 [543.2-562] (562 543.2 557.7) | 231.9 [228.5-237.3] (237.3 228.5 234.2) |
+| U-leaf-u-len | corpus | encode-transport | drop | 241.7 [237-244.4] (244.4 237 242.5) | 252 [248.5-266.7] (266.7 248.5 249.2) |
+| U-leaf-u-len | corpus | encode-transport | retain | 632.9 [604.1-711.4] (711.4 623 604.1) | 286.5 [280.3-288.7] (288.7 280.4 280.3) |
+| U-leaf-u-msg | corpus | encode-core-hot | drop | 225.9 [224.8-228.8] (224.8 226.5 228.8) | 215 [208-222.6] (208 220.8 222.6) |
+| U-leaf-u-msg | corpus | encode-core-hot | retain | 557.6 [537.8-583.7] (572.9 537.8 583.7) | 238.6 [227.4-252.5] (239.1 227.4 252.5) |
+| U-leaf-u-msg | corpus | encode-transport | drop | 247.9 [244.8-249.5] (249.5 247.4 244.8) | 268.8 [248-273.2] (273.2 248 269.7) |
+| U-leaf-u-msg | corpus | encode-transport | retain | 623.9 [617.6-626.6] (626.6 617.6 623.9) | 280.9 [279.8-296.3] (296.3 279.8 280.9) |
+| U-leaf-u-packed | corpus | encode-core-hot | drop | 217.3 [208.2-237.4] (215.8 237.4 208.2) | 216.3 [213.3-221.1] (218.2 221.1 213.3) |
+| U-leaf-u-packed | corpus | encode-core-hot | retain | 549.5 [543.1-553] (543.1 553 546.8) | 244.9 [237.2-272.9] (237.2 272.9 247.3) |
+| U-leaf-u-packed | corpus | encode-transport | drop | 251.2 [243.5-255.5] (251.8 255.5 243.5) | 257.3 [254-284.7] (254 263.5 284.7) |
+| U-leaf-u-packed | corpus | encode-transport | retain | 596.9 [592.3-597.2] (594.5 592.3 597.2) | 278.2 [269.1-285.8] (285.8 274.5 269.1) |
+| U-leaf-u-repeated | corpus | encode-core-hot | drop | 215.7 [207.3-221.3] (216.6 221.3 207.3) | 211.6 [206.2-223.8] (211.6 223.8 206.2) |
+| U-leaf-u-repeated | corpus | encode-core-hot | retain | 555.9 [539.6-566] (556.1 539.6 566) | 237.7 [220.2-244.3] (244.3 239.1 220.2) |
+| U-leaf-u-repeated | corpus | encode-transport | drop | 240.8 [237.8-245.6] (240.4 237.8 245.6) | 267.4 [263.9-273.9] (273.9 263.9 267.4) |
+| U-leaf-u-repeated | corpus | encode-transport | retain | 604.3 [589.2-623.9] (623.9 589.2 600.1) | 284.8 [283.8-287.6] (287.6 286.2 283.8) |
+| U-leaf-u-varint | corpus | encode-core-hot | drop | 221.2 [209.4-227.6] (227.6 209.4 216.1) | 219.9 [197.5-224] (217.1 224 197.5) |
+| U-leaf-u-varint | corpus | encode-core-hot | retain | 560.9 [542.5-599.4] (568.8 599.4 542.5) | 239.9 [229.1-250.8] (250.8 229.1 240.4) |
+| U-leaf-u-varint | corpus | encode-transport | drop | 243.8 [239.1-252.8] (239.1 252.8 242.5) | 252.3 [247.8-257] (250.4 257 247.8) |
+| U-leaf-u-varint | corpus | encode-transport | retain | 623.1 [611.1-628.8] (611.1 628.8 620.6) | 287.7 [282.6-292.4] (292.4 288.9 282.6) |
+| U-nested-all | corpus | encode-core-hot | drop | 219.1 [216.8-224.7] (224.7 216.8 222.8) | 208.6 [202.3-212.1] (212.1 205.2 202.3) |
+| U-nested-all | corpus | encode-core-hot | retain | 556.5 [552-560.2] (552 555.4 560.2) | 232.2 [229-239.1] (229 230.6 239.1) |
+| U-nested-all | corpus | encode-transport | drop | 247.3 [232-251.7] (232 249.7 251.7) | 253.6 [243.7-256.3] (254.6 256.3 243.7) |
+| U-nested-all | corpus | encode-transport | retain | 595.7 [585.5-596.4] (596.4 594 585.5) | 271.6 [265.1-306.7] (270.1 265.1 306.7) |
+| U-nested-before | corpus | encode-core-hot | drop | 224.6 [216.4-237.5] (237.5 216.4 228) | 214.5 [206.6-219.8] (211.7 206.6 219.8) |
+| U-nested-before | corpus | encode-core-hot | retain | 551.1 [547.1-556.8] (548.9 547.1 556.8) | 223.7 [221.8-232] (232 221.8 222.6) |
+| U-nested-before | corpus | encode-transport | drop | 241.6 [239.3-246.4] (246.4 239.3 241.1) | 258.1 [252.4-268.6] (268.6 268.5 252.4) |
+| U-nested-before | corpus | encode-transport | retain | 598.3 [592.5-613.1] (592.5 604.7 613.1) | 274.4 [267.3-288.8] (274.4 288.8 267.3) |
+| U-nested-group | corpus | encode-core-hot | drop | 209.1 [206.9-226.1] (226.1 206.9 207.9) | 208.3 [208.1-215.4] (215.4 208.2 208.1) |
+| U-nested-group | corpus | encode-core-hot | retain | 535.9 [524.1-538.9] (524.1 538.9 536.3) | 227.1 [223.1-240] (227.3 240 223.1) |
+| U-nested-group | corpus | encode-transport | drop | 244.3 [238.2-247.6] (238.2 247.6 243) | 255.2 [249.7-263.7] (256.3 263.7 249.7) |
+| U-nested-group | corpus | encode-transport | retain | 624.7 [591.9-727.3] (727.3 660.7 591.9) | 273.5 [261.6-301] (273.5 301 261.6) |
+| U-nested-interleaved | corpus | encode-core-hot | drop | 216.2 [210.2-219.5] (219.5 210.2 218.5) | 213 [207.2-217.2] (217.2 213.2 207.2) |
+| U-nested-interleaved | corpus | encode-core-hot | retain | 549.9 [541-558.4] (558.4 556.2 541) | 228.3 [220.7-229.6] (229.3 220.7 229.6) |
+| U-nested-interleaved | corpus | encode-transport | drop | 246.9 [242.1-255.1] (255.1 246.1 242.1) | 253 [239.7-255.4] (253.3 239.7 255.4) |
+| U-nested-interleaved | corpus | encode-transport | retain | 581.7 [575.6-595.5] (595.5 581.5 575.6) | 272.2 [269.4-275.1] (275.1 269.4 272.2) |
+| U-nested-u-fixed32 | corpus | encode-core-hot | drop | 216.5 [215.5-218.9] (216.5 218.9 215.5) | 210.2 [208.9-210.5] (210.5 209.7 208.9) |
+| U-nested-u-fixed32 | corpus | encode-core-hot | retain | 554.1 [536.3-557.6] (536.3 557.6 557.6) | 227 [216.6-234] (234 216.6 227) |
+| U-nested-u-fixed32 | corpus | encode-transport | drop | 245.2 [244.7-246.6] (244.7 245 246.6) | 264.6 [258.5-284.2] (258.5 264 284.2) |
+| U-nested-u-fixed32 | corpus | encode-transport | retain | 589.3 [573.5-591.1] (591.1 573.5 588.6) | 281.3 [278.1-293.8] (279.7 278.1 293.8) |
+| U-nested-u-fixed64 | corpus | encode-core-hot | drop | 209.8 [205.8-214.9] (209.9 214.9 205.8) | 213.3 [211.7-226.3] (226.3 212.5 211.7) |
+| U-nested-u-fixed64 | corpus | encode-core-hot | retain | 553.6 [544.3-590.2] (590.2 544.3 549.1) | 233.6 [219.5-237.7] (237.7 219.5 234) |
+| U-nested-u-fixed64 | corpus | encode-transport | drop | 252.7 [236.2-263.8] (236.2 247.1 263.8) | 256.8 [247.7-260.4] (256.9 260.4 247.7) |
+| U-nested-u-fixed64 | corpus | encode-transport | retain | 610.2 [573.6-649.8] (649.8 573.6 581.8) | 275.9 [269-292] (286 292 269) |
+| U-nested-u-len | corpus | encode-core-hot | drop | 218.8 [216.3-219.7] (219.7 216.3 216.5) | 212.3 [210-216.2] (216.2 211.3 210) |
+| U-nested-u-len | corpus | encode-core-hot | retain | 543.2 [525.1-568.8] (525.1 568.8 540.8) | 229.2 [223.9-233.8] (233.8 223.9 226.5) |
+| U-nested-u-len | corpus | encode-transport | drop | 242.7 [238.1-250.6] (238.1 238.4 250.6) | 257.5 [254.4-280.3] (280.3 255.1 254.4) |
+| U-nested-u-len | corpus | encode-transport | retain | 582.7 [542.6-593.8] (593.8 542.6 583.2) | 277.9 [272.9-282.7] (282.7 272.9 282.4) |
+| U-nested-u-msg | corpus | encode-core-hot | drop | 216.3 [212.7-217.9] (217.9 217.5 212.7) | 213.9 [209.4-224.5] (209.4 224.5 212.8) |
+| U-nested-u-msg | corpus | encode-core-hot | retain | 588.7 [564.1-628.8] (564.1 628.8 606.4) | 226.7 [223.2-227.5] (227.5 226.7 223.2) |
+| U-nested-u-msg | corpus | encode-transport | drop | 242.7 [231.8-250.3] (250.3 231.8 242.7) | 264.1 [241.3-274.2] (260.2 241.3 274.2) |
+| U-nested-u-msg | corpus | encode-transport | retain | 586.2 [573.7-637.7] (637.7 573.7 578.5) | 279.7 [273.2-282.6] (273.2 277.6 282.6) |
+| U-nested-u-packed | corpus | encode-core-hot | drop | 220.5 [219.2-225.2] (219.2 225.2 220.7) | 210.5 [210.2-213.3] (210.2 213.3 210.4) |
+| U-nested-u-packed | corpus | encode-core-hot | retain | 546.2 [537.4-568.6] (568.6 537.4 542.6) | 231.5 [223.9-243.4] (243.4 242.6 223.9) |
+| U-nested-u-packed | corpus | encode-transport | drop | 249.5 [240.6-250.8] (250.8 248.8 240.6) | 260.3 [255-264.4] (264.4 258.5 255) |
+| U-nested-u-packed | corpus | encode-transport | retain | 614.4 [610-643.8] (643.8 610 614.4) | 280.9 [277.6-288.6] (288.6 277.6 278.9) |
+| U-nested-u-repeated | corpus | encode-core-hot | drop | 221.1 [210.1-251.8] (210.1 251.8 218.5) | 212.5 [211.8-225.8] (220 225.8 211.8) |
+| U-nested-u-repeated | corpus | encode-core-hot | retain | 537 [527.3-556.9] (527.3 556.9 530.2) | 242.2 [230.5-249.7] (249.7 230.5 242.5) |
+| U-nested-u-repeated | corpus | encode-transport | drop | 256.3 [243.8-261.6] (261.6 243.8 251.3) | 256.1 [249.1-271.8] (254.3 249.1 271.8) |
+| U-nested-u-repeated | corpus | encode-transport | retain | 595.3 [583.2-655.9] (593 583.2 655.9) | 279.9 [274.5-283.1] (283.1 280.7 274.5) |
+| U-nested-u-varint | corpus | encode-core-hot | drop | 215.3 [214.3-219.1] (214.3 214.8 219.1) | 205 [200.2-237.6] (237.6 200.2 203.4) |
+| U-nested-u-varint | corpus | encode-core-hot | retain | 556.4 [525.7-561.8] (561.8 561.5 525.7) | 226 [223-228.5] (227.9 223 228.5) |
+| U-nested-u-varint | corpus | encode-transport | drop | 246.8 [240.3-248.9] (248.9 240.3 247.6) | 253.8 [250.3-256.3] (256.3 250.3 255.8) |
+| U-nested-u-varint | corpus | encode-transport | retain | 594.8 [593.7-601.8] (593.7 601.8 595) | 285.7 [276.4-291.4] (291.4 276.4 283.1) |
+| U-oneof-all | corpus | encode-core-hot | drop | 115.4 [107.8-117.9] (113.2 117.9 107.8) | 111.1 [105.9-116.8] (116.8 106.2 105.9) |
+| U-oneof-all | corpus | encode-core-hot | retain | 126.1 [124.9-132.4] (125.4 124.9 132.4) | 130.5 [126.6-133.4] (130.4 126.6 133.4) |
+| U-oneof-all | corpus | encode-transport | drop | 149.5 [146.5-157.1] (157.1 146.5 148.7) | 155.6 [148.5-158.5] (155.4 148.5 158.5) |
+| U-oneof-all | corpus | encode-transport | retain | 161.5 [157-164] (157 164 161.4) | 165.8 [159.2-175.4] (161.9 175.4 159.2) |
+| U-oneof-before | corpus | encode-core-hot | drop | 111.6 [109.7-126.4] (126.4 112.7 109.7) | 113.5 [111-114.2] (112.9 114.2 111) |
+| U-oneof-before | corpus | encode-core-hot | retain | 123.5 [123.5-124.2] (123.5 124.2 123.6) | 125.2 [123.7-126.5] (126.5 123.7 124.5) |
+| U-oneof-before | corpus | encode-transport | drop | 156.5 [148.1-167.5] (153.2 167.5 148.1) | 152.1 [148.3-163.1] (163.1 150.5 148.3) |
+| U-oneof-before | corpus | encode-transport | retain | 168.6 [162.8-180.6] (180.6 164.5 162.8) | 165.5 [159.9-166.3] (166.3 165.4 159.9) |
+| U-oneof-group | corpus | encode-core-hot | drop | 116.5 [112.2-119.6] (119.6 112.2 116.5) | 112.9 [110.8-117.4] (112.1 110.8 117.4) |
+| U-oneof-group | corpus | encode-core-hot | retain | 128.1 [119.9-133] (133 119.9 126.8) | 125.2 [119-125.8] (125.2 125.8 119) |
+| U-oneof-group | corpus | encode-transport | drop | 144.5 [140-148.4] (148.4 140 143.7) | 155.4 [146.7-157.9] (157.9 154.1 146.7) |
+| U-oneof-group | corpus | encode-transport | retain | 158.9 [155-178.3] (178.3 155 157.9) | 169.1 [162.9-172.8] (169.9 172.8 162.9) |
+| U-oneof-interleaved | corpus | encode-core-hot | drop | 111.8 [106.9-114.2] (106.9 114 114.2) | 113.3 [112.3-113.9] (112.6 112.3 113.9) |
+| U-oneof-interleaved | corpus | encode-core-hot | retain | 128 [123.9-131.8] (127.1 131.8 123.9) | 125.3 [121.2-127.2] (127.2 121.2 122.6) |
+| U-oneof-interleaved | corpus | encode-transport | drop | 147.5 [147.2-151.1] (151.1 147.6 147.2) | 149.5 [147.1-152] (152 147.1 149) |
+| U-oneof-interleaved | corpus | encode-transport | retain | 164.4 [158.1-166.7] (164.2 158.1 166.7) | 166.9 [162.1-167.5] (167.5 166.4 162.1) |
+| U-oneof-member-after-known | corpus | encode-core-hot | drop | 113.7 [109.1-129.3] (129.3 112.1 109.1) | 115.2 [112.2-119.1] (113.9 119.1 112.2) |
+| U-oneof-member-after-known | corpus | encode-core-hot | retain | 122.8 [120.2-125.3] (121.4 125.3 120.2) | 128.1 [120.2-133] (120.3 133 120.2) |
+| U-oneof-member-after-known | corpus | encode-transport | drop | 148.8 [147-149.8] (147 149.5 149.8) | 152 [149.8-154.3] (154.3 149.8 152.5) |
+| U-oneof-member-after-known | corpus | encode-transport | retain | 155.4 [153.2-156.5] (156.5 153.2 156) | 163.6 [159.1-165.1] (164.3 165.1 159.1) |
+| U-oneof-member-alone | corpus | encode-core-hot | drop | 108.4 [104.8-116.5] (104.8 108.9 116.5) | 109.6 [106.3-111] (111 106.3 107.4) |
+| U-oneof-member-alone | corpus | encode-core-hot | retain | 118.5 [116-119.5] (118 119.5 116) | 122.4 [115.2-128.5] (128.5 122.4 115.2) |
+| U-oneof-member-alone | corpus | encode-transport | drop | 141.8 [138.8-142.9] (138.8 142.9 141.2) | 149.1 [145.6-179.1] (153.1 179.1 145.6) |
+| U-oneof-member-alone | corpus | encode-transport | retain | 157.1 [151.8-159.6] (151.8 159.6 155.3) | 157.4 [154.1-160.9] (159.9 160.9 154.1) |
+| U-oneof-member-before-known | corpus | encode-core-hot | drop | 110 [105.6-111.1] (111.1 105.6 109) | 128.9 [115.5-137.8] (115.5 137.8 120.3) |
+| U-oneof-member-before-known | corpus | encode-core-hot | retain | 123.1 [122.7-127.6] (127.6 122.7 123) | 120.9 [117.4-127] (127 117.4 120.9) |
+| U-oneof-member-before-known | corpus | encode-transport | drop | 151.1 [141.4-154.3] (153.5 154.3 141.4) | 153.1 [146.9-161.1] (161.1 157.4 146.9) |
+| U-oneof-member-before-known | corpus | encode-transport | retain | 166.3 [154.9-170.5] (154.9 170.5 167.4) | 161 [155.4-163.5] (161.9 163.5 155.4) |
+| U-oneof-u-fixed32 | corpus | encode-core-hot | drop | 109.6 [109.1-111.6] (109.1 109.7 111.6) | 111.6 [111.1-112.3] (111.4 112.3 111.1) |
+| U-oneof-u-fixed32 | corpus | encode-core-hot | retain | 126.1 [117.1-141.2] (124.7 117.1 141.2) | 120.8 [118.7-122.9] (122.9 122.9 118.7) |
+| U-oneof-u-fixed32 | corpus | encode-transport | drop | 148 [141.4-155.9] (155.9 149.5 141.4) | 154.3 [153.1-161.5] (153.1 154.3 161.5) |
+| U-oneof-u-fixed32 | corpus | encode-transport | retain | 168.4 [155.9-170.2] (170.2 169.8 155.9) | 159.6 [157.4-163.6] (159.1 163.6 157.4) |
+| U-oneof-u-fixed64 | corpus | encode-core-hot | drop | 110.8 [106.3-113] (106.3 109.5 113) | 113.7 [108.1-115.7] (115.7 110.9 108.1) |
+| U-oneof-u-fixed64 | corpus | encode-core-hot | retain | 123.7 [121.7-132.2] (127.5 132.2 121.7) | 125.3 [120.7-143.8] (143.8 122.3 120.7) |
+| U-oneof-u-fixed64 | corpus | encode-transport | drop | 145.2 [143.6-150.4] (144.6 150.4 143.6) | 152.3 [151.7-155.3] (153.1 155.3 151.7) |
+| U-oneof-u-fixed64 | corpus | encode-transport | retain | 161.8 [159.6-164.6] (161.8 164.6 159.6) | 167.9 [160.4-171.4] (171.4 160.4 163.4) |
+| U-oneof-u-len | corpus | encode-core-hot | drop | 110.8 [107.7-112.4] (112.4 107.7 110.8) | 116.2 [112.6-142.4] (112.6 116.2 142.4) |
+| U-oneof-u-len | corpus | encode-core-hot | retain | 122.8 [121.3-125.3] (125.3 121.3 122.4) | 127.1 [121-135.9] (126.6 135.9 121) |
+| U-oneof-u-len | corpus | encode-transport | drop | 153 [151-166.8] (153 151 166.8) | 154.1 [146.5-159.2] (159.2 146.5 154.1) |
+| U-oneof-u-len | corpus | encode-transport | retain | 165.3 [163.9-174.9] (174.9 165.7 163.9) | 160.8 [158.8-167.9] (160.4 167.9 158.8) |
+| U-oneof-u-msg | corpus | encode-core-hot | drop | 112.3 [108.8-125.6] (125.6 116.9 108.8) | 112.8 [111.1-117.1] (112 111.1 117.1) |
+| U-oneof-u-msg | corpus | encode-core-hot | retain | 119.2 [117.9-120.1] (119.1 120.1 117.9) | 128.8 [123-145.3] (130.7 145.3 123) |
+| U-oneof-u-msg | corpus | encode-transport | drop | 145.3 [142.8-146.4] (144.5 146.4 142.8) | 151.5 [145.2-159.8] (159.8 145.2 147.9) |
+| U-oneof-u-msg | corpus | encode-transport | retain | 154.4 [152.7-173.2] (152.7 153.5 173.2) | 161 [157.8-176.9] (159.6 176.9 157.8) |
+| U-oneof-u-packed | corpus | encode-core-hot | drop | 110.5 [107.4-117.5] (107.4 117.5 108.9) | 111.7 [110.9-127] (111.6 127 110.9) |
+| U-oneof-u-packed | corpus | encode-core-hot | retain | 127.6 [126.1-128.7] (127.3 126.1 128.7) | 121.9 [119.7-122.9] (122.2 119.7 122.9) |
+| U-oneof-u-packed | corpus | encode-transport | drop | 149.5 [148.9-151.9] (151.9 150.7 148.9) | 154.9 [149.3-157.2] (156.7 157.2 149.3) |
+| U-oneof-u-packed | corpus | encode-transport | retain | 162.7 [157.4-172.8] (172.8 157.4 163.3) | 161.8 [156.7-170.8] (170.8 161.8 156.7) |
+| U-oneof-u-repeated | corpus | encode-core-hot | drop | 111.7 [110.9-114.4] (110.9 110.9 114.4) | 112.2 [108.2-115.5] (115.5 111.6 108.2) |
+| U-oneof-u-repeated | corpus | encode-core-hot | retain | 123.8 [122-129.1] (122 123.7 129.1) | 122.3 [120.6-124.3] (124.3 120.6 124.2) |
+| U-oneof-u-repeated | corpus | encode-transport | drop | 146.9 [143.2-148.4] (143.2 148.2 148.4) | 156.9 [142.2-179.2] (156.9 142.2 179.2) |
+| U-oneof-u-repeated | corpus | encode-transport | retain | 163.6 [159.8-171.5] (171.5 166.8 159.8) | 158.4 [148.8-166.4] (166.4 158.4 148.8) |
+| U-oneof-u-varint | corpus | encode-core-hot | drop | 111.5 [111.1-111.9] (111.1 111.9 111.7) | 113.1 [103.5-115.3] (115.3 103.5 112.9) |
+| U-oneof-u-varint | corpus | encode-core-hot | retain | 123.1 [120.6-132.3] (132.3 120.6 122.3) | 128 [120.2-128.7] (128.7 128.6 120.2) |
+| U-oneof-u-varint | corpus | encode-transport | drop | 147.8 [144-158.1] (146.7 158.1 144) | 150.2 [145.5-159.3] (159.3 145.5 150.1) |
+| U-oneof-u-varint | corpus | encode-transport | retain | 161.8 [161.5-163] (163 161.9 161.5) | 164 [161.8-174] (161.8 163.9 174) |
+| U-root-all | corpus | encode-core-hot | drop | 387.4 [374.2-412.1] (412.1 387.3 374.2) | 375.9 [369.1-377.8] (377.8 377.4 369.1) |
+| U-root-all | corpus | encode-core-hot | retain | 398.8 [389.7-403] (389.7 399.5 403) | 411.7 [407.9-496.4] (430.6 407.9 496.4) |
+| U-root-all | corpus | encode-transport | drop | 414.2 [402.8-420.7] (420.7 417.6 402.8) | 414.1 [408.2-439.4] (439.4 412.8 408.2) |
+| U-root-all | corpus | encode-transport | retain | 419.7 [397.7-436.6] (415.9 397.7 436.6) | 450.3 [429.7-457.5] (445.4 457.5 429.7) |
+| U-root-before | corpus | encode-core-hot | drop | 379.4 [366.9-387.7] (379.4 387.7 366.9) | 405.6 [391.2-454.4] (391.2 396.4 454.4) |
+| U-root-before | corpus | encode-core-hot | retain | 401.2 [397.4-404] (397.9 397.4 404) | 403.3 [402.1-419.2] (403.5 419.2 402.1) |
+| U-root-before | corpus | encode-transport | drop | 394 [381.3-395.9] (388.2 395.9 381.3) | 426.4 [420.1-431.7] (431.7 420.1 425.9) |
+| U-root-before | corpus | encode-transport | retain | 414.9 [408.6-454.1] (411.6 408.6 454.1) | 453.7 [450.8-457.2] (450.8 457.2 451.3) |
+| U-root-group | corpus | encode-core-hot | drop | 397.7 [389.9-428.7] (428.7 389.9 405.3) | 373.8 [364.9-389.6] (389.6 364.9 368.5) |
+| U-root-group | corpus | encode-core-hot | retain | 412.7 [381.7-434] (434 381.7 415) | 402.6 [390.4-423.1] (423.1 390.4 399.8) |
+| U-root-group | corpus | encode-transport | drop | 396.3 [387.9-404.7] (387.9 404.7 395.4) | 432.3 [422.3-443.2] (443.2 422.3 430.8) |
+| U-root-group | corpus | encode-transport | retain | 425.7 [415.5-484.6] (484.6 415.5 424.5) | 446.8 [434-450.3] (446.1 450.3 434) |
+| U-root-interleaved | corpus | encode-core-hot | drop | 387.2 [385.8-391.1] (390.3 385.8 391.1) | 362.3 [344.3-445.7] (445.7 357.9 344.3) |
+| U-root-interleaved | corpus | encode-core-hot | retain | 391.8 [384.6-400.2] (400.2 396.3 384.6) | 417.5 [408.4-417.5] (417 417.5 408.4) |
+| U-root-interleaved | corpus | encode-transport | drop | 402.4 [396.7-438.6] (398.4 396.7 438.6) | 421.5 [404.2-438.4] (438.4 423.5 404.2) |
+| U-root-interleaved | corpus | encode-transport | retain | 428.9 [415.3-440.7] (415.3 440.7 419.7) | 442.4 [441-446.5] (446.5 442.4 441) |
+| U-root-max-tag | corpus | encode-core-hot | drop | 388.6 [387.4-390.5] (390.5 387.4 387.7) | 382.7 [369.1-401.3] (383.6 369.1 401.3) |
+| U-root-max-tag | corpus | encode-core-hot | retain | 398.6 [390.2-457.7] (390.2 457.7 398) | 430.3 [404.2-442.9] (404.2 404.6 442.9) |
+| U-root-max-tag | corpus | encode-transport | drop | 402.1 [395.7-406] (403.8 406 395.7) | 438.7 [421.8-440.1] (440.1 421.8 427.8) |
+| U-root-max-tag | corpus | encode-transport | retain | 462.9 [456.2-476.4] (461.4 456.2 476.4) | 445.4 [434.5-503] (434.5 439.9 503) |
+| U-root-u-fixed32 | corpus | encode-core-hot | drop | 386.8 [384.6-392.8] (384.6 392.8 387) | 376.3 [359.8-402.1] (402.1 376.3 359.8) |
+| U-root-u-fixed32 | corpus | encode-core-hot | retain | 404.3 [389.8-410.2] (410.2 406.8 389.8) | 406.6 [392.9-420.3] (410 420.3 392.9) |
+| U-root-u-fixed32 | corpus | encode-transport | drop | 394.9 [391.4-403.2] (391.4 403.2 391.4) | 439 [421.6-441.9] (441.9 437.1 421.6) |
+| U-root-u-fixed32 | corpus | encode-transport | retain | 432.1 [424-432.5] (432.5 432.5 424) | 456.6 [428.2-469] (469 428.2 450.2) |
+| U-root-u-fixed64 | corpus | encode-core-hot | drop | 394.3 [375.8-402.1] (393.7 402.1 375.8) | 389.6 [373.5-399.6] (373.5 399.6 386) |
+| U-root-u-fixed64 | corpus | encode-core-hot | retain | 405.9 [390.1-420.7] (390.1 403.3 420.7) | 397.6 [389.8-468.3] (468.3 393.3 389.8) |
+| U-root-u-fixed64 | corpus | encode-transport | drop | 402 [384.2-427.3] (427.3 384.2 400.5) | 417.1 [405.7-425.6] (425.6 405.7 414.4) |
+| U-root-u-fixed64 | corpus | encode-transport | retain | 412.6 [398.6-434] (434 398.6 410.4) | 442.2 [433.6-469.4] (469.4 433.6 441.4) |
+| U-root-u-len | corpus | encode-core-hot | drop | 397.7 [389.9-413.2] (389.9 399.4 413.2) | 384.5 [378.2-391.2] (391.2 383.9 378.2) |
+| U-root-u-len | corpus | encode-core-hot | retain | 408.6 [396.7-414.9] (402.1 414.9 396.7) | 399.5 [395.3-401.9] (399.8 395.3 401.9) |
+| U-root-u-len | corpus | encode-transport | drop | 400.5 [379.3-407.5] (407.5 399.5 379.3) | 422 [410-435.9] (431.4 410 435.9) |
+| U-root-u-len | corpus | encode-transport | retain | 419 [413.4-422] (422 413.4 419.7) | 449.3 [447.5-492.9] (452.7 492.9 447.5) |
+| U-root-u-msg | corpus | encode-core-hot | drop | 406.9 [382.9-429.7] (414.4 382.9 429.7) | 380.3 [365.4-402.8] (402.8 365.4 389.4) |
+| U-root-u-msg | corpus | encode-core-hot | retain | 415.5 [399.2-426.3] (426.3 399.2 421.8) | 395 [381.5-397.5] (397.5 396.7 381.5) |
+| U-root-u-msg | corpus | encode-transport | drop | 402.7 [401.4-403.5] (402.6 403.5 401.4) | 432 [418.1-439.6] (439.6 432 418.1) |
+| U-root-u-msg | corpus | encode-transport | retain | 428.7 [428.2-438] (428.2 428.4 438) | 451.5 [433.7-476.1] (433.7 476.1 438.1) |
+| U-root-u-packed | corpus | encode-core-hot | drop | 377.4 [369.4-434.8] (434.8 377.3 369.4) | 385.3 [380-439.2] (439.2 414.9 380) |
+| U-root-u-packed | corpus | encode-core-hot | retain | 399.1 [394.2-405.5] (394.2 401 405.5) | 406.1 [395.8-423.2] (395.8 411.6 423.2) |
+| U-root-u-packed | corpus | encode-transport | drop | 390 [384.2-395.2] (395.2 390.1 384.2) | 447.8 [431.7-488.9] (488.9 431.7 432.6) |
+| U-root-u-packed | corpus | encode-transport | retain | 444.2 [417-475.3] (475.3 444.2 417) | 455.4 [445.7-465.3] (465.3 451.1 445.7) |
+| U-root-u-repeated | corpus | encode-core-hot | drop | 394.7 [385.7-406] (389.3 406 385.7) | 379.9 [372-386.9] (372 373.8 386.9) |
+| U-root-u-repeated | corpus | encode-core-hot | retain | 413 [405.9-427.3] (412.4 427.3 405.9) | 408.6 [388.6-415.8] (408.6 388.6 415.8) |
+| U-root-u-repeated | corpus | encode-transport | drop | 398.6 [386-418.8] (418.8 386 386.2) | 435.9 [423.4-438.1] (423.4 437.1 438.1) |
+| U-root-u-repeated | corpus | encode-transport | retain | 428.1 [407.5-444.1] (441.1 407.5 444.1) | 451.4 [446.5-459.4] (450.2 459.4 446.5) |
+| U-root-u-varint | corpus | encode-core-hot | drop | 407.1 [379.8-431.8] (414.3 431.8 379.8) | 373 [369.5-378.5] (378.5 370.5 369.5) |
+| U-root-u-varint | corpus | encode-core-hot | retain | 407.3 [394-420.1] (400.2 394 420.1) | 440.5 [395.9-462.2] (462.2 395.9 396.9) |
+| U-root-u-varint | corpus | encode-transport | drop | 407.4 [396.8-416.5] (416.5 396.8 402.3) | 446 [433.9-458.1] (455 458.1 433.9) |
+| U-root-u-varint | corpus | encode-transport | retain | 423.5 [414.9-446.6] (446.6 414.9 423.5) | 449.6 [443.7-470.4] (452.9 470.4 443.7) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | drop | 199.6 [195.7-217.3] (217.3 199.6 195.7) | 190.7 [189.9-256] (189.9 256 192.7) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | retain | 220 [218.4-220.6] (219.9 218.4 220.6) | 210.7 [209.6-212] (212 209.6 210.9) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | drop | 240.4 [239.1-257.6] (257.6 239.1 240.8) | 228.7 [225.7-239.6] (239.6 225.7 227.8) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | retain | 253.2 [243.8-256.2] (250.2 243.8 256.2) | 251.8 [242.3-255.3] (255.3 242.3 250.8) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | drop | 197.4 [194.9-201.6] (196.8 194.9 201.6) | 197.1 [189.7-202.6] (202.6 197.1 189.7) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | retain | 220.1 [220-220.6] (220 220.6 220.5) | 215.4 [211.1-237] (237 211.1 215.4) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | drop | 236.1 [233.5-241.6] (235.2 241.6 233.5) | 230.4 [224.9-235] (224.9 228.6 235) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | retain | 246.8 [246.4-251.1] (246.7 251.1 246.4) | 257.3 [248.9-259.9] (259.9 249.7 248.9) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | drop | 203.7 [197.6-206.4] (206.4 203.4 197.6) | 190.9 [182.1-195.3] (195.3 182.1 189.9) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | retain | 219.8 [212.7-220.8] (216.8 212.7 220.8) | 210.1 [205.4-210.9] (209.6 205.4 210.9) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | drop | 237.6 [229.2-243.3] (237.6 243.3 229.2) | 227 [224.8-227.4] (227.4 227.4 224.8) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | retain | 262.1 [256-269.2] (263.2 269.2 256) | 254.2 [253.9-255.6] (253.9 254.4 255.6) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | drop | 1153 [1090-1608] (1119 1608 1090) | 1129 [1121-1132] (1125 1121 1132) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | retain | 1115 [1110-1144] (1144 1110 1120) | 1136 [1102-1300] (1135 1102 1300) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | drop | 1185 [1175-1217] (1178 1175 1217) | 1204 [1175-1207] (1195 1207 1175) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | retain | 1206 [1197-1397] (1201 1397 1197) | 1211 [1192-1215] (1207 1215 1192) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | drop | 1116 [1071-1193] (1131 1071 1193) | 1136 [1089-1145] (1089 1145 1143) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | retain | 1148 [1110-1187] (1187 1110 1120) | 1110 [1041-1148] (1148 1053 1041) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | drop | 1175 [1167-1224] (1167 1224 1174) | 1174 [1161-1178] (1172 1161 1178) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | retain | 1201 [1153-1241] (1198 1241 1153) | 1215 [1112-1234] (1234 1112 1195) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | drop | 1103 [1091-1125] (1102 1125 1091) | 1097 [1072-1124] (1124 1119 1072) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | retain | 1129 [1057-1204] (1152 1057 1204) | 1133 [1092-1154] (1154 1099 1092) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | drop | 1165 [1137-1184] (1177 1137 1184) | 1248 [1174-1342] (1230 1174 1342) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | retain | 1236 [1215-1391] (1215 1391 1220) | 1237 [1197-1382] (1237 1197 1382) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | drop | 182.6 [181.8-186.4] (181.8 186.4 184.2) | 187.7 [181.8-215.6] (215.6 181.8 186) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | retain | 192.2 [186.9-195.6] (186.9 187.2 195.6) | 191.3 [189.3-194.7] (194.7 193.2 189.3) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | drop | 227.2 [220-227.9] (227.5 220 227.9) | 224.9 [223.5-230.2] (224.8 230.2 223.5) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | retain | 238.8 [236.3-245.2] (242.7 236.3 245.2) | 235.1 [233-250.8] (240.1 250.8 233) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | drop | 183.4 [181.5-188.3] (181.5 183.7 188.3) | 187.9 [186.4-196.4] (186.4 186.6 196.4) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | retain | 190 [186.8-195.1] (190.9 195.1 186.8) | 193.7 [190.9-196.4] (190.9 196.4 195.6) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | drop | 213.3 [208.8-229.6] (208.8 215.6 229.6) | 226.4 [223.4-227.9] (227.9 225.6 223.4) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | retain | 231.7 [229.8-236.7] (230.7 229.8 236.7) | 251.8 [239.1-259.2] (250.5 259.2 239.1) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | drop | 188.4 [184.3-198.6] (187 184.3 198.6) | 187.9 [187-188.4] (187.2 188.4 187) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | retain | 193.9 [191.1-205.8] (205.8 191.1 198.5) | 198.1 [194.9-204.2] (204.2 197.3 194.9) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | drop | 228.6 [226.5-229.9] (229.9 226.5 227.3) | 228.5 [222.3-236.8] (222.3 236.8 228.5) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | retain | 239.1 [236.9-243.1] (236.9 236.9 243.1) | 247 [243.6-251.6] (251.6 246.9 243.6) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | drop | 396.4 [390.2-399.2] (390.2 396.6 399.2) | 372.7 [370.3-386.1] (386.1 373 370.3) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | retain | 406.4 [400.6-420] (408.4 400.6 420) | 404.8 [401.3-406.6] (401.3 404.4 406.6) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | drop | 415.7 [399.2-418.7] (418.7 400 399.2) | 422.7 [414.5-435.7] (435.7 420.4 414.5) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | retain | 418.9 [413.1-421.5] (419 421.5 413.1) | 453.2 [450.2-474.1] (474.1 450.2 459.2) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | drop | 389.2 [379.3-402.9] (402.9 384.4 379.3) | 385.7 [376-429.2] (429.2 376 376) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | retain | 397.9 [390.3-408.2] (390.3 392.2 408.2) | 411.1 [394.7-413.5] (413.5 407.4 394.7) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | drop | 397.4 [391.7-401.4] (391.7 401.4 398.9) | 420.5 [409.2-439.3] (439.3 420.5 409.2) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | retain | 424.1 [415.4-425.3] (425.3 425.1 415.4) | 470.8 [455.7-473.5] (465 455.7 473.5) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | drop | 397.3 [374.1-409.3] (399.3 409.3 374.1) | 377.2 [375-398.6] (375.8 375 398.6) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | retain | 408.9 [395.5-422.8] (395.5 422.8 409) | 409.6 [400.1-429.1] (400.1 406.1 429.1) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | drop | 393.4 [389.7-403.2] (395.3 403.2 389.7) | 447.1 [436.1-456.7] (456.7 454.6 436.1) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | retain | 415.9 [414-424.2] (424.2 416 414) | 448.1 [420.1-503] (503 420.1 456.8) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | drop | 389 [381-394.6] (394.4 394.6 381) | 375.4 [372-402.4] (402.4 372 372.6) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | retain | 409.1 [407-414] (414 407 412) | 421.3 [400.2-440.3] (440.3 423.3 400.2) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | drop | 407.2 [386.8-420.4] (386.8 420.4 390.9) | 421.9 [412.1-446] (421.9 412.1 446) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | retain | 431.6 [414.7-463.8] (414.7 425.7 463.8) | 452.3 [446.3-462.6] (446.3 451.7 462.6) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | drop | 384.7 [375.9-396.7] (381.7 375.9 396.7) | 378.3 [369.9-387.4] (369.9 380.4 387.4) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | retain | 430.7 [411.3-444.8] (442.4 444.8 411.3) | 384.5 [381-389.3] (381 385.8 389.3) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | drop | 392.8 [385.8-395.2] (395.2 385.8 387.9) | 437.1 [428.1-442] (428.1 436 442) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | retain | 428.5 [421.5-430.9] (421.5 430.9 429.5) | 456 [435.3-461] (461 435.3 446) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | drop | 394.1 [384.5-399.6] (384.5 386.9 399.6) | 382.2 [355.2-384.7] (381.3 355.2 384.7) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | retain | 397.5 [394-399.5] (399.5 394 394.8) | 417.4 [385.5-457.6] (414.7 385.5 457.6) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | drop | 401.5 [390.6-407.6] (390.6 407.6 396.6) | 433.9 [426.9-463.3] (426.9 463.3 431.8) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | retain | 442 [419-481.7] (481.7 428.8 419) | 453.5 [439.7-542.7] (439.7 542.7 453.5) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 1081 [1068-1100] (1071 1100 1068) | 1090 [1079-1116] (1090 1079 1116) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 1135 [1106-1163] (1106 1154 1163) | 1123 [1099-1274] (1110 1274 1099) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | drop | 1111 [1080-1228] (1080 1096 1228) | 1167 [1126-1198] (1198 1126 1128) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | retain | 1171 [1166-1190] (1166 1178 1190) | 1175 [1173-1179] (1173 1175 1179) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 1075 [1059-1197] (1076 1197 1059) | 1106 [1028-1137] (1137 1028 1136) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 1123 [1117-1130] (1117 1124 1130) | 1129 [1106-1142] (1142 1106 1119) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | drop | 1155 [1127-1164] (1127 1164 1159) | 1170 [1154-1211] (1176 1154 1211) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | retain | 1151 [1134-1175] (1175 1134 1150) | 1233 [1164-1268] (1214 1268 1164) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 1075 [1052-1089] (1089 1082 1052) | 1108 [1097-1120] (1120 1103 1097) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 1098 [1046-1187] (1187 1098 1046) | 1119 [1096-1121] (1121 1096 1117) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | drop | 1173 [1143-1733] (1733 1153 1143) | 1155 [1141-1175] (1175 1141 1142) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | retain | 1168 [1152-1181] (1181 1152 1174) | 1183 [1158-1200] (1200 1158 1158) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | drop | 2341 [2200-2564] (2390 2200 2564) | 2236 [2226-2246] (2226 2229 2246) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | retain | 2402 [2377-2488] (2488 2401 2377) | 2354 [2317-2381] (2359 2381 2317) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | drop | 2407 [2331-2509] (2407 2509 2331) | 2348 [2258-2603] (2370 2258 2603) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | retain | 2422 [2396-2463] (2408 2463 2396) | 2388 [2361-2570] (2570 2381 2361) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | drop | 2319 [2293-2339] (2328 2293 2339) | 2164 [2100-2238] (2238 2100 2164) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | retain | 2417 [2352-2429] (2352 2429 2354) | 2258 [2236-2358] (2358 2256 2236) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | drop | 2412 [2348-2524] (2348 2524 2378) | 2386 [2284-2451] (2386 2284 2451) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | retain | 2484 [2437-2515] (2485 2437 2515) | 2386 [2323-2451] (2451 2386 2323) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | drop | 2345 [2228-2427] (2427 2342 2228) | 2287 [2224-2396] (2339 2396 2224) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | retain | 2416 [2409-2547] (2421 2547 2409) | 2447 [2292-2454] (2407 2292 2454) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | drop | 2392 [2304-2445] (2417 2445 2304) | 2328 [2244-2399] (2304 2399 2244) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | retain | 2442 [2393-2485] (2436 2485 2393) | 2405 [2293-2525] (2525 2293 2387) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 2417 [2303-2444] (2444 2395 2303) | 2227 [2202-2684] (2210 2202 2684) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 2381 [2361-2536] (2361 2536 2396) | 2392 [2300-2408] (2374 2408 2300) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | drop | 2404 [2376-2520] (2376 2520 2384) | 2370 [2283-2493] (2388 2283 2493) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | retain | 2461 [2434-2510] (2510 2434 2442) | 2458 [2448-2628] (2448 2560 2628) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 2379 [2350-2391] (2350 2385 2391) | 2167 [2158-2186] (2158 2186 2168) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 2417 [2346-2459] (2454 2346 2459) | 2338 [2158-2369] (2369 2158 2299) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | drop | 2377 [2359-2417] (2417 2374 2359) | 2393 [2393-2470] (2470 2393 2417) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | retain | 2466 [2435-2834] (2477 2834 2435) | 2517 [2386-2709] (2709 2549 2386) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 2363 [2335-2411] (2335 2343 2411) | 2248 [2212-2280] (2280 2252 2212) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 2408 [2380-2494] (2398 2380 2494) | 2352 [2329-2414] (2353 2414 2329) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | drop | 2397 [2373-2425] (2425 2375 2373) | 2313 [2295-2391] (2391 2304 2295) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | retain | 2488 [2413-2622] (2622 2413 2459) | 2374 [2358-2527] (2358 2527 2389) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | drop | 104 [100.4-110.3] (100.4 100.9 110.3) | 100.4 [94.9-103.8] (100.7 103.8 94.9) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | retain | 121.2 [105.4-130.8] (105.4 108.6 130.8) | 107.2 [105.4-111.3] (111.3 105.4 106.2) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | drop | 126.8 [121.5-128.2] (128.2 121.5 124) | 136.7 [134.3-139.7] (139.7 134.5 134.3) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | retain | 142.2 [138-157.7] (142.8 157.7 138) | 140.4 [139.1-185.2] (185.2 139.1 139.5) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | drop | 99.5 [98.36-112.2] (112.2 99.46 98.36) | 112.5 [100.2-114.4] (114.4 100.2 113.9) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | retain | 107.7 [105.7-109.2] (105.7 109.2 108.9) | 107.8 [105.9-110.4] (110.4 105.9 107.6) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | drop | 128.7 [126.2-129.6] (129 129.6 126.2) | 137.8 [129.3-145.8] (133.3 145.8 129.3) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | retain | 136 [134.4-138.1] (138.1 134.4 138) | 147.4 [138.1-151.5] (138.1 151.5 142.1) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | drop | 100.2 [98.03-109.2] (100.4 109.2 98.03) | 102.2 [97.05-105.9] (100.5 105.9 97.05) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | retain | 124.2 [103.1-128.7] (128.7 117.1 103.1) | 107.2 [102.9-107.7] (107.7 102.9 107.3) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | drop | 136.1 [126-137.9] (137.9 131.1 126) | 133.8 [121.6-139.1] (139.1 134.1 121.6) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | retain | 137.4 [137-155.4] (137.3 137 155.4) | 138.6 [134.5-147.6] (138.6 147.6 134.5) |
 
 ## E1R:128
 
 | payload | content | dir | mode | eager | lazy |
 |---|---|---|---|---|---|
+| P1.1 | ascii | encode-core-hot | drop | 709.4 [686.8-719.5] (713.9 686.8 719.5) | 715.1 [697.7-799] (799 715.1 697.7) |
+| P1.1 | ascii | encode-core-hot | retain | 1088 [1069-1139] (1069 1069 1139) | 748.6 [744.6-773.4] (746.7 773.4 744.6) |
+| P1.1 | ascii | encode-transport | drop | 774.5 [744-826.9] (778.6 744 826.9) | 839.3 [810.3-850.6] (850.6 827.4 810.3) |
+| P1.1 | ascii | encode-transport | retain | 1172 [1114-1261] (1261 1158 1114) | 845.9 [833.5-851.1] (851.1 833.5 838.5) |
+| P1.2 | ascii | encode-core-hot | drop | 1.976e+05 [1.892e+05-2.218e+05] (1.937e+05 1.892e+05 2.218e+05) | 1.828e+05 [1.796e+05-1.938e+05] (1.938e+05 1.843e+05 1.796e+05) |
+| P1.2 | ascii | encode-core-hot | retain | 2.108e+05 [2.034e+05-2.251e+05] (2.251e+05 2.034e+05 2.104e+05) | 2.016e+05 [1.892e+05-2.072e+05] (2.065e+05 2.072e+05 1.892e+05) |
+| P1.2 | ascii | encode-transport | drop | 2.007e+05 [1.962e+05-2.1e+05] (1.999e+05 1.962e+05 2.1e+05) | 1.965e+05 [1.949e+05-2.038e+05] (1.959e+05 2.038e+05 1.949e+05) |
+| P1.2 | ascii | encode-transport | retain | 2.118e+05 [2.054e+05-2.153e+05] (2.153e+05 2.138e+05 2.054e+05) | 2.038e+05 [2.019e+05-2.07e+05] (2.019e+05 2.07e+05 2.033e+05) |
+| P1.2 | latin1 | encode-core-hot | drop | 2.514e+05 [2.496e+05-2.798e+05] (2.798e+05 2.496e+05 2.496e+05) | 2.662e+05 [2.593e+05-2.676e+05] (2.676e+05 2.593e+05 2.67e+05) |
+| P1.2 | latin1 | encode-core-hot | retain | 2.775e+05 [2.71e+05-3.107e+05] (2.757e+05 3.107e+05 2.71e+05) | 3.004e+05 [2.673e+05-3.056e+05] (2.673e+05 3.056e+05 2.758e+05) |
+| P1.2 | latin1 | encode-transport | drop | 2.932e+05 [2.737e+05-3.015e+05] (3.015e+05 2.737e+05 2.998e+05) | 3.045e+05 [2.842e+05-3.465e+05] (3.465e+05 2.842e+05 2.994e+05) |
+| P1.2 | latin1 | encode-transport | retain | 3.101e+05 [2.919e+05-3.173e+05] (3.12e+05 2.919e+05 3.173e+05) | 3.042e+05 [2.798e+05-3.092e+05] (2.798e+05 3.075e+05 3.092e+05) |
+| P1.2 | wide | encode-core-hot | drop | 3.611e+05 [3.533e+05-3.749e+05] (3.749e+05 3.533e+05 3.634e+05) | 3.679e+05 [3.554e+05-3.885e+05] (3.554e+05 3.589e+05 3.885e+05) |
+| P1.2 | wide | encode-core-hot | retain | 3.602e+05 [3.543e+05-3.732e+05] (3.543e+05 3.732e+05 3.612e+05) | 3.512e+05 [3.497e+05-3.539e+05] (3.497e+05 3.539e+05 3.519e+05) |
+| P1.2 | wide | encode-transport | drop | 3.716e+05 [3.605e+05-3.746e+05] (3.746e+05 3.605e+05 3.696e+05) | 3.766e+05 [3.701e+05-3.818e+05] (3.818e+05 3.755e+05 3.701e+05) |
+| P1.2 | wide | encode-transport | retain | 3.811e+05 [3.707e+05-3.85e+05] (3.829e+05 3.707e+05 3.85e+05) | 3.786e+05 [3.725e+05-4.081e+05] (4.081e+05 3.749e+05 3.725e+05) |
+| P1.3 | ascii | encode-core-hot | drop | 1.852e+04 [1.767e+04-1.874e+04] (1.874e+04 1.767e+04 1.837e+04) | 1.841e+04 [1.794e+04-1.856e+04] (1.856e+04 1.842e+04 1.794e+04) |
+| P1.3 | ascii | encode-core-hot | retain | 1.901e+04 [1.825e+04-2.066e+04] (1.87e+04 2.066e+04 1.825e+04) | 1.851e+04 [1.79e+04-2.01e+04] (1.79e+04 2.01e+04 1.851e+04) |
+| P1.3 | ascii | encode-transport | drop | 1.798e+04 [1.752e+04-1.883e+04] (1.883e+04 1.808e+04 1.752e+04) | 1.859e+04 [1.845e+04-1.953e+04] (1.89e+04 1.953e+04 1.845e+04) |
+| P1.3 | ascii | encode-transport | retain | 1.862e+04 [1.836e+04-1.89e+04] (1.861e+04 1.836e+04 1.89e+04) | 2.072e+04 [1.923e+04-2.326e+04] (1.923e+04 2.326e+04 1.93e+04) |
+| P2.1 | ascii | encode-core-hot | drop | 1264 [1205-1367] (1329 1367 1205) | 1221 [1182-1225] (1223 1225 1182) |
+| P2.1 | ascii | encode-core-hot | retain | 1717 [1694-1741] (1719 1694 1741) | 1239 [1217-1292] (1292 1228 1217) |
+| P2.1 | ascii | encode-transport | drop | 1539 [1473-1592] (1473 1592 1560) | 1353 [1292-1383] (1383 1353 1292) |
+| P2.1 | ascii | encode-transport | retain | 1895 [1807-1953] (1953 1807 1892) | 1490 [1403-1591] (1591 1403 1506) |
+| P2.2 | ascii | encode-core-hot | drop | 8.982e+05 [8.216e+05-9.246e+05] (9.246e+05 8.868e+05 8.216e+05) | 8.086e+05 [7.893e+05-8.568e+05] (8.058e+05 8.568e+05 7.893e+05) |
+| P2.2 | ascii | encode-core-hot | retain | 9.686e+05 [9.435e+05-1.022e+06] (9.435e+05 1.009e+06 1.022e+06) | 8.281e+05 [7.963e+05-8.887e+05] (8.887e+05 7.963e+05 8.235e+05) |
+| P2.2 | ascii | encode-transport | drop | 8.925e+05 [8.712e+05-9.498e+05] (9.498e+05 8.712e+05 8.929e+05) | 8.413e+05 [7.933e+05-8.946e+05] (8.946e+05 7.933e+05 8.043e+05) |
+| P2.2 | ascii | encode-transport | retain | 1.042e+06 [9.322e+05-1.076e+06] (1.076e+06 9.322e+05 1.05e+06) | 8.886e+05 [8.642e+05-8.901e+05] (8.901e+05 8.642e+05 8.803e+05) |
+| P2.2 | latin1 | encode-core-hot | drop | 1.044e+06 [1.036e+06-1.046e+06] (1.046e+06 1.036e+06 1.044e+06) | 1.049e+06 [1.038e+06-1.089e+06] (1.038e+06 1.043e+06 1.089e+06) |
+| P2.2 | latin1 | encode-core-hot | retain | 1.298e+06 [1.253e+06-1.395e+06] (1.319e+06 1.395e+06 1.253e+06) | 1.062e+06 [1.03e+06-1.126e+06] (1.126e+06 1.03e+06 1.057e+06) |
+| P2.2 | latin1 | encode-transport | drop | 1.146e+06 [1.082e+06-1.253e+06] (1.132e+06 1.082e+06 1.253e+06) | 1.2e+06 [1.168e+06-1.219e+06] (1.205e+06 1.168e+06 1.219e+06) |
+| P2.2 | latin1 | encode-transport | retain | 1.321e+06 [1.256e+06-1.415e+06] (1.415e+06 1.338e+06 1.256e+06) | 1.134e+06 [1.116e+06-1.195e+06] (1.195e+06 1.146e+06 1.116e+06) |
+| P2.2 | wide | encode-core-hot | drop | 1.28e+06 [1.244e+06-1.309e+06] (1.309e+06 1.244e+06 1.246e+06) | 1.261e+06 [1.24e+06-1.339e+06] (1.24e+06 1.339e+06 1.253e+06) |
+| P2.2 | wide | encode-core-hot | retain | 1.477e+06 [1.403e+06-1.535e+06] (1.526e+06 1.535e+06 1.403e+06) | 1.307e+06 [1.254e+06-1.351e+06] (1.317e+06 1.351e+06 1.254e+06) |
+| P2.2 | wide | encode-transport | drop | 1.421e+06 [1.365e+06-1.462e+06] (1.415e+06 1.462e+06 1.365e+06) | 1.376e+06 [1.338e+06-1.385e+06] (1.382e+06 1.338e+06 1.385e+06) |
+| P2.2 | wide | encode-transport | retain | 1.655e+06 [1.538e+06-1.754e+06] (1.754e+06 1.538e+06 1.613e+06) | 1.434e+06 [1.423e+06-1.46e+06] (1.425e+06 1.46e+06 1.423e+06) |
+| P2.3 | ascii | encode-core-hot | drop | 5.625e+05 [5.226e+05-5.9e+05] (5.705e+05 5.9e+05 5.226e+05) | 5.445e+05 [5.424e+05-5.522e+05] (5.424e+05 5.522e+05 5.476e+05) |
+| P2.3 | ascii | encode-core-hot | retain | 5.986e+05 [5.907e+05-6.094e+05] (6.083e+05 6.094e+05 5.907e+05) | 5.498e+05 [4.985e+05-5.967e+05] (5.428e+05 5.967e+05 4.985e+05) |
+| P2.3 | ascii | encode-transport | drop | 6.144e+05 [6.106e+05-6.409e+05] (6.261e+05 6.106e+05 6.409e+05) | 6.127e+05 [6.127e+05-6.392e+05] (6.147e+05 6.392e+05 6.127e+05) |
+| P2.3 | ascii | encode-transport | retain | 6.577e+05 [6.273e+05-6.675e+05] (6.675e+05 6.273e+05 6.521e+05) | 6.072e+05 [5.789e+05-6.279e+05] (6.279e+05 6.19e+05 5.789e+05) |
+| P2.4 | ascii | encode-core-hot | drop | 7.731e+05 [7.61e+05-7.746e+05] (7.637e+05 7.61e+05 7.746e+05) | 7.557e+05 [7.144e+05-7.869e+05] (7.487e+05 7.869e+05 7.144e+05) |
+| P2.4 | ascii | encode-core-hot | retain | 7.966e+05 [7.856e+05-8.018e+05] (8.018e+05 7.856e+05 7.961e+05) | 7.623e+05 [7.414e+05-8.128e+05] (7.45e+05 7.414e+05 8.128e+05) |
+| P2.4 | ascii | encode-transport | drop | 8.823e+05 [8.794e+05-9.066e+05] (8.98e+05 8.794e+05 9.066e+05) | 8.13e+05 [8.035e+05-8.756e+05] (8.756e+05 8.035e+05 8.169e+05) |
+| P2.4 | ascii | encode-transport | retain | 8.94e+05 [8.792e+05-9.335e+05] (9.335e+05 8.792e+05 8.852e+05) | 8.34e+05 [8.062e+05-8.602e+05] (8.062e+05 8.338e+05 8.602e+05) |
+| P2.4 | latin1 | encode-core-hot | drop | 1.288e+06 [1.277e+06-1.469e+06] (1.469e+06 1.278e+06 1.277e+06) | 1.287e+06 [1.246e+06-1.328e+06] (1.328e+06 1.246e+06 1.257e+06) |
+| P2.4 | latin1 | encode-core-hot | retain | 1.386e+06 [1.365e+06-1.413e+06] (1.37e+06 1.365e+06 1.413e+06) | 1.313e+06 [1.242e+06-1.329e+06] (1.326e+06 1.329e+06 1.242e+06) |
+| P2.4 | latin1 | encode-transport | drop | 1.673e+06 [1.551e+06-1.769e+06] (1.769e+06 1.551e+06 1.655e+06) | 1.559e+06 [1.484e+06-1.679e+06] (1.535e+06 1.679e+06 1.484e+06) |
+| P2.4 | latin1 | encode-transport | retain | 1.608e+06 [1.536e+06-1.689e+06] (1.618e+06 1.689e+06 1.536e+06) | 1.47e+06 [1.45e+06-1.498e+06] (1.498e+06 1.45e+06 1.471e+06) |
+| P2.4 | wide | encode-core-hot | drop | 1.967e+06 [1.885e+06-2.003e+06] (2.003e+06 1.885e+06 1.941e+06) | 1.906e+06 [1.851e+06-1.983e+06] (1.893e+06 1.983e+06 1.851e+06) |
+| P2.4 | wide | encode-core-hot | retain | 1.969e+06 [1.921e+06-2.04e+06] (1.921e+06 1.969e+06 2.04e+06) | 1.871e+06 [1.866e+06-1.909e+06] (1.878e+06 1.866e+06 1.909e+06) |
+| P2.4 | wide | encode-transport | drop | 2.124e+06 [2.046e+06-2.224e+06] (2.224e+06 2.103e+06 2.046e+06) | 2.049e+06 [1.998e+06-2.301e+06] (2.301e+06 2.034e+06 1.998e+06) |
+| P2.4 | wide | encode-transport | retain | 2.27e+06 [2.214e+06-2.323e+06] (2.323e+06 2.214e+06 2.26e+06) | 2.074e+06 [2.058e+06-2.136e+06] (2.136e+06 2.058e+06 2.074e+06) |
+| P2.5 | ascii | encode-core-hot | drop | 2.339e+04 [2.26e+04-2.346e+04] (2.26e+04 2.343e+04 2.346e+04) | 2.236e+04 [2.198e+04-2.413e+04] (2.413e+04 2.223e+04 2.198e+04) |
+| P2.5 | ascii | encode-core-hot | retain | 2.665e+04 [2.62e+04-2.73e+04] (2.73e+04 2.647e+04 2.62e+04) | 2.273e+04 [2.174e+04-2.484e+04] (2.484e+04 2.28e+04 2.174e+04) |
+| P2.5 | ascii | encode-transport | drop | 2.596e+04 [2.426e+04-2.776e+04] (2.776e+04 2.426e+04 2.567e+04) | 2.487e+04 [2.424e+04-2.606e+04] (2.606e+04 2.487e+04 2.424e+04) |
+| P2.5 | ascii | encode-transport | retain | 3.037e+04 [2.898e+04-3.095e+04] (3.037e+04 2.898e+04 3.095e+04) | 2.566e+04 [2.465e+04-2.699e+04] (2.566e+04 2.465e+04 2.699e+04) |
+| P3.1 | ascii | encode-core-hot | drop | 1.269e+04 [1.232e+04-1.295e+04] (1.295e+04 1.274e+04 1.232e+04) | 1.355e+04 [1.297e+04-1.419e+04] (1.297e+04 1.419e+04 1.392e+04) |
+| P3.1 | ascii | encode-core-hot | retain | 1.446e+04 [1.446e+04-1.488e+04] (1.488e+04 1.45e+04 1.446e+04) | 1.379e+04 [1.37e+04-1.423e+04] (1.37e+04 1.423e+04 1.376e+04) |
+| P3.1 | ascii | encode-transport | drop | 1.408e+04 [1.387e+04-1.459e+04] (1.408e+04 1.459e+04 1.387e+04) | 1.337e+04 [1.29e+04-1.437e+04] (1.437e+04 1.329e+04 1.29e+04) |
+| P3.1 | ascii | encode-transport | retain | 1.514e+04 [1.47e+04-1.63e+04] (1.63e+04 1.47e+04 1.515e+04) | 1.521e+04 [1.478e+04-1.578e+04] (1.517e+04 1.578e+04 1.478e+04) |
+| P4.1 | ascii | encode-core-hot | drop | 1.213e+05 [1.19e+05-1.226e+05] (1.213e+05 1.19e+05 1.226e+05) | 1.238e+05 [1.207e+05-1.29e+05] (1.29e+05 1.207e+05 1.228e+05) |
+| P4.1 | ascii | encode-core-hot | retain | 1.183e+05 [1.163e+05-1.259e+05] (1.259e+05 1.23e+05 1.163e+05) | 1.266e+05 [1.237e+05-1.299e+05] (1.299e+05 1.245e+05 1.237e+05) |
+| P4.1 | ascii | encode-transport | drop | 1.306e+05 [1.254e+05-1.34e+05] (1.286e+05 1.254e+05 1.34e+05) | 1.38e+05 [1.336e+05-1.435e+05] (1.349e+05 1.336e+05 1.435e+05) |
+| P4.1 | ascii | encode-transport | retain | 1.357e+05 [1.334e+05-1.375e+05] (1.334e+05 1.375e+05 1.351e+05) | 1.362e+05 [1.274e+05-1.378e+05] (1.359e+05 1.378e+05 1.274e+05) |
+| P5.1 | ascii | encode-core-hot | drop | 121 [100.2-133.2] (133.2 113 100.2) | 102.7 [102.4-104.5] (102.4 102.5 104.5) |
+| P5.1 | ascii | encode-core-hot | retain | 103.6 [101.7-107.6] (107.6 103.7 101.7) | 112.5 [105.7-122] (105.7 112.5 122) |
+| P5.1 | ascii | encode-transport | drop | 136.7 [132.2-146.7] (146.7 132.2 135.9) | 140.2 [135.9-144.1] (144.1 135.9 141.9) |
+| P5.1 | ascii | encode-transport | retain | 138.1 [130.9-149.1] (149.1 137.6 130.9) | 138.9 [137-140.8] (140.8 137.8 137) |
+| P5.2 | ascii | encode-core-hot | drop | 1937 [1883-2166] (2166 1883 1903) | 1992 [1938-2043] (1938 2001 2043) |
+| P5.2 | ascii | encode-core-hot | retain | 1884 [1826-1913] (1913 1826 1886) | 1941 [1941-1972] (1941 1972 1960) |
+| P5.2 | ascii | encode-transport | drop | 5047 [4876-5201] (5201 4876 5009) | 5261 [5132-5359] (5359 5226 5132) |
+| P5.2 | ascii | encode-transport | retain | 5080 [4859-5137] (5137 4859 5128) | 5204 [5076-5289] (5076 5289 5171) |
+| P5.3 | ascii | encode-core-hot | drop | 4.301e+04 [3.813e+04-4.855e+04] (4.074e+04 3.813e+04 4.855e+04) | 4.403e+04 [3.698e+04-4.548e+04] (4.438e+04 4.548e+04 3.698e+04) |
+| P5.3 | ascii | encode-core-hot | retain | 4.289e+04 [3.964e+04-4.492e+04] (4.242e+04 4.492e+04 3.964e+04) | 4.019e+04 [3.958e+04-4.044e+04] (3.958e+04 4.021e+04 4.044e+04) |
+| P5.3 | ascii | encode-transport | drop | 1.251e+05 [1.216e+05-1.262e+05] (1.262e+05 1.216e+05 1.253e+05) | 1.215e+05 [1.199e+05-1.233e+05] (1.233e+05 1.204e+05 1.199e+05) |
+| P5.3 | ascii | encode-transport | retain | 1.268e+05 [1.221e+05-1.283e+05] (1.283e+05 1.221e+05 1.221e+05) | 1.251e+05 [1.217e+05-1.29e+05] (1.29e+05 1.217e+05 1.246e+05) |
+| P5.4 | ascii | encode-core-hot | drop | 2.969e+05 [2.872e+05-3.07e+05] (2.879e+05 2.872e+05 3.07e+05) | 3.001e+05 [2.873e+05-3.039e+05] (3.039e+05 3.025e+05 2.873e+05) |
+| P5.4 | ascii | encode-core-hot | retain | 3.152e+05 [2.723e+05-3.245e+05] (3.245e+05 2.723e+05 3.124e+05) | 2.876e+05 [2.793e+05-3.168e+05] (2.855e+05 3.168e+05 2.793e+05) |
+| P5.4 | ascii | encode-transport | drop | 6.623e+05 [6.616e+05-6.727e+05] (6.727e+05 6.616e+05 6.663e+05) | 6.566e+05 [6.212e+05-7.032e+05] (7.032e+05 6.73e+05 6.212e+05) |
+| P5.4 | ascii | encode-transport | retain | 6.614e+05 [6.592e+05-6.657e+05] (6.657e+05 6.643e+05 6.592e+05) | 6.734e+05 [6.661e+05-6.829e+05] (6.829e+05 6.747e+05 6.661e+05) |
+| P6.1 | ascii | encode-core-hot | drop | 1.102e+05 [1.033e+05-1.127e+05] (1.127e+05 1.033e+05 1.102e+05) | 1.06e+05 [1.051e+05-1.076e+05] (1.076e+05 1.056e+05 1.051e+05) |
+| P6.1 | ascii | encode-core-hot | retain | 1.098e+05 [1.073e+05-1.124e+05] (1.124e+05 1.073e+05 1.092e+05) | 1.081e+05 [1.073e+05-1.121e+05] (1.121e+05 1.092e+05 1.073e+05) |
+| P6.1 | ascii | encode-transport | drop | 1.24e+05 [1.212e+05-1.256e+05] (1.256e+05 1.212e+05 1.244e+05) | 1.119e+05 [1.078e+05-1.135e+05] (1.135e+05 1.078e+05 1.119e+05) |
+| P6.1 | ascii | encode-transport | retain | 1.197e+05 [1.165e+05-1.257e+05] (1.257e+05 1.165e+05 1.193e+05) | 1.176e+05 [1.152e+05-1.206e+05] (1.205e+05 1.152e+05 1.206e+05) |
+| P7.1 | ascii | encode-core-hot | drop | 265.6 [263.3-266.9] (265.6 266.9 263.3) | 251.1 [246.2-253.9] (249.7 246.2 253.9) |
+| P7.1 | ascii | encode-core-hot | retain | 292.4 [279.4-295] (279.4 295 292.4) | 271.8 [266.1-277.6] (277.6 266.1 271.7) |
+| P7.1 | ascii | encode-transport | drop | 313.8 [307.7-317.4] (317.4 307.7 314.4) | 314.8 [301.6-317.6] (317.6 316.4 301.6) |
+| P7.1 | ascii | encode-transport | retain | 321.5 [316.4-323.3] (316.4 321.8 323.3) | 321 [311-337.6] (321 337.6 311) |
+| U-deep-all | corpus | encode-core-hot | drop | 1152 [1130-1156] (1130 1153 1156) | 1109 [1052-1150] (1150 1133 1052) |
+| U-deep-all | corpus | encode-core-hot | retain | 1616 [1612-1658] (1612 1658 1616) | 1169 [1113-1188] (1172 1188 1113) |
+| U-deep-all | corpus | encode-transport | drop | 1263 [1211-1312] (1266 1312 1211) | 1196 [1191-1196] (1196 1191 1193) |
+| U-deep-all | corpus | encode-transport | retain | 1669 [1612-1684] (1672 1612 1684) | 1271 [1244-1293] (1244 1293 1271) |
+| U-deep-u-fixed32 | corpus | encode-core-hot | drop | 1178 [1168-1242] (1172 1242 1168) | 1106 [1076-1121] (1114 1121 1076) |
+| U-deep-u-fixed32 | corpus | encode-core-hot | retain | 1699 [1559-1741] (1741 1625 1559) | 1136 [1118-1245] (1245 1129 1118) |
+| U-deep-u-fixed32 | corpus | encode-transport | drop | 1282 [1117-1346] (1346 1117 1282) | 1214 [1140-1234] (1221 1234 1140) |
+| U-deep-u-fixed32 | corpus | encode-transport | retain | 1633 [1607-1755] (1630 1755 1607) | 1281 [1206-1357] (1255 1357 1206) |
+| U-deep-u-fixed64 | corpus | encode-core-hot | drop | 1174 [1162-1310] (1310 1162 1186) | 1120 [1103-1137] (1117 1137 1103) |
+| U-deep-u-fixed64 | corpus | encode-core-hot | retain | 1615 [1524-1686] (1619 1686 1524) | 1199 [1186-1204] (1204 1192 1186) |
+| U-deep-u-fixed64 | corpus | encode-transport | drop | 1237 [1218-1495] (1495 1222 1218) | 1211 [1204-1281] (1281 1211 1204) |
+| U-deep-u-fixed64 | corpus | encode-transport | retain | 1677 [1646-1716] (1716 1674 1646) | 1267 [1183-1295] (1295 1183 1255) |
+| U-deep-u-len | corpus | encode-core-hot | drop | 1180 [1140-1198] (1151 1140 1198) | 1117 [1105-1131] (1131 1123 1105) |
+| U-deep-u-len | corpus | encode-core-hot | retain | 1704 [1576-2036] (1616 2036 1576) | 1224 [1159-1295] (1295 1162 1159) |
+| U-deep-u-len | corpus | encode-transport | drop | 1244 [1197-1290] (1290 1250 1197) | 1219 [1181-1273] (1219 1181 1273) |
+| U-deep-u-len | corpus | encode-transport | retain | 1699 [1651-1708] (1684 1651 1708) | 1262 [1249-1284] (1251 1284 1249) |
+| U-deep-u-msg | corpus | encode-core-hot | drop | 1196 [1166-1201] (1201 1184 1166) | 1103 [976-1142] (1142 1128 976) |
+| U-deep-u-msg | corpus | encode-core-hot | retain | 1600 [1547-1709] (1709 1547 1600) | 1217 [1171-1241] (1203 1171 1241) |
+| U-deep-u-msg | corpus | encode-transport | drop | 1270 [1247-1287] (1266 1247 1287) | 1236 [1198-1376] (1376 1198 1360) |
+| U-deep-u-msg | corpus | encode-transport | retain | 1686 [1662-1779] (1698 1779 1662) | 1275 [1243-1304] (1304 1282 1243) |
+| U-deep-u-packed | corpus | encode-core-hot | drop | 1210 [1200-1254] (1200 1254 1218) | 1127 [1046-1226] (1226 1096 1046) |
+| U-deep-u-packed | corpus | encode-core-hot | retain | 1827 [1661-1962] (1962 1827 1661) | 1179 [1154-1187] (1187 1154 1171) |
+| U-deep-u-packed | corpus | encode-transport | drop | 1311 [1218-1503] (1503 1218 1352) | 1154 [1135-1181] (1156 1181 1135) |
+| U-deep-u-packed | corpus | encode-transport | retain | 1841 [1773-1923] (1923 1773 1842) | 1225 [1198-1239] (1198 1239 1225) |
+| U-deep-u-repeated | corpus | encode-core-hot | drop | 1171 [1138-1200] (1200 1138 1154) | 1118 [1095-1164] (1164 1095 1122) |
+| U-deep-u-repeated | corpus | encode-core-hot | retain | 1724 [1664-1868] (1783 1868 1664) | 1232 [1197-1272] (1197 1272 1227) |
+| U-deep-u-repeated | corpus | encode-transport | drop | 1328 [1252-1484] (1328 1252 1484) | 1206 [1166-1234] (1201 1166 1234) |
+| U-deep-u-repeated | corpus | encode-transport | retain | 1804 [1728-1821] (1821 1799 1728) | 1228 [1214-1236] (1231 1214 1236) |
+| U-deep-u-varint | corpus | encode-core-hot | drop | 1169 [1146-1198] (1198 1146 1166) | 1106 [1095-1140] (1095 1095 1140) |
+| U-deep-u-varint | corpus | encode-core-hot | retain | 1601 [1541-1687] (1582 1541 1687) | 1221 [1163-1318] (1318 1191 1163) |
+| U-deep-u-varint | corpus | encode-transport | drop | 1251 [1236-1286] (1236 1286 1256) | 1239 [1209-1277] (1277 1209 1227) |
+| U-deep-u-varint | corpus | encode-transport | retain | 1679 [1655-1703] (1679 1703 1655) | 1225 [1213-1240] (1234 1240 1213) |
+| U-element-all | corpus | encode-core-hot | drop | 1165 [1115-1222] (1170 1115 1222) | 1110 [1091-1127] (1091 1127 1101) |
+| U-element-all | corpus | encode-core-hot | retain | 1584 [1537-1758] (1579 1758 1537) | 1214 [1182-1282] (1200 1282 1182) |
+| U-element-all | corpus | encode-transport | drop | 1368 [1261-1574] (1574 1331 1261) | 1228 [1221-1273] (1273 1221 1221) |
+| U-element-all | corpus | encode-transport | retain | 1684 [1629-1692] (1691 1629 1692) | 1250 [1218-1264] (1250 1218 1264) |
+| U-element-u-fixed32 | corpus | encode-core-hot | drop | 1175 [1164-1221] (1221 1164 1171) | 1125 [1093-1152] (1152 1093 1120) |
+| U-element-u-fixed32 | corpus | encode-core-hot | retain | 1573 [1531-1578] (1578 1562 1531) | 1185 [1163-1213] (1213 1170 1163) |
+| U-element-u-fixed32 | corpus | encode-transport | drop | 1264 [1245-1285] (1271 1245 1285) | 1190 [1190-1198] (1190 1198 1196) |
+| U-element-u-fixed32 | corpus | encode-transport | retain | 1680 [1631-1726] (1631 1726 1679) | 1224 [1194-1274] (1194 1274 1238) |
+| U-element-u-fixed64 | corpus | encode-core-hot | drop | 1195 [1149-1221] (1203 1221 1149) | 1118 [1065-1159] (1142 1159 1065) |
+| U-element-u-fixed64 | corpus | encode-core-hot | retain | 1565 [1492-1595] (1595 1573 1492) | 1188 [1156-1206] (1194 1206 1156) |
+| U-element-u-fixed64 | corpus | encode-transport | drop | 1230 [1191-1454] (1191 1227 1454) | 1194 [1180-1213] (1194 1180 1213) |
+| U-element-u-fixed64 | corpus | encode-transport | retain | 1730 [1713-1797] (1713 1797 1719) | 1212 [1196-1250] (1196 1211 1250) |
+| U-element-u-len | corpus | encode-core-hot | drop | 1258 [1146-1286] (1286 1146 1259) | 1117 [1105-1154] (1154 1105 1117) |
+| U-element-u-len | corpus | encode-core-hot | retain | 1606 [1538-1657] (1657 1538 1604) | 1229 [1193-1259] (1259 1193 1196) |
+| U-element-u-len | corpus | encode-transport | drop | 1215 [1207-1223] (1223 1207 1221) | 1172 [1123-1191] (1191 1169 1123) |
+| U-element-u-len | corpus | encode-transport | retain | 1688 [1645-1728] (1728 1645 1664) | 1227 [1183-1255] (1255 1232 1183) |
+| U-element-u-msg | corpus | encode-core-hot | drop | 1199 [1162-1360] (1360 1169 1162) | 1130 [1118-1150] (1118 1126 1150) |
+| U-element-u-msg | corpus | encode-core-hot | retain | 1641 [1609-1726] (1641 1609 1726) | 1183 [1174-1214] (1183 1214 1174) |
+| U-element-u-msg | corpus | encode-transport | drop | 1241 [1198-1292] (1236 1292 1198) | 1213 [1141-1254] (1254 1186 1141) |
+| U-element-u-msg | corpus | encode-transport | retain | 1652 [1630-1668] (1655 1668 1630) | 1225 [1219-1236] (1236 1219 1233) |
+| U-element-u-packed | corpus | encode-core-hot | drop | 1178 [1169-1391] (1391 1233 1169) | 1143 [1103-1191] (1103 1191 1135) |
+| U-element-u-packed | corpus | encode-core-hot | retain | 1739 [1637-1817] (1817 1637 1732) | 1227 [1160-1251] (1251 1160 1245) |
+| U-element-u-packed | corpus | encode-transport | drop | 1251 [1247-1264] (1247 1264 1251) | 1226 [1217-1260] (1260 1217 1237) |
+| U-element-u-packed | corpus | encode-transport | retain | 1862 [1821-2179] (2179 1821 1835) | 1238 [1234-1248] (1235 1248 1234) |
+| U-element-u-repeated | corpus | encode-core-hot | drop | 1165 [1155-1176] (1167 1155 1176) | 1148 [1109-1182] (1143 1109 1182) |
+| U-element-u-repeated | corpus | encode-core-hot | retain | 1737 [1723-1743] (1742 1723 1743) | 1174 [1142-1206] (1206 1169 1142) |
+| U-element-u-repeated | corpus | encode-transport | drop | 1236 [1224-1257] (1257 1245 1224) | 1195 [1184-1258] (1258 1184 1195) |
+| U-element-u-repeated | corpus | encode-transport | retain | 1935 [1779-2272] (2272 1779 1872) | 1251 [1234-1259] (1256 1259 1234) |
+| U-element-u-varint | corpus | encode-core-hot | drop | 1207 [1166-1248] (1211 1248 1166) | 1167 [1096-1286] (1137 1286 1096) |
+| U-element-u-varint | corpus | encode-core-hot | retain | 1592 [1578-1634] (1578 1634 1589) | 1185 [1156-1242] (1156 1242 1186) |
+| U-element-u-varint | corpus | encode-transport | drop | 1236 [1210-1251] (1251 1210 1216) | 1171 [1139-1204] (1204 1172 1139) |
+| U-element-u-varint | corpus | encode-transport | retain | 1727 [1696-1738] (1727 1738 1696) | 1264 [1225-1277] (1264 1277 1225) |
+| U-enum-value-127 | corpus | encode-core-hot | drop | 129.5 [118-132.5] (132.5 118 131.7) | 126.6 [124.3-129] (129 124.3 127.1) |
+| U-enum-value-127 | corpus | encode-core-hot | retain | 298.9 [297.2-308.3] (298.9 308.3 297.2) | 130.3 [119.3-135] (135 130.3 119.3) |
+| U-enum-value-127 | corpus | encode-transport | drop | 164.5 [159.2-167.9] (167.9 164 159.2) | 159.8 [146.9-185.5] (185.5 159.8 146.9) |
+| U-enum-value-127 | corpus | encode-transport | retain | 365.5 [338-371.5] (338 371.5 354.7) | 162.9 [155.7-165.5] (165.5 155.7 165.1) |
+| U-enum-value-2147483647 | corpus | encode-core-hot | drop | 131.7 [131.1-133.7] (131.1 133.7 133.5) | 128.8 [126.5-131.3] (126.5 131.3 129.6) |
+| U-enum-value-2147483647 | corpus | encode-core-hot | retain | 314.9 [311.1-321.7] (321.7 315.8 311.1) | 137.7 [129.2-150.6] (129.2 136.2 150.6) |
+| U-enum-value-2147483647 | corpus | encode-transport | drop | 170.6 [166.5-177] (171.3 166.5 177) | 159.3 [155.3-163.8] (157.3 163.8 155.3) |
+| U-enum-value-2147483647 | corpus | encode-transport | retain | 367.6 [358.9-374.5] (358.9 374.5 368.6) | 163.5 [163.3-163.7] (163.7 163.5 163.3) |
+| U-enum-value-999 | corpus | encode-core-hot | drop | 133.8 [129.8-137.5] (129.8 137.5 132.4) | 124.1 [121.4-125.7] (121.4 125.7 124.2) |
+| U-enum-value-999 | corpus | encode-core-hot | retain | 294.4 [285-314.1] (314.1 285 294.4) | 134.1 [124.4-137.9] (124.4 134.1 137.9) |
+| U-enum-value-999 | corpus | encode-transport | drop | 173.7 [165.6-181.8] (173.7 181.8 165.6) | 163.7 [163.3-164.6] (163.3 164.6 163.4) |
+| U-enum-value-999 | corpus | encode-transport | retain | 354.9 [338.6-365.4] (365.4 354.9 338.6) | 168.7 [158.5-171.6] (171.6 170 158.5) |
+| U-enum-value-packed | corpus | encode-core-hot | drop | 179.7 [177-181.1] (181.1 177 178.9) | 169 [164.8-177.6] (164.8 177.6 165.6) |
+| U-enum-value-packed | corpus | encode-core-hot | retain | 182.8 [172.4-201.8] (201.8 182.8 172.4) | 179.5 [172.2-186.5] (186.5 172.2 174.8) |
+| U-enum-value-packed | corpus | encode-transport | drop | 212.6 [201.4-221.1] (221.1 201.4 211.6) | 216.4 [201.2-220.8] (220.8 201.2 215.8) |
+| U-enum-value-packed | corpus | encode-transport | retain | 229.1 [208.2-263.4] (230 208.2 263.4) | 219.9 [218.1-219.9] (219.9 219.4 218.1) |
+| U-leaf-all | corpus | encode-core-hot | drop | 218.1 [215.6-231.5] (231.5 215.6 216.6) | 222.3 [206.7-231.7] (231.7 209.8 206.7) |
+| U-leaf-all | corpus | encode-core-hot | retain | 573.2 [550.5-606.3] (606.3 573.2 550.5) | 252.5 [247.5-267.5] (267.5 251.8 247.5) |
+| U-leaf-all | corpus | encode-transport | drop | 252.2 [250.1-253.6] (250.1 253.6 252.8) | 259 [257.8-262.6] (262.6 257.8 260.1) |
+| U-leaf-all | corpus | encode-transport | retain | 682.7 [613.3-688.5] (684.3 688.5 613.3) | 336 [324.4-362.4] (362.4 332.3 324.4) |
+| U-leaf-u-fixed32 | corpus | encode-core-hot | drop | 218.4 [209.3-245.2] (245.2 222.9 209.3) | 217.3 [213.3-228.4] (214.9 213.3 228.4) |
+| U-leaf-u-fixed32 | corpus | encode-core-hot | retain | 564.4 [542.3-574.6] (559.5 542.3 574.6) | 234.9 [233-235.9] (235.9 233.7 233) |
+| U-leaf-u-fixed32 | corpus | encode-transport | drop | 252.6 [242-269.5] (249.3 269.5 242) | 254.1 [244.7-255.5] (255.5 255.5 244.7) |
+| U-leaf-u-fixed32 | corpus | encode-transport | retain | 602.4 [588.1-659.3] (659.3 588.1 602.7) | 283.5 [274.8-294.2] (283.5 294.2 274.8) |
+| U-leaf-u-fixed64 | corpus | encode-core-hot | drop | 227.9 [212.3-252.7] (252.7 212.3 227.7) | 216 [209.9-225.2] (225.2 219.1 209.9) |
+| U-leaf-u-fixed64 | corpus | encode-core-hot | retain | 554.2 [547.8-556.9] (551.8 556.9 547.8) | 242.4 [234.1-252.8] (252.8 235.3 234.1) |
+| U-leaf-u-fixed64 | corpus | encode-transport | drop | 242.3 [238.3-254.2] (241.8 238.3 254.2) | 260.4 [252.4-271.5] (271.5 262 252.4) |
+| U-leaf-u-fixed64 | corpus | encode-transport | retain | 619.6 [613.4-622.9] (622.9 613.4 613.4) | 295.4 [285-296] (295.5 285 296) |
+| U-leaf-u-len | corpus | encode-core-hot | drop | 226.9 [220.6-235.2] (220.6 232.2 235.2) | 218.4 [211.2-224.8] (218.8 211.2 224.8) |
+| U-leaf-u-len | corpus | encode-core-hot | retain | 562.3 [508.6-612.8] (612.8 508.6 557.8) | 239.3 [231.5-248.9] (248.9 237.2 231.5) |
+| U-leaf-u-len | corpus | encode-transport | drop | 246 [242-258.1] (242 258.1 245) | 253.4 [246.9-261.1] (261.1 254.1 246.9) |
+| U-leaf-u-len | corpus | encode-transport | retain | 606.7 [586.5-618.1] (618.1 596.6 586.5) | 307.1 [281.3-315.2] (291.8 315.2 281.3) |
+| U-leaf-u-msg | corpus | encode-core-hot | drop | 224.5 [218-237.9] (237.9 218 224.9) | 219 [209.2-222.1] (218.1 222.1 209.2) |
+| U-leaf-u-msg | corpus | encode-core-hot | retain | 565.5 [555.8-583.1] (557.8 555.8 583.1) | 237.5 [228.3-242.5] (237.5 228.3 242.5) |
+| U-leaf-u-msg | corpus | encode-transport | drop | 251.2 [247.3-253.4] (247.3 252.1 253.4) | 256.4 [255.5-264] (255.5 264 255.8) |
+| U-leaf-u-msg | corpus | encode-transport | retain | 648.3 [632.3-660.4] (660.4 632.3 638.3) | 298.5 [286.7-321.7] (286.7 321.7 289.1) |
+| U-leaf-u-packed | corpus | encode-core-hot | drop | 215.4 [208.1-222.6] (213 222.6 208.1) | 213.3 [201.5-218.7] (218.7 213.3 201.5) |
+| U-leaf-u-packed | corpus | encode-core-hot | retain | 555.3 [553.5-586.2] (555.3 553.5 586.2) | 245.4 [235-278.2] (278.2 235 237.7) |
+| U-leaf-u-packed | corpus | encode-transport | drop | 252.5 [246.9-255.8] (246.9 255.8 250.9) | 262.2 [258.6-263.8] (258.6 263.8 259.4) |
+| U-leaf-u-packed | corpus | encode-transport | retain | 602.4 [599.1-607.2] (599.1 601.8 607.2) | 287.4 [283.3-292.5] (284.3 292.5 283.3) |
+| U-leaf-u-repeated | corpus | encode-core-hot | drop | 215.7 [206.9-220.1] (220.1 211.4 206.9) | 214 [205.1-220.4] (220.4 205.1 213) |
+| U-leaf-u-repeated | corpus | encode-core-hot | retain | 548.1 [525.6-567.4] (559.3 525.6 567.4) | 240.1 [238.6-251.8] (238.6 251.8 239.5) |
+| U-leaf-u-repeated | corpus | encode-transport | drop | 243.8 [240.4-248.7] (243.2 240.4 248.7) | 263.4 [257.9-310.4] (310.4 262.3 257.9) |
+| U-leaf-u-repeated | corpus | encode-transport | retain | 614.1 [591.8-619.6] (616.3 591.8 619.6) | 289.4 [276.8-291.9] (290.7 291.9 276.8) |
+| U-leaf-u-varint | corpus | encode-core-hot | drop | 225.4 [212.1-229.8] (229.8 212.1 227.2) | 209.7 [207.6-211.3] (211.3 207.6 210.5) |
+| U-leaf-u-varint | corpus | encode-core-hot | retain | 564 [557.1-570.2] (565.5 570.2 557.1) | 239.6 [238.8-244.2] (239 244.2 238.8) |
+| U-leaf-u-varint | corpus | encode-transport | drop | 242.5 [235.5-244.1] (244.1 242.7 235.5) | 261.9 [259.3-285.1] (285.1 264.1 259.3) |
+| U-leaf-u-varint | corpus | encode-transport | retain | 600.4 [586.9-610.4] (600.4 586.9 610.4) | 291 [280.1-293.5] (293.1 293.5 280.1) |
+| U-nested-all | corpus | encode-core-hot | drop | 220.6 [211.8-227.5] (211.8 227.5 220.6) | 213.3 [208.3-218.7] (218.7 208.3 212.6) |
+| U-nested-all | corpus | encode-core-hot | retain | 544.8 [538.2-552.8] (538.2 549.9 552.8) | 233.4 [227-238.1] (237 238.1 227) |
+| U-nested-all | corpus | encode-transport | drop | 244.3 [238.6-269.3] (269.3 243.1 238.6) | 255.4 [249-264.8] (249 264.8 255.1) |
+| U-nested-all | corpus | encode-transport | retain | 600.7 [578.8-602.3] (602.3 578.8 602.3) | 282.6 [278.5-286] (286 278.5 279.4) |
+| U-nested-before | corpus | encode-core-hot | drop | 222 [218.3-232.4] (232.4 218.3 222.1) | 214.7 [209.7-220.3] (210.1 220.3 209.7) |
+| U-nested-before | corpus | encode-core-hot | retain | 552.3 [521.3-562.5] (562.5 521.3 556.1) | 233.8 [228.4-239.6] (230.4 228.4 239.6) |
+| U-nested-before | corpus | encode-transport | drop | 237.7 [228.1-248.7] (248.7 228.1 236.4) | 259.8 [258.7-271.2] (259.4 271.2 258.7) |
+| U-nested-before | corpus | encode-transport | retain | 602.1 [571.4-616.2] (616.2 571.4 596.4) | 283.2 [277.7-287.2] (280.3 277.7 287.2) |
+| U-nested-group | corpus | encode-core-hot | drop | 220.2 [212.9-228.1] (221 212.9 228.1) | 217.1 [205.8-221.6] (221.6 207.8 205.8) |
+| U-nested-group | corpus | encode-core-hot | retain | 557.5 [545-559.1] (558.8 559.1 545) | 233.7 [229.4-237.7] (229.4 237.7 229.7) |
+| U-nested-group | corpus | encode-transport | drop | 247.9 [244.9-251.2] (244.9 247 251.2) | 258.5 [246.4-260.4] (260.4 254.8 246.4) |
+| U-nested-group | corpus | encode-transport | retain | 598.2 [558.8-624.8] (624.8 608.1 558.8) | 281.2 [281-283.2] (281 281.2 283.2) |
+| U-nested-interleaved | corpus | encode-core-hot | drop | 232.1 [210.8-239.1] (239.1 210.8 214.7) | 209.5 [206.4-212.4] (212.4 211 206.4) |
+| U-nested-interleaved | corpus | encode-core-hot | retain | 560.9 [543.7-567.2] (567.2 559 543.7) | 227.5 [226.6-230.4] (230.4 226.6 227.7) |
+| U-nested-interleaved | corpus | encode-transport | drop | 250.8 [247.1-252.4] (250.8 247.1 252.4) | 255.7 [249.4-264.9] (249.4 264.9 252.8) |
+| U-nested-interleaved | corpus | encode-transport | retain | 608 [590.3-614.6] (614.6 590.3 607.5) | 289.1 [265.5-299.3] (299.3 278.8 265.5) |
+| U-nested-u-fixed32 | corpus | encode-core-hot | drop | 227.6 [224.1-238.4] (224.1 231.7 238.4) | 223.6 [220.8-241.7] (241.7 220.8 224) |
+| U-nested-u-fixed32 | corpus | encode-core-hot | retain | 566 [542.9-576.9] (576.9 542.9 543.6) | 230.9 [228.9-232.3] (228.9 232.3 230.2) |
+| U-nested-u-fixed32 | corpus | encode-transport | drop | 258.2 [239.1-266.6] (239.1 266.6 244) | 249 [244.9-284.5] (244.9 284.5 246.4) |
+| U-nested-u-fixed32 | corpus | encode-transport | retain | 597.6 [589.8-615.5] (615.5 594.9 589.8) | 286.6 [282.5-291.8] (291.8 283 282.5) |
+| U-nested-u-fixed64 | corpus | encode-core-hot | drop | 217.8 [208.4-221.3] (221.3 215.4 208.4) | 207 [204.5-222.4] (222.4 205.4 204.5) |
+| U-nested-u-fixed64 | corpus | encode-core-hot | retain | 561.8 [546.9-567.3] (561.8 546.9 567.3) | 240.6 [226.6-242.6] (238.6 242.6 226.6) |
+| U-nested-u-fixed64 | corpus | encode-transport | drop | 254.5 [247-258.9] (251.7 247 258.9) | 258 [250.5-265.4] (265.4 250.5 257.5) |
+| U-nested-u-fixed64 | corpus | encode-transport | retain | 609 [586.3-617.1] (617.1 586.3 607.5) | 275.3 [268.9-293.4] (274.2 293.4 268.9) |
+| U-nested-u-len | corpus | encode-core-hot | drop | 216.7 [202.6-221.9] (221.9 202.6 215.7) | 216.7 [199.2-225.6] (225.6 218.5 199.2) |
+| U-nested-u-len | corpus | encode-core-hot | retain | 549.1 [538.4-566.5] (566.5 538.4 547.6) | 232.3 [224.7-245] (224.7 245 234.5) |
+| U-nested-u-len | corpus | encode-transport | drop | 242.3 [237.7-244.5] (237.7 244.5 242.3) | 258.1 [249.2-258.6] (258.5 258.6 249.2) |
+| U-nested-u-len | corpus | encode-transport | retain | 603.9 [586.8-605.9] (605.9 586.8 587.6) | 287.3 [281.3-298.4] (281.3 289.2 298.4) |
+| U-nested-u-msg | corpus | encode-core-hot | drop | 215.1 [207.5-229.6] (229.6 207.5 215.1) | 213.1 [204.2-218.8] (213.7 218.8 204.2) |
+| U-nested-u-msg | corpus | encode-core-hot | retain | 548.4 [540.6-565.4] (548.4 565.4 540.6) | 240.1 [211.8-256.2] (256.2 241.1 211.8) |
+| U-nested-u-msg | corpus | encode-transport | drop | 248.2 [246.7-303.7] (303.7 249.4 246.7) | 255.7 [251.3-258.1] (257.3 258.1 251.3) |
+| U-nested-u-msg | corpus | encode-transport | retain | 608.5 [602.1-627.1] (627.1 605.1 602.1) | 279 [272.4-293.3] (276.9 272.4 293.3) |
+| U-nested-u-packed | corpus | encode-core-hot | drop | 218.2 [212.5-245.7] (245.7 212.5 214.5) | 209.7 [205.1-213.7] (213.7 206.6 205.1) |
+| U-nested-u-packed | corpus | encode-core-hot | retain | 550.7 [549.8-556.4] (549.8 556.4 550.7) | 237.2 [233.1-240.4] (240.4 233.1 234.3) |
+| U-nested-u-packed | corpus | encode-transport | drop | 246.7 [238-254.3] (246.6 238 254.3) | 260.6 [243.3-272.4] (272.4 260.1 243.3) |
+| U-nested-u-packed | corpus | encode-transport | retain | 595.1 [571.7-603.9] (603.9 571.7 599.9) | 276.4 [269.8-313.9] (276.4 313.9 269.8) |
+| U-nested-u-repeated | corpus | encode-core-hot | drop | 222.2 [210.8-228.4] (228.4 224.7 210.8) | 214.4 [207.2-231.4] (231.4 211.2 207.2) |
+| U-nested-u-repeated | corpus | encode-core-hot | retain | 557.8 [551.5-561.6] (561.6 551.5 555.5) | 227.6 [223.2-229.8] (228.5 229.8 223.2) |
+| U-nested-u-repeated | corpus | encode-transport | drop | 239.3 [233.3-268.6] (268.6 236.4 233.3) | 266.1 [259.5-270.9] (259.5 267.7 270.9) |
+| U-nested-u-repeated | corpus | encode-transport | retain | 604.7 [568.8-633] (633 611.4 568.8) | 275 [264.4-282.9] (282.9 275.8 264.4) |
+| U-nested-u-varint | corpus | encode-core-hot | drop | 223.2 [205.4-231.7] (231.7 205.4 220.3) | 233.8 [212.7-237.1] (223.8 237.1 212.7) |
+| U-nested-u-varint | corpus | encode-core-hot | retain | 538.4 [524.8-545.7] (524.8 545.7 537.7) | 228.1 [228.1-230] (228.1 229.6 230) |
+| U-nested-u-varint | corpus | encode-transport | drop | 246 [235.3-252.6] (252.6 235.3 246.6) | 257.2 [253.1-281.8] (281.8 253.1 253.6) |
+| U-nested-u-varint | corpus | encode-transport | retain | 619.1 [600.9-935.2] (666.8 935.2 600.9) | 282.2 [276.3-285.1] (285.1 278.5 276.3) |
+| U-oneof-all | corpus | encode-core-hot | drop | 122.6 [110.1-129.6] (114.4 129.6 110.1) | 117.5 [112.9-118.5] (117.9 118.5 112.9) |
+| U-oneof-all | corpus | encode-core-hot | retain | 122.1 [118-124] (123.3 124 118) | 128.6 [125.9-129.9] (129.9 127.9 125.9) |
+| U-oneof-all | corpus | encode-transport | drop | 150.1 [147.7-154.3] (148.5 154.3 147.7) | 147.4 [145.9-154.7] (154.7 146.4 145.9) |
+| U-oneof-all | corpus | encode-transport | retain | 164.3 [161.5-169.4] (169.4 161.5 161.8) | 173.8 [166.2-174.9] (166.2 171.7 174.9) |
+| U-oneof-before | corpus | encode-core-hot | drop | 109.9 [109.1-115.8] (109.5 115.8 109.1) | 116.3 [112.9-118.2] (118.2 116.7 112.9) |
+| U-oneof-before | corpus | encode-core-hot | retain | 123.2 [121-127.4] (127.4 121 122.1) | 129.4 [128.4-132.1] (128.4 130.6 132.1) |
+| U-oneof-before | corpus | encode-transport | drop | 149.9 [146.7-150.9] (149.1 150.9 146.7) | 151.9 [147.1-153.6] (152.6 153.6 147.1) |
+| U-oneof-before | corpus | encode-transport | retain | 167 [158.1-168] (166.2 168 158.1) | 167.3 [164.5-181.9] (164.5 181.9 164.8) |
+| U-oneof-group | corpus | encode-core-hot | drop | 108.5 [107.3-113.1] (107.3 113.1 108.7) | 116 [106.1-118.1] (118.1 106.1 107.1) |
+| U-oneof-group | corpus | encode-core-hot | retain | 125.1 [122.5-126.2] (126.2 122.5 125.8) | 123.4 [120.9-126.1] (126.1 120.9 121.9) |
+| U-oneof-group | corpus | encode-transport | drop | 145.3 [142.8-158.3] (158.3 145 142.8) | 154.5 [153.3-170] (155.5 153.3 170) |
+| U-oneof-group | corpus | encode-transport | retain | 167.2 [163.9-170.9] (170.9 169.7 163.9) | 163.3 [161.3-164.1] (161.3 164.1 164) |
+| U-oneof-interleaved | corpus | encode-core-hot | drop | 111.1 [110.5-111.4] (111 111.4 110.5) | 115.3 [112.9-116.8] (116.8 112.9 115.7) |
+| U-oneof-interleaved | corpus | encode-core-hot | retain | 132.8 [129.5-137.5] (132.1 129.5 137.5) | 122.6 [120.7-125] (125 122 120.7) |
+| U-oneof-interleaved | corpus | encode-transport | drop | 147.4 [146.8-148] (148 147.2 146.8) | 155.5 [154.2-157.1] (154.2 155.8 157.1) |
+| U-oneof-interleaved | corpus | encode-transport | retain | 160.4 [157.6-167.9] (158.6 167.9 157.6) | 163.6 [162.1-180.6] (163.1 180.6 162.1) |
+| U-oneof-member-after-known | corpus | encode-core-hot | drop | 112.9 [109.6-114.2] (111.7 109.6 114.2) | 113.5 [112.8-117.6] (113 117.6 112.8) |
+| U-oneof-member-after-known | corpus | encode-core-hot | retain | 120.4 [117.8-124.7] (124.7 117.8 120.3) | 129.7 [123.9-131.9] (123.9 131.9 128.4) |
+| U-oneof-member-after-known | corpus | encode-transport | drop | 150 [142.3-159.8] (159.8 142.3 150.7) | 151.9 [149.9-154.3] (150.9 149.9 154.3) |
+| U-oneof-member-after-known | corpus | encode-transport | retain | 164.9 [162.8-167.4] (167.4 163.8 162.8) | 163.2 [153.3-171] (171 161.5 153.3) |
+| U-oneof-member-alone | corpus | encode-core-hot | drop | 107 [104.3-113.9] (107.4 104.3 113.9) | 107.6 [105.5-109.5] (105.5 109.5 107.6) |
+| U-oneof-member-alone | corpus | encode-core-hot | retain | 120.7 [117.3-136.1] (119.1 136.1 117.3) | 121.4 [116.4-122.4] (122.4 121.2 116.4) |
+| U-oneof-member-alone | corpus | encode-transport | drop | 143.7 [133.7-145.3] (144.4 133.7 145.3) | 144 [138.1-149.8] (149.8 143.9 138.1) |
+| U-oneof-member-alone | corpus | encode-transport | retain | 156 [149.7-160.3] (158.2 149.7 160.3) | 166.4 [152.7-186.1] (186.1 162.2 152.7) |
+| U-oneof-member-before-known | corpus | encode-core-hot | drop | 109.1 [104.7-114.2] (104.7 110.1 114.2) | 114.7 [111.9-123.4] (123.4 114.7 111.9) |
+| U-oneof-member-before-known | corpus | encode-core-hot | retain | 121.3 [117.3-127.1] (127.1 121.3 117.3) | 129.9 [120.2-133.6] (120.2 124.3 133.6) |
+| U-oneof-member-before-known | corpus | encode-transport | drop | 152.7 [142.6-155.6] (152.7 155.6 142.6) | 154.4 [154.4-155.4] (155.4 154.4 154.7) |
+| U-oneof-member-before-known | corpus | encode-transport | retain | 158.7 [156.4-161.5] (158.7 156.4 161.5) | 161.7 [155.3-164.4] (164.4 160.6 155.3) |
+| U-oneof-u-fixed32 | corpus | encode-core-hot | drop | 113.9 [110.6-126.4] (126.4 111 110.6) | 113.1 [111.7-114.7] (111.7 112.5 114.7) |
+| U-oneof-u-fixed32 | corpus | encode-core-hot | retain | 121.4 [119.5-124.5] (120.8 119.5 124.5) | 125.3 [123-127.1] (125.8 127.1 123) |
+| U-oneof-u-fixed32 | corpus | encode-transport | drop | 149.6 [144-150] (149.3 144 150) | 147.3 [142.1-163.7] (163.7 147.2 142.1) |
+| U-oneof-u-fixed32 | corpus | encode-transport | retain | 163.2 [157.2-165.3] (157.2 162.3 165.3) | 161.7 [160.3-164.4] (164.4 160.3 163.4) |
+| U-oneof-u-fixed64 | corpus | encode-core-hot | drop | 113.4 [107.8-114.7] (113.4 114.7 107.8) | 119.4 [111.5-120.1] (119.4 120.1 111.5) |
+| U-oneof-u-fixed64 | corpus | encode-core-hot | retain | 121.5 [118.6-122.3] (122.1 118.6 122.3) | 123.2 [122.7-124.4] (123.4 124.4 122.7) |
+| U-oneof-u-fixed64 | corpus | encode-transport | drop | 150.2 [149.3-153.8] (153.8 149.3 152) | 152.4 [150.7-156.5] (156.5 151.5 150.7) |
+| U-oneof-u-fixed64 | corpus | encode-transport | retain | 160.4 [155.4-169.1] (160.4 169.1 155.4) | 163.4 [156.9-167.8] (156.9 165.7 167.8) |
+| U-oneof-u-len | corpus | encode-core-hot | drop | 108.2 [105.2-117.5] (117.5 105.2 107.8) | 112.7 [108.5-116.8] (112.7 116.8 108.5) |
+| U-oneof-u-len | corpus | encode-core-hot | retain | 122.5 [118.1-124.9] (122.8 124.9 118.1) | 125.4 [120.9-130.8] (130.8 120.9 127) |
+| U-oneof-u-len | corpus | encode-transport | drop | 147.1 [144-151.2] (144 148.6 151.2) | 154.8 [149.6-157.9] (157.1 157.9 149.6) |
+| U-oneof-u-len | corpus | encode-transport | retain | 163.2 [161.9-167.5] (167.5 162.8 161.9) | 156.1 [147.2-176] (176 156.1 147.2) |
+| U-oneof-u-msg | corpus | encode-core-hot | drop | 109.2 [107.5-110] (110 107.5 107.9) | 111.2 [109.9-112.5] (112.5 111.4 109.9) |
+| U-oneof-u-msg | corpus | encode-core-hot | retain | 120.5 [110.3-125.4] (125.4 110.3 117.7) | 123.6 [123.3-124] (123.3 123.6 124) |
+| U-oneof-u-msg | corpus | encode-transport | drop | 148.2 [146.7-149.2] (148.6 146.7 149.2) | 156.3 [148.6-162.4] (157.2 148.6 162.4) |
+| U-oneof-u-msg | corpus | encode-transport | retain | 170.1 [158.3-170.5] (170.5 158.3 167.8) | 158.4 [154.7-161.8] (161.8 154.7 156.3) |
+| U-oneof-u-packed | corpus | encode-core-hot | drop | 112.6 [112-118.3] (112.2 112 118.3) | 112.9 [109.4-122.1] (122.1 109.4 112.6) |
+| U-oneof-u-packed | corpus | encode-core-hot | retain | 123.3 [120.6-128.4] (128.4 120.6 122.9) | 124.4 [122.7-135.1] (124.7 135.1 122.7) |
+| U-oneof-u-packed | corpus | encode-transport | drop | 150.8 [145.7-151.8] (150.8 151.8 145.7) | 148.4 [147.8-149.1] (149.1 147.8 147.9) |
+| U-oneof-u-packed | corpus | encode-transport | retain | 161.1 [154.2-163.3] (163.3 161.5 154.2) | 164.2 [158.7-171.4] (160 171.4 158.7) |
+| U-oneof-u-repeated | corpus | encode-core-hot | drop | 111.3 [109.8-112.5] (109.8 112.5 111.3) | 115.3 [107.5-129.7] (113 129.7 107.5) |
+| U-oneof-u-repeated | corpus | encode-core-hot | retain | 124.1 [119-124.7] (124.7 123.9 119) | 119.4 [116.6-126.7] (126.7 119.4 116.6) |
+| U-oneof-u-repeated | corpus | encode-transport | drop | 148.7 [141.6-150] (150 149.2 141.6) | 152.1 [142.8-171.8] (171.8 161.3 142.8) |
+| U-oneof-u-repeated | corpus | encode-transport | retain | 165.5 [156.5-167] (167 156.5 158.4) | 159.8 [150.3-162.5] (162.5 160.6 150.3) |
+| U-oneof-u-varint | corpus | encode-core-hot | drop | 107.4 [105.4-118.8] (105.4 109.1 118.8) | 110.9 [109.6-111.9] (111.9 110.9 109.6) |
+| U-oneof-u-varint | corpus | encode-core-hot | retain | 125.8 [122.1-126.6] (126.6 125.6 122.1) | 126.5 [120.7-134.3] (125.4 134.3 120.7) |
+| U-oneof-u-varint | corpus | encode-transport | drop | 150.9 [144-156.9] (156.9 146.1 144) | 152.9 [151-153.9] (151 153.9 153.6) |
+| U-oneof-u-varint | corpus | encode-transport | retain | 163 [158.5-164.8] (164.8 158.5 161.7) | 161.4 [160.6-163.8] (160.6 163.8 161.1) |
+| U-root-all | corpus | encode-core-hot | drop | 390.8 [386.9-421.8] (421.8 388.4 386.9) | 388.3 [387.5-400.2] (387.5 391.8 400.2) |
+| U-root-all | corpus | encode-core-hot | retain | 407 [387.1-420.3] (420.3 387.1 404.1) | 389.6 [381-423] (423 381 389.6) |
+| U-root-all | corpus | encode-transport | drop | 404.1 [367.8-469.4] (469.4 399 367.8) | 431 [411.4-450.5] (433 411.4 450.5) |
+| U-root-all | corpus | encode-transport | retain | 423 [401.4-432.4] (432.4 423 401.4) | 451.1 [445.2-453.1] (453.1 451.3 445.2) |
+| U-root-before | corpus | encode-core-hot | drop | 391.9 [376.5-451.7] (451.7 376.5 386.9) | 379.7 [364.7-388.8] (388.8 364.7 379.7) |
+| U-root-before | corpus | encode-core-hot | retain | 411.5 [403.6-417.2] (417.2 403.6 403.7) | 411.4 [400.1-418.7] (400.1 405.5 418.7) |
+| U-root-before | corpus | encode-transport | drop | 406.7 [395.4-420] (419 395.4 420) | 428.5 [416.4-453.1] (443.2 416.4 453.1) |
+| U-root-before | corpus | encode-transport | retain | 436.5 [416.8-442.5] (442.5 416.8 439.9) | 458.6 [445.9-477.1] (445.9 477.1 448.1) |
+| U-root-group | corpus | encode-core-hot | drop | 376.8 [374.5-380] (380 374.5 379.5) | 380.9 [362.4-385.1] (381.9 385.1 362.4) |
+| U-root-group | corpus | encode-core-hot | retain | 418.2 [407.1-468.6] (441 468.6 407.1) | 406.1 [386-407] (406.4 407 386) |
+| U-root-group | corpus | encode-transport | drop | 426 [423-430.6] (430.6 423 430.2) | 435.1 [420.2-446] (446 420.2 431.3) |
+| U-root-group | corpus | encode-transport | retain | 417 [410.5-422] (422 419.3 410.5) | 454.3 [452.1-461.8] (454.7 461.8 452.1) |
+| U-root-interleaved | corpus | encode-core-hot | drop | 386.6 [382.4-387.5] (385.6 387.5 382.4) | 382.6 [380.8-415.4] (415.4 380.8 381.1) |
+| U-root-interleaved | corpus | encode-core-hot | retain | 410.5 [403.3-416.8] (409.8 416.8 403.3) | 392.4 [383.6-396.2] (396.2 383.6 396) |
+| U-root-interleaved | corpus | encode-transport | drop | 395.8 [382.7-397.4] (397.4 395.1 382.7) | 439.4 [430.5-451.3] (451.3 438 430.5) |
+| U-root-interleaved | corpus | encode-transport | retain | 442.1 [429.5-449] (449 443.5 429.5) | 447.6 [438.8-477.3] (477.3 447.7 438.8) |
+| U-root-max-tag | corpus | encode-core-hot | drop | 387.5 [382.4-412.1] (412.1 382.4 409.2) | 378.3 [364.8-390.7] (390.7 381.4 364.8) |
+| U-root-max-tag | corpus | encode-core-hot | retain | 396.1 [390.7-428.6] (390.7 428.6 395.1) | 416.9 [405.8-428] (416.9 428 405.8) |
+| U-root-max-tag | corpus | encode-transport | drop | 398.7 [383.8-399] (399 383.8 398.7) | 442.2 [418.7-443.4] (418.7 443.1 443.4) |
+| U-root-max-tag | corpus | encode-transport | retain | 433.8 [404.6-451.1] (430 404.6 451.1) | 466 [452.9-472.8] (462.7 452.9 472.8) |
+| U-root-u-fixed32 | corpus | encode-core-hot | drop | 381.7 [375.2-394.7] (384.3 394.7 375.2) | 375.5 [375.5-376] (376 375.5 375.6) |
+| U-root-u-fixed32 | corpus | encode-core-hot | retain | 420.7 [412.4-435.5] (417.5 435.5 412.4) | 402.4 [387.4-423.9] (423.9 402.4 387.4) |
+| U-root-u-fixed32 | corpus | encode-transport | drop | 404.2 [392.4-408.3] (406.2 392.4 408.3) | 431.1 [420.4-456.3] (422.1 456.3 420.4) |
+| U-root-u-fixed32 | corpus | encode-transport | retain | 442.7 [421.3-455.3] (449.3 421.3 455.3) | 455.8 [441.2-472.8] (451.4 441.2 472.8) |
+| U-root-u-fixed64 | corpus | encode-core-hot | drop | 395 [393.5-397.3] (395 397.3 393.5) | 384.9 [363.7-406.6] (383.4 406.6 363.7) |
+| U-root-u-fixed64 | corpus | encode-core-hot | retain | 406.5 [406.5-428.7] (414.1 406.5 428.7) | 405.8 [383.5-417.4] (417.4 402.7 383.5) |
+| U-root-u-fixed64 | corpus | encode-transport | drop | 399.6 [394.1-411.2] (397.5 394.1 411.2) | 445.9 [429.5-447.2] (439.2 447.2 429.5) |
+| U-root-u-fixed64 | corpus | encode-transport | retain | 431 [410.8-436.4] (434.3 436.4 410.8) | 470.3 [467.9-477.6] (477.6 467.9 469.2) |
+| U-root-u-len | corpus | encode-core-hot | drop | 383.2 [363.8-435.4] (363.8 382.4 435.4) | 383.3 [374.9-390.6] (390.6 377.6 374.9) |
+| U-root-u-len | corpus | encode-core-hot | retain | 408.7 [382.6-428.3] (428.3 382.6 408.7) | 407.7 [387.3-430.1] (413 387.3 430.1) |
+| U-root-u-len | corpus | encode-transport | drop | 403.5 [403.5-417.8] (417.8 403.5 404.1) | 432.9 [427.9-438.8] (438.8 432.2 427.9) |
+| U-root-u-len | corpus | encode-transport | retain | 430.6 [415.3-449.5] (449.5 415.3 426) | 448.1 [444-451.3] (451.3 444.3 444) |
+| U-root-u-msg | corpus | encode-core-hot | drop | 395.9 [367-406] (406 367 378.6) | 384.9 [373.9-390.1] (373.9 390.1 384.9) |
+| U-root-u-msg | corpus | encode-core-hot | retain | 410.9 [393.8-428.1] (410.9 428.1 393.8) | 391.1 [374-426.8] (426.8 391.1 374) |
+| U-root-u-msg | corpus | encode-transport | drop | 421.6 [389.8-443.4] (389.8 411.5 443.4) | 429.2 [418.1-433] (433 430.1 418.1) |
+| U-root-u-msg | corpus | encode-transport | retain | 429.1 [418.3-434.4] (428 418.3 434.4) | 455 [455-468.5] (455 462.5 468.5) |
+| U-root-u-packed | corpus | encode-core-hot | drop | 383.4 [369.8-388.4] (386.1 369.8 388.4) | 384.9 [365.2-411.5] (379.9 411.5 365.2) |
+| U-root-u-packed | corpus | encode-core-hot | retain | 420.9 [411.1-436.2] (436.2 411.6 411.1) | 411.8 [392.9-416] (416 411.1 392.9) |
+| U-root-u-packed | corpus | encode-transport | drop | 399.7 [388.6-419.1] (419.1 388.6 400.7) | 424.5 [419.4-452.9] (427.1 452.9 419.4) |
+| U-root-u-packed | corpus | encode-transport | retain | 437 [426.3-467] (467 426.3 436.8) | 453.7 [444.6-453.7] (453.7 452 444.6) |
+| U-root-u-repeated | corpus | encode-core-hot | drop | 389.3 [386.8-392.8] (392.8 389.3 386.8) | 378.7 [363.5-390.6] (378.7 390.6 363.5) |
+| U-root-u-repeated | corpus | encode-core-hot | retain | 412.4 [402.6-426.9] (426.9 409.1 402.6) | 404 [392.9-417.2] (417.2 400.1 392.9) |
+| U-root-u-repeated | corpus | encode-transport | drop | 409.8 [385.7-419.5] (418 419.5 385.7) | 425.6 [415.8-435.8] (433 435.8 415.8) |
+| U-root-u-repeated | corpus | encode-transport | retain | 444 [435.2-462.3] (435.2 441.5 462.3) | 463.7 [445.5-477.2] (459.3 477.2 445.5) |
+| U-root-u-varint | corpus | encode-core-hot | drop | 386.4 [362.5-415.8] (415.8 362.5 387.8) | 375.3 [362-391.7] (391.7 384.9 362) |
+| U-root-u-varint | corpus | encode-core-hot | retain | 409.3 [405.2-432.7] (432.7 405.7 405.2) | 398.2 [387.7-404.7] (404.7 396 387.7) |
+| U-root-u-varint | corpus | encode-transport | drop | 410.3 [379.8-430.8] (430.8 405.2 379.8) | 461.5 [436.4-539.8] (539.8 456.3 436.4) |
+| U-root-u-varint | corpus | encode-transport | retain | 436.7 [417.4-458.4] (417.4 458.4 430.5) | 445.3 [424.9-453.9] (453.9 452.6 424.9) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | drop | 199.9 [198.7-202.4] (198.7 202.4 199.1) | 196.3 [189.6-198.2] (198.2 196.3 189.6) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-core-hot | retain | 228.7 [224.3-240.9] (229.2 240.9 224.3) | 205.5 [201.3-210.2] (210.2 202.8 201.3) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | drop | 239.9 [239.3-240.7] (239.9 239.3 240.7) | 235.1 [223.3-244.8] (235.5 244.8 223.3) |
+| U-wire-DualResponse-left-as-wt0 | corpus | encode-transport | retain | 256.7 [244.3-264.3] (264.3 252.2 244.3) | 256.5 [256.5-285.5] (257 256.5 285.5) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | drop | 208.5 [197.7-210.7] (210.7 200 197.7) | 194.7 [188.8-202.4] (202.4 193.7 188.8) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-core-hot | retain | 220.1 [217-239.5] (239.5 217 219.5) | 213 [204.9-216.5] (212.8 216.5 204.9) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | drop | 241.4 [235.4-243.5] (241.6 235.4 243.5) | 238.4 [232.7-239.9] (238.3 239.9 232.7) |
+| U-wire-DualResponse-left-as-wt1 | corpus | encode-transport | retain | 260.5 [254.2-278.7] (278.7 254.2 260.2) | 249.1 [246.4-250.4] (250.4 250 246.4) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | drop | 199.8 [197.4-212.1] (212.1 199.3 197.4) | 188.1 [184.9-191.1] (186.8 184.9 191.1) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-core-hot | retain | 224.6 [218.9-241.4] (223.8 218.9 241.4) | 205.2 [196.7-222] (222 205.2 196.7) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | drop | 244.7 [236.6-247.8] (246.6 247.8 236.6) | 235.6 [232.7-242.7] (242.7 232.7 233.7) |
+| U-wire-DualResponse-left-as-wt5 | corpus | encode-transport | retain | 259.3 [255-263.6] (255 263.6 262.4) | 246.4 [241.4-257.7] (257.7 241.4 242.1) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | drop | 1134 [1101-1163] (1126 1101 1163) | 1100 [1043-1276] (1276 1107 1043) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-core-hot | retain | 1099 [1058-1113] (1106 1058 1113) | 1136 [1069-1164] (1164 1113 1069) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | drop | 1220 [1132-1235] (1235 1229 1132) | 1156 [1134-1261] (1261 1134 1147) |
+| U-wire-ListMetricsResponse-batches-as-wt0 | corpus | encode-transport | retain | 1215 [1187-1240] (1240 1187 1209) | 1194 [1158-1214] (1214 1158 1198) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | drop | 1133 [1118-1145] (1145 1118 1132) | 1146 [1116-1211] (1173 1211 1116) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-core-hot | retain | 1180 [1139-1212] (1139 1212 1178) | 1163 [1097-1174] (1174 1097 1132) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | drop | 1200 [1178-1243] (1243 1192 1178) | 1188 [1166-1197] (1197 1190 1166) |
+| U-wire-ListMetricsResponse-batches-as-wt1 | corpus | encode-transport | retain | 1207 [1196-1253] (1253 1198 1196) | 1207 [1199-1224] (1223 1224 1199) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | drop | 1113 [1097-1120] (1120 1097 1113) | 1137 [1105-1144] (1142 1144 1105) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-core-hot | retain | 1135 [1118-1180] (1180 1118 1124) | 1149 [1113-1153] (1153 1113 1127) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | drop | 1207 [1175-1285] (1285 1204 1175) | 1224 [1171-1281] (1203 1281 1171) |
+| U-wire-ListMetricsResponse-batches-as-wt5 | corpus | encode-transport | retain | 1224 [1151-1228] (1226 1151 1228) | 1203 [1191-1366] (1191 1366 1205) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | drop | 183 [179.1-184.1] (182.8 184.1 179.1) | 188.2 [183.2-197.2] (183.2 197.2 185.2) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-core-hot | retain | 197.4 [193-203.1] (196.1 193 203.1) | 200.2 [197.3-208.2] (197.4 208.2 197.3) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | drop | 228.4 [222.7-233.2] (232.7 233.2 222.7) | 221.5 [217.3-239.4] (217.3 239.4 218.7) |
+| U-wire-ListProbeResponse-probes-as-wt0 | corpus | encode-transport | retain | 244.1 [237.5-252.6] (247.5 252.6 237.5) | 240.8 [231-251.6] (251.6 231 236.2) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | drop | 185.8 [181.5-189.7] (181.5 183.9 189.7) | 193.3 [186.7-193.8] (192.8 193.8 186.7) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-core-hot | retain | 196.9 [182.4-197.4] (197.4 182.4 197.2) | 202.3 [193.2-207.2] (193.2 207.2 197.4) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | drop | 221.9 [215-260.7] (215 260.7 220) | 228.4 [224.5-290.1] (224.5 227.3 290.1) |
+| U-wire-ListProbeResponse-probes-as-wt1 | corpus | encode-transport | retain | 236.2 [229.7-238.4] (238.4 229.7 231.2) | 239.8 [227.3-248.4] (243.6 248.4 227.3) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | drop | 183.8 [178.4-184.9] (184.9 183.8 178.4) | 188.6 [185.2-190.8] (190.8 187.9 185.2) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-core-hot | retain | 201.5 [200.9-204.3] (200.9 204.3 202.4) | 195.7 [193.3-197.7] (197.7 195.7 193.3) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | drop | 233 [207.5-239.9] (239.9 207.5 219.1) | 223.1 [218.6-230] (221.8 230 218.6) |
+| U-wire-ListProbeResponse-probes-as-wt5 | corpus | encode-transport | retain | 237 [235.2-238.3] (238.1 238.3 235.2) | 241.5 [234.9-243.5] (243.5 239.6 234.9) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | drop | 385.7 [384.9-409.7] (384.9 409.7 390.1) | 375.1 [362.6-379.6] (376 362.6 379.6) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-core-hot | retain | 419.4 [391.5-423.9] (423.9 391.5 410.3) | 393.9 [384.2-399.9] (393.9 399.9 384.2) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | drop | 408.7 [390.5-411.4] (396.1 390.5 411.4) | 418.7 [408.2-433.2] (433.2 417.7 408.2) |
+| U-wire-ListResultsResponse-page-as-wt1 | corpus | encode-transport | retain | 424.4 [419.6-438.1] (419.6 423.5 438.1) | 448.7 [435.5-470.7] (435.5 470.7 438.2) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | drop | 399.3 [391.4-420.2] (391.4 420.2 396.4) | 379.3 [368.1-398.7] (379.3 398.7 368.1) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-core-hot | retain | 403.1 [378-410.6] (410.6 378 400.6) | 399.2 [389.7-428] (389.7 428 403.2) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | drop | 408.7 [397.2-410.7] (410.7 405.8 397.2) | 429.5 [416.5-432.5] (432.5 416.5 429.5) |
+| U-wire-ListResultsResponse-page-as-wt2 | corpus | encode-transport | retain | 432.8 [404.5-437.3] (437.3 432.2 404.5) | 448.4 [437.4-476.7] (437.4 448.4 476.7) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | drop | 402.8 [387-433.2] (433.2 398 387) | 381.4 [378-385.6] (378 385.6 380.8) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-core-hot | retain | 407.4 [389.8-414.4] (404.4 389.8 414.4) | 417.5 [393.8-423.2] (393.8 423.2 403) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | drop | 407.7 [397.8-411.5] (397.8 403 411.5) | 427.4 [398.6-437.2] (427.9 437.2 398.6) |
+| U-wire-ListResultsResponse-page-as-wt5 | corpus | encode-transport | retain | 436.8 [432.7-453.3] (452.7 453.3 432.7) | 460.2 [445.5-460.8] (445.5 460.8 460.3) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | drop | 463.5 [406.1-582.7] (582.7 406.1 407.2) | 379.8 [363.6-387.4] (378.4 387.4 363.6) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-core-hot | retain | 420.2 [408.6-424.2] (424.2 408.6 412.7) | 399.7 [394.3-406.3] (394.6 406.3 394.3) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | drop | 402.3 [400.2-408.5] (401.3 408.5 400.2) | 437.2 [437.1-446.8] (437.1 446.8 437.2) |
+| U-wire-ListResultsResponse-results-as-wt0 | corpus | encode-transport | retain | 423.6 [419.8-424.9] (424.9 419.8 424.7) | 463.3 [447.2-469.8] (447.2 464.3 469.8) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | drop | 394.7 [392.8-395.9] (395.9 392.8 395.4) | 381.5 [356.9-385.2] (383.5 385.2 356.9) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-core-hot | retain | 420.1 [407.1-433.9] (433.9 407.1 424.2) | 402 [358.6-416.4] (411.8 416.4 358.6) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | drop | 398.6 [389.5-400] (399 389.5 400) | 421.9 [406.2-502.5] (502.5 421.9 406.2) |
+| U-wire-ListResultsResponse-results-as-wt1 | corpus | encode-transport | retain | 425.4 [414.6-429] (429 414.6 425) | 443.2 [438.4-445.8] (445.8 445.1 438.4) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | drop | 389.1 [376.8-394.8] (394.8 376.8 386.2) | 384.7 [363.8-390.1] (388.9 390.1 363.8) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-core-hot | retain | 411.6 [390.6-417.7] (417.7 390.6 415) | 394.9 [387.8-462.9] (392 387.8 462.9) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | drop | 408.1 [403.8-419.8] (403.8 419.8 416.1) | 430.7 [424.1-461.1] (424.1 461.1 424.3) |
+| U-wire-ListResultsResponse-results-as-wt5 | corpus | encode-transport | retain | 443.7 [435.9-447.4] (447.4 440.5 435.9) | 461.9 [450.9-489.9] (464.2 489.9 450.9) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 1129 [1092-1162] (1162 1125 1092) | 1108 [1038-1124] (1122 1124 1038) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 1134 [1099-1203] (1203 1136 1099) | 1115 [1073-1258] (1211 1073 1258) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | drop | 1166 [1132-1190] (1132 1181 1190) | 1160 [1127-1198] (1198 1160 1127) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt0 | corpus | encode-transport | retain | 1214 [1190-1318] (1214 1318 1190) | 1184 [1160-1247] (1247 1176 1160) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 1122 [1073-1156] (1156 1106 1073) | 1130 [1020-1270] (1158 1270 1020) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 1132 [1066-1185] (1185 1066 1128) | 1111 [1108-1130] (1108 1130 1110) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | drop | 1138 [1120-1160] (1136 1160 1120) | 1164 [1152-1165] (1165 1153 1152) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt1 | corpus | encode-transport | retain | 1159 [1144-1287] (1144 1287 1150) | 1171 [1110-1225] (1225 1161 1110) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 1099 [1057-1115] (1103 1057 1115) | 1118 [1083-1131] (1118 1131 1083) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 1146 [1104-1176] (1176 1127 1104) | 1143 [1102-1168] (1168 1143 1102) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | drop | 1182 [1116-1201] (1201 1132 1116) | 1187 [1129-1191] (1191 1179 1129) |
+| U-wire-ListTaskSummaryResponse-tasks-as-wt5 | corpus | encode-transport | retain | 1178 [1155-1484] (1484 1167 1155) | 1216 [1181-1231] (1231 1181 1207) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | drop | 2326 [2277-2344] (2344 2277 2341) | 2210 [2136-2214] (2207 2214 2136) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-core-hot | retain | 2441 [2421-2636] (2636 2421 2438) | 2381 [2353-2492] (2434 2492 2353) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | drop | 2417 [2384-2558] (2384 2428 2558) | 2274 [2175-2580] (2580 2274 2175) |
+| U-wire-ListTasksDetailedResponse-page-as-wt1 | corpus | encode-transport | retain | 2539 [2521-2595] (2547 2595 2521) | 2358 [2307-2545] (2545 2307 2346) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | drop | 2487 [2249-2615] (2615 2249 2487) | 2249 [2214-2357] (2357 2239 2214) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-core-hot | retain | 2423 [2379-2777] (2777 2379 2430) | 2331 [2319-2419] (2319 2330 2419) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | drop | 2450 [2415-2493] (2493 2442 2415) | 2418 [2300-2500] (2500 2379 2300) |
+| U-wire-ListTasksDetailedResponse-page-as-wt2 | corpus | encode-transport | retain | 2413 [2361-2456] (2456 2361 2365) | 2441 [2341-2491] (2491 2460 2341) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | drop | 2386 [2323-2410] (2376 2410 2323) | 2265 [2094-2378] (2378 2265 2094) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-core-hot | retain | 2467 [2441-2489] (2489 2483 2441) | 2247 [2232-2309] (2288 2232 2309) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | drop | 2418 [2398-2654] (2398 2411 2654) | 2353 [2276-2428] (2340 2428 2276) |
+| U-wire-ListTasksDetailedResponse-page-as-wt5 | corpus | encode-transport | retain | 2495 [2458-2628] (2495 2628 2458) | 2331 [2273-2419] (2419 2294 2273) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | drop | 2370 [2273-2427] (2273 2335 2427) | 2241 [2074-2252] (2252 2238 2074) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-core-hot | retain | 2422 [2421-2462] (2421 2462 2434) | 2317 [2309-2337] (2309 2337 2312) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | drop | 2449 [2433-2465] (2433 2449 2465) | 2326 [2192-2339] (2192 2339 2321) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt0 | corpus | encode-transport | retain | 2470 [2421-2619] (2619 2462 2421) | 2455 [2412-2847] (2412 2847 2495) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | drop | 2343 [2084-2526] (2343 2084 2526) | 2264 [2197-2333] (2333 2264 2197) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-core-hot | retain | 2398 [2361-2485] (2485 2404 2361) | 2347 [2312-2353] (2353 2352 2312) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | drop | 2437 [2355-2493] (2493 2416 2355) | 2350 [2328-2384] (2357 2384 2328) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt1 | corpus | encode-transport | retain | 2474 [2434-2637] (2637 2434 2459) | 2414 [2393-2424] (2393 2424 2395) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | drop | 2330 [2306-2571] (2325 2306 2571) | 2239 [2145-2281] (2233 2281 2145) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-core-hot | retain | 2490 [2387-3340] (3340 2417 2387) | 2332 [2262-2355] (2355 2332 2262) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | drop | 2447 [2396-2526] (2429 2396 2526) | 2373 [2325-2430] (2326 2430 2325) |
+| U-wire-ListTasksDetailedResponse-tasks-as-wt5 | corpus | encode-transport | retain | 2726 [2522-2972] (2522 2597 2972) | 2473 [2276-2758] (2758 2473 2276) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | drop | 100.8 [96.29-103.8] (103.8 96.29 96.73) | 100.4 [97.23-105] (97.23 105 97.73) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-core-hot | retain | 106.1 [103.6-106.5] (106.5 103.6 105.5) | 114.4 [105.3-118.9] (114.4 105.3 118.9) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | drop | 128.5 [126.7-132] (127.3 132 126.7) | 133.3 [128.4-137.8] (128.4 137.8 131.1) |
+| U-wire-UploadResultDataMessage-upload-as-wt0 | corpus | encode-transport | retain | 142.4 [133.4-154.5] (141.3 133.4 154.5) | 135.9 [130.1-139.5] (135.9 139.5 130.1) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | drop | 106.5 [98.32-108.3] (106.2 108.3 98.32) | 102 [99.15-105] (102.6 105 99.15) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-core-hot | retain | 133.4 [108-138.5] (121.5 138.5 108) | 110.9 [106.7-117.5] (117.5 106.7 111.9) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | drop | 128.8 [126.3-133.8] (133.8 126.3 127.8) | 131.2 [121-138.3] (129.6 138.3 121) |
+| U-wire-UploadResultDataMessage-upload-as-wt1 | corpus | encode-transport | retain | 133.7 [131.4-137.2] (137.2 131.4 134.9) | 137.4 [133.5-144.9] (144.9 133.5 134.5) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | drop | 100.2 [97.54-102.3] (102.3 99.21 97.54) | 107.1 [100.5-114.3] (100.7 100.5 114.3) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-core-hot | retain | 110.4 [104.2-120.8] (111.8 120.8 104.2) | 108.1 [105-111.1] (109.5 111.1 105) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | drop | 125.5 [124-126.4] (124.7 126.4 124) | 132 [128.4-132.9] (132 132.9 128.4) |
+| U-wire-UploadResultDataMessage-upload-as-wt5 | corpus | encode-transport | retain | 148.4 [145.2-149.4] (149 149.4 145.2) | 141 [129.6-146.4] (141 146.4 129.6) |
 
