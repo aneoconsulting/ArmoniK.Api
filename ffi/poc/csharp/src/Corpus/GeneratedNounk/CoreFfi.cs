@@ -48,7 +48,8 @@ public sealed unsafe class Stage : IDisposable
     private int _bi;          // the block in use
 
     // ---- D21 (owner, 2026-10-04): the string encode path, chosen at run time (AK_STR_ENC):
-    //   E0  (default) the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
+    // D28 (owner, 2026-10-10): the DEFAULT (AK_STR_ENC unset) is E1R:128; E0 is AK_STR_ENC=E0.
+    //   E0  the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
     //   E1  the managed string PINNED (a GCHandle per string, freed when the codec call returns)
     //       and handed as UTF-16 with ak_tc_utf16 (the core's simdutf transcoder, D19): no copy here;
     //   E2  no pin: ak_str.data is 0x10000 + an index into this thread's string table and `tc` is the
@@ -78,7 +79,8 @@ public sealed unsafe class Stage : IDisposable
     public static int ParseMode(string v, out int th, out bool na)
     {
         th = 0; na = false;
-        if (string.IsNullOrEmpty(v) || v == "E0") return E0;
+        if (string.IsNullOrEmpty(v)) { th = 128; return E1R; }   // D28: the C# default, E1R:128
+        if (v == "E0") return E0;
         var parts = v.Split(':');
         int m;
         switch (parts[0])
@@ -1210,7 +1212,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Timestamp* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -1686,7 +1688,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Duration* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -2191,7 +2193,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ResultRaw* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -2717,7 +2719,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskOptions* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -3261,7 +3263,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskOutput* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -4041,7 +4043,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskDetailed* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -4791,7 +4793,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskSummary* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -5339,7 +5341,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Probe* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -5816,7 +5818,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Empty* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -6315,7 +6317,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_UploadResultData* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -6905,7 +6907,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_MetricsBatch* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -7617,7 +7619,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Pair* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -8180,7 +8182,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListResultsResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -9122,7 +9124,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListTasksDetailedResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -10062,7 +10064,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListTaskSummaryResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -10719,7 +10721,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListProbeResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -11421,7 +11423,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListMetricsResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -12219,7 +12221,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_UploadResultDataMessage* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -12854,7 +12856,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_DualResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -13439,7 +13441,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkLeaf* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -14012,7 +14014,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkInner* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -14769,7 +14771,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkElement* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -15710,7 +15712,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkedResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -16724,7 +16726,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkedResponseWide* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -17467,7 +17469,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_LeafElement* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -18022,7 +18024,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_LeafResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -18645,7 +18647,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Surrogate* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -19231,7 +19233,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_SurrogateInner* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -19729,7 +19731,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_WireZoo* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;

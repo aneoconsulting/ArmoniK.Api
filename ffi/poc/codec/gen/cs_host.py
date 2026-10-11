@@ -50,7 +50,6 @@ from cs_types import BAG
 # unknown="drop"): no u-groups, no ak_uencode/ak_uelem*, no options, no resets, no bag
 # capture, `ak_dec_ctx_new_<Root>()`. Set by emit_host from plan.unknown_compiled_out.
 _NO = False
-_ROE = False
 # s17 (owner, 2026-10-10): the LAZY nested encode render (emit_host lazy_nested=True). Go stages
 # no element group and no nested run before the core call: a top-level slot's elements are
 # staged per chunk inside Loop_<slot> into one reused chunk buffer, and an element's nested
@@ -544,7 +543,8 @@ public sealed unsafe class Stage : IDisposable
     private int _bi;          // the block in use
 
     // ---- D21 (owner, 2026-10-04): the string encode path, chosen at run time (AK_STR_ENC):
-    //   E0  (default) the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
+    // D28 (owner, 2026-10-10): the DEFAULT (AK_STR_ENC unset) is E1R:128; E0 is AK_STR_ENC=E0.
+    //   E0  the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
     //   E1  the managed string PINNED (a GCHandle per string, freed when the codec call returns)
     //       and handed as UTF-16 with ak_tc_utf16 (the core's simdutf transcoder, D19): no copy here;
     //   E2  no pin: ak_str.data is 0x10000 + an index into this thread's string table and `tc` is the
@@ -574,7 +574,8 @@ public sealed unsafe class Stage : IDisposable
     public static int ParseMode(string v, out int th, out bool na)
     {
         th = 0; na = false;
-        if (string.IsNullOrEmpty(v) || v == "E0") return E0;
+        if (string.IsNullOrEmpty(v)) { th = 128; return E1R; }   // D28: the C# default, E1R:128
+        if (v == "E0") return E0;
         var parts = v.Split(':');
         int m;
         switch (parts[0])
@@ -1474,8 +1475,6 @@ def _emit_enc_ctx(o, p, root, slots):
     o += "        public %s Root;" % root
     o += "        public EncCtx(bool utf16) : base(utf16)"
     o += "        {"
-    if _ROE:
-        o += "            RoeCore.Check();   // reset-on-entry: refuse a core without the feature"
     o += "            Ctx = Abi.ak_enc_ctx_new();"
     o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_enc_ctx_new returned null\");"
     o += "            Run = (Run_%s*)NativeMemory.AllocZeroed((nuint)sizeof(Run_%s));" % (root, root)
@@ -1865,10 +1864,8 @@ def _emit_root(o, p, root, facade_ns):
     o += "        IntPtr _ctx = __h.Ctx;"
     o += "        Stage _st = __h.St;"
     o += "        Run_%s* _run = __h.Run;" % root
-    # reset-on-entry (owner, 2026-10-10; measurement experiment, option default off): the
-    # core built with `reset-on-entry` resets the context in its encode entry.
-    o += ("        // reset-on-entry: the core's encode entry resets the context (no ak_enc_reset)." if _ROE
-          else "        Abi.ak_enc_reset(_ctx);")
+    # D27 (owner, 2026-10-10): the core's encode entry resets its context (no ak_enc_reset).
+    o += "        // D27: the core's encode entry resets the context; no ak_enc_reset per encode."
     o += "        _st.Reset();"
     o += "        int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only"
     o += "        _run->Chunk = Chunk;"
@@ -2048,14 +2045,11 @@ def _emit_dec_ctx(o, p, root):
         o += "        public UnkArena* Arena;"
         o += "        public %s* Uo;" % on
         o += "        public int Armed = int.MinValue;   // the `zero` the options at Uo were written for"
-        if _ROE:
-            o += "        public bool CoreArmed;   // reset-on-entry: the core context holds Uo (else NULL)"
+        o += "        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)"
     o += "        public %s Root;" % root
     o += "        private GCHandle _self;"
     o += "        public DecCtx()"
     o += "        {"
-    if _ROE:
-        o += "            RoeCore.Check();   // reset-on-entry: refuse a core without the feature"
     o += "            Ctx = Abi.ak_dec_ctx_new_%s(%s);   // rule 6: bound to this root%s" % (root, "" if _NO else "null", "; no options exist" if _NO else ", drop mode")
     o += "            if (Ctx == IntPtr.Zero) throw new InvalidOperationException(\"ak_dec_ctx_new_%s returned NULL\");" % root
     o += "            // D20: the pull family's bits, copied into this root-bound context (every bit: G.Str validates)."
@@ -2347,8 +2341,9 @@ def _emit_unk(o, p, root):
     o += "    /// carried back to the host: a host defect, never a core code."
     o += "    public const int UNDELIVERED = -1001;"
     o += "    public int Undelivered { get; private set; }"
-    o += "    /// The one reset that arms each decode (rule 7): a forward crossing, counted"
-    o += "    /// apart from ForwardCalls because the core's R5 counters do not count them."
+    o += "    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;"
+    o += "    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart"
+    o += "    /// from ForwardCalls because the core's R5 counters do not count them."
     o += "#if AK_HOST_COUNT"
     o += "    private static long _resets;"
     o += "    public long ResetCalls => _resets;"
@@ -2391,40 +2386,32 @@ def _emit_unk(o, p, root):
     o += "    private int ArmFor(int mode)"
     o += "    {"
     o += "        Undelivered = 0;"
-    if _ROE:
-        # reset-on-entry: the core re-reads the options at Uo (a stable native address) on
-        # every decode entry, so the struct is rewritten in place (Arm) and a reset is made
-        # only to change the core's pointer (NULL <-> Uo).
-        o += "        var h = _dh;"
-        o += "        if (mode == -2)"
-        o += "        {"
-        o += "            h.Run->Arena = null;"
-        o += "            if (!h.CoreArmed) return 0;"
-        o += "            h.CoreArmed = false;"
-        o += "            CountReset();"
-        o += "            return Abi.ak_dec_reset_%s(h.Ctx, null);" % root
-        o += "        }"
-        o += "        h.Arena->Begin();"
-        o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
-        o += "        var uo = Arm(mode);"
-        o += "        if (h.CoreArmed) return 0;"
-        o += "        CountReset();"
-        o += "        int rr = Abi.ak_dec_reset_%s(h.Ctx, uo);" % root
-        o += "        if (rr == 0) h.CoreArmed = true;"
-        o += "        return rr;"
-    else:
-        o += "        CountReset();"
-        o += "        var h = _dh;"
-        o += "        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_%s(h.Ctx, null); }" % root
-        o += "        h.Arena->Begin();"
-        o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
-        o += "        return Abi.ak_dec_reset_%s(h.Ctx, Arm(mode));" % root
+    # D27 (reset on entry, the core's only behaviour): the core re-reads the options at Uo (a stable native address) on
+    # every decode entry, so the struct is rewritten in place (Arm) and a reset is made
+    # only to change the core's pointer (NULL <-> Uo).
+    o += "        var h = _dh;"
+    o += "        if (mode == -2)"
+    o += "        {"
+    o += "            h.Run->Arena = null;"
+    o += "            if (!h.CoreArmed) return 0;"
+    o += "            h.CoreArmed = false;"
+    o += "            CountReset();"
+    o += "            return Abi.ak_dec_reset_%s(h.Ctx, null);" % root
+    o += "        }"
+    o += "        h.Arena->Begin();"
+    o += "        h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`"
+    o += "        var uo = Arm(mode);"
+    o += "        if (h.CoreArmed) return 0;"
+    o += "        CountReset();"
+    o += "        int rr = Abi.ak_dec_reset_%s(h.Ctx, uo);" % root
+    o += "        if (rr == 0) h.CoreArmed = true;"
+    o += "        return rr;"
     o += "    }"
     o += ""
     o += "    /// After every decode: a buffer still outstanding (the arena's count) after a success is"
-    o += "    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE"
-    o += "    /// reset per decode, the arming one before it (ArmFor); the options stay at their"
-    o += "    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them."
+    o += "    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable"
+    o += "    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and"
+    o += "    /// resets only to change the pointer."
     o += "    private int Disarm(int rc)"
     o += "    {"
     o += "        var a = _dh.Run->Arena;"
@@ -2682,43 +2669,13 @@ def _emit_fsm(o, p, root, slots):
     o += ""
 
 
-ROECORE = r'''
-/// reset-on-entry (measurement experiment, rendered only with reset_on_entry=True): the core's
-/// measurement exports. Check() refuses a core built without the feature (its marker export
-/// is absent there: a binding that skips the resets must not run on such a core); EncSetRoe /
-/// DecSetRoe switch one context's reset-on-entry (MEASUREMENT ONLY: so a process can time the
-/// explicit-reset binding on the same core with the switch off on its contexts).
-public static unsafe class RoeCore
-{
-    [DllImport(Abi.Lib, EntryPoint = "ak_measure_reset_on_entry", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    private static extern uint Marker();
-    [DllImport(Abi.Lib, EntryPoint = "ak_measure_enc_set_roe", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern void EncSetRoe(IntPtr ctx, int on);
-    [DllImport(Abi.Lib, EntryPoint = "ak_measure_dec_set_roe", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    public static extern void DecSetRoe(IntPtr ctx, int on);
-    private static bool _ok;
-    public static void Check()
-    {
-        if (_ok) return;
-        uint m;
-        try { m = Marker(); }
-        catch (EntryPointNotFoundException) { throw new InvalidOperationException("reset-on-entry binding: the loaded core has no ak_measure_reset_on_entry (built without the reset-on-entry feature)"); }
-        if (m != 1) throw new InvalidOperationException("reset-on-entry binding: marker " + m);
-        _ok = true;
-    }
-}
-'''
-
-
-def emit_host(x, ns, facade_ns, reset_on_entry=False, lazy_nested=False):
-    """`reset_on_entry` (default False: the committed C# output, unchanged): render for a core
-    built with the `reset-on-entry` feature (owner, 2026-10-10; measurement experiment): no
-    `ak_enc_reset` before an encode, and `ak_dec_reset_<Root>` only when the core context's
-    options pointer changes (NULL <-> the stable Uo; the struct is rewritten in place and the
-    core re-reads it on every decode entry). The core exports `ak_measure_reset_on_entry`
-    (marker) and `ak_measure_{enc,dec}_set_roe` (per-context switch, measurement only)."""
-    global _NO, _ROE, _LAZY
-    _ROE = reset_on_entry
+def emit_host(x, ns, facade_ns, lazy_nested=False):
+    """D27 (owner, 2026-10-10): the core resets a context on each operation's entry, its only
+    behaviour, so the host makes no `ak_enc_reset` before an encode, and `ak_dec_reset_<Root>`
+    only when the core context's options pointer changes (NULL <-> the stable Uo; the struct is
+    rewritten in place and the core re-reads it on every decode entry).
+    `lazy_nested` (s17): the lazy nested encode render (see _LAZY)."""
+    global _NO, _LAZY
     _LAZY = lazy_nested
     p = as_plan(x)
     _NO = unknown_compiled_out(p)
@@ -2739,9 +2696,6 @@ def emit_host(x, ns, facade_ns, reset_on_entry=False, lazy_nested=False):
         o += ln
     if not _NO:
         for ln in UNKHOST.strip("\n").split("\n"):
-            o += ln
-    if _ROE:
-        for ln in ROECORE.strip("\n").split("\n"):
             o += ln
     o += ""
     o += "/// s17: which encode render this host is (cs_host lazy_nested), so a process can refuse a"

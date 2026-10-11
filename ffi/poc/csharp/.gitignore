@@ -32,9 +32,6 @@ target-core-count-h2b/
 target-core-nounk-h2b/
 target-core-count-nounk-h2b/
 target-armonik-client/
-# s16: the reset-on-entry configurations (Directory.Build.props)
-bin-roe*/
-obj-roe*/
 # s17: the lazy nested encode configurations (Directory.Build.props)
 bin-lazy*/
 obj-lazy*/

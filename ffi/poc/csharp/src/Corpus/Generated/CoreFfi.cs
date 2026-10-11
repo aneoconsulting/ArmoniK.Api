@@ -48,7 +48,8 @@ public sealed unsafe class Stage : IDisposable
     private int _bi;          // the block in use
 
     // ---- D21 (owner, 2026-10-04): the string encode path, chosen at run time (AK_STR_ENC):
-    //   E0  (default) the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
+    // D28 (owner, 2026-10-10): the DEFAULT (AK_STR_ENC unset) is E1R:128; E0 is AK_STR_ENC=E0.
+    //   E0  the string transcoded to UTF-8 by .NET into this staging, ak_tc_bytes (a copy);
     //   E1  the managed string PINNED (a GCHandle per string, freed when the codec call returns)
     //       and handed as UTF-16 with ak_tc_utf16 (the core's simdutf transcoder, D19): no copy here;
     //   E2  no pin: ak_str.data is 0x10000 + an index into this thread's string table and `tc` is the
@@ -78,7 +79,8 @@ public sealed unsafe class Stage : IDisposable
     public static int ParseMode(string v, out int th, out bool na)
     {
         th = 0; na = false;
-        if (string.IsNullOrEmpty(v) || v == "E0") return E0;
+        if (string.IsNullOrEmpty(v)) { th = 128; return E1R; }   // D28: the C# default, E1R:128
+        if (v == "E0") return E0;
         var parts = v.Split(':');
         int m;
         switch (parts[0])
@@ -1855,7 +1857,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Timestamp* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -1920,6 +1922,7 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
         public UnkArena* Arena;
         public ak_dec_Timestamp_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Timestamp Root;
         private GCHandle _self;
         public DecCtx()
@@ -1969,8 +1972,9 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -2012,18 +2016,29 @@ public sealed unsafe class CoreFfi_Timestamp : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Timestamp(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Timestamp(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Timestamp(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Timestamp(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -2432,7 +2447,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Duration* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -2497,6 +2512,7 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
         public UnkArena* Arena;
         public ak_dec_Duration_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Duration Root;
         private GCHandle _self;
         public DecCtx()
@@ -2546,8 +2562,9 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -2589,18 +2606,29 @@ public sealed unsafe class CoreFfi_Duration : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Duration(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Duration(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Duration(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Duration(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -3067,7 +3095,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ResultRaw* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -3134,6 +3162,7 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
         public UnkArena* Arena;
         public ak_dec_ResultRaw_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ResultRaw Root;
         private GCHandle _self;
         public DecCtx()
@@ -3183,8 +3212,9 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -3228,18 +3258,29 @@ public sealed unsafe class CoreFfi_ResultRaw : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ResultRaw(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ResultRaw(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ResultRaw(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ResultRaw(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -3744,7 +3785,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskOptions* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -3819,6 +3860,7 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
         public UnkArena* Arena;
         public ak_dec_TaskOptions_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public TaskOptions Root;
         private GCHandle _self;
         public DecCtx()
@@ -3886,8 +3928,9 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -3931,18 +3974,29 @@ public sealed unsafe class CoreFfi_TaskOptions : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskOptions(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_TaskOptions(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_TaskOptions(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_TaskOptions(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -4429,7 +4483,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskOutput* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -4496,6 +4550,7 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
         public UnkArena* Arena;
         public ak_dec_TaskOutput_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public TaskOutput Root;
         private GCHandle _self;
         public DecCtx()
@@ -4545,8 +4600,9 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -4588,18 +4644,29 @@ public sealed unsafe class CoreFfi_TaskOutput : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskOutput(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_TaskOutput(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_TaskOutput(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_TaskOutput(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -5364,7 +5431,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskDetailed* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -5483,6 +5550,7 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
         public UnkArena* Arena;
         public ak_dec_TaskDetailed_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public TaskDetailed Root;
         private GCHandle _self;
         public DecCtx()
@@ -5614,8 +5682,9 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -5673,18 +5742,29 @@ public sealed unsafe class CoreFfi_TaskDetailed : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskDetailed(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_TaskDetailed(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_TaskDetailed(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_TaskDetailed(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -6411,7 +6491,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_TaskSummary* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -6486,6 +6566,7 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
         public UnkArena* Arena;
         public ak_dec_TaskSummary_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public TaskSummary Root;
         private GCHandle _self;
         public DecCtx()
@@ -6553,8 +6634,9 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -6600,18 +6682,29 @@ public sealed unsafe class CoreFfi_TaskSummary : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_TaskSummary(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_TaskSummary(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_TaskSummary(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_TaskSummary(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -7128,7 +7221,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Probe* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -7195,6 +7288,7 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
         public UnkArena* Arena;
         public ak_dec_Probe_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Probe Root;
         private GCHandle _self;
         public DecCtx()
@@ -7244,8 +7338,9 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -7288,18 +7383,29 @@ public sealed unsafe class CoreFfi_Probe : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Probe(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Probe(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Probe(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Probe(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -7714,7 +7820,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Empty* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -7779,6 +7885,7 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
         public UnkArena* Arena;
         public ak_dec_Empty_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Empty Root;
         private GCHandle _self;
         public DecCtx()
@@ -7828,8 +7935,9 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -7871,18 +7979,29 @@ public sealed unsafe class CoreFfi_Empty : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Empty(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Empty(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Empty(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Empty(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -8337,7 +8456,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_UploadResultData* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -8406,6 +8525,7 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
         public UnkArena* Arena;
         public ak_dec_UploadResultData_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public UploadResultData Root;
         private GCHandle _self;
         public DecCtx()
@@ -8455,8 +8575,9 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -8498,18 +8619,29 @@ public sealed unsafe class CoreFfi_UploadResultData : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultData(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_UploadResultData(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_UploadResultData(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_UploadResultData(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -9050,7 +9182,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_MetricsBatch* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -9171,6 +9303,7 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
         public UnkArena* Arena;
         public ak_dec_MetricsBatch_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public MetricsBatch Root;
         private GCHandle _self;
         public DecCtx()
@@ -9300,8 +9433,9 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -9343,18 +9477,29 @@ public sealed unsafe class CoreFfi_MetricsBatch : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_MetricsBatch(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_MetricsBatch(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_MetricsBatch(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_MetricsBatch(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -9890,7 +10035,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Pair* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -9957,6 +10102,7 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
         public UnkArena* Arena;
         public ak_dec_Pair_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Pair Root;
         private GCHandle _self;
         public DecCtx()
@@ -10006,8 +10152,9 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -10049,18 +10196,29 @@ public sealed unsafe class CoreFfi_Pair : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Pair(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Pair(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Pair(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Pair(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -10577,7 +10735,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListResultsResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -10653,6 +10811,7 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ListResultsResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ListResultsResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -10718,8 +10877,9 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -10764,18 +10924,29 @@ public sealed unsafe class CoreFfi_ListResultsResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ListResultsResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ListResultsResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -11697,7 +11868,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListTasksDetailedResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -11861,6 +12032,7 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ListTasksDetailedResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ListTasksDetailedResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -12008,8 +12180,9 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -12068,18 +12241,29 @@ public sealed unsafe class CoreFfi_ListTasksDetailedResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ListTasksDetailedResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -12982,7 +13166,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListTaskSummaryResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -13074,6 +13258,7 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ListTaskSummaryResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ListTaskSummaryResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -13157,8 +13342,9 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -13205,18 +13391,29 @@ public sealed unsafe class CoreFfi_ListTaskSummaryResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ListTaskSummaryResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -13822,7 +14019,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListProbeResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -13898,6 +14095,7 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ListProbeResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ListProbeResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -13963,8 +14161,9 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -14008,18 +14207,29 @@ public sealed unsafe class CoreFfi_ListProbeResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ListProbeResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ListProbeResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -14660,7 +14870,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ListMetricsResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -14827,6 +15037,7 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ListMetricsResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ListMetricsResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -14972,8 +15183,9 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -15016,18 +15228,29 @@ public sealed unsafe class CoreFfi_ListMetricsResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ListMetricsResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -15599,7 +15822,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_UploadResultDataMessage* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -15668,6 +15891,7 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
         public UnkArena* Arena;
         public ak_dec_UploadResultDataMessage_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public UploadResultDataMessage Root;
         private GCHandle _self;
         public DecCtx()
@@ -15717,8 +15941,9 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -15761,18 +15986,29 @@ public sealed unsafe class CoreFfi_UploadResultDataMessage : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_UploadResultDataMessage(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -16373,7 +16609,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_DualResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -16461,6 +16697,7 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_DualResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public DualResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -16542,8 +16779,9 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -16587,18 +16825,29 @@ public sealed unsafe class CoreFfi_DualResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_DualResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_DualResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_DualResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_DualResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -17102,7 +17351,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkLeaf* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -17169,6 +17418,7 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
         public UnkArena* Arena;
         public ak_dec_ChunkLeaf_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ChunkLeaf Root;
         private GCHandle _self;
         public DecCtx()
@@ -17218,8 +17468,9 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -17261,18 +17512,29 @@ public sealed unsafe class CoreFfi_ChunkLeaf : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkLeaf(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ChunkLeaf(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ChunkLeaf(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ChunkLeaf(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -17791,7 +18053,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkInner* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -17878,6 +18140,7 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
         public UnkArena* Arena;
         public ak_dec_ChunkInner_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ChunkInner Root;
         private GCHandle _self;
         public DecCtx()
@@ -17959,8 +18222,9 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -18003,18 +18267,29 @@ public sealed unsafe class CoreFfi_ChunkInner : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkInner(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ChunkInner(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ChunkInner(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ChunkInner(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -18696,7 +18971,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkElement* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -18805,6 +19080,7 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
         public UnkArena* Arena;
         public ak_dec_ChunkElement_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ChunkElement Root;
         private GCHandle _self;
         public DecCtx()
@@ -18920,8 +19196,9 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -18966,18 +19243,29 @@ public sealed unsafe class CoreFfi_ChunkElement : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkElement(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ChunkElement(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ChunkElement(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ChunkElement(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -19787,7 +20075,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkedResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -19933,6 +20221,7 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_ChunkedResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ChunkedResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -20064,8 +20353,9 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -20111,18 +20401,29 @@ public sealed unsafe class CoreFfi_ChunkedResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkedResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ChunkedResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ChunkedResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ChunkedResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -20968,7 +21269,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_ChunkedResponseWide* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -21114,6 +21415,7 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
         public UnkArena* Arena;
         public ak_dec_ChunkedResponseWide_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public ChunkedResponseWide Root;
         private GCHandle _self;
         public DecCtx()
@@ -21245,8 +21547,9 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -21292,18 +21595,29 @@ public sealed unsafe class CoreFfi_ChunkedResponseWide : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_ChunkedResponseWide(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_ChunkedResponseWide(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_ChunkedResponseWide(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_ChunkedResponseWide(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -21885,7 +22199,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_LeafElement* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -21952,6 +22266,7 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
         public UnkArena* Arena;
         public ak_dec_LeafElement_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public LeafElement Root;
         private GCHandle _self;
         public DecCtx()
@@ -22001,8 +22316,9 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -22045,18 +22361,29 @@ public sealed unsafe class CoreFfi_LeafElement : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_LeafElement(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_LeafElement(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_LeafElement(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_LeafElement(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -22565,7 +22892,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_LeafResponse* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -22641,6 +22968,7 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
         public UnkArena* Arena;
         public ak_dec_LeafResponse_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public LeafResponse Root;
         private GCHandle _self;
         public DecCtx()
@@ -22706,8 +23034,9 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -22751,18 +23080,29 @@ public sealed unsafe class CoreFfi_LeafResponse : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_LeafResponse(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_LeafResponse(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_LeafResponse(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_LeafResponse(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -23337,7 +23677,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_Surrogate* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -23423,6 +23763,7 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
         public UnkArena* Arena;
         public ak_dec_Surrogate_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public Surrogate Root;
         private GCHandle _self;
         public DecCtx()
@@ -23506,8 +23847,9 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -23551,18 +23893,29 @@ public sealed unsafe class CoreFfi_Surrogate : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_Surrogate(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_Surrogate(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_Surrogate(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_Surrogate(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -24065,7 +24418,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_SurrogateInner* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -24132,6 +24485,7 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
         public UnkArena* Arena;
         public ak_dec_SurrogateInner_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public SurrogateInner Root;
         private GCHandle _self;
         public DecCtx()
@@ -24181,8 +24535,9 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -24224,18 +24579,29 @@ public sealed unsafe class CoreFfi_SurrogateInner : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_SurrogateInner(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_SurrogateInner(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_SurrogateInner(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_SurrogateInner(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;
@@ -24686,7 +25052,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
         IntPtr _ctx = __h.Ctx;
         Stage _st = __h.St;
         Run_WireZoo* _run = __h.Run;
-        Abi.ak_enc_reset(_ctx);
+        // D27: the core's encode entry resets the context; no ak_enc_reset per encode.
         _st.Reset();
         int __d = Stage.Defer;   // E1R / E1C: read once; the default path tests this local only
         _run->Chunk = Chunk;
@@ -24753,6 +25119,7 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
         public UnkArena* Arena;
         public ak_dec_WireZoo_opts* Uo;
         public int Armed = int.MinValue;   // the `zero` the options at Uo were written for
+        public bool CoreArmed;   // D27: the core context holds Uo (else NULL, as created)
         public WireZoo Root;
         private GCHandle _self;
         public DecCtx()
@@ -24802,8 +25169,9 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     /// carried back to the host: a host defect, never a core code.
     public const int UNDELIVERED = -1001;
     public int Undelivered { get; private set; }
-    /// The one reset that arms each decode (rule 7): a forward crossing, counted
-    /// apart from ForwardCalls because the core's R5 counters do not count them.
+    /// D27: a reset only when a decode changes the core context's options pointer (NULL <-> Uo;
+    /// the core re-arms from it on each decode's entry): a forward crossing, counted apart
+    /// from ForwardCalls because the core's R5 counters do not count them.
 #if AK_HOST_COUNT
     private static long _resets;
     public long ResetCalls => _resets;
@@ -24846,18 +25214,29 @@ public sealed unsafe class CoreFfi_WireZoo : IDisposable
     private int ArmFor(int mode)
     {
         Undelivered = 0;
-        CountReset();
         var h = _dh;
-        if (mode == -2) { h.Run->Arena = null; return Abi.ak_dec_reset_WireZoo(h.Ctx, null); }
+        if (mode == -2)
+        {
+            h.Run->Arena = null;
+            if (!h.CoreArmed) return 0;
+            h.CoreArmed = false;
+            CountReset();
+            return Abi.ak_dec_reset_WireZoo(h.Ctx, null);
+        }
         h.Arena->Begin();
         h.Run->Arena = h.Arena;   // the call's arena: the callbacks get it through `obj`
-        return Abi.ak_dec_reset_WireZoo(h.Ctx, Arm(mode));
+        var uo = Arm(mode);
+        if (h.CoreArmed) return 0;
+        CountReset();
+        int rr = Abi.ak_dec_reset_WireZoo(h.Ctx, uo);
+        if (rr == 0) h.CoreArmed = true;
+        return rr;
     }
 
     /// After every decode: a buffer still outstanding (the arena's count) after a success is
-    /// UNDELIVERED. No reset here: decision 11 rule 7 (as amended 2026-09-26) takes ONE
-    /// reset per decode, the arming one before it (ArmFor); the options stay at their
-    /// stable native address (DecCtx.Uo) until the next decode's reset rewrites them.
+    /// UNDELIVERED. No reset here: under D27 the core re-arms from the options at their stable
+    /// native address (DecCtx.Uo) on each decode's entry; ArmFor rewrites them in place and
+    /// resets only to change the pointer.
     private int Disarm(int rc)
     {
         var a = _dh.Run->Arena;

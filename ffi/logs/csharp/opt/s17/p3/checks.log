@@ -1,0 +1,1115 @@
+# s17_checks.sh p3 at d3fee13c + uncommitted; 2026-10-11T02:39:09Z; boot 2026-10-10 09:18:10
+## 0. generators current; no thread-local storage; every build (the four codec builds, the corpus, RPC; the lazy render compiled)
+$ bash -c ! grep -q '^wrote' '/tmp/claude-0/-home-user-ArmoniK-Api/0cc1c680-33b0-5d1c-8298-5840c4c24bc0/scratchpad/s17p3/gen.out'
+exit status: 0
+$ python3 -I gen/no_tls.py src
+no_tls: 124 C# files scanned under src; 0 thread-local site(s)
+exit status: 0
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 4
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 4
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0
+#   C# warnings: 26
+$ dotnet build src/Corpus/Corpus.csproj -c Release -f net8.0 -p:AkNounk=true
+#   C# warnings: 26
+$ dotnet build src/Rpc/akrpc.csproj -c Release
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/Rpc/akrpc.csproj -c Release -p:AkHostCount=true -p:AkNounk=true
+#   C# warnings: 20
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
+#   C# warnings: 4
+# cores: BenchDotNet/bin b5e67662054d6f83; BenchDotNet/bin-nounk 9115620869b0e197; BenchDotNet/bin-count 2f6c48d8e22b6eac; BenchDotNet/bin-count-nounk fe78a13f0adc3c1c; Harness/bin-count 2f6c48d8e22b6eac; Corpus/bin e6a9c065b89cfa67; Corpus/bin-nounk 99cb373084ce6a6e; 
+## 1. the generator's own check (drift, the one-generator guard and its plant); the render: no ak_enc_reset, no reset-on-entry marker import
+$ python3 gen/generate.py --check
+guard 6 shared C# backends and 8 glue modules import no IR or description; a planted IR import is caught
+ok    abi/src/main.rs
+ok    src/BenchDotNet/Generated/CampaignOps.cs
+ok    src/Corpus/Generated/Abi.cs
+ok    src/Corpus/Generated/Codec.cs
+ok    src/Corpus/Generated/CodecRetain.cs
+ok    src/Corpus/Generated/CoreFfi.cs
+ok    src/Corpus/Generated/Dispatch.cs
+ok    src/Corpus/Generated/Eq.cs
+ok    src/Corpus/Generated/Proj.cs
+ok    src/Corpus/Generated/Types.cs
+ok    src/Corpus/GeneratedLazy/CoreFfi.cs
+ok    src/Corpus/GeneratedLazyNounk/CoreFfi.cs
+ok    src/Corpus/GeneratedNounk/Abi.cs
+ok    src/Corpus/GeneratedNounk/Codec.cs
+ok    src/Corpus/GeneratedNounk/CoreFfi.cs
+ok    src/Corpus/GeneratedNounk/Dispatch.cs
+ok    src/Corpus/GeneratedNounk/Eq.cs
+ok    src/Corpus/GeneratedNounk/Types.cs
+ok    src/Facade/Generated/Build.cs
+ok    src/Facade/Generated/Codec.cs
+ok    src/Facade/Generated/CodecRetain.cs
+ok    src/Facade/Generated/Eq.cs
+ok    src/Facade/Generated/Types.cs
+ok    src/Facade/Generated/Values.cs
+ok    src/Facade/GeneratedNounk/Codec.cs
+ok    src/Facade/GeneratedNounk/Eq.cs
+ok    src/Facade/GeneratedNounk/Types.cs
+ok    src/Harness/Generated/Abi.cs
+ok    src/Harness/Generated/Arms.cs
+ok    src/Harness/Generated/BuildGp.cs
+ok    src/Harness/Generated/CoreArms.cs
+ok    src/Harness/Generated/CoreFfi.cs
+ok    src/Harness/GeneratedLazy/CoreFfi.cs
+ok    src/Harness/GeneratedLazyNounk/CoreFfi.cs
+ok    src/Harness/GeneratedNounk/Abi.cs
+ok    src/Harness/GeneratedNounk/CoreArms.cs
+ok    src/Harness/GeneratedNounk/CoreFfi.cs
+ok    src/Rpc/Generated/RpcAbi.cs
+exit status: 0
+$ bash -c ! grep -nE 'Abi\.ak_enc_reset\(|ak_measure_' src/Harness/Generated/CoreFfi.cs src/Harness/GeneratedNounk/CoreFfi.cs src/Corpus/Generated/CoreFfi.cs src/Corpus/GeneratedNounk/CoreFfi.cs
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --verify | tail -n 1; grep -q 'if (string.IsNullOrEmpty(v)) { th = 128; return E1R; }' src/Harness/Generated/CoreFfi.cs
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+## 2. byte identity: Cases.Verify (every arm, every string path, retain and drop) in the four builds
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll --verify
+verify: 4525 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll --verify
+verify: 3309 pre-timing checks passed (byte identity of every arm, every string path)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --il-tally --expect none | grep -E '^il-tally'; exit ${PIPESTATUS[0]}
+il-tally (full build, timed): 3044 methods read; tally call sites (CountF, CountR, CountReset) 0; tally stores (_fwd, _rev, _resets, UnkHost.Grows) 0
+il-tally: expected none: ok
+exit status: 0
+## 3. --verify-mt (8 threads): the default (E1R:128) and E0, both builds; E1R under pin stress
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E1R:128 (K 64), 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 7040 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll --verify-mt
+verify-mt (E0, 8 threads): 3520 concurrent encodes compared, 0 failure(s)
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify-mt --threads 1 --rounds 1
+verify-mt (E1R (K 64), 1 threads): 44 concurrent encodes compared, 0 failure(s)
+exit status: 0
+## 4. the corpus: default path and E0, full (retain strict) and no-unknown (drop strict); push arms; unk-controls
+$ bash -c AK_CORPUS_RETAIN_STRICT=1 '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-full-default.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-full-default.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c AK_STR_ENC=E0 AK_CORPUS_RETAIN_STRICT=1 '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-full-e0.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-full-e0.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 4 arms
+exit status: 0
+$ bash -c AK_CORPUS_DROP_STRICT=1 '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin-nounk/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-nounk-default.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-nounk-default.log'; exit $rc
+drop strict: ffi-drop wrote the dropped form on 307 row(s), a retained form on 0
+CORPUS PASSES on all 2 arms
+exit status: 0
+$ bash -c AK_CORPUS_PUSH=1 AK_CORPUS_RETAIN_STRICT=1 '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-push.log' 2>&1; rc=$?; tail -n 2 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-push.log'; exit $rc
+retain strict (AK_CORPUS_RETAIN_STRICT=1): no retain arm wrote the dropped form on a non-disputed row
+CORPUS PASSES on all 6 arms
+exit status: 0
+$ bash -c '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus' --unk-controls > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-unk-controls.log' 2>&1; rc=$?; tail -n 3 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/corpus-unk-controls.log'; exit $rc
+discard mismatches: 0 row(s); pull != push: 0 row(s); FSM != push: 0 row(s); retained decode errors (incl. UNDELIVERED): 0
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS PASSED
+exit status: 0
+$ /home/user/ArmoniK.Api/ffi/poc/csharp/src/Corpus/bin/Release/net8.0/corpus --unk-controls --plant   # a CONTROL: must fail
+  wrong root (Timestamp context, Duration entry points): decode rc -8, parse rc -8, reset rc -8 (AK_ERR_INVALID_STATE = -8); own root: reset 0, parse 0  PASS
+UNK CONTROLS FAILED
+exit status: 1
+control corpus decision 11 plant: failed, as required
+## 5. verify-fsm: graphs (timed builds), counts and the Rust events (counting builds)
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll' --verify-fsm | tail -n 1; exit ${PIPESTATUS[0]}
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm | tail -n 1; exit ${PIPESTATUS[0]}
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --verify-fsm --variants 0 --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/events-full.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tail -n 1; exit ${PIPESTATUS[0]}
+verify-fsm: 0 failure(s)
+exit status: 0
+$ bash -c dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --verify-fsm --variants 0 --events '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/events-nounk.txt' --rust-events '/home/user/ArmoniK.Api/ffi/poc/csharp/../../logs/rust/opt/d23-fsm/checks/events-counting.txt' | tail -n 1; exit ${PIPESTATUS[0]}
+verify-fsm: 0 failure(s)
+exit status: 0
+## 6. the coreffi crossings and R5 (counting harness), written to OUTDIR and compared with the committed files
+$ bash -c AK_CROSSINGS_WRITE='/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/crossings.txt' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-count/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/coreffi-count.log' 2>&1; rc=$?; grep -E '^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/coreffi-count.log'; diff <(grep -v '^#' gen/crossings.txt) <(grep -v '^#' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/crossings.txt') && echo 'crossings: equal to gen/crossings.txt'; exit $rc
+R5: the host's tally and the core's counters are compared above and equal on every row.
+crossings: equal to gen/crossings.txt
+exit status: 0
+$ bash -c AK_CROSSINGS_WRITE='/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/crossings-nounk.txt' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Harness/bin-count-nounk/Release/net8.0/harness.dll' coreffi > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/coreffi-count-nounk.log' 2>&1; rc=$?; grep -E '^R5' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/coreffi-count-nounk.log'; diff <(grep -v '^#' gen/crossings-nounk.txt) <(grep -v '^#' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/crossings-nounk.txt') && echo 'crossings: equal to gen/crossings-nounk.txt'; exit $rc
+R5: the host's tally and the core's counters are compared above and equal on every row.
+crossings: equal to gen/crossings-nounk.txt
+exit status: 0
+## 7. the counts regenerated (counting builds) and each compared with the committed file of the same path:
+##    fwd_new = fwd_old - ak_enc_reset_old - removed ak_dec_reset_*, rev and grow unchanged, no other entry changed (gen/s16_counts.py)
+$ bash -c AK_STR_ENC='' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r128.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r128-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E0' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E0' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e0-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E2' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e2.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E2' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e2-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e2-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='ETH:256' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-eth256.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='ETH:256' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-eth256-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-eth256-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E3' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e3.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E3' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e3-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E3L' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e3l.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E3L' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e3l-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e3l-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1R' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1R' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1C' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1c.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1C' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1c-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1c-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1R:128' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r128.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128.txt.change.md'; exit $rc
+| encode-hot | retain | -1 | 1 | 0 | 114 |
+| encode-transport | drop | -1 | 1 | 0 | 22 |
+| encode-transport | retain | -1 | 1 | 0 | 22 |
+| encode-transport-hot | drop | -1 | 1 | 0 | 22 |
+| encode-transport-hot | retain | -1 | 1 | 0 | 29 |
+1241 rows compared, 0 break the rule
+exit status: 0
+$ bash -c AK_STR_ENC='E1R:128' dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin-count-nounk/Release/net8.0/BenchDotNet.dll' --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128-nounk.txt' > /dev/null && python3 -I gen/s16_counts.py 'gen/counts-str-e1r128-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128-nounk.txt.change.md'; rc=$?; tail -n 6 '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/counts-str-e1r128-nounk.txt.change.md'; exit $rc
+| encode-core | no-unknown | -1 | 1 | 0 | 22 |
+| encode-core-hot | no-unknown | -1 | 1 | 0 | 29 |
+| encode-hot | no-unknown | -1 | 1 | 0 | 114 |
+| encode-transport | no-unknown | -1 | 1 | 0 | 22 |
+| encode-transport-hot | no-unknown | -1 | 1 | 0 | 29 |
+646 rows compared, 0 break the rule
+exit status: 0
+## 8. a planted D27 defect: the reset that CHANGES the options pointer skipped (a retain decode after a drop one runs with NULL); --verify must fail
+planted 7 site(s)
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+#   C# warnings: 18
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/bin/Release/net8.0/BenchDotNet.dll --verify   # a CONTROL: must fail
+gen/s17_checks.sh: line 19: 15492 Aborted                 "$@" > "$SCRATCH/ctl.out" 2>&1
+   at Armonik.Ffi.Bdn.Cases.Verify() in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Cases.cs:line 390
+   at Armonik.Ffi.Bdn.Program.Main(String[] a) in /home/user/ArmoniK.Api/ffi/poc/csharp/src/BenchDotNet/Program.cs:line 125
+exit status: 134
+control retain decodes never armed: failed, as required
+$ dotnet build src/BenchDotNet/BenchDotNet.csproj -c Release
+#   C# warnings: 4
+$ bash -c python3 gen/generate.py | grep -c '^wrote' | grep -qx 0
+exit status: 0
+## 9. RPC: the campaign server; the counts regenerated (both builds, grid and delivery cells); the upload check
+$ /home/user/ArmoniK.Api/ffi/poc/rust/serve.sh build
+warning: unnecessary `unsafe` block
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/rpc.rs:856:17
+    |
+856 |                 unsafe { (ctx.cb)(ctx.user, &mut comp) };
+    |                 ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:903:11
+    |
+903 | unsafe fn enc_list_results_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `enc_list_results_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:925:11
+    |
+925 | unsafe fn enc_list_results_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:948:11
+    |
+948 | unsafe fn enc_list_tasks_detailed_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_tasks_detailed_response_ugroup` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:971:11
+    |
+971 | unsafe fn enc_list_tasks_detailed_response_ugroup(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_group` is never used
+   --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:995:11
+    |
+995 | unsafe fn enc_list_task_summary_response_group(
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_task_summary_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1016:11
+     |
+1016 | unsafe fn enc_list_task_summary_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1038:11
+     |
+1038 | unsafe fn enc_list_probe_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_probe_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1058:11
+     |
+1058 | unsafe fn enc_list_probe_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1079:11
+     |
+1079 | unsafe fn enc_list_metrics_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_list_metrics_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1100:11
+     |
+1100 | unsafe fn enc_list_metrics_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1122:11
+     |
+1122 | unsafe fn enc_upload_result_data_message_group(g: &ak_efix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_upload_result_data_message_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1140:11
+     |
+1140 | unsafe fn enc_upload_result_data_message_ugroup(g: &ak_ufix_UploadResultDataMessage, cx: *mut EncCtxImpl) -> bool {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_group` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1160:11
+     |
+1160 | unsafe fn enc_dual_response_group(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `enc_dual_response_ugroup` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:1189:11
+     |
+1189 | unsafe fn enc_dual_response_ugroup(
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_empty_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2444:11
+     |
+2444 | unsafe fn dec_empty_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Empty {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_pair_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2482:11
+     |
+2482 | unsafe fn dec_pair_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Pair {
+     |           ^^^^^^^^^^^^
+
+warning: function `dec_probe_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2530:11
+     |
+2530 | unsafe fn dec_probe_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Probe {
+     |           ^^^^^^^^^^^^^
+
+warning: function `dec_result_raw_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2654:11
+     |
+2654 | unsafe fn dec_result_raw_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_ResultRaw {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_task_options_options_entry_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2807:11
+     |
+2807 | unsafe fn dec_task_options_options_entry_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_TaskOptionsOptionsEntry {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dec_timestamp_fix` is never used
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/generated/codec.rs:2857:11
+     |
+2857 | unsafe fn dec_timestamp_fix(d: &mut Dec, base: usize, u: UnkCx, sk: u64) -> ak_dfix_Timestamp {
+     |           ^^^^^^^^^^^^^^^^^
+
+warning: direct cast of function item into an integer
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:1509:35
+     |
+1509 |     let trusted = tc_utf8_trusted as usize;
+     |                                   ^^^^^^^^
+     |
+     = note: `#[warn(function_casts_as_integer)]` on by default
+help: first cast to a pointer `as *const ()`
+     |
+1509 |     let trusted = tc_utf8_trusted as *const () as usize;
+     |                                   ++++++++++++
+
+warning: direct cast of function item into an integer
+    --> /home/user/ArmoniK.Api/ffi/poc/codec/crates/ak-core/src/lib.rs:1603:39
+     |
+1603 |     if tc as usize == tc_utf8_trusted as usize && s.len <= i32::MAX as usize {
+     |                                       ^^^^^^^^
+     |
+help: first cast to a pointer `as *const ()`
+     |
+1603 |     if tc as usize == tc_utf8_trusted as *const () as usize && s.len <= i32::MAX as usize {
+     |                                       ++++++++++++
+
+warning: unused variable: `buf`
+   --> crates/facade/src/generated/prost_impl.rs:392:26
+    |
+392 |     fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+    |                          ^^^ help: if this is intentional, prefix it with an underscore: `_buf`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/facade/src/generated/prost_impl.rs:395:13
+    |
+395 |         let mut n = 0usize;
+    |             ----^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1742:17
+     |
+1742 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1773:13
+     |
+1773 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1888:17
+     |
+1888 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:1919:13
+     |
+1919 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2375:17
+     |
+2375 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2407:13
+     |
+2407 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2442:17
+     |
+2442 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2474:13
+     |
+2474 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2509:17
+     |
+2509 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2541:13
+     |
+2541 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2576:17
+     |
+2576 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2608:13
+     |
+2608 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2648:17
+     |
+2648 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2685:13
+     |
+2685 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2787:17
+     |
+2787 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2818:13
+     |
+2818 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2933:17
+     |
+2933 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:2964:13
+     |
+2964 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3425:17
+     |
+3425 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:3462:13
+     |
+3462 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4072:17
+     |
+4072 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4103:13
+     |
+4103 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4218:17
+     |
+4218 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4249:13
+     |
+4249 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4360:17
+     |
+4360 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4391:13
+     |
+4391 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4506:17
+     |
+4506 |                 done += i;
+     |                 ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `done` is never read
+    --> crates/harness/src/generated/binding.rs:4537:13
+     |
+4537 |             done += i;
+     |             ^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: function `fill_upload_result_data_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1381:15
+     |
+1381 | pub(crate) fn fill_upload_result_data_sparse(d: &mut ak_efix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_tran...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `fill_list_results_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1411:15
+     |
+1411 | pub(crate) fn fill_list_results_response_sparse(d: &mut ak_efix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1421:15
+     |
+1421 | pub(crate) fn fill_list_tasks_detailed_response_sparse(d: &mut ak_efix_ListTasksDetailedResponse, o: &ListTasksDetailedResponse, t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1431:15
+     |
+1431 | pub(crate) fn fill_list_task_summary_response_sparse(d: &mut ak_efix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1439:15
+     |
+1439 | pub(crate) fn fill_list_probe_response_sparse(d: &mut ak_efix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ak_t...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1447:15
+     |
+1447 | pub(crate) fn fill_list_metrics_response_sparse(d: &mut ak_efix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcode_fn...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1455:15
+     |
+1455 | pub(crate) fn fill_upload_result_data_message_sparse(d: &mut ak_efix_UploadResultDataMessage, o: &UploadResultDataMessage, tc: (ak...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1464:15
+     |
+1464 | pub(crate) fn fill_dual_response_sparse(d: &mut ak_efix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1622:15
+     |
+1622 | pub(crate) fn fill_upload_result_data_unk_sparse(d: &mut ak_ufix_UploadResultData, o: &UploadResultData, tc: (ak_transcode_fn, ak_...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1655:15
+     |
+1655 | pub(crate) fn fill_list_results_response_unk_sparse(d: &mut ak_ufix_ListResultsResponse, o: &ListResultsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1666:15
+     |
+1666 | pub(crate) fn fill_list_tasks_detailed_response_unk_sparse(d: &mut ak_ufix_ListTasksDetailedResponse, o: &ListTasksDetailedRespons...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1677:15
+     |
+1677 | pub(crate) fn fill_list_task_summary_response_unk_sparse(d: &mut ak_ufix_ListTaskSummaryResponse, o: &ListTaskSummaryResponse, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1686:15
+     |
+1686 | pub(crate) fn fill_list_probe_response_unk_sparse(d: &mut ak_ufix_ListProbeResponse, o: &ListProbeResponse, tc: (ak_transcode_fn, ...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1695:15
+     |
+1695 | pub(crate) fn fill_list_metrics_response_unk_sparse(d: &mut ak_ufix_ListMetricsResponse, o: &ListMetricsResponse, tc: (ak_transcod...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_upload_result_data_message_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1704:15
+     |
+1704 | pub(crate) fn fill_upload_result_data_message_unk_sparse(d: &mut ak_ufix_UploadResultDataMessage, o: &UploadResultDataMessage, tc:...
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response_unk_sparse` is never used
+    --> crates/harness/src/generated/binding.rs:1714:15
+     |
+1714 | pub(crate) fn fill_dual_response_unk_sparse(d: &mut ak_ufix_DualResponse, o: &DualResponse, tc: (ak_transcode_fn, ak_transcode_fn)) {
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_results_response` is never used
+    --> crates/harness/src/generated/binding.rs:4936:11
+     |
+4936 | unsafe fn fill_list_results_response(dst: &mut ListResultsResponse, f: &ak_dfix_ListResultsResponse, base: *const u8, ctx: Dx) {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_tasks_detailed_response` is never used
+    --> crates/harness/src/generated/binding.rs:4946:11
+     |
+4946 | unsafe fn fill_list_tasks_detailed_response(dst: &mut ListTasksDetailedResponse, f: &ak_dfix_ListTasksDetailedResponse, base: *con...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_task_summary_response` is never used
+    --> crates/harness/src/generated/binding.rs:4956:11
+     |
+4956 | unsafe fn fill_list_task_summary_response(dst: &mut ListTaskSummaryResponse, f: &ak_dfix_ListTaskSummaryResponse, base: *const u8,...
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_probe_response` is never used
+    --> crates/harness/src/generated/binding.rs:4964:11
+     |
+4964 | unsafe fn fill_list_probe_response(dst: &mut ListProbeResponse, f: &ak_dfix_ListProbeResponse, base: *const u8, ctx: Dx) {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_list_metrics_response` is never used
+    --> crates/harness/src/generated/binding.rs:4972:11
+     |
+4972 | unsafe fn fill_list_metrics_response(dst: &mut ListMetricsResponse, f: &ak_dfix_ListMetricsResponse, base: *const u8, ctx: Dx) {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `from_upload_result_data_message` is never used
+    --> crates/harness/src/generated/binding.rs:4978:11
+     |
+4978 | unsafe fn from_upload_result_data_message(f: &ak_dfix_UploadResultDataMessage, base: *const u8, ctx: Dx) -> UploadResultDataMessage {
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fill_dual_response` is never used
+    --> crates/harness/src/generated/binding.rs:4989:11
+     |
+4989 | unsafe fn fill_dual_response(dst: &mut DualResponse, f: &ak_dfix_DualResponse, base: *const u8, ctx: Dx) {
+     |           ^^^^^^^^^^^^^^^^^^
+
+warning: static variable `ELEM_VT_ListTasksDetailedResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:2696:8
+     |
+2696 | static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(non_upper_case_globals)]` (part of `#[warn(nonstandard_style)]`) on by default
+help: convert the identifier to upper case
+     |
+2696 - static ELEM_VT_ListTasksDetailedResponse_tasks: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+2696 + static ELEM_VT_LIST_TASKS_DETAILED_RESPONSE_TASKS: ak_evt_TaskDetailed = ak_evt_TaskDetailed {
+     |
+
+warning: static variable `ELEM_VT_ListTaskSummaryResponse_tasks` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3473:8
+     |
+3473 | static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3473 - static ELEM_VT_ListTaskSummaryResponse_tasks: ak_evt_TaskSummary = ak_evt_TaskSummary {
+3473 + static ELEM_VT_LIST_TASK_SUMMARY_RESPONSE_TASKS: ak_evt_TaskSummary = ak_evt_TaskSummary {
+     |
+
+warning: static variable `ELEM_VT_ListMetricsResponse_batches` should have an upper case name
+    --> crates/harness/src/generated/binding.rs:3981:8
+     |
+3981 | static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: convert the identifier to upper case
+     |
+3981 - static ELEM_VT_ListMetricsResponse_batches: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+3981 + static ELEM_VT_LIST_METRICS_RESPONSE_BATCHES: ak_evt_MetricsBatch = ak_evt_MetricsBatch {
+     |
+
+built /home/user/ArmoniK.Api/ffi/poc/rust/target-server/release/rpc_server and /home/user/ArmoniK.Api/ffi/poc/rust/target-server/release/rpc_warm
+exit status: 0
+# server: tcp:127.0.0.1:34561
+$ bash -c AK_RPC_COUNT_DELIVERIES=0 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin-count/Release/net8.0/akrpc.dll' campaign --suite rpc --sock 'tcp:127.0.0.1:34561' --transport shipped --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts.txt.log' 2>&1; rc=$?; diff 'gen/rpc-counts.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts.txt.diff'; echo "$(grep -c '^>' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts.txt.diff') rows differ from rpc-counts.txt"; exit $rc
+48 rows differ from rpc-counts.txt
+exit status: 0
+$ bash -c AK_RPC_COUNT_DELIVERIES=0 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin-count-nounk/Release/net8.0/akrpc.dll' campaign --suite rpc --sock 'tcp:127.0.0.1:34561' --transport shipped --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts-nounk.txt.log' 2>&1; rc=$?; diff 'gen/rpc-counts-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts-nounk.txt.diff'; echo "$(grep -c '^>' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-counts-nounk.txt.diff') rows differ from rpc-counts-nounk.txt"; exit $rc
+20 rows differ from rpc-counts-nounk.txt
+exit status: 0
+$ bash -c AK_RPC_COUNT_DELIVERIES=1 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin-count/Release/net8.0/akrpc.dll' campaign --suite rpc --sock 'tcp:127.0.0.1:34561' --transport shipped --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts.txt.log' 2>&1; rc=$?; diff 'gen/rpc-delivery-counts.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts.txt.diff'; echo "$(grep -c '^>' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts.txt.diff') rows differ from rpc-delivery-counts.txt"; exit $rc
+24 rows differ from rpc-delivery-counts.txt
+exit status: 0
+$ bash -c AK_RPC_COUNT_DELIVERIES=1 dotnet '/home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin-count-nounk/Release/net8.0/akrpc.dll' campaign --suite rpc --sock 'tcp:127.0.0.1:34561' --transport shipped --counts '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts-nounk.txt.log' 2>&1; rc=$?; diff 'gen/rpc-delivery-counts-nounk.txt' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts-nounk.txt' > '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts-nounk.txt.diff'; echo "$(grep -c '^>' '/home/user/ArmoniK.Api/ffi/logs/csharp/opt/s17/p3/rpc-delivery-counts-nounk.txt.diff') rows differ from rpc-delivery-counts-nounk.txt"; exit $rc
+15 rows differ from rpc-delivery-counts-nounk.txt
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin/Release/net8.0/akrpc.dll campaign --suite rpc --sock tcp:127.0.0.1:34561 --transport shipped --upload-check
+  ok  A          c P5.3          default
+  ok  A          c P5.4          default
+  ok  A          d stream-4MiB   default
+  ok  A          d stream-16MiB  default
+  ok  B          c P5.3          default
+  ok  B          c P5.4          default
+  ok  B          d stream-4MiB   default
+  ok  B          d stream-16MiB  default
+  ok  Bf         c P5.3          default
+  ok  Bf         c P5.4          default
+  ok  Bf         d stream-4MiB   default
+  ok  Bf         d stream-16MiB  default
+  ok  C-retain   c P5.3          retain
+  ok  C-retain   c P5.4          retain
+  ok  C-retain   d stream-4MiB   retain
+  ok  C-retain   d stream-16MiB  retain
+  ok  Cf-retain  c P5.3          retain
+  ok  Cf-retain  c P5.4          retain
+  ok  Cf-retain  d stream-4MiB   retain
+  ok  Cf-retain  d stream-16MiB  retain
+  ok  Cc-retain  c P5.3          retain
+  ok  Cc-retain  c P5.4          retain
+  ok  Cc-retain  d stream-4MiB   retain
+  ok  Cc-retain  d stream-16MiB  retain
+  ok  E-retain   c P5.3          retain
+  ok  E-retain   c P5.4          retain
+  ok  E-retain   d stream-4MiB   retain
+  ok  E-retain   d stream-16MiB  retain
+  ok  Ef-retain  c P5.3          retain
+  ok  Ef-retain  c P5.4          retain
+  ok  Ef-retain  d stream-4MiB   retain
+  ok  Ef-retain  d stream-16MiB  retain
+  ok  D-retain   c P5.3          retain
+  ok  D-retain   c P5.4          retain
+  ok  D-retain   d stream-4MiB   retain
+  ok  D-retain   d stream-16MiB  retain
+  ok  F-retain   c P5.3          retain
+  ok  F-retain   c P5.4          retain
+  ok  F-retain   d stream-4MiB   retain
+  ok  F-retain   d stream-16MiB  retain
+  ok  C-drop     c P5.3          drop
+  ok  C-drop     c P5.4          drop
+  ok  C-drop     d stream-4MiB   drop
+  ok  C-drop     d stream-16MiB  drop
+  ok  Cf-drop    c P5.3          drop
+  ok  Cf-drop    c P5.4          drop
+  ok  Cf-drop    d stream-4MiB   drop
+  ok  Cf-drop    d stream-16MiB  drop
+  ok  Cc-drop    c P5.3          drop
+  ok  Cc-drop    c P5.4          drop
+  ok  Cc-drop    d stream-4MiB   drop
+  ok  Cc-drop    d stream-16MiB  drop
+  ok  E-drop     c P5.3          drop
+  ok  E-drop     c P5.4          drop
+  ok  E-drop     d stream-4MiB   drop
+  ok  E-drop     d stream-16MiB  drop
+  ok  Ef-drop    c P5.3          drop
+  ok  Ef-drop    c P5.4          drop
+  ok  Ef-drop    d stream-4MiB   drop
+  ok  Ef-drop    d stream-16MiB  drop
+  ok  D-drop     c P5.3          drop
+  ok  D-drop     c P5.4          drop
+  ok  D-drop     d stream-4MiB   drop
+  ok  D-drop     d stream-16MiB  drop
+  ok  F-drop     c P5.3          drop
+  ok  F-drop     c P5.4          drop
+  ok  F-drop     d stream-4MiB   drop
+  ok  F-drop     d stream-16MiB  drop
+  ok  Bf.callback c P5.3          default
+  ok  Bf.callback c P5.4          default
+  ok  Bf.callback d stream-4MiB   default
+  ok  Bf.callback d stream-16MiB  default
+  ok  Bf.callback-inline c P5.3          default
+  ok  Bf.callback-inline c P5.4          default
+  ok  Bf.callback-inline d stream-4MiB   default
+  ok  Bf.callback-inline d stream-16MiB  default
+  ok  Bf.queue   c P5.3          default
+  ok  Bf.queue   c P5.4          default
+  ok  Bf.queue   d stream-4MiB   default
+  ok  Bf.queue   d stream-16MiB  default
+  ok  Cf-retain.callback c P5.3          retain
+  ok  Cf-retain.callback c P5.4          retain
+  ok  Cf-retain.callback d stream-4MiB   retain
+  ok  Cf-retain.callback d stream-16MiB  retain
+  ok  Cf-retain.callback-inline c P5.3          retain
+  ok  Cf-retain.callback-inline c P5.4          retain
+  ok  Cf-retain.callback-inline d stream-4MiB   retain
+  ok  Cf-retain.callback-inline d stream-16MiB  retain
+  ok  Cf-retain.queue c P5.3          retain
+  ok  Cf-retain.queue c P5.4          retain
+  ok  Cf-retain.queue d stream-4MiB   retain
+  ok  Cf-retain.queue d stream-16MiB  retain
+  ok  Ef-retain.callback c P5.3          retain
+  ok  Ef-retain.callback c P5.4          retain
+  ok  Ef-retain.callback d stream-4MiB   retain
+  ok  Ef-retain.callback d stream-16MiB  retain
+  ok  Ef-retain.callback-inline c P5.3          retain
+  ok  Ef-retain.callback-inline c P5.4          retain
+  ok  Ef-retain.callback-inline d stream-4MiB   retain
+  ok  Ef-retain.callback-inline d stream-16MiB  retain
+  ok  Ef-retain.queue c P5.3          retain
+  ok  Ef-retain.queue c P5.4          retain
+  ok  Ef-retain.queue d stream-4MiB   retain
+  ok  Ef-retain.queue d stream-16MiB  retain
+TCP_NODELAY read back: 42 of 42 sockets to the server
+upload check (full build): 104 upload cells, every c call accepted, every d stream's count and SHA-256 as received equal to the client's
+exit status: 0
+$ dotnet /home/user/ArmoniK.Api/ffi/poc/csharp/src/Rpc/bin-nounk/Release/net8.0/akrpc.dll campaign --suite rpc --sock tcp:127.0.0.1:34561 --transport shipped --upload-check
+  ok  A          c P5.3          default
+  ok  A          c P5.4          default
+  ok  A          d stream-4MiB   default
+  ok  A          d stream-16MiB  default
+  ok  B          c P5.3          default
+  ok  B          c P5.4          default
+  ok  B          d stream-4MiB   default
+  ok  B          d stream-16MiB  default
+  ok  Bf         c P5.3          default
+  ok  Bf         c P5.4          default
+  ok  Bf         d stream-4MiB   default
+  ok  Bf         d stream-16MiB  default
+  ok  C-nounk    c P5.3          no-unknown
+  ok  C-nounk    c P5.4          no-unknown
+  ok  C-nounk    d stream-4MiB   no-unknown
+  ok  C-nounk    d stream-16MiB  no-unknown
+  ok  Cf-nounk   c P5.3          no-unknown
+  ok  Cf-nounk   c P5.4          no-unknown
+  ok  Cf-nounk   d stream-4MiB   no-unknown
+  ok  Cf-nounk   d stream-16MiB  no-unknown
+  ok  E-nounk    c P5.3          no-unknown
+  ok  E-nounk    c P5.4          no-unknown
+  ok  E-nounk    d stream-4MiB   no-unknown
+  ok  E-nounk    d stream-16MiB  no-unknown
+  ok  Ef-nounk   c P5.3          no-unknown
+  ok  Ef-nounk   c P5.4          no-unknown
+  ok  Ef-nounk   d stream-4MiB   no-unknown
+  ok  Ef-nounk   d stream-16MiB  no-unknown
+  ok  Cc-nounk   c P5.3          no-unknown
+  ok  Cc-nounk   c P5.4          no-unknown
+  ok  Cc-nounk   d stream-4MiB   no-unknown
+  ok  Cc-nounk   d stream-16MiB  no-unknown
+  ok  D-nounk    c P5.3          no-unknown
+  ok  D-nounk    c P5.4          no-unknown
+  ok  D-nounk    d stream-4MiB   no-unknown
+  ok  D-nounk    d stream-16MiB  no-unknown
+  ok  F-nounk    c P5.3          no-unknown
+  ok  F-nounk    c P5.4          no-unknown
+  ok  F-nounk    d stream-4MiB   no-unknown
+  ok  F-nounk    d stream-16MiB  no-unknown
+  ok  Bf.callback c P5.3          default
+  ok  Bf.callback c P5.4          default
+  ok  Bf.callback d stream-4MiB   default
+  ok  Bf.callback d stream-16MiB  default
+  ok  Bf.callback-inline c P5.3          default
+  ok  Bf.callback-inline c P5.4          default
+  ok  Bf.callback-inline d stream-4MiB   default
+  ok  Bf.callback-inline d stream-16MiB  default
+  ok  Bf.queue   c P5.3          default
+  ok  Bf.queue   c P5.4          default
+  ok  Bf.queue   d stream-4MiB   default
+  ok  Bf.queue   d stream-16MiB  default
+  ok  Cf-nounk.callback c P5.3          no-unknown
+  ok  Cf-nounk.callback c P5.4          no-unknown
+  ok  Cf-nounk.callback d stream-4MiB   no-unknown
+  ok  Cf-nounk.callback d stream-16MiB  no-unknown
+  ok  Cf-nounk.callback-inline c P5.3          no-unknown
+  ok  Cf-nounk.callback-inline c P5.4          no-unknown
+  ok  Cf-nounk.callback-inline d stream-4MiB   no-unknown
+  ok  Cf-nounk.callback-inline d stream-16MiB  no-unknown
+  ok  Cf-nounk.queue c P5.3          no-unknown
+  ok  Cf-nounk.queue c P5.4          no-unknown
+  ok  Cf-nounk.queue d stream-4MiB   no-unknown
+  ok  Cf-nounk.queue d stream-16MiB  no-unknown
+  ok  Ef-nounk.callback c P5.3          no-unknown
+  ok  Ef-nounk.callback c P5.4          no-unknown
+  ok  Ef-nounk.callback d stream-4MiB   no-unknown
+  ok  Ef-nounk.callback d stream-16MiB  no-unknown
+  ok  Ef-nounk.callback-inline c P5.3          no-unknown
+  ok  Ef-nounk.callback-inline c P5.4          no-unknown
+  ok  Ef-nounk.callback-inline d stream-4MiB   no-unknown
+  ok  Ef-nounk.callback-inline d stream-16MiB  no-unknown
+  ok  Ef-nounk.queue c P5.3          no-unknown
+  ok  Ef-nounk.queue c P5.4          no-unknown
+  ok  Ef-nounk.queue d stream-4MiB   no-unknown
+  ok  Ef-nounk.queue d stream-16MiB  no-unknown
+TCP_NODELAY read back: 26 of 26 sockets to the server
+upload check (no-unknown build): 76 upload cells, every c call accepted, every d stream's count and SHA-256 as received equal to the client's
+exit status: 0
+
+S17 p3 CHECKS PASSED (net8.0; fast checks, not the gate)

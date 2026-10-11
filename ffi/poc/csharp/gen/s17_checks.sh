@@ -4,6 +4,8 @@
 # directory are used (target-core*), not rebuilt.
 #   gen/s17_checks.sh p1 OUTDIR    part 1: the host tally out of the timed build
 #   gen/s17_checks.sh p2 OUTDIR    part 2: the lazy nested encode render (/p:AkLazy=true)
+#   gen/s17_checks.sh p3 OUTDIR    part 3: D27 reset on entry the only render, E1R:128 the
+#                                  default string encode (D28); regenerated counts (into OUTDIR)
 # Exit 0 only if every run passes and every control fails.
 set -uo pipefail
 SLICE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,13 +31,13 @@ cores() {
   cp target-core-corpus/release/libak_core.so "$C/"; cp target-core-corpus-nounk/release/libak_core.so "$CN/"
 }
 echo "# s17_checks.sh $PART at $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- src gen ../codec/gen || echo ' + uncommitted'); $(date -u +%FT%TZ); boot $(uptime -s)"
-echo "## 0. generators current; no thread-local storage; every build (the four codec builds, the corpus, RPC, the s16 variant builds)"
+echo "## 0. generators current; no thread-local storage; every build (the four codec builds, the corpus, RPC; the lazy render compiled)"
 python3 gen/generate.py > "$SCRATCH/gen.out" 2>&1; grep "^wrote" "$SCRATCH/gen.out"; run "generators current" bash -c "! grep -q '^wrote' '$SCRATCH/gen.out'"
 run "no thread-local storage" python3 -I gen/no_tls.py src
 for a in "" "-p:AkNounk=true" "-p:AkHostCount=true" "-p:AkHostCount=true -p:AkNounk=true"; do bld src/BenchDotNet/BenchDotNet.csproj -c Release $a; done
 for a in "" "-p:AkNounk=true"; do bld src/Corpus/Corpus.csproj -c Release -f net8.0 $a; done
 for a in "" "-p:AkHostCount=true" "-p:AkNounk=true" "-p:AkHostCount=true -p:AkNounk=true"; do bld src/Rpc/akrpc.csproj -c Release $a; done
-for a in "-p:AkRoe=true" "-p:AkRoe=true -p:AkHostCount=true" "-p:AkRoeBench=true"; do bld src/BenchDotNet/BenchDotNet.csproj -c Release $a; done
+bld src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
 cores
 echo "# cores: $(for d in "$B" "$BN" "$BC" "$BCN" "$HC" "$C" "$CN"; do echo -n "$(echo "$d" | sed "s|$SLICE/src/||; s|/Release/net8.0||") $(sha256sum "$d/libak_core.so" | cut -c1-16); "; done)"
 
@@ -163,6 +165,87 @@ bld src/BenchDotNet/BenchDotNet.csproj -c Release -p:AkLazy=true
 cp target-core/release/libak_core.so "$BL/"; cp target-core/release/libak_core.so "$HL/"
 run "generated file restored" bash -c "python3 gen/generate.py | grep -c '^wrote' | grep -qx 0"
 run "verify lazy full after the plants (restored build)" dotnet "$BL/BenchDotNet.dll" --verify
+fi
+
+if [ "$PART" = p3 ]; then
+REPO="$(git rev-parse --show-toplevel)"; SERVE="$REPO/ffi/poc/rust/serve.sh"
+RB="$SLICE/src/Rpc/bin/Release/net8.0"; RBN="$SLICE/src/Rpc/bin-nounk/Release/net8.0"
+RC="$SLICE/src/Rpc/bin-count/Release/net8.0"; RCN="$SLICE/src/Rpc/bin-count-nounk/Release/net8.0"
+cp target-core/release/libak_core.so "$RB/"; cp target-core-nounk/release/libak_core.so "$RBN/"
+cp target-core-count/release/libak_core.so "$RC/"; cp target-core-count-nounk/release/libak_core.so "$RCN/"
+echo "## 1. the generator's own check (drift, the one-generator guard and its plant); the render: no ak_enc_reset, no reset-on-entry marker import"
+run "generate.py --check" python3 gen/generate.py --check
+run "no ak_enc_reset call and no ak_measure_* import in the default host" bash -c "! grep -nE 'Abi\.ak_enc_reset\(|ak_measure_' src/Harness/Generated/CoreFfi.cs src/Harness/GeneratedNounk/CoreFfi.cs src/Corpus/Generated/CoreFfi.cs src/Corpus/GeneratedNounk/CoreFfi.cs"
+run "the default string path is E1R:128" bash -c "dotnet '$B/BenchDotNet.dll' --verify | tail -n 1; grep -q 'if (string.IsNullOrEmpty(v)) { th = 128; return E1R; }' src/Harness/Generated/CoreFfi.cs"
+echo "## 2. byte identity: Cases.Verify (every arm, every string path, retain and drop) in the four builds"
+run "verify full" dotnet "$B/BenchDotNet.dll" --verify
+run "verify nounk" dotnet "$BN/BenchDotNet.dll" --verify
+run "verify counting full" dotnet "$BC/BenchDotNet.dll" --verify
+run "verify counting nounk" dotnet "$BCN/BenchDotNet.dll" --verify
+run "il-tally timed full" bash -c "dotnet '$B/BenchDotNet.dll' --il-tally --expect none | grep -E '^il-tally'; exit \${PIPESTATUS[0]}"
+echo "## 3. --verify-mt (8 threads): the default (E1R:128) and E0, both builds; E1R under pin stress"
+run "verify-mt default full" dotnet "$B/BenchDotNet.dll" --verify-mt
+run "verify-mt default nounk" dotnet "$BN/BenchDotNet.dll" --verify-mt
+AK_STR_ENC=E0 run "verify-mt E0 full" dotnet "$B/BenchDotNet.dll" --verify-mt
+AK_STR_ENC=E0 run "verify-mt E0 nounk" dotnet "$BN/BenchDotNet.dll" --verify-mt
+AK_GATE_PIN_STRESS=1 AK_STR_ENC=E1R run "verify-mt E1R 1 thread, pin stress" dotnet "$B/BenchDotNet.dll" --verify-mt --threads 1 --rounds 1
+echo "## 4. the corpus: default path and E0, full (retain strict) and no-unknown (drop strict); push arms; unk-controls"
+run "corpus full default" bash -c "AK_CORPUS_RETAIN_STRICT=1 '$C/corpus' > '$OUT/corpus-full-default.log' 2>&1; rc=\$?; tail -n 2 '$OUT/corpus-full-default.log'; exit \$rc"
+run "corpus full E0" bash -c "AK_STR_ENC=E0 AK_CORPUS_RETAIN_STRICT=1 '$C/corpus' > '$OUT/corpus-full-e0.log' 2>&1; rc=\$?; tail -n 2 '$OUT/corpus-full-e0.log'; exit \$rc"
+run "corpus nounk default" bash -c "AK_CORPUS_DROP_STRICT=1 '$CN/corpus' > '$OUT/corpus-nounk-default.log' 2>&1; rc=\$?; tail -n 2 '$OUT/corpus-nounk-default.log'; exit \$rc"
+run "corpus full push arms" bash -c "AK_CORPUS_PUSH=1 AK_CORPUS_RETAIN_STRICT=1 '$C/corpus' > '$OUT/corpus-push.log' 2>&1; rc=\$?; tail -n 2 '$OUT/corpus-push.log'; exit \$rc"
+run "corpus unk-controls" bash -c "'$C/corpus' --unk-controls > '$OUT/corpus-unk-controls.log' 2>&1; rc=\$?; tail -n 3 '$OUT/corpus-unk-controls.log'; exit \$rc"
+control "corpus decision 11 plant" "$C/corpus" --unk-controls --plant
+echo "## 5. verify-fsm: graphs (timed builds), counts and the Rust events (counting builds)"
+run "verify-fsm full" bash -c "dotnet '$B/BenchDotNet.dll' --verify-fsm | tail -n 1; exit \${PIPESTATUS[0]}"
+run "verify-fsm nounk" bash -c "dotnet '$BN/BenchDotNet.dll' --verify-fsm | tail -n 1; exit \${PIPESTATUS[0]}"
+run "verify-fsm counts full" bash -c "dotnet '$BC/BenchDotNet.dll' --verify-fsm --variants 0 --events '$OUT/events-full.txt' --rust-events '$RUST_EV' | tail -n 1; exit \${PIPESTATUS[0]}"
+run "verify-fsm counts nounk" bash -c "dotnet '$BCN/BenchDotNet.dll' --verify-fsm --variants 0 --events '$OUT/events-nounk.txt' --rust-events '$RUST_EV' | tail -n 1; exit \${PIPESTATUS[0]}"
+echo "## 6. the coreffi crossings and R5 (counting harness), written to OUTDIR and compared with the committed files"
+run "coreffi counting full" bash -c "AK_CROSSINGS_WRITE='$OUT/crossings.txt' dotnet '$HC/harness.dll' coreffi > '$OUT/coreffi-count.log' 2>&1; rc=\$?; grep -E '^R5' '$OUT/coreffi-count.log'; diff <(grep -v '^#' gen/crossings.txt) <(grep -v '^#' '$OUT/crossings.txt') && echo 'crossings: equal to gen/crossings.txt'; exit \$rc"
+run "coreffi counting nounk" bash -c "AK_CROSSINGS_WRITE='$OUT/crossings-nounk.txt' dotnet '$HCN/harness.dll' coreffi > '$OUT/coreffi-count-nounk.log' 2>&1; rc=\$?; grep -E '^R5' '$OUT/coreffi-count-nounk.log'; diff <(grep -v '^#' gen/crossings-nounk.txt) <(grep -v '^#' '$OUT/crossings-nounk.txt') && echo 'crossings: equal to gen/crossings-nounk.txt'; exit \$rc"
+echo "## 7. the counts regenerated (counting builds) and each compared with the committed file of the same path:"
+echo "##    fwd_new = fwd_old - ak_enc_reset_old - removed ak_dec_reset_*, rev and grow unchanged, no other entry changed (gen/s16_counts.py)"
+cnt() {  # name AK_STR_ENC(or -) build-dir out reference
+  local enc="$2"; [ "$enc" = - ] && enc=""
+  run "counts $1" bash -c "AK_STR_ENC='$enc' dotnet '$3/BenchDotNet.dll' --counts '$OUT/$4' > /dev/null && python3 -I gen/s16_counts.py '$5' '$OUT/$4' > '$OUT/$4.change.md'; rc=\$?; tail -n 6 '$OUT/$4.change.md'; exit \$rc"
+}
+cnt "default (E1R:128) full vs the old E1R:128 file" - "$BC" counts.txt gen/counts-str-e1r128.txt
+cnt "default (E1R:128) nounk vs the old E1R:128 file" - "$BCN" counts-nounk.txt gen/counts-str-e1r128-nounk.txt
+cnt "E0 full vs the old default file (E0)" E0 "$BC" counts-str-e0.txt gen/counts.txt
+cnt "E0 nounk vs the old default file (E0)" E0 "$BCN" counts-str-e0-nounk.txt gen/counts-nounk.txt
+for m in E1 E2 ETH:256 E3 E3L E1R E1C E1R:128; do t=$(echo "$m" | tr -d ':' | tr 'A-Z' 'a-z')
+  cnt "$m full" "$m" "$BC" "counts-str-$t.txt" "gen/counts-str-$t.txt"
+  cnt "$m nounk" "$m" "$BCN" "counts-str-$t-nounk.txt" "gen/counts-str-$t-nounk.txt"
+done
+echo "## 8. a planted D27 defect: the reset that CHANGES the options pointer skipped (a retain decode after a drop one runs with NULL); --verify must fail"
+G="src/Harness/Generated/CoreFfi.cs"; cp "$G" "$SCRATCH/CoreFfi.orig"
+python3 -I - "$G" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p).read()
+a = "        if (h.CoreArmed) return 0;\n"
+k = s.count(a); assert k > 0
+open(p, "w").write(s.replace(a, "        if (true) { h.CoreArmed = true; return 0; }\n")); print("planted %d site(s)" % k)
+PY
+bld src/BenchDotNet/BenchDotNet.csproj -c Release; cp target-core/release/libak_core.so "$B/"
+control "retain decodes never armed" dotnet "$B/BenchDotNet.dll" --verify
+cp "$SCRATCH/CoreFfi.orig" "$G"; bld src/BenchDotNet/BenchDotNet.csproj -c Release; cp target-core/release/libak_core.so "$B/"
+run "generated file restored" bash -c "python3 gen/generate.py | grep -c '^wrote' | grep -qx 0"
+echo "## 9. RPC: the campaign server; the counts regenerated (both builds, grid and delivery cells); the upload check"
+run "the campaign server (serve.sh build)" "$SERVE" build
+export AK_SERVE_STATE="$SCRATCH/ak-rpc-server.state"
+AK_SERVER_TCP=0 "$SERVE" start --out "$SCRATCH/srv" > "$SCRATCH/srv.start" 2>&1 || cat "$SCRATCH/srv.start"
+SOCK="tcp:$(sed -n 's/^tcp //p' "$SCRATCH/srv.start")"; echo "# server: $SOCK"
+rpcc() {  # name dir file committed [deliveries]
+  run "rpc counts $1" bash -c "AK_RPC_COUNT_DELIVERIES=${5:-0} dotnet '$2/akrpc.dll' campaign --suite rpc --sock '$SOCK' --transport shipped --counts '$OUT/$3' > '$OUT/$3.log' 2>&1; rc=\$?; diff '$4' '$OUT/$3' > '$OUT/$3.diff'; echo \"\$(grep -c '^>' '$OUT/$3.diff') rows differ from $(basename $4)\"; exit \$rc"
+}
+rpcc "full" "$RC" rpc-counts.txt gen/rpc-counts.txt
+rpcc "nounk" "$RCN" rpc-counts-nounk.txt gen/rpc-counts-nounk.txt
+rpcc "deliveries full" "$RC" rpc-delivery-counts.txt gen/rpc-delivery-counts.txt 1
+rpcc "deliveries nounk" "$RCN" rpc-delivery-counts-nounk.txt gen/rpc-delivery-counts-nounk.txt 1
+run "upload check full" dotnet "$RB/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+run "upload check nounk" dotnet "$RBN/akrpc.dll" campaign --suite rpc --sock "$SOCK" --transport shipped --upload-check
+"$SERVE" stop > /dev/null 2>&1
 fi
 
 echo
