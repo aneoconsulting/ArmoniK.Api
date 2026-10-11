@@ -3144,3 +3144,44 @@ Rust/core agent's (0f0164c0 for the Rust side; `logs/rust/opt/reset-on-entry/`).
   3.2-4.1 ns, with options 5.2-10.8 ns (34.8 for ListTasksDetailedResponse). As in the Rust
   run, the explicit path here runs on the variant core and so carries the switch's one
   predictable branch per entry; the default build's own path is not timed beside it.
+
+## 88. s17: the tally out of the timed build; the lazy nested encode render; D27 and D28 (2026-10-10/11)
+
+Owner unit s17, fast checks per change (CLAUDE.md, "Checks, not gates"); the full gate did not
+run. Logs `logs/csharp/opt/s17/`.
+- Part 1 (445c71fc). The host's process-wide `_fwd/_rev/_resets` and `UnkHost.Grows` were
+  written on every crossing in the timed build; now `[Conditional("AK_HOST_COUNT")]` calls and
+  count-only fields. The sweep found two more per-call shared writes on timed RPC paths: the
+  read cells' static `_sink` (now per caller, its own cache line) and CallCbAsync's Interlocked
+  tag (now 0; unread in callback mode). The timed build's gates that read the tally (CoreGate
+  R5 and crossings, verify-fsm's Rust events) would have passed vacuously or failed: they now
+  refuse there, and gate.sh runs them on the counting builds. `--il-tally` shows the timed IL
+  has no tally call or store and the counting IL has them. Counts, crossings, bytes unchanged.
+  Editing gen/s17_checks.sh while it ran broke its tail (bash reads by offset): every check had
+  run; noted in p1/NOTE.txt. Lesson kept: never edit a running script.
+- Part 2 (4807275f). The lazy render: Go stages nothing nested; Loop_<slot> stages per chunk,
+  Loop_<slot>_<inner> per element, both into reused buffers in Run_, Root through the context's
+  GCHandle. First concern checked: BDN's default toolchain rebuilds each child from the project,
+  so a bin-lazy host would have timed eager children (the JOURNAL 74 trap): the job passes
+  /p:AkLazy=true and a HostRender marker makes a child of the other render refuse. Second: the
+  E1R "nothing marked -> default path" shortcut was per message; lazily it is per chunk (and
+  per element run) from the staging's own marks, so E1R:128 never runs frames on the shapes
+  and E1R chunks as before: all counts files came out EQUAL to the eager render's, the E1R /
+  E1C ones included. Four plants in the lazy render (token ignored, sub-chunk base, chunk
+  offset with chunks of 150, Root unset) caught; the off > 0 chunk path only runs with
+  AK_CHUNK (the codec suite never sets Chunk, so a slot is one chunk).
+  Measured (container instrumentation, full grid 3 processes per variant, small rows 8): lazy
+  slower in every rep on 133 of 912 full-grid cells (small rows' encode-transport mostly,
+  P1.1 encode-transport drop +38..+185 ns over 8 reps), faster in every rep on 349 (retain on
+  small rows with elements, 170-600 ns; P2.2 / P2.4 retain 3-15 %). The retain gap: a grouped
+  probe shows a ~300 ns retain excess for eager with and without tiered compilation and for
+  lazy in one of two processes, so it is process-state dependent and not attributed to the
+  render. The run was killed once (exit 137) at rep 2; resumed at cell granularity, the cut
+  cell moved to full-INTERRUPTED/, and relaunched detached (setsid) because the background
+  tool limit is 2 h.
+- Part 3 (327ce56a), on the D27 core (9653cd87): reset on entry is the only render (s16's
+  render code became the default, its RoeCore / measurement imports and the AkRoe /
+  AkRoeBench machinery removed); E1R:128 is the default string path (D28), E0 explicit. The
+  lazy render is not the default: part 2 shows rows slower in every rep. Counts regenerated;
+  every change is a removed reset (codec: s16_counts.py, 0 exceptions; RPC: only ak_enc_reset
+  / ak_dec_reset_* changed). A plant (the pointer-changing reset skipped) is caught by verify.

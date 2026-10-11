@@ -4,11 +4,11 @@
 and what was checked. It carries no recommendation and no verdict (the decision is the owner's).
 Every figure in this slice is container instrumentation (README 1.1), never a result; timing
 waits for the campaign. The history of how each item got here is in `JOURNAL.md` (entries 1 to
-87); this file states what is true now.
+88); this file states what is true now.
 
 | | |
 |---|---|
-| **Status** | 2026-10-10 (latest): **s16**, reset-on-entry measured in C# (a measurement experiment, nothing changes by default: the variant core and binding built, checked, counted and timed in one process; `logs/csharp/opt/s16-roe/`; see **s16**). Before it: **s15 / D26**, no thread-local storage in the slice: explicit host contexts (encode and decode, each owning its core context and reached through the ABI pointers by one GCHandle allocated with it), the RPC harness's caches per caller; the full gate PASSED on both h2 variants at 4552710f; measured: the one-string distribution, the ladder rows and the core-ffi codec grid against the code before D26 in the same session (`logs/csharp/opt/s15/`; see **s15 / D26**). Before it: **s14**, measurement only, nothing changes a default: part 1, the E1R bimodality across processes under the default .NET 8 JIT configuration (distribution per JIT configuration, the JIT code and runtime samples of fast and slow processes, the BDN grid's spread); part 2, E1R's excess over E0 split by a ladder of rungs (additive measurement-only core features, default OFF; `logs/csharp/opt/s14/`; see **s14**). Before it, 2026-10-09/10: **s13**, the core's UTF-16 -> UTF-8 transcoder in scalar Rust (additive core features, default off) measured against simdutf under E1R (`logs/csharp/opt/s13-tc-scalar/`; see **s13**). Before it: **D25** (owner, FIX-PLAN d479b702): [SuppressGCTransition] dropped. The s12 attributed path (tested and timed, `logs/csharp/opt/s12-sgt/`) is removed; the code is back to D24's (generated C# identical to 357319f6), checks and counts unchanged (`logs/csharp/opt/d25/`; see **s12 / D25**). Before it: **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); the full gate at 1a5ccaea PASSED on both h2 variants (`logs/csharp/opt/d24/`). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
+| **Status** | 2026-10-11 (latest): **s17** (owner, 2026-10-10; see **s17**): part 1, the host's per-crossing tally (and the RPC harness's per-call shared writes) out of the timed build; part 2, the lazy nested encode render built as a generator option (`cs_host lazy_nested=True`, `/p:AkLazy=true`), checked and timed against today's render in one session (container instrumentation); part 3, on the core's D27 (9653cd87): reset on entry is the only C# render, E1R:128 the default string encode (D28), the s16 variant machinery removed, counts regenerated; the lazy render NOT made the default (rows slower in every rep). Fast checks only; **the full gate did not run** (see s17). Before it: **s16**, reset-on-entry measured in C# (`logs/csharp/opt/s16-roe/`; its variant machinery since removed by s17 part 3). Before it: **s15 / D26**, no thread-local storage in the slice: explicit host contexts (encode and decode, each owning its core context and reached through the ABI pointers by one GCHandle allocated with it), the RPC harness's caches per caller; the full gate PASSED on both h2 variants at 4552710f; measured: the one-string distribution, the ladder rows and the core-ffi codec grid against the code before D26 in the same session (`logs/csharp/opt/s15/`; see **s15 / D26**). Before it: **s14**, measurement only, nothing changes a default: part 1, the E1R bimodality across processes under the default .NET 8 JIT configuration (distribution per JIT configuration, the JIT code and runtime samples of fast and slow processes, the BDN grid's spread); part 2, E1R's excess over E0 split by a ladder of rungs (additive measurement-only core features, default OFF; `logs/csharp/opt/s14/`; see **s14**). Before it, 2026-10-09/10: **s13**, the core's UTF-16 -> UTF-8 transcoder in scalar Rust (additive core features, default off) measured against simdutf under E1R (`logs/csharp/opt/s13-tc-scalar/`; see **s13**). Before it: **D25** (owner, FIX-PLAN d479b702): [SuppressGCTransition] dropped. The s12 attributed path (tested and timed, `logs/csharp/opt/s12-sgt/`) is removed; the code is back to D24's (generated C# identical to 357319f6), checks and counts unchanged (`logs/csharp/opt/d25/`; see **s12 / D25**). Before it: **D24**, the FSM is the target decode family: the `core-ffi` codec arm and every RPC cell where the core decodes use it; push is the labelled extra `core-ffi-push`, pull stays `core-ffi-pull` (see **D24**); the full gate at 1a5ccaea PASSED on both h2 variants (`logs/csharp/opt/d24/`). Before it: **s11**, the eight-arm decode table rerun on the core with the FSM's fixes A and B (core 081de788; no C# change: regenerated identical), checks passed (`logs/csharp/opt/s11/`; see **D23**, last item). Before it, 2026-10-09: **D23** (the FSM decode family's C# consumer, on the amended contract c2b95f62: begin/next return the op) built, checked (gen/s10_checks.sh) and timed in the eight-arm decode-read table (`logs/csharp/opt/s10/`; see **D23**). Before it, 2026-10-04: optimisation pass steps 1 to 4, 5 (D20), 5b (static decode vtable) 6 (D21, string encode paths E0/E1/E2/ETH selectable by AK_STR_ENC, default E0) and 7 (D21: E3, E3L, E1R, E1C, threshold and ASCII splits; kernels; attribution) implemented and measured; s8 (decode attribution, harness-only arms, no optimisation) measured; 9a (decoded runs pre-size their list or map) in; 9b (the owner's six-arm decode table) measured (not gated; net8.0 quick checks per step; see **Optimisation pass**), after the short baseline (see **Optimisation baseline**) and the single-CPU guard it made necessary. Before it: D18 done (CAMPAIGN section 4.0 as amended b58543f7b: `AK_CAMPAIGN_GRID=core|full`, default core; transport `armonik` in the core grid; see **Campaign grid**); before it FIX-PLAN WP13 done (TCP 127.0.0.1 with TCP_NODELAY read back, perf task-clock beside the process clock, softirq on the CLIENT CPUs, pools at AK_WORKERS, both h2 variants gated and labelled, D9 stated: see **WP13**). Before it: WP10 done (every RPC cell against the Rust slice's rpc_server; this slice's server removed), then req 22a as amended (e6c909630): BDN's default toolchain (one child process per case) for the campaign, InProcessEmit grouping a small-run switch. Gate and smoke: see **Gate** and **Smoke**. Findings are in scope only if they can change what the campaign measures (ffi/CLAUDE.md, "Scope of findings"). |
 | **Levels** (FIX-PLAN D2) | target **net8.0** (.NET 8.0.31, SDK 8.0.131); floor **net6.0** (.NET 6.0.36 from the NuGet runtime pack, self-contained publish): gated; floor **.NET Framework 4.8**: compiled only (`src/HarnessFloor`), never run (needs Windows; the container has no Mono) |
 | **Incumbent** | Google.Protobuf 3.32.0, Grpc.Tools 2.72.0, Grpc.Net.Client and Grpc.AspNetCore 2.71.0 (the versions `packages/csharp` ships) |
 | **Core** | the one core, `ffi/poc/codec`, built from `git archive HEAD` by `gen/build_core.sh`, every build with `init-guard`: full `target-core` (`rpc`), `target-core-count` (`rpc,count`), `target-core-corpus` (`corpus`); no-unknown (ak-core `--no-default-features`) `target-core-nounk`, `target-core-count-nounk`, `target-core-corpus-nounk`, each in its own target dir; the same four transport cores against h2-batch (`poc/codec/h2-batch/`, D11 as amended) as `target-core[-count][-nounk]-h2b`; the h2 compiled into each is printed by build_core.sh |
@@ -38,8 +38,9 @@ cs_binding.py       the P/Invoke binding: groups, vtables, presence bits, every 
                     AbiVariant (which variant, and a check that the loaded core is it); the RPC half
 cs_host.py          CoreFfi_<Root>: encode / uencode, push and pull decode on one root-bound
                     context; full: retain through native options, one grow over
-                    NativeMemory.Realloc (geometric, clamped to INT32_MAX), ONE reset per decode
-                    (before it), bags taken into UnknownFields, UNDELIVERED check, per-position
+                    NativeMemory.Realloc (geometric, clamped to INT32_MAX), D27: no reset per
+                    operation (the core resets on entry; ak_dec_reset only to change the options
+                    pointer, NULL <-> the stable Uo), bags taken into UnknownFields, UNDELIVERED check, per-position
                     discard helpers, UnkHost.Exact (an exact-size grow, a gate control only);
                     no-unknown: none of these
 cs_layout_probe.py  the layout probe's Rust source, parsed out of ak-abi's Rust declaration text
@@ -59,14 +60,16 @@ gen/gate.sh                 THE GATE (correctness only, nothing timed), both var
 gen/crossings.txt           committed R5 counts, full build (22 rows: the CoreArms tally against the
                             core's own counters; P1.2, P2.2, P2.4 in three content sets)
 gen/crossings-nounk.txt     the same, no-unknown build (22 rows)
-gen/counts.txt              CAMPAIGN req 19 as amended: every exported entry point one call of each
+gen/counts.txt              CAMPAIGN req 19 as amended (since s17 part 3: the default string path E1R:128;
+                            gen/counts-str-<path>[-nounk].txt per path, E0 included): every exported entry point one call of each
                             timed core-ffi case calls, by name, resets and grows placed (1,051 cases: the full grid's 1,044 and the core grid's 7 U-* rows at end state ii)
 gen/counts-nounk.txt        the same, no-unknown build (551 cases, the same 7 added)
 gen/rpc-counts.txt          the same per call of every RPC cell A-F, framed twin, Cc copy cell,
                             direction and upload payload (105 rows)
 gen/rpc-counts-nounk.txt    the same, no-unknown client (62 rows)
 abi/                        the layout probe crate (features: unknown-fields default, corpus)
-Directory.Build.props/.targets  build configurations: /p:AkNounk=true (the no-unknown build:
+Directory.Build.props/.targets  build configurations: /p:AkLazy=true (s17: the lazy nested encode render,
+                            GeneratedLazy[Nounk], bin-lazy*); /p:AkNounk=true (the no-unknown build:
                             GeneratedNounk/ replaces the variant files, define AK_NO_UNKNOWN_FIELDS,
                             output bin-nounk/ obj-nounk/); /p:AkHostCount=true (the counting build,
                             AK_HOST_COUNT, bin-count[-nounk]/, never timed); /p:AkFloor=true (README
@@ -92,47 +95,84 @@ src/HarnessFloor/           net48, compile only (the binding; the host half is c
 run_campaign.sh             --suite codec|rpc|calib|gate --out DIR (CAMPAIGN req 31)
 ```
 
+## s17: tally out of the timed build; the lazy nested encode render; D27 and D28 (2026-10-10/11; JOURNAL 88)
+
+Owner unit s17. Logs `logs/csharp/opt/s17/`. Fast checks per change (CLAUDE.md "Checks, not
+gates"). **Gate steps that did not run** (any part): the full gate.sh (net6.0 floor, net48
+compile, both h2 variants, the corpus on net6.0, the layout probes, the hostfail / conformance /
+groups / utf8 / mapforms harness runs, the h2-batch cores' RPC checks, the decision 11 skipped
+release and the probe rows, the delivery semantics). gate.sh itself was updated (below) but not run.
+- **Part 1, the host tally out of the timed build** (445c71fc; `s17/p1/`): `_fwd`, `_rev`,
+  `_resets` and `UnkHost.Grows` exist and are written only under AK_HOST_COUNT; the crossings
+  call `[Conditional("AK_HOST_COUNT")]` CountF / CountR / CountReset (no call, store or field in
+  a timed build; accessors read 0). Sweep: the Abi import counters and Stage counters were
+  already count-only; the RPC read cells' process-wide `_sink` (every caller, every read call)
+  is a per-caller sink on its own cache line (`Caller.Sink`); `CoreChannel.CallCbAsync` passes
+  tag 0 (the shared Interlocked tag counter per call removed; the callback's tag is unread).
+  Left as they are: the queue delivery's tag counter (its tags key a shared map), the queue
+  drainer's Pops (one writer), Grpc.Net marshallers' Caller / SerBuf rent queues (the
+  marshaller has no caller state; D26), the single-threaded Harness Bench sinks. Checks that
+  read the tally now run on the counting builds: CoreGate refuses AK_CROSSINGS_EXPECT and skips
+  R5 in a timed build; `--verify-fsm --events/--rust-events` refuse there; gate.sh uses the
+  counting harness (net8 and a net6 counting publish) and counting BenchDotNet for them.
+  `BenchDotNet --il-tally` walks the built IL (harness, facade, BenchDotNet): 0 tally calls and
+  stores in the timed builds, 146 / 45 (full) and 132 / 28 (no-unknown) in the counting builds.
+  Checks: verify (4 builds), every counts file equal, crossings and R5, verify-fsm (Rust events
+  on the counting builds), 4 controls. The log's tail has a bash error from the script edited
+  while it ran (`p1/NOTE.txt`); every check had run.
+- **Part 2, the lazy nested encode render** (4807275f, d3fee13c; `s17/p2/`, `s17/grid/`):
+  `emit_host(lazy_nested=True)`: Go stages nothing but N_<slot> and Root; `Loop_<slot>` stages
+  each chunk of the facade list (Root through the encode host context's one GCHandle) into one
+  reused buffer `Run->S_<slot>` (capacity in Run_), token = the chunk's first index;
+  `Loop_<slot>_<inner>` stages the asked element's nested strings / entries / leaf elements into
+  one reused `Run->I_<slot>_<inner>`. E1R / E1C decide per chunk (per element run) from the
+  marks its own staging left; the root's frames only when the root group's fill marked. No
+  thread-local storage. With the default Chunk (0 = one chunk) a top-level slot's buffer holds
+  the whole slot; nested runs are per element. Built as `/p:AkLazy=true` (GeneratedLazy[Nounk],
+  bin-lazy*); BDN children get `/p:AkLazy=true` and refuse another render (HostRender marker,
+  AK_BDN_RENDER in CpuClock.BuildCheck). Checks (D27 cores): verify (lazy full, no-unknown,
+  counting), verify-mt per path both builds, pin stress (E1R, E1C, E1R:128, K 3), early unpin,
+  coreffi with element chunks of 150 (E0, E1R, E1C), crossings and R5, the corpus per path
+  (8 full, 3 no-unknown, K 3 pin stress, push, unk-controls), **every counts file equal to the
+  eager render's** (same calls; base and 8 string paths, both builds), four plants caught; one
+  run-order FAIL (generated files stale at the run's start; `p2/NOTE.txt`).
+  Measured (container instrumentation; `grid/full/table.md`, `grid/small/table.md`,
+  `reference.md`): full grid, core-ffi encode rows, encode-core-hot and encode-transport, drop
+  and retain, E0 and E1R:128, 3 BDN host processes per variant interleaved (912 cells): lazy
+  slower in every rep on 133 cells (mostly small rows' encode-transport, 5-50 ns; P1.1
+  encode-transport drop +60 to +96 ns; P4.1 encode-transport +6 %; P1.3 encode-transport
+  +1 us), faster in every rep on 349 (retain on small rows with elements by 170-570 ns; P2.2 /
+  P2.4 retain 3-15 %; P2.5, P6.1 a few %); small rows, 8 processes per variant: P1.1
+  encode-transport drop lazy higher in every rep (+38 to +185 ns E0, +47 to +102 E1R:128), the
+  retain rows with elements lower by about 300-600 ns, the rest within the per-rep spread. The
+  retain gap is process-state dependent and not attributed to the render (`grid/probe-retain/`:
+  it shows for eager with and without tiered compilation and for lazy in some processes).
+- **Part 3, D27 and D28** (327ce56a; `s17/p3/`): cores rebuilt from HEAD at D27
+  (`s17/cores/`). cs_host renders only reset on entry (no ak_enc_reset per encode; ak_dec_reset
+  only when the options pointer changes; RoeCore and the ak_measure_* imports gone). Stage:
+  AK_STR_ENC unset = E1R:128; E0 = AK_STR_ENC=E0. Removed: AkRoe / AkRoeBench, GeneratedRoe*,
+  GeneratedRoeBench, RoeBench, cs_roebench.py, s16_{cores,checks,bench}.sh. The lazy render is
+  not the default (part 2's rows slower in every rep); it stays an option. gate.sh runs E0 in
+  its string-path loops. Counts regenerated: codec forward = old forward minus the resets no
+  longer made, reverse and grows unchanged, 0 exceptions over every file (encode -1; decode,
+  decode-read -1 in retain and drop; decode-reencode -2; no-unknown encode -1, decodes 0);
+  gen/counts.txt is now the default path E1R:128 (equal in calls to the old E1R:128 file minus
+  resets), gen/counts-str-e0*.txt the E0 path (new). RPC counts: only ak_enc_reset /
+  ak_dec_reset_* removed (48, 20, 24, 15 rows). Crossings and R5 unchanged. Checks (S17 p3
+  CHECKS PASSED): generate --check, verify (4 builds), verify-mt (default, E0), E1R pin
+  stress, corpus (default, E0, no-unknown, push, unk-controls, decision 11 plant), verify-fsm
+  with the Rust events, a D27 plant (pointer-changing reset skipped) caught, RPC counts and
+  the upload check.
+- Not measured: the D27 / E1R:128 default render in BDN's grid or the RPC grid (the part 2
+  grid ran both renders with explicit resets on the D27 core); the lazy render in the RPC
+  grid; the lazy render with a bounded default chunk.
+
 ## s16: reset-on-entry in C# (2026-10-10; JOURNAL 87; measurement experiment, container instrumentation)
 
-Owner unit s16. The core feature `reset-on-entry` (default OFF; poc/codec 30430915) and the
-render option `cs_host.emit_host(reset_on_entry=True)` are the Rust/core agent's; built, checked
-and measured here. Nothing changes by default: every default C# output and build is unchanged
-(generate.py --check; the default cores rebuilt from the same snapshot byte-identical,
-`s16-roe/cores.log`). Logs `logs/csharp/opt/s16-roe/`.
-- **Variant cores** (`gen/s16_cores.sh`): target-core-roe, -count-roe, -corpus-roe and their
-  -nounk twins (feature `reset-on-entry`; the marker export present in each).
-- **Variant bindings** (gen/generate.py `roe_targets`): `GeneratedRoe[Nounk]/CoreFfi.cs` (Harness
-  and Corpus) REPLACE the default host under `/p:AkRoe=true` (with AkNounk / AkHostCount; outputs
-  bin-roe*, obj-roe*); `/p:AkRoeBench=true` compiles BOTH hosts in one process: the default one
-  and `GeneratedRoeBench/CoreFfiRoe.cs` (namespace Armonik.Ffi.HarnessRoe), plus RoeOps
-  (gen/cs_roebench.py), the reset timing (RoeTiming) and `BenchDotNet --roebench`
-  (src/BenchDotNet/RoeBench/RoeBench.cs). The roe render now checks the core's marker export
-  (`RoeCore.Check`: it refuses a core without the feature) and carries the measurement switch
-  imports (`ak_measure_{enc,dec}_set_roe`).
-- **Checks** (`gen/s16_checks.sh`, `s16-roe/checks.log`: S16 CHECKS PASSED): Cases.Verify (every
-  arm, every string path, retain and drop; no-unknown build); verify-mt per path both builds;
-  pin stress and the early-unpin control; verify-fsm against the Rust events, both builds; the
-  corpus both builds under E0 and E1R, under pin stress, with the push arms; the unknown-field
-  controls; the four FSM plants and a variant plant (retain never armed) caught; the marker
-  control (the variant on the default core refuses); the bench's identity on all 98 cases.
-- **Counts** (`checks/counts-roe*.txt`, `counts-roe*-change.md`): on every row, forward = the
-  default's forward minus the resets it no longer makes, reverse and grows unchanged: -1 per
-  encode (ak_enc_reset), -1 per decode in retain AND drop (the drop decode's ak_dec_reset(NULL)
-  this host makes), -2 per decode-reencode; no-unknown: -1 per encode, decodes unchanged (that
-  build makes no decode reset). 1,241 + 646 rows, 0 exceptions.
-- **Measured** (`s16-roe/bench/table.md`, `reference.md`, `resets.md`; gen/s16_bench.sh: one
-  process holds both paths, interleaved per round; E = the default binding with the core's
-  switch off on its contexts, R = the variant binding, E2 = E again as the A/A control; 5
-  processes over all 98 core-ffi cases of the core grid's encode-core-hot and decode-read, 10
-  more over the small rows; 21 rounds x 20 ms per path): on the small rows (15 processes) R - E
-  is about -2 to -5 ns per op where the A/A control stays within about +-1 ns (P5.1 encode
-  -3.0 / -3.4 ns drop / retain, decode -3.4 / -2.9; P7.1 decode -7.5 / -4.8; the U-wire rows
-  -2 to -5), with exceptions within their spread (P1.1, U-nested-before encode +3.4 / +1.4);
-  on the larger rows the differences sit inside the A/A spread. The reset calls alone, ns:
-  ak_enc_reset 5.3; ak_dec_reset_<Root>(NULL) 3.2-4.1; with options 5.2-10.8, 34.8 for
-  ListTasksDetailedResponse.
-- Not measured: the variant in BDN's grid or the RPC grid; its gate (net6.0, net48, both h2
-  variants); the variant's RPC counts.
+Measured in `logs/csharp/opt/s16-roe/` (the variant binding and core, checks, counts and the
+in-process bench: small rows about 2-5 ns per op lower with reset on entry, A/A within about
+1 ns). Its machinery (AkRoe, AkRoeBench, the roe cores and scripts; harness at e0b70e92) is
+removed by s17 part 3, where reset on entry became the only render (D27).
 
 ## s15 / D26: no thread-local storage; the host's explicit contexts (2026-10-10; JOURNAL 86)
 
@@ -903,6 +943,9 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 ## What is not measured or not established
 
 - **No timing in this slice is a result.** Every figure is container instrumentation.
+- s17: the D27 / E1R:128 default render timed in BDN's or the RPC grid; the lazy render in the
+  RPC grid and with a bounded default chunk; the cause of the retain gap on small rows with
+  elements (`s17/grid/probe-retain/`); the full gate on the s17 code.
 - s15: whether the host context adds a fixed per-call cost where an encode makes a loop callback
   (P1.1: about 30 / 90 ns higher medians, overlapping ranges, not resolved; P5.1 shows none);
   why the code before D26 entered the slow mode only in some processes (the mode is absent from
@@ -951,7 +994,13 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 
 ## Next step
 
-00000000. s16: the aggregating session reads `logs/csharp/opt/s16-roe/`; the variant stays default OFF (core feature, render option, build properties).
+000000000. s17: the aggregating session reads `logs/csharp/opt/s17/` (p1, p2, grid, p3). The owner
+   decides on the lazy nested render (an option today, `cs_host lazy_nested=True` /
+   `/p:AkLazy=true`; part 2's tables show rows slower and rows faster in every rep). Open: the
+   ~300-600 ns retain gap on small rows with elements (process-state dependent, unattributed);
+   the full gate on the D27 / E1R:128 render (not run).
+
+00000000. s16: read; superseded by D27 (s17 part 3).
 0000000. s15 / D26: the aggregating session reads `logs/csharp/opt/s15/`; nothing assigned further. Open: whether the host context costs a fixed amount per call with a loop callback (P1.1, not resolved; see s15).
 000000. s14: the aggregating session reads `logs/csharp/opt/s14/`; the measurement features (`tc-measure-generic`, `tc-measure-u16stub`, AK_STR_NOGUARD) stay default OFF / unset; the slow mode's runtime function is unnamed (no libcoreclr symbols here) and why only some processes enter it is open.
 00000. s13: the aggregating session reads `logs/csharp/opt/s13-tc-scalar/`; the scalar features stay default OFF.
@@ -962,7 +1011,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
    table); nothing further assigned in this slice.
 0. Optimisation pass: steps 1 to 7 (with 5b) are in; the aggregating session reads
    `logs/csharp/opt/s1-s4/` and the per-step logs (`s5/`, `s5b/`, `s6/`, `s7/`). The string path's
-   default stays E0 until the owner decides; gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) last ran at 1a5ccaea (D24): passed. D46
+   default is E1R:128 since s17 part 3 (D28); gate.sh's new D21 lines run with the next gate. The full gate (both h2 variants) last ran at 1a5ccaea (D24): passed. D46
    (the grouped-mode JIT check's blind spot) is open.
 1. The aggregating session reads WP13 (JOURNAL 65) and pushes; this slice changes nothing further
    unless a finding in scope (ffi/CLAUDE.md, "Scope of findings") comes back.
@@ -977,6 +1026,7 @@ process, so `tcp_sockets_after` counts them all there; in the campaign's child m
 | `opt/s1/`, `opt/s2/`, `opt/s3/`, `opt/s4/` | the optimisation steps: net8 quick checks and narrowed A/B (codec `ab/`, RPC `ab-rpc/`, deliveries `s4/deliveries/`) |
 | `opt/s5/`, `opt/s5b/` | D20 (utf8_skip all bits + strict host decode) and the static decode vtable: checks (`checks.log`, the lossy-decoder control) and decode-read A/B (`ab/`, before/after, retain/drop/no-unknown) |
 | `opt/s6/` | D21 string encode paths: `sweep/`, `sweep-fine/` (one-process length x content sweep), `strlen-census.txt`, `checks.log` (quick checks at 44f4f304), `corpus-strpaths.log` (corpus under E1/E2/ETH:16 and the planted controls), `ab/` (codec encode-core-hot E0/E1/E2/ETH:256, table.md, compact.md), `ab-rpc/` (Cf-retain b, k 1 and 8, E0/ETH:256/E1) |
+| `opt/s17/` | s17: p1/ (part 1 checks: il-tally, verify, counts, crossings, verify-fsm; NOTE.txt), p2/ (part 2 checks on the lazy render, counts-lazy*, corpus and coreffi logs; NOTE.txt), cores/ (build_core.log at D27), grid/full/ and grid/small/ (eager vs lazy: jsonl, BDN logs, header, table.md, reference.md), grid/full-INTERRUPTED/ (one cut cell), grid/small-INTERRUPTED/ (empty), grid/probe-retain/ (the retain-gap probe, NOTE.txt), p3/ (part 3 checks: S17 p3 CHECKS PASSED; regenerated counts, *.change.md, rpc counts and diffs, corpus, verify-fsm, crossings) |
 | `opt/s16-roe/` | s16: cores.log (the variant cores, the default byte-identical), checks.log and checks/ (S16 CHECKS PASSED; counts-roe*.txt and counts-roe*-change.md; verify-fsm logs; corpus logs; roebench-smoke), bench/ (15 processes: tsv and resets per process, header, table.md, reference.md, resets.md), bench.out |
 | `opt/s15/` | s15 / D26: checks/ (checks.log, s7-checks.log, s10-checks.log and s10/, pinstress-rows.log, pinstress-corpus.log), gate-stock.log, gate-h2-batch.log (the full gate at 4552710f: PASSED), dist/ (summary.md, 60 processes x 3 configurations), jit/ (summary.txt, dis-all-*.txt.gz), ladder/ (table.md, reference.md, jsonl, BDN logs), codec/ (table.md, reference.md), codec-p22/, codec-small/ (follow-ups), *-INTERRUPTED/ (empty: no cell cut) |
 | `opt/s14/` | s14: dist/ (part 1 distribution, summary.md), dist-run.out, jit/ (JIT summaries sum-*, disassembly dis-* and per-method fast101/fast102/slow107/slow110, strace-*, gdb-* stack samples with perf-*.map, sw-* the sweeps they ran), grid-spread/ (P2.2 E1R retain, 6 hosts x default / TieredPGO=0); cores.log (first measurement cores; the stub core folded), cores2.log (rebuilt at c6e29dbe, fold check), checks-ladder.log, checks-rungs/ (each rung in the build), ladder-sweep/ (table.md, reference.md, tsv per process, cut/ the slow-mode processes set aside), grid/ (table.md, reference.md, jsonl, BDN logs, header), grid-INTERRUPTED/ (empty: no cell cut) |
