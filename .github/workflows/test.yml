@@ -386,3 +386,14 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      - name: Install
+        run: cmake --install build --prefix install --config Release
+
+      - name: Build smoke test against the installed package
+        run: |
+          cmake -S packages/cpp/tools/smoke -B smoke -DCMAKE_PREFIX_PATH="${{ github.workspace }}\install;${{ steps.deps.outputs.environment-path }}\Library"
+          cmake --build smoke --config Release
+
+      - name: Run smoke test
+        run: smoke\Release\smoke.exe
