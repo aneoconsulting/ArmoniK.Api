@@ -360,36 +360,29 @@ jobs:
   cpp-windows-client:
     name: C++ Client Build (Windows)
     runs-on: windows-latest
-    env:
-      VCPKG_TRIPLET: x64-windows-static-md
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - name: Get vcpkg commit
-        id: vcpkg
-        shell: bash
-        run: |
-          echo "commit=$(git -C "$VCPKG_INSTALLATION_ROOT" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          mkdir -p vcpkg-cache
-
-      # Building gRPC from source takes a long time, so cache the vcpkg binary packages
-      - name: Cache vcpkg packages
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: vcpkg-cache
-          key: vcpkg-${{ env.VCPKG_TRIPLET }}-grpc-${{ steps.vcpkg.outputs.commit }}
-
+      # Prebuilt MSVC binaries from conda-forge, building gRPC with vcpkg takes hours
       - name: Install gRPC
-        run: vcpkg install grpc --triplet ${{ env.VCPKG_TRIPLET }}
+        id: deps
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: grpc
+          create-args: -c conda-forge libgrpc libprotobuf libabseil
+          init-shell: none
+          cache-downloads: true
+
+      # protoc and grpc_cpp_plugin need the environment DLLs at build time
+      - name: Add environment to PATH
+        run: Add-Content $env:GITHUB_PATH "${{ steps.deps.outputs.environment-path }}\Library\bin"
 
       - name: Configure
         run: >
           cmake -S packages/cpp -B build
           -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DBUILD_TEST=OFF
-          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
-          -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_TRIPLET }}
+          -DCMAKE_PREFIX_PATH="${{ steps.deps.outputs.environment-path }}\Library"
 
       - name: Build
         run: cmake --build build --config Release --parallel
