@@ -39,7 +39,9 @@ find_package(absl REQUIRED)
 # Check for Red Hat-based systems. protobuf/gRPC on RHEL are built statically (grpc-rpm), and
 # their static archives require abseil's log symbols at link time regardless of whether
 # ArmoniK.Api.Common itself is built shared or static, so this must not be gated on BUILD_SHARED_LIBS.
-file(READ /etc/os-release OS_RELEASE_CONTENT)
+if(EXISTS /etc/os-release)
+    file(READ /etc/os-release OS_RELEASE_CONTENT)
+endif()
 if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
     find_package(utf8_range REQUIRED)
     find_library(UTF8_VALIDITY_LIB

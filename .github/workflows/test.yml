@@ -356,3 +356,40 @@ jobs:
           name: Test - ${{ matrix.os }} ${{ matrix.projects }}
           path: ${{ matrix.projects }}/TestResults/test-results.trx
           reporter: dotnet-trx
+
+  cpp-windows-client:
+    name: C++ Client Build (Windows)
+    runs-on: windows-latest
+    env:
+      VCPKG_TRIPLET: x64-windows-static-md
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-cache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Get vcpkg commit
+        id: vcpkg
+        shell: bash
+        run: |
+          echo "commit=$(git -C "$VCPKG_INSTALLATION_ROOT" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          mkdir -p vcpkg-cache
+
+      # Building gRPC from source takes a long time, so cache the vcpkg binary packages
+      - name: Cache vcpkg packages
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ env.VCPKG_TRIPLET }}-grpc-${{ steps.vcpkg.outputs.commit }}
+
+      - name: Install gRPC
+        run: vcpkg install grpc --triplet ${{ env.VCPKG_TRIPLET }}
+
+      - name: Configure
+        run: >
+          cmake -S packages/cpp -B build
+          -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DBUILD_TEST=OFF
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_TRIPLET }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel

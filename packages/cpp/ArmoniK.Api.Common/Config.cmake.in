@@ -13,7 +13,9 @@ find_dependency(gRPC CONFIG REQUIRED)
 find_dependency(Threads)
 
 # Check for Red Hat-based systems and static linking
-file(READ /etc/os-release OS_RELEASE_CONTENT)
+if(EXISTS /etc/os-release)
+    file(READ /etc/os-release OS_RELEASE_CONTENT)
+endif()
 if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
     find_dependency(absl REQUIRED)
     find_dependency(utf8_range REQUIRED)
