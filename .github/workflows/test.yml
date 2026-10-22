@@ -375,4 +375,3 @@ jobs:
           name: Test - ${{ matrix.os }} ${{ matrix.projects }}
           path: ${{ matrix.projects }}/TestResults/test-results.trx
           reporter: dotnet-trx
-
