@@ -39,6 +39,8 @@ void set_tls_options(CURL *curl, armonik::api::common::utils::Configuration &con
     curl_easy_setopt(curl, CURLOPT_SSLCERT, cert.c_str());
     curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "P12");
     curl_easy_setopt(curl, CURLOPT_KEYPASSWD, "");
+    // The imported key lands in a legacy provider that cannot sign the RSA-PSS handshake of TLS 1.3
+    curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_TLSv1_2);
 #else
     curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
     curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
