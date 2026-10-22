@@ -1,7 +1,11 @@
 set(PROJECT_NAME ArmoniK.Api.Tests)
 
 # Trouver les packages requis
-find_package(Protobuf REQUIRED)
+if (UNIX)
+    find_package(Protobuf REQUIRED)
+else()
+    find_package(Protobuf CONFIG REQUIRED)
+endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 find_package(CURL REQUIRED)
