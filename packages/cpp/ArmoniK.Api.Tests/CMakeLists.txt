@@ -18,9 +18,11 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_options(${PROJECT_NAME} PRIVATE
-    -Wl,--copy-dt-needed-entries,--start-group
-)
+if(NOT MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -Wl,--copy-dt-needed-entries,--start-group
+    )
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC

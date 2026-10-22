@@ -3,6 +3,13 @@
 set -x
 script_path="$(dirname "${BASH_SOURCE:-$0}")"
 CertFolder="$(realpath "$script_path/../../csharp/certs" )"
+
+# On Windows the tests are built natively (see test.yml), run them directly
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    exec "$script_path/../build/ArmoniK.Api.Tests/Release/ArmoniK.Api.Tests.exe"
+    ;;
+esac
 docker run --rm -t --network host -v "$CertFolder:/app/source/certs" -v "/usr/local/share/ca-certificates/:/usr/local/share/ca-certificates" \
             -e GrpcClient__Endpoint \
             -e Http__Endpoint="${Http__Endpoint:-$Grpc__Endpoint}" \

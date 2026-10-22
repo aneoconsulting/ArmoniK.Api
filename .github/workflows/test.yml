@@ -76,10 +76,6 @@ jobs:
             plateform:
               os: windows-latest
           - language:
-              lang: C++
-            plateform:
-              os: windows-latest
-          - language:
               lang: C#
               dotnet: ''
             plateform:
@@ -157,10 +153,33 @@ jobs:
 
       # Prepare C++
       - name: Build C++ package
-        if: ${{ matrix.language.lang == 'C++' }}
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Linux' }}
         working-directory: packages/cpp
         run: |
           ./tools/build_test.sh
+
+      # Prebuilt MSVC binaries from conda-forge, building gRPC with vcpkg takes hours
+      - name: Install C++ dependencies
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        id: cpp-deps
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: grpc
+          create-args: -c conda-forge libgrpc libprotobuf libabseil libcurl
+          init-shell: none
+          cache-downloads: true
+
+      # protoc, grpc_cpp_plugin and the tests need the environment DLLs
+      - name: Add C++ dependencies to PATH
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        run: Add-Content $env:GITHUB_PATH "${{ steps.cpp-deps.outputs.environment-path }}\Library\bin"
+
+      - name: Build C++ package
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        working-directory: packages/cpp
+        run: |
+          cmake -S . -B build -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DBUILD_TEST=ON -DCMAKE_PREFIX_PATH="${{ steps.cpp-deps.outputs.environment-path }}\Library"
+          cmake --build build --config Release --parallel
 
       - name: Build Mock server
         working-directory: packages/csharp/ArmoniK.Api.Mock
@@ -357,43 +376,3 @@ jobs:
           path: ${{ matrix.projects }}/TestResults/test-results.trx
           reporter: dotnet-trx
 
-  cpp-windows-client:
-    name: C++ Client Build (Windows)
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      # Prebuilt MSVC binaries from conda-forge, building gRPC with vcpkg takes hours
-      - name: Install gRPC
-        id: deps
-        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
-        with:
-          environment-name: grpc
-          create-args: -c conda-forge libgrpc libprotobuf libabseil
-          init-shell: none
-          cache-downloads: true
-
-      # protoc and grpc_cpp_plugin need the environment DLLs at build time
-      - name: Add environment to PATH
-        run: Add-Content $env:GITHUB_PATH "${{ steps.deps.outputs.environment-path }}\Library\bin"
-
-      - name: Configure
-        run: >
-          cmake -S packages/cpp -B build
-          -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DBUILD_TEST=OFF
-          -DCMAKE_PREFIX_PATH="${{ steps.deps.outputs.environment-path }}\Library"
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Install
-        run: cmake --install build --prefix install --config Release
-
-      - name: Build smoke test against the installed package
-        run: |
-          cmake -S packages/cpp/tools/smoke -B smoke -DCMAKE_PREFIX_PATH="${{ github.workspace }}\install;${{ steps.deps.outputs.environment-path }}\Library"
-          cmake --build smoke --config Release
-
-      - name: Run smoke test
-        run: smoke\Release\smoke.exe
