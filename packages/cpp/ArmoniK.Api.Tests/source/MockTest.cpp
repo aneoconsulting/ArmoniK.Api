@@ -41,6 +41,8 @@ bool rpcCalled(armonik::api::string_view service_name, armonik::api::string_view
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
+    // The test CA has no revocation list, which Schannel (Windows) checks by default
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, (long)CURLSSLOPT_NO_REVOKE);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -85,6 +87,8 @@ bool all_rpc_called(armonik::api::string_view service_name, const std::vector<st
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
+    // The test CA has no revocation list, which Schannel (Windows) checks by default
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, (long)CURLSSLOPT_NO_REVOKE);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -143,6 +147,8 @@ void clean_up() {
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    // The test CA has no revocation list, which Schannel (Windows) checks by default
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, (long)CURLSSLOPT_NO_REVOKE);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     auto res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
