@@ -25,7 +25,8 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
 /**
  * Configures the server CA and client certificate of a request to the mock server.
  */
-void set_tls_options(CURL *curl, armonik::api::common::utils::Configuration &config) {
+void set_tls_options(CURL *curl, // NOSONAR: CURL is curl's opaque handle type, declared as void
+                     const armonik::api::common::utils::Configuration &config) {
   if (!config.get("GrpcClient__CaCert").empty()) {
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
   } else {
