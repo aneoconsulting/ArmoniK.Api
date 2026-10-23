@@ -22,6 +22,34 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
   return size * num_elt;
 }
 
+/**
+ * Configures the server CA and client certificate of a request to the mock server.
+ */
+void set_tls_options(CURL *curl, // NOSONAR: CURL is curl's opaque handle type, declared as void
+                     const armonik::api::common::utils::Configuration &config) {
+  if (!config.get("GrpcClient__CaCert").empty()) {
+    curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
+  } else {
+    curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
+  }
+  if (config.get_control_plane().hasClientCertificate()) {
+#ifdef _WIN32
+    // Schannel only loads PKCS#12 client certificates, certs.sh writes one next to the PEM
+    std::string cert = config.get("GrpcClient__CertPem");
+    cert = cert.substr(0, cert.rfind('.')) + ".p12";
+    curl_easy_setopt(curl, CURLOPT_SSLCERT, cert.c_str());
+    curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "P12");
+    curl_easy_setopt(curl, CURLOPT_KEYPASSWD, "");
+    // The imported key lands in a legacy provider that cannot sign the RSA-PSS handshake of TLS 1.3
+    curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2 | CURL_SSLVERSION_MAX_TLSv1_2);
+#else
+    curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
+    curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
+#endif
+  }
+  // The test CA has no revocation list, which Schannel (Windows) checks by default
+  curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, (long)CURLSSLOPT_NO_REVOKE);
+}
 bool rpcCalled(armonik::api::string_view service_name, armonik::api::string_view rpc_name, int num_calls) {
 
   armonik::api::common::utils::Configuration config;
@@ -32,15 +60,7 @@ bool rpcCalled(armonik::api::string_view service_name, armonik::api::string_view
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    if (!config.get("GrpcClient__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
-    } else {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
-    }
-    if (config.get_control_plane().hasClientCertificate()) {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
-    }
+    set_tls_options(curl, config);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -76,15 +96,7 @@ bool all_rpc_called(armonik::api::string_view service_name, const std::vector<st
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
-    if (!config.get("GrpcClient__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
-    } else {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
-    }
-    if (config.get_control_plane().hasClientCertificate()) {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
-    }
+    set_tls_options(curl, config);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -133,15 +145,7 @@ void clean_up() {
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
-    if (!config.get("GrpcClient__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
-    } else {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
-    }
-    if (config.get_control_plane().hasClientCertificate()) {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
-    }
+    set_tls_options(curl, config);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     auto res = curl_easy_perform(curl);

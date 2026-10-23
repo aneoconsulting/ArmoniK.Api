@@ -76,10 +76,6 @@ jobs:
             plateform:
               os: windows-latest
           - language:
-              lang: C++
-            plateform:
-              os: windows-latest
-          - language:
               lang: C#
               dotnet: ''
             plateform:
@@ -157,10 +153,33 @@ jobs:
 
       # Prepare C++
       - name: Build C++ package
-        if: ${{ matrix.language.lang == 'C++' }}
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Linux' }}
         working-directory: packages/cpp
         run: |
           ./tools/build_test.sh
+
+      # Prebuilt MSVC binaries from conda-forge, building gRPC with vcpkg takes hours
+      - name: Install C++ dependencies
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        id: cpp-deps
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: grpc
+          create-args: -c conda-forge libgrpc libprotobuf libabseil libcurl
+          init-shell: none
+          cache-downloads: true
+
+      # protoc, grpc_cpp_plugin and the tests need the environment DLLs
+      - name: Add C++ dependencies to PATH
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        run: Add-Content $env:GITHUB_PATH "${{ steps.cpp-deps.outputs.environment-path }}\Library\bin"
+
+      - name: Build C++ package
+        if: ${{ matrix.language.lang == 'C++' && runner.os == 'Windows' }}
+        working-directory: packages/cpp
+        run: |
+          cmake -S . -B build -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DBUILD_TEST=ON -DCMAKE_PREFIX_PATH="${{ steps.cpp-deps.outputs.environment-path }}\Library"
+          cmake --build build --config Release --parallel
 
       - name: Build Mock server
         working-directory: packages/csharp/ArmoniK.Api.Mock

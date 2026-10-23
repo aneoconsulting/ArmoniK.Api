@@ -14,7 +14,8 @@ organizationName       = ArmoniK Ingress Root (NonTrusted)
 organizationalUnitName = $1
 commonName             = ArmoniK Ingress Root (NonTrusted) Private Certificate Authority
 EOF
-  openssl req -config "$1-ca.cnf" -x509 -newkey rsa:4096 -days 3650 -nodes -keyout "$1-ca.key" -out "$1-ca.pem"
+  openssl req -config "$1-ca.cnf" -x509 -newkey rsa:4096 -days 3650 -nodes -keyout "$1-ca.key" -out "$1-ca.pem" \
+    -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"
 
 
   cat > "$1.cnf" <<EOF
