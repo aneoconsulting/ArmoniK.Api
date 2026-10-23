@@ -739,7 +739,9 @@ jobs:
         run: nci && cd packages/${{ matrix.package }} && nci
 
       - name: Install Protoc
-        run: sudo apt install -y protobuf-compiler
+        uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+        with:
+          tool: protoc
 
       - name: Build protos
         run: cd packages/${{ matrix.package }} && nr proto:generate:linux
