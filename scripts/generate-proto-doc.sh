@@ -6,4 +6,4 @@ sed -E '
             /## agent_common.proto/!d  # Exclude ## agent_common.proto from being deleted
           };
           s/name="([^"]*)"/id="\1"/g
-        ' .docs/content/api/tmp.md > .docs/content/api/v1.md
+        ' .docs/content/api-reference/tmp.md > .docs/content/api-reference/proto.md

@@ -15,7 +15,7 @@
         }
       ],
       "outputFormat": "markdown",
-      "output": ".docs/content/api/csharp",
+      "output": ".docs/content/api-reference/csharp",
       "namespaceLayout": "nested"
     }
   ]
