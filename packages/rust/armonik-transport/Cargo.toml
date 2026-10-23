@@ -31,6 +31,15 @@ hyper-rustls = { workspace = true, features = [
 rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
 serde = { workspace = true, optional = true }
 humantime.workspace = true
+# `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
+# nothing to the build.
+base64.workspace = true
+# Decodes percent-escapes in a proxy URL's userinfo. Already resolved in the workspace lockfile
+# through another crate's transitive tree, so declaring it directly adds no new crate to the build.
+percent-encoding.workspace = true
+# `SecretString`, so the proxy password is redacted by `Debug` and zeroized on drop, which a plain
+# `String` field is not.
+secrecy.workspace = true
 
 [dev-dependencies]
 # The boolean options are read straight from the environment, so testing which spellings they accept
