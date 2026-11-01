@@ -107,6 +107,9 @@ protobuf_generate(
     IMPORT_DIRS ${PROTO_IMPORT_DIRS}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
+silence_msvc_external_warnings(${PROJECT_NAME}
+    SOURCES ${PROTO_GENERATED_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp
+    DIRECTORIES ${PROJECT_BUILD_DIR} ${simdjson_SOURCE_DIR}/singleheader)
 
 get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 

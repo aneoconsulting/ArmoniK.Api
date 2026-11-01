@@ -74,6 +74,7 @@ protobuf_generate(
 
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 list(APPEND PROTO_GENERATED_FILES ${PROTO_GENERATED_MESSAGES})
+silence_msvc_external_warnings(${PROJECT_NAME} SOURCES ${PROTO_GENERATED_FILES} DIRECTORIES ${PROJECT_BUILD_DIR})
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC

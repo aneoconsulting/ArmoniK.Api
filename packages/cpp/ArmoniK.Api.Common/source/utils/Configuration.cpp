@@ -51,6 +51,9 @@ void Configuration::set(const std::string &key, const std::string &value) {
 
 std::string Configuration::get(const std::string &string) const {
   if (use_environment_ && above_env_keys_.find(string) == above_env_keys_.end()) {
+#ifdef _MSC_VER
+#pragma warning(suppress : 4996) // getenv is fine here: the value is copied immediately
+#endif
     char *value = std::getenv(string.c_str());
     if (value != nullptr) {
       return value;
