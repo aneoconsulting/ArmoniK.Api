@@ -1,3 +1,13 @@
+// Recent gRPC deprecates StaticDataCertificateProvider and IdentityKeyCertPair, but their
+// replacements are missing from the older gRPC releases we still build against.
+// Disabled for the whole file, before the includes: gRPC's own headers instantiate
+// std::vector<IdentityKeyCertPair>, and MSVC reports that against this file.
+#if defined(_MSC_VER)
+#pragma warning(disable : 4996)
+#elif defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include "channel/ChannelFactory.h"
 
 #include "exceptions/ArmoniKApiException.h"
@@ -11,15 +21,6 @@
 #include <fstream>
 #include <sstream>
 #include <utility>
-
-// Recent gRPC deprecates StaticDataCertificateProvider and IdentityKeyCertPair, but their
-// replacements are missing from the older gRPC releases we still build against.
-// Disabled for the whole file: MSVC reports the std::make_shared instantiations at the end of it.
-#if defined(_MSC_VER)
-#pragma warning(disable : 4996)
-#elif defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
 
 namespace armonik {
 namespace api {
