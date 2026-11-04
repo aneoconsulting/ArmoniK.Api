@@ -11,7 +11,6 @@ namespace client {
 
 std::vector<PartitionRaw> PartitionsClient::list_partitions(Filters filters, int32_t &total, int32_t page,
                                                             int32_t page_size, ListPartitionsRequest::Sort sort) {
-  ::grpc::ClientContext context;
   ListPartitionsRequest request;
   ListPartitionsResponse response;
 

@@ -55,6 +55,23 @@ if(CMAKE_BUILD_TYPE MATCHES DEBUG AND IS_ALPINE EQUAL -1)
 endif()
 endfunction()
 
+# MSVC /W4 reports unused parameters, size_t narrowing and unreferenced static functions in
+# protoc output and simdjson, which we do not own. Silence them there only: the SOURCES get
+# /wd flags, and the DIRECTORIES are marked external so their headers stay quiet when included
+# from our own sources. Build tree only, installed packages are unaffected.
+function(silence_msvc_external_warnings target)
+    if(NOT MSVC)
+        return()
+    endif()
+    cmake_parse_arguments(ARG "" "" "SOURCES;DIRECTORIES" ${ARGN})
+    set_source_files_properties(${ARG_SOURCES} PROPERTIES COMPILE_OPTIONS "/wd4100;/wd4267;/wd4505")
+    set(options /external:W0)
+    foreach(dir IN LISTS ARG_DIRECTORIES)
+        list(APPEND options "/external:I${dir}")
+    endforeach()
+    target_compile_options(${target} PUBLIC "$<BUILD_INTERFACE:${options}>")
+endfunction()
+
 add_subdirectory(ArmoniK.Api.Common)
 if(BUILD_WORKER)
     add_subdirectory(ArmoniK.Api.Worker)

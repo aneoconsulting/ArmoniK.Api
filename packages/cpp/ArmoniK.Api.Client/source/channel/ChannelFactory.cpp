@@ -1,3 +1,13 @@
+// Recent gRPC deprecates StaticDataCertificateProvider and IdentityKeyCertPair, but their
+// replacements are missing from the older gRPC releases we still build against.
+// Disabled for the whole file, before the includes: gRPC's own headers instantiate
+// std::vector<IdentityKeyCertPair>, and MSVC reports that against this file.
+#if defined(_MSC_VER)
+#pragma warning(disable : 4996)
+#elif defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include "channel/ChannelFactory.h"
 
 #include "exceptions/ArmoniKApiException.h"
@@ -74,7 +84,6 @@ std::string read_file(const common::string_view &path) {
  */
 bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPlane, std::string &endpoint) {
   common::string_view endpoint_view = controlPlane.getEndpoint();
-  const auto delim = endpoint_view.find("://");
   const auto http_delim = endpoint_view.find("http://");
   const auto https_delim = endpoint_view.find("https://");
   if ((endpoint_view.find("unix") == 0) ||

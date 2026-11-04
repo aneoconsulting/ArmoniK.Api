@@ -240,7 +240,7 @@ armonik::api::client::SubmitterClient::create_tasks_async(std::string session_id
 std::pair<std::vector<std::string>, std::vector<std::string>>
 armonik::api::client::SubmitterClient::submit_tasks_with_dependencies(
     std::string session_id, TaskOptions task_options, const std::vector<payload_data> &payloads_with_dependencies,
-    int max_retries = 5) {
+    int /*max_retries*/) {
   std::vector<std::string> task_ids;
   std::vector<std::string> failed_task_ids;
   std::vector<TaskRequest> requests;
