@@ -152,7 +152,7 @@ jobs:
 
   format-cpp:
     name: Format C++
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
@@ -164,8 +164,8 @@ jobs:
 
       - name: Run clang-format
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
+          # Pinned: other clang-format releases format the code differently
+          pipx install clang-format==21.1.6
 
       - name: Check Diff
         id: check-diff
