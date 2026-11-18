@@ -3,6 +3,7 @@ package fr.aneo.armonik.client;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,6 +68,7 @@ public class GrpcChannelBuilder {
   private String caPem = null;
   private GrpcClientCertificate clientCertificate = null;
   private boolean useUnsecureConnection = false;
+  private boolean skipServerCertificateValidation = false;
   private RetryPolicy retryPolicy = null;
   private Duration keepAliveTime = null;
   private Duration keepAliveTimeout = null;
@@ -128,11 +130,34 @@ public class GrpcChannelBuilder {
   }
 
   /**
+   * Keeps TLS but accepts any server certificate, without verifying the chain that issued it nor the
+   * host name it was issued for.
+   *
+   * <p><strong>Security Warning:</strong> the connection stays encrypted but the server is not
+   * authenticated: anyone able to intercept the connection can impersonate it. Use this only for
+   * development, for instance against a control plane with a self-signed certificate. To connect
+   * without TLS at all, use {@link #withUnsecureConnection()} instead.</p>
+   *
+   * <p><strong>Validation:</strong> cannot be combined with {@link #withUnsecureConnection()}, which
+   * removes TLS, nor with {@link #withCaPem(String)}, whose CA would not be used. A client certificate
+   * set with {@link #withClientCertificate(GrpcClientCertificate)} is still sent for mutual TLS.</p>
+   *
+   * @return this builder instance
+   * @throws IllegalStateException during {@link #build()} if combined with {@link #withUnsecureConnection()}
+   *                               or {@link #withCaPem(String)}
+   */
+  public GrpcChannelBuilder withoutServerCertificateValidation() {
+    this.skipServerCertificateValidation = true;
+    return this;
+  }
+
+  /**
    * Sets the CA certificate file path for server verification.
    *
    * @param caPemPath Path to the CA certificate PEM file, or null to use system trust store
    * @return this builder instance
-   * @throws IllegalStateException during {@link #build()} if {@link #withUnsecureConnection()} was also called
+   * @throws IllegalStateException during {@link #build()} if {@link #withUnsecureConnection()} or
+   *                               {@link #withoutServerCertificateValidation()} was also called
    */
   public GrpcChannelBuilder withCaPem(String caPemPath) {
     this.caPem = caPemPath;
@@ -243,6 +268,7 @@ public class GrpcChannelBuilder {
                                      .maxInboundMetadataSize(MAX_INBOUND_METADATA_SIZE)
                                      .maxInboundMessageSize(MAX_INBOUND_MESSAGE_SIZE);
 
+    validateServerCertificateValidationConfiguration();
     if (useUnsecureConnection) {
       validateUnsecureConnectionConfiguration();
       logger.warn( "SECURITY WARNING: Insecure plaintext connection enabled for endpoint {}. " +
@@ -266,7 +292,11 @@ public class GrpcChannelBuilder {
   private void configureSslContext(NettyChannelBuilder builder) {
     try {
       var sslContextBuilder = GrpcSslContexts.forClient();
-      if (caPem != null) {
+      if (skipServerCertificateValidation) {
+        logger.warn("SECURITY WARNING: Server certificate validation disabled for endpoint {}. " +
+          "The connection is encrypted but the server is not authenticated; use this only for development.", endpointUri);
+        sslContextBuilder.trustManager(InsecureTrustManagerFactory.INSTANCE);
+      } else if (caPem != null) {
         sslContextBuilder.trustManager(new File(caPem));
       }
       if (clientCertificate != null) {
@@ -351,6 +381,27 @@ public class GrpcChannelBuilder {
         return millis + "ms";
       }
       return nanos + "ns";
+    }
+  }
+
+  /**
+   * Validates that disabling the server certificate validation is combined neither with a plaintext
+   * connection, which has no certificate to validate, nor with a CA certificate, which would not be used.
+   */
+  private void validateServerCertificateValidationConfiguration() {
+    if (!skipServerCertificateValidation) return;
+    if (useUnsecureConnection) {
+      throw new IllegalStateException(
+        "Cannot disable server certificate validation on an unsecure connection, which has no TLS. " +
+          "Remove withUnsecureConnection() to keep TLS without validating the server certificate, or remove " +
+          "withoutServerCertificateValidation() for a plaintext connection."
+      );
+    }
+    if (caPem != null) {
+      throw new IllegalStateException(
+        "Cannot set a CA certificate when server certificate validation is disabled, since it would not be used. " +
+          "Remove withCaPem(" + caPem + ") or withoutServerCertificateValidation()."
+      );
     }
   }
 
