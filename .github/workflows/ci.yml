@@ -112,6 +112,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        # grpcio-tools 1.62.3, pinned by proto2python.sh, has no wheel for Python
+        # 3.13+, so it would be built from source and fail. Without this step the
+        # runner's own Python is used, which is 3.14 on ubuntu-26.04.
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+
       - name: pip update and add build package
         run: bash proto2python.sh ~/pyvenv
 
