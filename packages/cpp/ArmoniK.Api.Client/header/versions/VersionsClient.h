@@ -23,7 +23,7 @@ struct versions_info {
 class VersionsClient {
 public:
   explicit VersionsClient(std::unique_ptr<armonik::api::grpc::v1::versions::Versions::StubInterface> stub)
-      : stub(std::move(stub)){};
+      : stub(std::move(stub)) {};
 
   /**
    * Get versions of ArmoniK components

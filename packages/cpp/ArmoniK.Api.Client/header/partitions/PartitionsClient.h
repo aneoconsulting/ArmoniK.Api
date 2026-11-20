@@ -10,7 +10,7 @@ namespace client {
 class PartitionsClient {
 public:
   explicit PartitionsClient(std::unique_ptr<armonik::api::grpc::v1::partitions::Partitions::StubInterface> stub)
-      : stub(std::move(stub)){};
+      : stub(std::move(stub)) {};
   std::vector<armonik::api::grpc::v1::partitions::PartitionRaw>
   list_partitions(armonik::api::grpc::v1::partitions::Filters filters, int32_t &total, int32_t page = -1,
                   int32_t page_size = 500,

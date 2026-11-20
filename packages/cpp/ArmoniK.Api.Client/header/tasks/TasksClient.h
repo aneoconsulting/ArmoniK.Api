@@ -12,7 +12,7 @@ namespace client {
 class TasksClient {
 public:
   explicit TasksClient(std::unique_ptr<armonik::api::grpc::v1::tasks::Tasks::StubInterface> stub)
-      : stub(std::move(stub)){};
+      : stub(std::move(stub)) {};
 
   /**
    * List the Tasks

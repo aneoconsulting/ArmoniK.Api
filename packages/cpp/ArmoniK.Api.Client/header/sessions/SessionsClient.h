@@ -13,7 +13,7 @@ namespace client {
 class SessionsClient {
 public:
   explicit SessionsClient(std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub)
-      : stub(std::move(stub)){};
+      : stub(std::move(stub)) {};
 
   /**
    * Create a new session
