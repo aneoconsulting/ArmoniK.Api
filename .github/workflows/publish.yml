@@ -489,11 +489,27 @@ jobs:
             -p:PackageVersion="$VERSION"
           ls /tmp/packages
 
+      # Push only this leg's package. `dotnet pack -o` can also write the
+      # packages of the project references (e.g. Common.Channel when packing
+      # Core) to the same folder; pushing them from every leg that references
+      # them makes all but the first one fail with 409 Conflict. The matching
+      # .snupkg is pushed along with the .nupkg.
       - name: Push the package
         if: needs.context.outputs.dry_run != 'true'
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          # The digit right after the id keeps ArmoniK.Api.Common from also
+          # matching ArmoniK.Api.Common.Channel.
+          ID="$(basename "$PACKAGE" .csproj)"
+          shopt -s nullglob
+          NUPKGS=(/tmp/packages/"$ID".[0-9]*.nupkg)
+          if [ "${#NUPKGS[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one $ID package in /tmp/packages, found ${#NUPKGS[@]}"
+            exit 1
+          fi
+          dotnet nuget push "${NUPKGS[0]}" -k "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
 
   python:
     name: Publish Python Package
