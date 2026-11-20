@@ -20,7 +20,7 @@
 
   <properties>
     <testcontainers.version>1.21.4</testcontainers.version>
-    <assertj-core.version>3.25.3</assertj-core.version>
+    <assertj-core.version>3.27.7</assertj-core.version>
   </properties>
 
   <dependencies>
