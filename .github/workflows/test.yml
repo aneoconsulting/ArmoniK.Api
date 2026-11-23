@@ -129,7 +129,7 @@ jobs:
         if: ${{ matrix.language.lang == 'Python' }}
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.12'
+          python-version: '3.15.2'
 
       - name: pip update and add build package
         if: ${{ matrix.language.lang == 'Python' }}
@@ -370,7 +370,7 @@ jobs:
       - name: Install .NET Core
         uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
         with:
-          dotnet-version: 6.x
+          dotnet-version: 6.0.428
 
       - name: Run tests
         run: |
