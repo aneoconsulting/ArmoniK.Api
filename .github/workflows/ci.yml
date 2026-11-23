@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 22
+          node-version: 22.23.5
           cache: pnpm
 
       - name: Install Dependencies
@@ -118,7 +118,7 @@ jobs:
         # runner's own Python is used, which is 3.14 on ubuntu-26.04.
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.12'
+          python-version: '3.15.2'
 
       - name: pip update and add build package
         run: bash proto2python.sh ~/pyvenv
@@ -267,7 +267,7 @@ jobs:
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 22
+          node-version: 22.23.5
           cache: pnpm
 
       - name: Install Dependencies
@@ -291,7 +291,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 22
+          node-version: 22.23.5
           cache: pnpm
 
       - name: Install Dependencies
@@ -324,7 +324,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 22
+          node-version: 22.23.5
           cache: pnpm
 
       - name: Install Dependencies
