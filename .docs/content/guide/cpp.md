@@ -122,7 +122,7 @@ Now you have successfully compiled the worker image for deployment in the Armoni
 
 ## Installing Pre-built DEB/RPM Packages
 
-Instead of compiling from source, you can install the ArmoniK C++ API from pre-built DEB (Debian/Ubuntu) or RPM (RHEL/UBI) packages. Each format is split into two components:
+Instead of compiling from source, you can install the ArmoniK C++ API from pre-built DEB (Debian 13) or RPM (RHEL/UBI) packages. Each format is split into two components:
 
 - **Runtime package** (`libarmonik` for both DEB and RPM): the shared libraries (`.so`) only. This is all you need to run an application linked against the ArmoniK API.
 - **Devel package** (`libarmonik-dev` on DEB, `libarmonik-devel` on RPM): headers, static archives, and CMake config/target files needed to build against the API. It depends on the runtime package.
@@ -139,7 +139,9 @@ cd packages/cpp/tools/packaging
 
 Each script builds a Docker image with the required build dependencies, compiles the project with the corresponding CPack generator (`DEB` or `RPM`), and copies the resulting packages to the current directory.
 
-### Installing on Debian/Ubuntu
+### Installing on Debian 13
+
+The DEB packages are built on Debian 13 and depend on its gRPC 1.51, protobuf 3.21 and abseil 20240722 packages, so they do not install on other Debian or Ubuntu releases.
 
 ```bash [bash]
 # Runtime only
