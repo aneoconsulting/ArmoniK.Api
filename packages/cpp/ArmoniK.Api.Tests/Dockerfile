@@ -35,9 +35,11 @@ COPY --from=builder /rootfs/ /
 
 ENV LD_LIBRARY_PATH="/app/install/lib"
 ENV PATH="/app/install/bin"
-# Trust store shared by libcurl and gRPC. There is no update-ca-certificates in
-# this image: to add a CA, mount a full bundle over this file (see tools/run_test.sh).
+# Trust store shared by gRPC and the tests' libcurl calls. There is no
+# update-ca-certificates in this image: to add a CA, mount a full bundle over
+# this file (see tools/run_test.sh).
 ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
+ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 USER 5000:5000
 
 ENTRYPOINT ["/app/install/bin/ArmoniK.Api.Tests"]

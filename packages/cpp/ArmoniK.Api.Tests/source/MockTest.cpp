@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <curl/curl.h>
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
@@ -29,6 +30,10 @@ void set_tls_options(CURL *curl, // NOSONAR: CURL is curl's opaque handle type, 
                      const armonik::api::common::utils::Configuration &config) {
   if (!config.get("GrpcClient__CaCert").empty()) {
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
+  } else if (const char *ca_file = std::getenv("SSL_CERT_FILE")) {
+    // The distroless image has the CA bundle file but no hashed CA directory,
+    // which is the only default location of Alpine's libcurl
+    curl_easy_setopt(curl, CURLOPT_CAINFO, ca_file);
   } else {
     curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
   }
