@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <curl/curl.h>
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
@@ -29,6 +30,10 @@ void set_tls_options(CURL *curl, // NOSONAR: CURL is curl's opaque handle type, 
                      const armonik::api::common::utils::Configuration &config) {
   if (!config.get("GrpcClient__CaCert").empty()) {
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
+  } else if (const char *ca_file = std::getenv("SSL_CERT_FILE")) {
+    // The distroless image has the CA bundle file but no hashed CA directory,
+    // which is the only default location of Alpine's libcurl
+    curl_easy_setopt(curl, CURLOPT_CAINFO, ca_file);
   } else {
     curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
   }
@@ -116,8 +121,9 @@ bool all_rpc_called(armonik::api::string_view service_name, const std::vector<st
 
     std::vector<std::string> missing_rpcs;
     for (auto rpc_name : response_json[service_name.data()].get_array()) {
-      if (response_json[service_name.data()][rpc_name].get_int64() == 0) {
-        missing_rpcs.emplace_back(rpc_name.get_string().value().data());
+      auto rpc = rpc_name.get_string().value();
+      if (response_json[service_name.data()][rpc].get_int64() == 0) {
+        missing_rpcs.emplace_back(rpc.data(), rpc.size());
       }
     }
     if (!missing_rpcs.empty()) {
@@ -147,6 +153,10 @@ void clean_up() {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
     set_tls_options(curl, config);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    // Explicit empty body: without it libcurl streams the body from stdin, which
+    // never ends when stdin is a TTY (docker run -t)
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     auto res = curl_easy_perform(curl);
     if (res != CURLE_OK) {

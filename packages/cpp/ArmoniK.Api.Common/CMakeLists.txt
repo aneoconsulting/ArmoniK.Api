@@ -27,10 +27,11 @@ set(PROTO_FILES
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")
 
 # Trouver les packages requis
-if (UNIX)
+# Prefer protobuf's CMake config (also loaded by gRPC's config: mixing it with
+# FindProtobuf redefines the protobuf:: targets), fall back to FindProtobuf
+find_package(Protobuf CONFIG QUIET)
+if (NOT Protobuf_FOUND)
     find_package(Protobuf REQUIRED)
-else()
-    find_package(Protobuf CONFIG REQUIRED)
 endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)

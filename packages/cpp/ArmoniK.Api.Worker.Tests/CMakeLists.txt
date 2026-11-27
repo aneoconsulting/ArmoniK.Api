@@ -1,7 +1,12 @@
 set(PROJECT_NAME ArmoniK.Api.Worker.Tests)
 
 # Trouver les packages requis
-find_package(Protobuf REQUIRED)
+# Prefer protobuf's CMake config (also loaded by gRPC's config: mixing it with
+# FindProtobuf redefines the protobuf:: targets), fall back to FindProtobuf
+find_package(Protobuf CONFIG QUIET)
+if (NOT Protobuf_FOUND)
+    find_package(Protobuf REQUIRED)
+endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
