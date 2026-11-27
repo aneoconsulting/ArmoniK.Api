@@ -10,7 +10,11 @@ case "$(uname -s)" in
     exec "$script_path/../build/ArmoniK.Api.Tests/Release/ArmoniK.Api.Tests.exe"
     ;;
   *)
-    docker run --rm -t --network host -v "$CertFolder:/app/source/certs" -v "/usr/local/share/ca-certificates/:/usr/local/share/ca-certificates" \
+    # The image has no shell nor update-ca-certificates: mount the host trust store
+    # (which CI extends with update-ca-certificates) and run as the caller so the
+    # mounted keys stay readable.
+    docker run --rm -t --network host --user "$(id -u):$(id -g)" -v "$CertFolder:/app/source/certs:ro" \
+                -v "/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro" \
                 -e GrpcClient__Endpoint \
                 -e Http__Endpoint="${Http__Endpoint:-$Grpc__Endpoint}" \
                 ${GrpcClient__AllowUnsafeConnection:+-e GrpcClient__AllowUnsafeConnection} \

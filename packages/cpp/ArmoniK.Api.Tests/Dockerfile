@@ -1,38 +1,14 @@
-# Start with the latest Alpine base image for the build stage
-FROM alpine:3.18.6 AS builder
+FROM alpine:3.24 AS builder
 
-# Install all the necessary dependencies required for the build process
-# These include tools and libraries for building and compiling the source code
-RUN apk update && apk add --no-cache \
-    git \
-    gcc \
-    g++ \
+RUN apk add --no-cache \
     build-base \
-    libtool \
-    curl \
-    c-ares \
-    c-ares-dev \
-    make \
     cmake \
     linux-headers \
-    grpc \
+    c-ares-dev \
     grpc-dev \
-    protobuf \
     protobuf-dev \
-    curl-dev \
-    ca-certificates
+    curl-dev
 
-# Set environment variables for protobuf
-ENV protobuf_BUILD_TESTS=OFF
-
-# Update PATH with the new directories
-ENV PATH="/app/install/lib:$PATH"
-ENV PATH="/app/install/bin:$PATH"
-
-# Print the PATH variable
-RUN echo $PATH
-
-# Copy the application source files into the image
 WORKDIR /app/source
 COPY packages/cpp/tools/packaging/common/. ./tools/packaging/common/
 COPY Protos/V1/. ./Protos/
@@ -44,9 +20,24 @@ COPY packages/cpp/Packaging.cmake .
 COPY packages/cpp/Dependencies.cmake .
 
 WORKDIR /app/build
-RUN cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/source/Protos -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_WORKER=OFF -DBUILD_TEST=ON /app/source/ && make -j $(nproc) install
-# Set the default command to build the client using CMake and make
-# CMD ["sh", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/proto -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_TEST=OFF /app/source/ -DCPACK_GENERATOR=TGZ && make -j $(nproc) install && make package -j"]
+RUN cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/source/Protos -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_WORKER=OFF -DBUILD_TEST=ON /app/source/ \
+    && make -j "$(nproc)" install
 
-# Uncomment the line below if you want the container to start in the bash shell by default
-ENTRYPOINT ["sh", "-c", "update-ca-certificates && /app/install/bin/ArmoniK.Api.Tests"]
+# Minimal musl runtime: binaries, shared libraries they need, no shell, no apk
+COPY packages/cpp/tools/make-rootfs.sh /usr/local/bin/make-rootfs.sh
+RUN sh /usr/local/bin/make-rootfs.sh /rootfs /app/install \
+    && mkdir -p /rootfs/app/install/lib \
+    && cp -a /app/install/bin /rootfs/app/install/ \
+    && find /app/install/lib -name '*.so*' -exec cp -a {} /rootfs/app/install/lib/ \;
+
+FROM scratch
+COPY --from=builder /rootfs/ /
+
+ENV LD_LIBRARY_PATH="/app/install/lib"
+ENV PATH="/app/install/bin"
+# Trust store shared by libcurl and gRPC. There is no update-ca-certificates in
+# this image: to add a CA, mount a full bundle over this file (see tools/run_test.sh).
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
+USER 5000:5000
+
+ENTRYPOINT ["/app/install/bin/ArmoniK.Api.Tests"]

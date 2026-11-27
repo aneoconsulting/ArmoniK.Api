@@ -1,27 +1,11 @@
-# Start with the latest Alpine base image for the build stage
-FROM alpine:3.21 AS builder
-ARG GRPC_VERSION=v1.54.0
+FROM alpine:3.24 AS builder
 
-# Install all the necessary dependencies required for the build process
-# These include tools and libraries for building and compiling the source code
-RUN apk update && apk add --no-cache \
-    git \
-    gcc \
-    g++ \
+RUN apk add --no-cache \
     build-base \
-    autoconf \
-    automake \
-    libtool \
-    curl \
-    c-ares \
-    c-ares-dev \
-    make \
     cmake \
-    unzip \
-    linux-headers \ 
-    grpc \
+    linux-headers \
+    c-ares-dev \
     grpc-dev \
-    protobuf \
     protobuf-dev
 
 # Update the PATH environment variable to include the gRPC libraries and binaries
